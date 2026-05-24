@@ -207,7 +207,7 @@
         align-items: center; justify-content: center; font-weight: 900; font-size: 15px; 
         cursor: pointer; position: relative; box-shadow: 2px 2px 0px #1A1A1A;
     }
-    .avatar-circle img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; }
+    .avatar-circle img, .friend-avatar-big img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; display: block; }
 
     .chat-body-content { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
     .chat-row-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -250,11 +250,19 @@
     .msg-outgoing .msg-bubble { background: var(--accent-blue); color: var(--dark-block); border-radius: 16px 4px 16px 16px; }
 
     .active-reply-context-bar { display: none; align-items: center; justify-content: space-between; background: var(--surface); padding: 10px 16px; font-size: 12px; font-weight: 900; color: var(--dark-block); border-top: var(--brutal-border); border-bottom: var(--brutal-border); text-transform: uppercase; }
-    .chat-input-bar { height: 74px; background: var(--surface); display: flex; align-items: center; padding: 0 16px; gap: 10px; border-top: var(--brutal-border); }
+    .chat-input-bar { min-height: 74px; background: var(--surface); display: flex; align-items: center; padding: 10px 16px; gap: 10px; border-top: var(--brutal-border); flex-wrap: wrap; }
     .chat-input-bar.read-only { display: none; }
     .chat-input-field { flex: 1; min-width: 0; background: var(--bg-app); border: var(--brutal-border); padding: 14px 18px; border-radius: 16px; font-size: 14px; font-weight: 800; outline: none; color: var(--dark-block); }
+    .chat-selected-image-preview { width: 100%; flex: 0 0 100%; display: none; align-items: center; gap: 10px; background: var(--bg-app); border: 2px solid var(--dark-block); border-radius: 16px; padding: 8px; box-shadow: 3px 3px 0px var(--dark-block); }
+    .chat-selected-image-preview.active { display: flex; }
+    .chat-selected-image-preview img { width: 58px; height: 58px; object-fit: cover; border: 2px solid var(--dark-block); border-radius: 12px; background: var(--surface); }
+    .chat-selected-image-preview span { flex: 1; min-width: 0; font-size: 12px; font-weight: 900; color: var(--dark-block); text-transform: uppercase; }
+    .chat-selected-image-preview button { width: 38px; height: 38px; border-radius: 12px; border: 2px solid var(--dark-block); background: #FB7185; color: var(--dark-block); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 2px 2px 0px var(--dark-block); }
     .btn-send-message { width: 46px; height: 46px; border-radius: 14px; background: var(--accent-green); border: var(--brutal-border); color: var(--dark-block); display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 3px 3px 0px #1A1A1A; flex-shrink: 0; }
     .btn-send-message:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px #1A1A1A; }
+    .chat-image-preview { display: block; width: min(180px, 100%); max-height: 180px; object-fit: cover; border: 2px solid var(--dark-block); border-radius: 12px; margin-top: 6px; background: var(--surface); }
+    .profile-upload-button { width: 100%; min-height: 48px; padding: 12px 14px; border: 2px solid var(--dark-block); border-radius: 14px; background: var(--bg-app); color: var(--dark-block); font-size: 13px; font-weight: 900; text-transform: uppercase; cursor: pointer; box-shadow: 3px 3px 0px var(--dark-block); display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+    .profile-upload-button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0px var(--dark-block); }
 
     /* --- GERBANG SUB-PAGES ARTIKEL REFERENSI --- */
     .sub-page-reference {
@@ -687,7 +695,7 @@
         .chat-overlay-room { left: 108px; top: 52px; }
         .sub-page-reference { left: 108px; top: 52px; }
         .chat-room-header { height: 52px; }
-        .chat-input-bar { height: 62px; }
+        .chat-input-bar { min-height: 62px; }
         .chat-messages-scroll { padding: 12px; gap: 10px; }
         .msg-bubble { max-width: min(76%, 460px); padding: 10px 13px; font-size: 12px; }
         .account-locked-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1127,26 +1135,26 @@
                 <div class="reference-block-card">
                     <div class="ref-h1">Contact Channels</div>
                     <div class="support-link-grid">
-                        <button class="support-link-button" type="button" onclick="showSoonPopupByKey('twitterSoon')">
+                        <button class="support-link-button" type="button" onclick="showPlannedPopupByKey('twitterPlanned')">
                             <span>Twitter / X</span><span>Not set yet</span>
                         </button>
                         <button class="support-link-button" type="button" onclick="copyDonationAddress('jvkowi', 'Discord', this)">
                             <span>Discord</span><span>jvkowi</span>
                         </button>
-                        <button class="support-link-button" type="button" onclick="showSoonPopupByKey('emailSoon')">
+                        <button class="support-link-button" type="button" onclick="showPlannedPopupByKey('emailPlanned')">
                             <span>Email</span><span>Not set yet</span>
                         </button>
                         <a class="support-link-button" href="https://t.me/airdropfinderadmin" target="_blank" rel="noopener noreferrer">
                             <span>Telegram</span><span>@airdropfinderadmin</span>
                         </a>
-                        <button class="support-link-button" type="button" onclick="showSoonPopupByKey('whatsappSoon')">
+                        <button class="support-link-button" type="button" onclick="showPlannedPopupByKey('whatsappPlanned')">
                             <span>WhatsApp</span><span>Not set yet</span>
                         </button>
                     </div>
                 </div>
                 <div class="reference-block-card">
                     <div class="ref-h1">Response Note</div>
-                    <div class="ref-p">Contact channel names are prepared for the app panel. Only Telegram and Discord are active for now; the other channels can be filled later from your admin/config flow without editing the layout manually.</div>
+                    <div class="ref-p">Use the official contact channels for feedback, support, collaboration, and community discussion.</div>
                 </div>
             </div>
         </div>
@@ -1211,7 +1219,7 @@
                 </div>
                 <div class="reference-block-card">
                     <div class="ref-h1">Transparency Note</div>
-                    <div class="ref-p">Donation is optional and does not unlock mandatory gameplay access. Public donation progress and top donator information can be updated later when the support system is connected.</div>
+                    <div class="ref-p">Support is optional and helps maintain hosting, tools, testing, and development resources.</div>
                 </div>
             </div>
         </div>
@@ -1240,7 +1248,7 @@
                 </div>
                 <div class="reference-block-card">
                     <div class="ref-h1">5. Development Status</div>
-                    <div class="ref-p">Papiano is still evolving. Features, storage methods, account systems, and community tools may be updated as the web and APK versions continue to improve.</div>
+                    <div class="ref-p">Papiano may update features, storage methods, account systems, and community tools as the web and APK versions improve.</div>
                 </div>
             </div>
         </div>
@@ -1254,7 +1262,7 @@
                 </div>
                 <div class="friend-meta-box">
                     <div class="f-row"><span style="color:var(--text-body)">User ID</span><span id="fpId">#00000</span></div>
-                    <div class="f-row"><span style="color:var(--text-body)">Description</span><span id="fpDesc">Bio info...</span></div>
+                    <div class="f-row"><span style="color:var(--text-body)">Description</span><span id="fpDesc">—</span></div>
                 </div>
                 <div class="profile-action-grid">
                     <button class="friend-action-button" id="fpAddFriendBtn" type="button" onclick="addFriendFromProfile()"><span class="material-symbols-rounded">person_add</span><span>Add</span></button>
@@ -1283,7 +1291,7 @@
         <div class="badge-picker-modal" id="badgePickerModal" onclick="closeBadgePickerModal()">
             <div class="badge-picker-sheet" onclick="event.stopPropagation()">
                 <div class="badge-picker-title">Role & Badge</div>
-                <div class="badge-picker-note">Pilih badge yang sudah tersedia di akun. Role authority tetap dikunci sistem/admin panel.</div>
+                <div class="badge-picker-note">Users can only select badges available on their account. Authority roles remain controlled by the system/admin panel.</div>
                 <div class="badge-picker-list" id="badgePickerList"></div>
                 <button class="btn-submit-config" style="background:#CBD5E1;" type="button" onclick="closeBadgePickerModal()">Close</button>
             </div>
@@ -1302,6 +1310,13 @@
             </div>
 
             <div class="chat-input-bar">
+                <input type="file" id="chatImageFilePicker" accept="image/*" style="display:none;" onchange="handleChatImageFile(event)">
+                <div class="chat-selected-image-preview" id="chatSelectedImagePreview">
+                    <img id="chatSelectedImagePreviewImg" src="" alt="Selected image preview">
+                    <span id="chatSelectedImagePreviewText">Image ready to send</span>
+                    <button type="button" onclick="clearPendingChatImage()" aria-label="Remove selected image"><span class="material-symbols-rounded">close</span></button>
+                </div>
+                <button class="btn-send-message" type="button" onclick="triggerChatImagePicker()" aria-label="Upload image"><span class="material-symbols-rounded">image</span></button>
                 <input type="text" class="chat-input-field" id="chatInputFieldMessage" placeholder="Type a reply..." maxlength="500" inputmode="text" enterkeyhint="send">
                 <button class="btn-send-message" onclick="executeSendMessage()"><span class="material-symbols-rounded">send</span></button>
             </div>
@@ -1310,7 +1325,6 @@
         <header class="top-bar">
             <div class="brand-box"><span class="material-symbols-rounded" aria-label="Logo placeholder">cloud</span><span id="navBarStateTitle">Papiano</span></div>
             <div class="top-bar-actions">
-                <button class="lang-toggle-btn" id="langToggleBtn" type="button" aria-label="Change language">ID</button>
                 <button class="top-action-btn" id="fullscreenBtn" onclick="toggleScreenWindow()"><span class="material-symbols-rounded" id="fsIcon">fullscreen</span></button>
             </div>
         </header>
@@ -1366,28 +1380,28 @@
 
                 <div class="home-cards-stack">
                     <div class="button-card-landscape card-solo" onclick="executeSoloPianoModule()">
-                        <div class="card-info-text"><div class="card-main-title">Solo Piano</div><div class="card-sub-title">Latihan mandiri instrumen instan terukur</div></div>
+                        <div class="card-info-text"><div class="card-main-title">Solo Piano</div><div class="card-sub-title">Play piano instantly from your device</div></div>
                     </div>
-                    <div class="button-card-landscape card-multi" onclick="showSoonPopupByKey('multiSoon')">
-                        <div class="card-info-text"><div class="card-main-title">Multiplayer Sync</div><div class="card-sub-title">Interaksi real-time antar-user</div></div>
-                        <span class="card-soon-badge">Soon</span>
+                    <div class="button-card-landscape card-multi" onclick="showPlannedPopupByKey('multiPlanned')">
+                        <div class="card-info-text"><div class="card-main-title">Multiplayer Sync</div><div class="card-sub-title">Real-time interaction between users</div></div>
+                        <span class="card-soon-badge">Planned</span>
                     </div>
-                    <div class="button-card-landscape card-challenge" onclick="showSoonPopupByKey('challengeSoon')">
-                        <div class="card-info-text"><div class="card-main-title">Challenge Arena</div><div class="card-sub-title">Selesaikan trek tersulit aplikasi</div></div>
-                        <span class="card-soon-badge">Soon</span>
+                    <div class="button-card-landscape card-challenge" onclick="showPlannedPopupByKey('challengePlanned')">
+                        <div class="card-info-text"><div class="card-main-title">Challenge Arena</div><div class="card-sub-title">Clear advanced piano challenges</div></div>
+                        <span class="card-soon-badge">Planned</span>
                     </div>
-                    <div class="button-card-landscape card-visualizer" onclick="showSoonPopupByKey('midiSoon')">
+                    <div class="button-card-landscape card-visualizer" onclick="showPlannedPopupByKey('midiPlanned')">
                         <div class="card-info-text"><div class="card-main-title">MIDI Player</div><div class="card-sub-title">Play MIDI files with piano visuals</div></div>
-                        <span class="card-soon-badge">Soon</span>
+                        <span class="card-soon-badge">Planned</span>
                     </div>
-                    <div class="button-card-landscape card-store" onclick="showSoonPopupByKey('storeSoon')">
-                        <div class="card-info-text"><div class="card-main-title">Store</div><div class="card-sub-title">Badge, frame, dan item kosmetik</div></div>
-                        <span class="card-soon-badge">Soon</span>
+                    <div class="button-card-landscape card-store" onclick="showPlannedPopupByKey('storePlanned')">
+                        <div class="card-info-text"><div class="card-main-title">Store</div><div class="card-sub-title">Badges, frames, and cosmetic items</div></div>
+                        <span class="card-soon-badge">Planned</span>
                     </div>
                     <div class="button-card-landscape card-donation" onclick="navigateActiveTab(2, appTabHeaderTitles[2]); launchSubPageReferenceNode('subPageDonation')">
                         <div class="card-info-text"><div class="card-main-title">Donation & Support</div><div class="card-sub-title">Open support links and donation addresses</div></div>
                     </div>
-                    <button class="btn-global-rank-trigger" onclick="showSoonPopupByKey('questSoon')"><span>Quest & Leaderboard</span><span class="material-symbols-rounded">emoji_events</span></button>
+                    <button class="btn-global-rank-trigger" onclick="showPlannedPopupByKey('questPlanned')"><span>Quest & Leaderboard</span><span class="material-symbols-rounded">emoji_events</span></button>
                 </div>
             </div>
 
@@ -1421,7 +1435,7 @@
                                 <div class="chat-user-name" id="announcementTitle">Official Announcements</div>
                                 <div class="chat-timestamp" id="announcementStamp">Official</div>
                             </div>
-                            <div class="chat-row-header"><div class="chat-snippet" id="announcementSnippet">Official admin updates will appear here.</div><span class="pin-indicator">PIN</span></div>
+                            <div class="chat-row-header"><div class="chat-snippet" id="announcementSnippet">Official updates appear here.</div><span class="pin-indicator">PIN</span></div>
                         </div>
                     </div>
                     <div class="chat-row-item" id="chatEmptyRow" data-empty="true" style="display:none;">
@@ -1430,7 +1444,7 @@
                             <div class="chat-row-header">
                                 <div class="chat-user-name" id="chatEmptyTitle">No results yet</div>
                             </div>
-                            <div class="chat-row-header"><div class="chat-snippet" id="chatEmptyText">Chats, friends, or users will appear here.</div></div>
+                            <div class="chat-row-header"><div class="chat-snippet" id="chatEmptyText">No chat data yet.</div></div>
                         </div>
                     </div>
                 </div>
@@ -1510,21 +1524,21 @@
                                 </span>
                                 <span class="material-symbols-rounded">expand_more</span>
                             </button>
-                            <small class="form-help-text">User hanya bisa pilih badge yang tersedia di akun.</small>
+                            <small class="form-help-text">Users can only choose badges available on their account.</small>
                         </div>
                         <div class="account-locked-grid">
                             <div class="account-locked-info"><span>User ID</span><strong id="accountLockedUserId">—</strong><small>System / admin panel</small></div>
                             <div class="account-locked-info"><span>Play Time</span><strong id="accountLockedTotalPlay">0 Min</strong><small>Auto progress</small></div>
                         </div>
                         <div class="form-item-group"><label>Description / Bio</label><textarea class="form-input-control" id="formInputDesc" name="papiano_bio" rows="2" maxlength="160" style="resize:none;" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea></div>
-                        <div class="form-item-group"><label>Profile Photo URL</label><input type="url" id="formInputPhotoUrl" name="papiano_photo_url" class="form-input-control" maxlength="700" placeholder="https://example.com/avatar.png" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="url" enterkeyhint="done"></div>
+                        <div class="form-item-group"><label>Profile Photo</label><input type="hidden" id="formInputPhotoUrl" name="papiano_photo_url"><input type="file" id="profilePhotoFilePicker" accept="image/*" style="display:none;" onchange="handleProfilePhotoFile(event)"><button class="profile-upload-button" type="button" onclick="triggerProfilePhotoPicker()"><span class="material-symbols-rounded">photo_library</span><span>Choose from Gallery</span></button><small class="form-help-text">Choose an image from your gallery, then tap Save.</small></div>
                         <button class="btn-submit-config" onclick="applyProfileConfiguration()">Save</button>
                         <button class="btn-submit-config logout-account-btn" id="accountLogoutBtn" type="button" onclick="logoutPapianoAccount()">Log out</button>
                     </div>
                     <div class="account-lock-panel" id="accountLockPanel">
                         <div class="account-lock-icon"><span class="material-symbols-rounded">lock</span></div>
                         <div class="account-lock-title">Account Locked</div>
-                        <div class="account-lock-text">Sign in with Google to unlock account settings, User ID, badge, photo URL, and public profile.</div>
+                        <div class="account-lock-text">Sign in with Google to unlock account settings, User ID, badge, profile photo, and public profile.</div>
                         <button class="account-lock-login" id="accountLockLoginBtn" type="button" onclick="processAppAuth('google')">Sign in with Google</button>
                     </div>
                 </div>
@@ -1541,7 +1555,7 @@
     </div>
     <div class="soon-popup-toast" id="soonPopupToast" aria-live="polite">
         <span class="material-symbols-rounded">rocket_launch</span>
-        <div><strong>Soon</strong><span id="soonPopupText">Feature is being prepared.</span></div>
+        <div><strong>Info</strong><span id="soonPopupText">Action status.</span></div>
     </div>
 </div>
 
@@ -1570,6 +1584,11 @@
     const accountLockedTotalPlay = document.getElementById('accountLockedTotalPlay');
     const formInputDesc = document.getElementById('formInputDesc');
     const formInputPhotoUrl = document.getElementById('formInputPhotoUrl');
+    const profilePhotoFilePicker = document.getElementById('profilePhotoFilePicker');
+    const chatImageFilePicker = document.getElementById('chatImageFilePicker');
+    const chatSelectedImagePreview = document.getElementById('chatSelectedImagePreview');
+    const chatSelectedImagePreviewImg = document.getElementById('chatSelectedImagePreviewImg');
+    const chatSelectedImagePreviewText = document.getElementById('chatSelectedImagePreviewText');
     const masterPlaceholderIcon = document.getElementById('masterPlaceholderIcon');
     const masterAvatarImg = document.getElementById('masterAvatarImg');
     const btnAuthGoogle = document.getElementById('btnAuthGoogle');
@@ -1584,24 +1603,14 @@
     const fpAddFriendBtn = document.getElementById('fpAddFriendBtn');
     const fpOpenChatBtn = document.getElementById('fpOpenChatBtn');
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDzVUEpA_PJ4UGp4_X6FEyZkWGSq4mAfoU",
-        authDomain: "papiano.firebaseapp.com",
-        projectId: "papiano",
-        storageBucket: "papiano.firebasestorage.app",
-        messagingSenderId: "593926671410",
-        appId: "1:593926671410:web:feaf6a66f7fdb65e98802b",
-        measurementId: "G-07ENX8W0XP"
+    const supabaseConfig = {
+        url: "https://agevomwfkvtqpddeyogu.supabase.co",
+        anonKey: "sb_publishable_uye8z-uTAcIHZfYcH9Vcmw_QHPUNCiT"
     };
-    let papianoFirebaseApp = null;
-    let papianoFirebaseAuth = null;
-    let papianoGoogleProvider = null;
-    let papianoSignInWithPopup = null;
-    let papianoFirebaseDb = null;
-    let papianoFirestoreTools = null;
-    let papianoFirebaseInitPromise = null;
-    const FIREBASE_TIMEOUT_MS = 12000;
-    let currentFirebaseUser = null;
+    let papianoSupabaseClient = null;
+    let papianoSupabaseInitPromise = null;
+    const SUPABASE_TIMEOUT_MS = 12000;
+    let currentSupabaseUser = null;
     let activeChatRoomId = '';
     let activeChatReadOnly = false;
     let activeChatUnsubscribe = null;
@@ -1612,8 +1621,12 @@
     let activeRequestsUnsubscribe = null;
     let activeProfileCommentsUnsubscribe = null;
     let activeProfileReactionsUnsubscribe = null;
+    let pendingChatImageDataUrl = '';
+    let pendingChatImageFileName = '';
     let activeCommunityPreviewUnsubscribes = [];
     const activeDirectPreviewUnsubscribes = new Map();
+    const supabaseRoomIdCache = new Map();
+    const supabaseProfileCache = new Map();
 
     const appTabPages = [
         document.getElementById('pageHome'),
@@ -1629,7 +1642,12 @@
     let carouselAutoInterval;
     let chatActiveSubViewMode = 'chats';
     let selectedReplyMessageText = null;
-    let clientCurrentPlayTimeMinutes = 0; 
+    let clientCurrentPlayTimeMinutes = 0;
+    let pendingPlaySeconds = 0;
+    let pendingPlayMinutes = 0;
+    let playTimeTicker = null;
+    let playTimeLastTickAt = 0;
+    let playTimeSyncInFlight = false;
     let currentUserCoreRole = "npc"; 
     let activeBadgeKey = "npc";
     let ownedBadgeKeys = ["npc"];
@@ -1637,15 +1655,179 @@
     const TEXT_LIMITS = Object.freeze({ displayName: 24, bio: 160, chat: 500, comment: 240, search: 64 });
 
     function normalizePhotoUrl(rawUrl = '') {
-        return String(rawUrl || '').trim().slice(0, 700);
+        return String(rawUrl || '').trim().slice(0, 850000);
+    }
+
+    function normalizeProfessionalBio(rawBio = '') {
+        const cleanBio = String(rawBio || '').trim();
+        if (!cleanBio) return '';
+        const blockedDefaults = new Set([
+            'akun papiano mobile app.',
+            'papiano mobile app.',
+            'papiano user',
+            'bio info...',
+            'bio info',
+            'description info',
+            'user bio',
+            'guest bio',
+            'undefined',
+            'null',
+            '-'
+        ]);
+        return blockedDefaults.has(cleanBio.toLowerCase()) ? '' : cleanBio.slice(0, TEXT_LIMITS.bio);
     }
 
     function isValidPhotoUrl(url = '') {
         const cleanUrl = normalizePhotoUrl(url);
         if (!cleanUrl) return true;
+        if (/^data:image\/(png|jpe?g|webp);base64,/i.test(cleanUrl)) return true;
         if (!/^https:\/\//i.test(cleanUrl)) return false;
-        if (/^(javascript|data|file|blob):/i.test(cleanUrl)) return false;
+        if (/^(javascript|file|blob):/i.test(cleanUrl)) return false;
         try { new URL(cleanUrl); return true; } catch (_) { return false; }
+    }
+
+    function readCompressedImageFile(file, options = {}) {
+        const maxSize = Number(options.maxSize || 900);
+        const quality = Number(options.quality || 0.78);
+        const maxBytes = Number(options.maxBytes || 650000);
+        return new Promise((resolve, reject) => {
+            if (!file || !/^image\//i.test(file.type || '')) { reject(new Error('Selected file is not an image.')); return; }
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('Cannot read selected image.'));
+            reader.onload = () => {
+                const img = new Image();
+                img.onerror = () => reject(new Error('Cannot load selected image.'));
+                img.onload = () => {
+                    const ratio = Math.min(1, maxSize / Math.max(img.width || maxSize, img.height || maxSize));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.max(1, Math.round((img.width || maxSize) * ratio));
+                    canvas.height = Math.max(1, Math.round((img.height || maxSize) * ratio));
+                    const ctx = canvas.getContext('2d', { alpha: false });
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    if (dataUrl.length > maxBytes) dataUrl = canvas.toDataURL('image/jpeg', 0.62);
+                    if (dataUrl.length > maxBytes) reject(new Error('Image is too large. Choose a smaller image.'));
+                    else resolve(dataUrl);
+                };
+                img.src = String(reader.result || '');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function safeSupabasePathPart(value = '') {
+        return String(value || 'file').replace(/[^a-z0-9_-]/gi, '_').slice(0, 80) || 'file';
+    }
+
+    function getDataUrlExtension(dataUrl = '') {
+        const match = String(dataUrl || '').match(/^data:image\/(png|jpeg|jpg|webp);base64,/i);
+        const ext = (match && match[1] ? match[1].toLowerCase() : 'jpg').replace('jpeg', 'jpg');
+        return ext === 'png' || ext === 'webp' ? ext : 'jpg';
+    }
+
+    async function uploadDataUrlToSupabaseStorage(dataUrl, bucketName, folderName) {
+        const cleanUrl = normalizePhotoUrl(dataUrl);
+        if (!cleanUrl || !cleanUrl.startsWith('data:image/')) return cleanUrl;
+        const activeUser = getActiveSupabaseUser();
+        if (!activeUser?.uid) throw new Error('Login required before uploading image.');
+        const supabase = await initPapianoSupabaseAuth();
+        const ext = getDataUrlExtension(cleanUrl);
+        const blob = await fetch(cleanUrl).then(res => res.blob());
+        const path = `${safeSupabasePathPart(activeUser.uid)}/${safeSupabasePathPart(folderName)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from(bucketName).upload(path, blob, {
+            cacheControl: '3600',
+            contentType: blob.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+            upsert: false
+        });
+        if (uploadError) throw uploadError;
+        const { data } = supabase.storage.from(bucketName).getPublicUrl(path);
+        return data?.publicUrl || cleanUrl;
+    }
+
+    async function fetchSupabaseProfilesByIds(supabase, uidList = []) {
+        const ids = [...new Set((uidList || []).filter(Boolean))].filter(uid => !supabaseProfileCache.has(uid));
+        if (!ids.length) return;
+        const { data, error } = await supabase.from('profiles').select('*').in('id', ids);
+        if (error) throw error;
+        (data || []).forEach(row => {
+            const profile = getProfileDataFromUserDoc(row.id, row);
+            if (profile?.uid) supabaseProfileCache.set(profile.uid, profile);
+        });
+    }
+
+    async function enrichSupabaseMessageRows(supabase, rows = []) {
+        await fetchSupabaseProfilesByIds(supabase, (rows || []).map(row => row.sender_id || row.user_id || row.uid || '').filter(Boolean));
+        return rows || [];
+    }
+
+    function triggerProfilePhotoPicker() {
+        if (!getActiveSupabaseUser()) { showPlannedPopup('Sign in with Google to edit your account.'); return; }
+        profilePhotoFilePicker?.click();
+    }
+
+    async function handleProfilePhotoFile(event) {
+        const file = event?.target?.files?.[0];
+        if (!file) return;
+        try {
+            const dataUrl = await readCompressedImageFile(file, { maxSize: 700, quality: 0.78, maxBytes: 520000 });
+            let finalUrl = dataUrl;
+            try {
+                finalUrl = await uploadDataUrlToSupabaseStorage(dataUrl, 'avatars', 'avatar');
+            } catch (uploadError) {
+                console.warn('Avatar storage upload failed, keeping compressed inline image:', uploadError);
+            }
+            if (formInputPhotoUrl) formInputPhotoUrl.value = finalUrl;
+            setProfileAvatarFromUrl(finalUrl);
+            showPlannedPopup('Profile photo selected. Tap Save.');
+        } catch (error) {
+            console.error('Profile image failed:', error);
+            showPlannedPopup(error?.message || 'Image upload failed.');
+        } finally {
+            if (event?.target) event.target.value = '';
+        }
+    }
+
+    function triggerChatImagePicker() {
+        if (activeChatReadOnly || activeChatRoomId === 'announcements') { showPlannedPopup('Announcements are controlled from the admin panel.'); return; }
+        if (!getActiveSupabaseUser()) { showPlannedPopup('Sign in with Google to send images.'); return; }
+        chatImageFilePicker?.click();
+    }
+
+    function renderPendingChatImagePreview() {
+        if (!chatSelectedImagePreview || !chatSelectedImagePreviewImg) return;
+        if (!pendingChatImageDataUrl) {
+            chatSelectedImagePreview.classList.remove('active');
+            chatSelectedImagePreviewImg.removeAttribute('src');
+            if (chatSelectedImagePreviewText) chatSelectedImagePreviewText.textContent = 'Image ready to send';
+            return;
+        }
+        chatSelectedImagePreviewImg.src = pendingChatImageDataUrl;
+        if (chatSelectedImagePreviewText) chatSelectedImagePreviewText.textContent = pendingChatImageFileName ? `Ready: ${pendingChatImageFileName}` : 'Image ready to send';
+        chatSelectedImagePreview.classList.add('active');
+    }
+
+    function clearPendingChatImage() {
+        pendingChatImageDataUrl = '';
+        pendingChatImageFileName = '';
+        renderPendingChatImagePreview();
+        if (chatImageFilePicker) chatImageFilePicker.value = '';
+    }
+
+    async function handleChatImageFile(event) {
+        const file = event?.target?.files?.[0];
+        if (!file) return;
+        try {
+            pendingChatImageDataUrl = await readCompressedImageFile(file, { maxSize: 900, quality: 0.76, maxBytes: 650000 });
+            pendingChatImageFileName = safeSupabasePathPart(file.name || 'image');
+            renderPendingChatImagePreview();
+            showPlannedPopup('Image selected. Tap send.');
+        } catch (error) {
+            console.error('Chat image preview failed:', error);
+            clearPendingChatImage();
+            showPlannedPopup(error?.message || 'Image preview failed.');
+        } finally {
+            if (event?.target) event.target.value = '';
+        }
     }
 
     function trimToLimit(value, maxLength) {
@@ -1681,81 +1863,8 @@
     let appTabHeaderTitles = ['Papiano', 'Chat Hub', 'About Papiano', 'Account Console'];
 
 
-    let appLanguage = localStorage.getItem('papianoLanguage') || 'en';
+    let appLanguage = 'en';
     const I18N = {
-        id: {
-            loginTagline: 'Main piano seperti game',
-            loginGoogle: 'Masuk dengan Google',
-            loginDivider: 'atau',
-            loginGuest: 'Masuk sebagai Tamu',
-            tabPapiano: 'Papiano',
-            tabChat: 'Chat Hub',
-            tabAbout: 'Tentang Papiano',
-            tabAccount: 'Akun',
-            navHome: 'Home',
-            navChat: 'Chat',
-            navAbout: 'About',
-            navAccount: 'Account',
-            banner1Title: 'Free First', banner1Text: 'Fitur dasar piano tidak seharusnya dikunci di balik premium badge.',
-            banner2Title: 'No Lock Drama', banner2Text: 'Main dulu. Bayar cuma untuk dukungan dan kosmetik, bukan akses wajib.',
-            banner3Title: 'Play Before Pay', banner3Text: 'Papiano dibuat agar orang bisa mencoba piano tanpa ribet dari HP.',
-            banner4Title: 'Not A Pay Trap', banner4Text: 'Support boleh, tapi pengalaman inti tetap harus bisa dipakai.',
-            banner5Title: 'Mobile Built', banner5Text: 'UI dibuat untuk layar kecil, sentuhan cepat, dan workflow mobile.',
-            banner6Title: 'Real Control', banner6Text: 'Sound, visual, badge, dan akun disiapkan agar bisa dikontrol dari panel.',
-            banner7Title: 'No Fake Flex', banner7Text: 'Role authority dikunci sistem. Badge hanya tampil kalau memang tersedia.',
-            banner8Title: 'Web Still Wins', banner8Text: 'HTML tetap ringan untuk eksperimen cepat, APK, dan live web.',
-            banner9Title: 'Fair Access', banner9Text: 'Akses dasar harus ramah untuk pemula, anak-anak, dan user HP.',
-            banner10Title: 'Less Gate More Play', banner10Text: 'Kurangi penghalang. Fokus ke main, belajar, dan komunitas.',
-            soloTitle: 'Solo Piano', soloSub: 'Main piano langsung dari perangkatmu',
-            multiTitle: 'Multiplayer Sync', multiSub: 'Interaksi real-time antar-user',
-            challengeTitle: 'Challenge Arena', challengeSub: 'Selesaikan trek tersulit aplikasi',
-            midiTitle: 'MIDI Player', midiSub: 'Putar file MIDI dengan visual piano',
-            storeTitle: 'Store', storeSub: 'Badge, frame, dan item kosmetik',
-            donationTitle: 'Donasi & Dukungan', donationSub: 'Buka halaman support dan alamat donasi',
-            questTitle: 'Quest & Leaderboard',
-            searchPlaceholder: 'Cari teman atau grup...',
-            chatAll: 'Semua', chatFriends: 'Teman', chatRequests: 'Permintaan',
-            chatEmptyTitle: 'Belum ada chat', chatEmptyText: 'Chat akan muncul setelah data real tersambung.',
-            aboutCenter: 'Pusat Informasi Papiano',
-            guideMenu: 'Guide', aboutMenu: 'Tentang Papiano', contributorMenu: 'Contributor', contactMenu: 'Kontak Dev', donationMenu: 'Donasi & Dukungan', privacyMenu: 'Kebijakan Privasi',
-            guide1Title: '1. Buka Solo Piano', guide1Text: 'Buka Papiano langsung dari browser atau APK.',
-            guide2Title: '2. Pilih Mode', guide2Text: 'Mulai dari Solo Piano, lalu lanjut ke multiplayer, belajar, atau challenge saat fiturnya tersedia.',
-            guide3Title: '3. Main Instan', guide3Text: 'Gunakan touch, keyboard, atau MIDI sesuai perangkat yang kamu pakai.',
-            guide4Title: '4. Login Google', guide4Text: 'Gunakan identitas profil untuk komentar, chat, badge, dan fitur akun.',
-            guide5Title: '5. Atur Sound & Visual', guide5Text: 'Atur soundfont, sustain, reverb, falling notes, label tuts, tinggi piano, dan tema visual.',
-            guide6Title: '6. Sambungkan MIDI', guide6Text: 'Pakai keyboard/controller eksternal kalau ingin setup yang lebih serius.',
-            guide7Title: '7. Pantau Performa', guide7Text: 'Gunakan monitor kecil untuk cek FPS, voice aktif, dan status jaringan saat testing.',
-            papiano1Title: 'Dibuat untuk Akses Cepat', papiano1Text: 'Papiano adalah game piano web dan mobile yang dibuat untuk akses cepat, kontrol fleksibel, dan cara main piano yang lebih visual.',
-            papiano2Title: 'Semua yang Dibutuhkan untuk Main', papiano2Text: 'Papiano menggabungkan piano browser, falling notes, pengaturan sound, dan alat performa dalam satu pengalaman yang bersih.',
-            papiano3Title: 'Solo Piano', papiano3Text: 'Main piano langsung dari browser dengan layout mobile-first dan kontrol sentuh instan.',
-            papiano4Title: 'Custom Sound', papiano4Text: 'Pilih sumber suara piano, lalu atur sustain dan reverb sesuai gaya main.',
-            papiano5Title: 'Visual & Animasi', papiano5Text: 'Atur falling notes, warna animasi, label tuts, tinggi piano, dan gaya visual.',
-            papiano6Title: 'Performance Monitor', papiano6Text: 'Tampilkan HUD kecil untuk FPS, voice aktif, dan status jaringan saat testing.',
-            papiano7Title: 'Dukungan MIDI', papiano7Text: 'Hubungkan keyboard/controller MIDI untuk pengalaman piano yang lebih serius.',
-            papiano8Title: 'Profil Akun', papiano8Text: 'Login dengan Google untuk identitas profil, komentar, dan fitur komunitas.',
-            contributorTitle: 'Core Contributor', contributorText: 'Kredit untuk tools, source, dan dukungan AI yang dipakai selama pengembangan Papiano.',
-            contactTitle: 'Kontak Resmi', contactText: 'Gunakan channel ini untuk feedback, bug report, support, kolaborasi, atau diskusi komunitas.',
-            contactChannels: 'Channel Kontak', contactEmpty: 'Belum diisi', contactNoteTitle: 'Catatan Respons', contactNoteText: 'Saat ini hanya Telegram dan Discord yang aktif. Channel lain bisa diisi nanti lewat panel/config tanpa edit layout manual.',
-            supportTitle: 'Dukung Pengembangan', supportText: 'Papiano dibangun lewat eksperimen, testing, polishing UI, riset audio, dan optimasi device. Dukungan kamu membantu tools, hosting, testing device, dan resource development.',
-            fundTitle: 'Dana Development AI', fundText: '$0 / $30 terkumpul • Target: $30', fundSmall: 'Target untuk akses API dan tools.',
-            topDonator: 'Top Donator', topDonatorText: 'Belum ada donator.',
-            supportPortal: 'Portal Support Langsung', supportPortalText: 'Gunakan salah satu link support resmi berikut.',
-            openKofi: 'Buka Ko-fi', openSociaBuzz: 'Buka SociaBuzz',
-            cryptoSupport: 'Crypto Support', cryptoText: 'Tap Copy untuk menyalin full wallet address.',
-            transparencyTitle: 'Catatan Transparansi', transparencyText: 'Donasi bersifat opsional dan tidak membuka akses gameplay wajib. Progress donasi publik dan top donator bisa diperbarui saat sistem support sudah tersambung.',
-            privacy1Title: '1. Akun & Autentikasi', privacy1Text: 'Papiano dapat menggunakan login Google atau akses tamu untuk identitas akun, profil, komentar, chat, dan fitur aplikasi. Mode tamu disediakan untuk akses cepat tanpa akun penuh.',
-            privacy2Title: '2. Data Profil & Aplikasi', privacy2Text: 'Nama profil, avatar, bio, total main, preferensi aplikasi, komentar, dan data interaksi dapat tersimpan secara lokal di perangkat atau disinkronkan melalui backend saat fitur online aktif.',
-            privacy3Title: '3. Konten Komunitas', privacy3Text: 'Pesan, feedback, komentar, dan interaksi profil publik dapat terlihat oleh user lain. Jangan membagikan password, token, detail pembayaran, alamat, atau data sensitif di area publik.',
-            privacy4Title: '4. Device & Performa', privacy4Text: 'Papiano dapat memakai storage lokal browser/app untuk menyimpan pengaturan seperti sound, visual, volume, mode performa, dan opsi khusus perangkat.',
-            privacy5Title: '5. Status Development', privacy5Text: 'Papiano masih terus berkembang. Fitur, metode penyimpanan, sistem akun, dan tool komunitas dapat diperbarui seiring versi web dan APK dikembangkan.',
-            fpName: 'Nama Teman', fpCluster: 'User ID', fpDesc: 'Deskripsi', profileComments: 'Komentar Profil', commentPlaceholder: 'Tulis komentar...', send: 'Kirim', close: 'Tutup',
-            badgeTitle: 'Role & Badge', badgeNote: 'Pilih badge yang tersedia di akun. Role authority tetap dikunci sistem/admin panel.',
-            accountName: 'Memuat Akun...', statusAuth: 'Status Auth', totalPlay: 'Total Main', clusterId: 'User ID', displayName: 'Display Name', roleBadge: 'Role & Badge', badgeHelp: 'User hanya bisa pilih badge yang tersedia di akun.', adminSystem: 'System / admin panel', autoProgress: 'Auto progress', bioLabel: 'Deskripsi / Bio', profilePhoto: 'URL Foto Profil', save: 'Simpan', logout: 'Keluar',
-            authOnline: 'Online', authGuest: 'Tamu', guestLockTitle: 'Akun Terkunci', guestLockText: 'Masuk dengan Google untuk membuka pengaturan akun, User ID, badge, URL foto, dan profil publik.', guestLockLogin: 'Masuk dengan Google', userIdPending: 'Sync...', googleDesc: 'Akun Papiano mobile app.', guestDesc: 'Mode tamu Papiano.', guestName: 'Akun Tamu',
-            chatTitle: 'Obrolan', reply: 'Balas', cancel: 'Batal', chatInput: 'Ketik pesan balasan...', imageButton: 'Media upload disabled', imageFallback: 'Media disabled', imageSent: 'Media disabled',
-            soonStrong: 'Soon', soonText: '{feature} sedang disiapkan untuk update berikutnya.', soloSoon: 'Modul Solo Piano', questSoon: 'Quest & Leaderboard', storeSoon: 'Store', multiSoon: 'Multiplayer Sync', challengeSoon: 'Challenge Arena', midiSoon: 'MIDI Player', twitterSoon: 'kontak Twitter / X', emailSoon: 'kontak Email', whatsappSoon: 'kontak WhatsApp',
-            donationCopied: '{label} berhasil disalin.'
-        },
         en: {
             loginTagline: 'Play piano like a game',
             loginGoogle: 'Sign in with Google',
@@ -1788,7 +1897,7 @@
             questTitle: 'Quest & Leaderboard',
             searchPlaceholder: 'Search friends or groups...',
             chatAll: 'All', chatFriends: 'Friends', chatRequests: 'Requests',
-            chatEmptyTitle: 'No chats yet', chatEmptyText: 'Chats will appear after real data is connected.',
+            chatEmptyTitle: 'No chats yet', chatEmptyText: 'No chat data yet.',
             aboutCenter: 'Papiano Information Center',
             guideMenu: 'Guide', aboutMenu: 'About Papiano', contributorMenu: 'Contributors', contactMenu: 'Developer Contact', donationMenu: 'Donation & Support', privacyMenu: 'Privacy Policy',
             guide1Title: '1. Open Solo Piano', guide1Text: 'Open Papiano directly from the browser or APK.',
@@ -1815,18 +1924,18 @@
             supportPortal: 'Direct Support Portal', supportPortalText: 'Use one of these official support links.',
             openKofi: 'Open Ko-fi', openSociaBuzz: 'Open SociaBuzz',
             cryptoSupport: 'Crypto Support', cryptoText: 'Tap Copy to copy the full wallet address.',
-            transparencyTitle: 'Transparency Note', transparencyText: 'Donation is optional and does not unlock mandatory gameplay access. Public donation progress and top donator information can be updated later when the support system is connected.',
+            transparencyTitle: 'Transparency Note', transparencyText: 'Support is optional and helps maintain hosting, tools, testing, and development resources.',
             privacy1Title: '1. Account & Authentication', privacy1Text: 'Papiano may use Google sign-in or guest access to provide account identity, profile display, comments, chat, and app-related features. Guest mode is provided for quick access without a full account.',
             privacy2Title: '2. Profile & App Data', privacy2Text: 'Profile name, avatar, bio, play time, app preferences, comments, and interaction data may be stored locally on the device or synced through backend services when online features are enabled.',
             privacy3Title: '3. Community Content', privacy3Text: 'Messages, feedback, comments, and public profile interactions may be visible to other users. Do not share passwords, tokens, payment details, addresses, or sensitive personal data in public areas.',
             privacy4Title: '4. Device & Performance', privacy4Text: 'Papiano may use local browser or app storage to remember settings such as sound, visual preferences, volume, performance mode, and other device-specific options.',
-            privacy5Title: '5. Development Status', privacy5Text: 'Papiano is still evolving. Features, storage methods, account systems, and community tools may be updated as the web and APK versions continue to improve.',
+            privacy5Title: '5. Development Status', privacy5Text: 'Papiano may update features, storage methods, account systems, and community tools as the web and APK versions improve.',
             fpName: 'Friend Name', fpCluster: 'User ID', fpDesc: 'Description', profileComments: 'Profile Comments', commentPlaceholder: 'Write a comment...', send: 'Send', close: 'Close',
             badgeTitle: 'Role & Badge', badgeNote: 'Choose a badge available on this account. Authority roles remain locked by the system/admin panel.',
-            accountName: 'Loading Account...', statusAuth: 'Auth Status', totalPlay: 'Play Time', clusterId: 'User ID', displayName: 'Display Name', roleBadge: 'Role & Badge', badgeHelp: 'Users can only choose badges available on their account.', adminSystem: 'System / admin panel', autoProgress: 'Auto progress', bioLabel: 'Description / Bio', profilePhoto: 'Profile Photo URL', save: 'Save', logout: 'Log out',
-            authOnline: 'Online', authGuest: 'Guest', guestLockTitle: 'Account Locked', guestLockText: 'Sign in with Google to unlock account settings, User ID, badge, photo URL, and public profile.', guestLockLogin: 'Sign in with Google', userIdPending: 'Syncing...', googleDesc: 'Papiano mobile app account.', guestDesc: 'Papiano guest mode.', guestName: 'Guest Account',
-            chatTitle: 'Chat', reply: 'Reply', cancel: 'Cancel', chatInput: 'Type a reply...', imageButton: 'Media upload disabled', imageFallback: 'Media disabled', imageSent: 'Media disabled',
-            soonStrong: 'Soon', soonText: '{feature} is being prepared for the next update.', soloSoon: 'Solo Piano module', questSoon: 'Quest & Leaderboard', storeSoon: 'Store', multiSoon: 'Multiplayer Sync', challengeSoon: 'Challenge Arena', midiSoon: 'MIDI Player', twitterSoon: 'Twitter / X contact', emailSoon: 'Email contact', whatsappSoon: 'WhatsApp contact',
+            accountName: 'Loading Account...', statusAuth: 'Auth Status', totalPlay: 'Play Time', clusterId: 'User ID', displayName: 'Display Name', roleBadge: 'Role & Badge', badgeHelp: 'Users can only choose badges available on their account.', adminSystem: 'System / admin panel', autoProgress: 'Auto progress', bioLabel: 'Description / Bio', profilePhoto: 'Profile Photo', save: 'Save', logout: 'Log out',
+            authOnline: 'Online', authGuest: 'Guest', guestLockTitle: 'Account Locked', guestLockText: 'Sign in with Google to unlock account settings, User ID, badge, profile photo, and public profile.', guestLockLogin: 'Sign in with Google', userIdPending: 'Syncing...', googleDesc: '', guestDesc: '', guestName: 'Guest Account',
+            chatTitle: 'Chat', reply: 'Reply', cancel: 'Cancel', chatInput: 'Type a reply...', imageButton: 'Choose image', imageFallback: 'Image could not be sent', imageSent: 'Image sent',
+            soonStrong: 'Info', soonText: '{feature}', soloPlanned: 'Solo Piano module', questPlanned: 'Quest & Leaderboard', storePlanned: 'Store', multiPlanned: 'Multiplayer Sync', challengePlanned: 'Challenge Arena', midiPlanned: 'MIDI Player', twitterPlanned: 'Twitter / X contact', emailPlanned: 'Email contact', whatsappPlanned: 'WhatsApp contact',
             donationCopied: '{label} copied successfully.'
         }
     };
@@ -1898,10 +2007,9 @@
     }
 
     function applyLanguage() {
-        if (!I18N[appLanguage]) appLanguage = 'en';
-        document.documentElement.lang = appLanguage;
-        localStorage.setItem('papianoLanguage', appLanguage);
-        if (langToggleBtn) langToggleBtn.textContent = appLanguage.toUpperCase();
+        appLanguage = 'en';
+        document.documentElement.lang = 'en';
+        localStorage.setItem('papianoLanguage', 'en');
         appTabHeaderTitles = appTabHeaderTitleKeys.map(key => t(key));
         UI_TEXT_BINDINGS.forEach(([selector, key]) => setText(selector, key));
         UI_ATTR_BINDINGS.forEach(([selector, attr, key]) => {
@@ -1915,10 +2023,10 @@
         document.querySelectorAll('#subPageContact .support-link-button span:nth-child(2)').forEach((node, idx) => {
             if (idx === 0 || idx === 2 || idx === 4) node.textContent = t('contactEmpty');
         });
-        if (displayProfileName && (displayProfileName.textContent === 'Loading Node...' || displayProfileName.textContent === 'Memuat Akun...' || displayProfileName.textContent === 'Loading Account...')) {
+        if (displayProfileName && (displayProfileName.textContent === 'Loading Node...' || displayProfileName.textContent === 'Loading Account...')) {
             displayProfileName.textContent = t('accountName');
         }
-        if (displayAuthStatus && (displayAuthStatus.textContent === 'Online' || displayAuthStatus.textContent === 'Guest' || displayAuthStatus.textContent === 'Tamu')) {
+        if (displayAuthStatus && (displayAuthStatus.textContent === 'Online' || displayAuthStatus.textContent === 'Guest')) {
             displayAuthStatus.textContent = displayAuthStatus.textContent === 'Online' ? t('authOnline') : t('authGuest');
         }
         if (navBarStateTitle) navBarStateTitle.textContent = appTabHeaderTitles[currentTabIndex] || t('tabPapiano');
@@ -2009,7 +2117,6 @@
 
     if (btnAuthGoogle) btnAuthGoogle.addEventListener('click', () => processAppAuth('google'));
     if (btnAuthGuest) btnAuthGuest.addEventListener('click', () => processAppAuth('guest'));
-    if (langToggleBtn) langToggleBtn.addEventListener('click', toggleAppLanguage);
     applyLanguage();
 
     const userFriendsDatabase = {};
@@ -2021,6 +2128,34 @@
         if (!cleanName) return 'U';
         const words = cleanName.split(/\s+/).filter(Boolean);
         return (words.length > 1 ? words[0][0] + words[1][0] : cleanName.slice(0, 2)).toUpperCase();
+    }
+
+    function setAvatarNodeContent(node, name = 'User', photoURL = '') {
+        if (!node) return;
+        const safePhotoURL = normalizePhotoUrl(photoURL);
+        node.innerHTML = '';
+        if (isValidPhotoUrl(safePhotoURL) && safePhotoURL) {
+            const img = document.createElement('img');
+            img.src = safePhotoURL;
+            img.alt = name ? `${name} avatar` : 'User avatar';
+            img.loading = 'lazy';
+            img.referrerPolicy = 'no-referrer';
+            img.onerror = function () {
+                node.innerHTML = '';
+                node.textContent = getInitialsFromName(name);
+            };
+            node.appendChild(img);
+        } else {
+            node.textContent = getInitialsFromName(name);
+        }
+    }
+
+    function getAvatarMarkup(name = 'User', photoURL = '') {
+        const safePhotoURL = normalizePhotoUrl(photoURL);
+        if (isValidPhotoUrl(safePhotoURL) && safePhotoURL) {
+            return `<img src="${safePhotoURL.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}" alt="${String(name || 'User').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')} avatar" loading="lazy" referrerpolicy="no-referrer" onerror="this.replaceWith(document.createTextNode('${getInitialsFromName(name)}'))">`;
+        }
+        return getInitialsFromName(name);
     }
 
     function getBadgeData(badgeKey) {
@@ -2040,6 +2175,88 @@
     function syncProgressBadges() {
         if (clientCurrentPlayTimeMinutes >= 180) addOwnedBadge('sigma');
         if (clientCurrentPlayTimeMinutes >= 600) addOwnedBadge('pianist');
+    }
+
+    function renderPlayTimeLabel() {
+        const safeMinutes = Math.max(0, Math.floor(Number(clientCurrentPlayTimeMinutes || 0)));
+        if (displayTotalPlayTrack) displayTotalPlayTrack.textContent = `${safeMinutes} Min`;
+        if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = `${safeMinutes} Min`;
+    }
+
+    function resetPlayTimeCounter() {
+        pendingPlaySeconds = 0;
+        pendingPlayMinutes = 0;
+        playTimeLastTickAt = 0;
+        if (playTimeTicker) {
+            clearInterval(playTimeTicker);
+            playTimeTicker = null;
+        }
+    }
+
+    function tickPlayTimeCounter() {
+        if (!isGoogleAuthenticated || document.hidden) {
+            playTimeLastTickAt = Date.now();
+            return;
+        }
+        const now = Date.now();
+        if (!playTimeLastTickAt) playTimeLastTickAt = now;
+        const deltaSeconds = Math.max(0, Math.min(300, Math.floor((now - playTimeLastTickAt) / 1000)));
+        playTimeLastTickAt = now;
+        if (!deltaSeconds) return;
+
+        pendingPlaySeconds += deltaSeconds;
+        const earnedMinutes = Math.floor(pendingPlaySeconds / 60);
+        if (!earnedMinutes) return;
+
+        pendingPlaySeconds -= earnedMinutes * 60;
+        pendingPlayMinutes += earnedMinutes;
+        clientCurrentPlayTimeMinutes += earnedMinutes;
+        syncProgressBadges();
+        renderPlayTimeLabel();
+        syncAccountPanelFields();
+
+        if (pendingPlayMinutes >= 5) flushPlayTimeToSupabase();
+    }
+
+    function startPlayTimeCounter() {
+        if (!isGoogleAuthenticated) return;
+        if (!playTimeTicker) {
+            playTimeLastTickAt = Date.now();
+            playTimeTicker = setInterval(tickPlayTimeCounter, 30000);
+        }
+        renderPlayTimeLabel();
+    }
+
+    async function flushPlayTimeToSupabase() {
+        if (!isGoogleAuthenticated || playTimeSyncInFlight || pendingPlayMinutes <= 0) return;
+        const activeUser = getActiveSupabaseUser();
+        if (!activeUser?.uid) return;
+        const minutesToSave = pendingPlayMinutes;
+        pendingPlayMinutes = 0;
+        playTimeSyncInFlight = true;
+        try {
+            const supabase = await initPapianoSupabaseAuth();
+            const { data: existing } = await supabase
+                .from('profiles')
+                .select('play_time')
+                .eq('id', activeUser.uid)
+                .maybeSingle();
+            const currentMinutes = Number(existing?.play_time || 0) || 0;
+            const nextMinutes = Math.max(0, Math.floor(currentMinutes + minutesToSave));
+            const { error } = await supabase
+                .from('profiles')
+                .upsert({ id: activeUser.uid, play_time: nextMinutes, updated_at: new Date().toISOString() }, { onConflict: 'id' });
+            if (error) throw error;
+            clientCurrentPlayTimeMinutes = Math.max(clientCurrentPlayTimeMinutes, nextMinutes);
+            syncProgressBadges();
+            renderPlayTimeLabel();
+            syncAccountPanelFields();
+        } catch (error) {
+            pendingPlayMinutes += minutesToSave;
+            console.error('Play time sync failed:', error);
+        } finally {
+            playTimeSyncInFlight = false;
+        }
     }
 
     function getSafeActiveBadge() {
@@ -2090,114 +2307,79 @@
         if (accountLayout) accountLayout.classList.toggle('guest-locked', !isGoogleAuthenticated);
     }
 
-    function showSoonPopup(featureName) {
+    function showPlannedPopup(featureName) {
         if (!soonPopupToast || !soonPopupText) return;
         soonPopupText.textContent = t('soonText', { feature: featureName });
         soonPopupToast.classList.add('show');
-        clearTimeout(showSoonPopup.timer);
-        showSoonPopup.timer = setTimeout(() => soonPopupToast.classList.remove('show'), 1800);
+        clearTimeout(showPlannedPopup.timer);
+        showPlannedPopup.timer = setTimeout(() => soonPopupToast.classList.remove('show'), 1800);
     }
 
-    function showSoonPopupByKey(featureKey) {
-        showSoonPopup(t(featureKey));
+    function showPlannedPopupByKey(featureKey) {
+        showPlannedPopup(t(featureKey));
     }
 
-    function withFirebaseTimeout(promise, label = 'Firebase operation') {
+    function withSupabaseTimeout(promise, label = 'Supabase operation') {
         let timeoutId = null;
         const timeoutPromise = new Promise((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error(`${label} timeout`)), FIREBASE_TIMEOUT_MS);
+            timeoutId = setTimeout(() => reject(new Error(`${label} timeout`)), SUPABASE_TIMEOUT_MS);
         });
         return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
     }
 
-    async function initPapianoFirebaseAuth() {
-        if (papianoFirebaseInitPromise) return papianoFirebaseInitPromise;
-        papianoFirebaseInitPromise = withFirebaseTimeout(Promise.all([
-            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
-            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js'),
-            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
-        ]).then(([firebaseAppModule, firebaseAuthModule, firebaseFirestoreModule]) => {
-            if (!papianoFirebaseApp) papianoFirebaseApp = firebaseAppModule.initializeApp(firebaseConfig);
-            papianoFirebaseAuth = firebaseAuthModule.getAuth(papianoFirebaseApp);
-            papianoGoogleProvider = new firebaseAuthModule.GoogleAuthProvider();
-            papianoGoogleProvider.setCustomParameters({ prompt: 'select_account' });
-            papianoSignInWithPopup = firebaseAuthModule.signInWithPopup;
-            papianoFirebaseDb = firebaseFirestoreModule.getFirestore(papianoFirebaseApp);
-            papianoFirestoreTools = {
-                doc: firebaseFirestoreModule.doc,
-                collection: firebaseFirestoreModule.collection,
-                addDoc: firebaseFirestoreModule.addDoc,
-                setDoc: firebaseFirestoreModule.setDoc,
-                getDoc: firebaseFirestoreModule.getDoc,
-                getDocs: firebaseFirestoreModule.getDocs,
-                deleteDoc: firebaseFirestoreModule.deleteDoc,
-                query: firebaseFirestoreModule.query,
-                where: firebaseFirestoreModule.where,
-                orderBy: firebaseFirestoreModule.orderBy,
-                limit: firebaseFirestoreModule.limit,
-                startAt: firebaseFirestoreModule.startAt,
-                endAt: firebaseFirestoreModule.endAt,
-                onSnapshot: firebaseFirestoreModule.onSnapshot,
-                runTransaction: firebaseFirestoreModule.runTransaction,
-                serverTimestamp: firebaseFirestoreModule.serverTimestamp
-            };
-            return {
-                auth: papianoFirebaseAuth,
-                provider: papianoGoogleProvider,
-                signInWithPopup: papianoSignInWithPopup,
-                onAuthStateChanged: firebaseAuthModule.onAuthStateChanged,
-                signOut: firebaseAuthModule.signOut,
-                db: papianoFirebaseDb,
-                firestore: papianoFirestoreTools
-            };
-        }), 'Firebase SDK load').catch(error => {
-            papianoFirebaseInitPromise = null;
-            throw error;
-        });
-        return papianoFirebaseInitPromise;
+    async function initPapianoSupabaseAuth() {
+        if (papianoSupabaseInitPromise) return papianoSupabaseInitPromise;
+        papianoSupabaseInitPromise = withSupabaseTimeout(import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm')
+            .then(({ createClient }) => {
+                const url = (window.PAPIANO_SUPABASE_URL || supabaseConfig.url || '').trim();
+                const anonKey = (window.PAPIANO_SUPABASE_ANON_KEY || supabaseConfig.anonKey || '').trim();
+                if (!/^https:\/\/[^\s]+\.supabase\.co$/i.test(url) || !anonKey || anonKey.includes('YOUR_SUPABASE')) {
+                    throw new Error('Supabase URL or publishable key is missing.');
+                }
+                if (!papianoSupabaseClient) {
+                    papianoSupabaseClient = createClient(url, anonKey, {
+                        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+                    });
+                }
+                return papianoSupabaseClient;
+            }), 'Supabase SDK load').catch(error => {
+                papianoSupabaseInitPromise = null;
+                throw error;
+            });
+        return papianoSupabaseInitPromise;
     }
 
-    async function getOrCreateSequentialUserId(firebaseUser, firebaseAuthBundle) {
-        if (!firebaseUser?.uid || !firebaseAuthBundle?.db || !firebaseAuthBundle?.firestore) throw new Error('Firestore user ID service unavailable.');
-        const tools = firebaseAuthBundle.firestore;
-        const userRef = tools.doc(firebaseAuthBundle.db, 'users', firebaseUser.uid);
-        const counterRef = tools.doc(firebaseAuthBundle.db, 'system', 'userCounter');
-        return tools.runTransaction(firebaseAuthBundle.db, async transaction => {
-            const now = tools.serverTimestamp();
-            const userSnap = await transaction.get(userRef);
-            const existingData = userSnap.exists() ? userSnap.data() : {};
-            if (userSnap.exists()) {
-                const existingUserId = Number(existingData?.userId);
-                transaction.set(userRef, {
-                    uid: firebaseUser.uid,
-                    email: firebaseUser.email || existingData.email || '',
-                    lastLoginAt: now
-                }, { merge: true });
-                if (Number.isInteger(existingUserId) && existingUserId >= 1) return existingUserId;
-            }
-            const counterSnap = await transaction.get(counterRef);
-            const lastUserId = Number(counterSnap.exists() ? counterSnap.data()?.lastUserId : 0);
-            const nextUserId = Math.max(0, Math.floor(lastUserId || 0)) + 1;
-            const fallbackName = existingData.displayName || firebaseUser.displayName || firebaseUser.email || 'Verified User';
-            const fallbackBadges = normalizeOwnedBadgeKeys(existingData.ownedBadges, ['verified', 'classical', 'pop', 'jazz']);
-            const fallbackRole = SYSTEM_ROLE_CATALOG[existingData.systemRole] ? existingData.systemRole : 'verified';
-            const fallbackActiveBadge = fallbackBadges.includes(existingData.activeBadge) ? existingData.activeBadge : 'verified';
-            transaction.set(counterRef, { lastUserId: nextUserId, updatedAt: now }, { merge: true });
-            transaction.set(userRef, {
-                uid: firebaseUser.uid,
-                userId: nextUserId,
-                displayName: fallbackName,
-                displayNameLower: (existingData.displayNameLower || fallbackName.toLowerCase()),
-                email: firebaseUser.email || existingData.email || '',
-                photoURL: Object.prototype.hasOwnProperty.call(existingData, 'photoURL') ? (existingData.photoURL || '') : (firebaseUser.photoURL || ''),
-                systemRole: fallbackRole,
-                ownedBadges: fallbackBadges,
-                activeBadge: fallbackActiveBadge,
-                createdAt: existingData.createdAt || now,
-                lastLoginAt: now
-            }, { merge: true });
-            return nextUserId;
-        });
+    function normalizeSupabaseUser(user) {
+        const meta = user?.user_metadata || {};
+        return {
+            uid: user?.id || '',
+            email: user?.email || '',
+            displayName: meta.full_name || meta.name || user?.email || 'Verified User',
+            photoURL: meta.photo_url || meta.picture || ''
+        };
+    }
+
+
+    async function getOrCreateSequentialUserId(authUser, supabase) {
+        if (!authUser?.uid || !supabase) throw new Error('Supabase profile ID service unavailable.');
+        const { data: existing, error: existingError } = await supabase
+            .from('profiles')
+            .select('user_number')
+            .eq('id', authUser.uid)
+            .maybeSingle();
+        if (existingError) throw existingError;
+        const existingUserId = Number(existing?.user_number);
+        if (Number.isInteger(existingUserId) && existingUserId >= 1) return existingUserId;
+
+        const { data: latest, error: latestError } = await supabase
+            .from('profiles')
+            .select('user_number')
+            .not('user_number', 'is', null)
+            .order('user_number', { ascending: false })
+            .limit(1);
+        if (latestError) throw latestError;
+        const lastNumber = Number(Array.isArray(latest) && latest[0] ? latest[0].user_number : 0) || 0;
+        return Math.max(1, lastNumber + 1);
     }
 
     function enterMainApp() {
@@ -2234,99 +2416,133 @@
     }
 
     function getCurrentUserPublicProfile() {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         return {
             uid: activeUser?.uid || '',
-            displayName: displayProfileName?.textContent?.trim() || activeUser?.displayName || 'Papiano User',
+            displayName: displayProfileName?.textContent?.trim() || activeUser?.displayName || 'User',
             userId: getCurrentPublicUserId(),
             photoURL: normalizePhotoUrl(formInputPhotoUrl?.value || activeUser?.photoURL || ''),
             activeBadge: getSafeActiveBadge(),
-            bio: formInputDesc?.value?.trim() || ''
+            bio: normalizeProfessionalBio(formInputDesc?.value || '')
         };
     }
 
-    function applyUserDocumentToAccount(firebaseUser, userData = {}) {
-        const defaultName = firebaseUser.displayName || firebaseUser.email || 'Verified User';
-        const safeName = userData.displayName || defaultName;
-        const safeSystemRole = SYSTEM_ROLE_CATALOG[userData.systemRole] ? userData.systemRole : 'verified';
+    function applyUserDocumentToAccount(supabaseUser, userData = {}) {
+        const defaultName = supabaseUser.displayName || supabaseUser.email || 'Verified User';
+        const safeName = userData.displayName || userData.display_name || defaultName;
+        const rawSystemRole = userData.systemRole || userData.system_role || userData.role;
+        const safeSystemRole = SYSTEM_ROLE_CATALOG[rawSystemRole] ? rawSystemRole : 'verified';
         const defaultBadges = safeSystemRole === 'verified'
             ? ['verified', 'classical', 'pop', 'jazz']
             : [safeSystemRole, 'verified', 'classical', 'pop', 'jazz'];
 
-        currentFirebaseUser = firebaseUser;
+        currentSupabaseUser = supabaseUser;
         isGoogleAuthenticated = true;
         currentUserCoreRole = safeSystemRole;
-        ownedBadgeKeys = normalizeOwnedBadgeKeys(userData.ownedBadges, defaultBadges);
+        ownedBadgeKeys = normalizeOwnedBadgeKeys(userData.ownedBadges || userData.owned_badges, defaultBadges);
         if (BADGE_CATALOG[safeSystemRole] && !ownedBadgeKeys.includes(safeSystemRole)) ownedBadgeKeys.unshift(safeSystemRole);
-        activeBadgeKey = ownedBadgeKeys.includes(userData.activeBadge) ? userData.activeBadge : (ownedBadgeKeys.includes(safeSystemRole) ? safeSystemRole : ownedBadgeKeys[0]);
+        activeBadgeKey = ownedBadgeKeys.includes(userData.activeBadge || userData.active_badge) ? (userData.activeBadge || userData.active_badge) : (ownedBadgeKeys.includes(safeSystemRole) ? safeSystemRole : ownedBadgeKeys[0]);
 
         displayProfileName.textContent = safeName;
         formInputName.value = safeName;
-        displayProfileId.textContent = Number(userData.userId) >= 1 ? `#${Number(userData.userId)}` : '—';
-        const playMinutes = Math.max(0, Math.floor(Number(userData.totalPlayMinutes || 0)));
+        displayProfileId.textContent = Number(userData.userId || userData.user_number) >= 1 ? `#${Number(userData.userId || userData.user_number)}` : '—';
+        const playMinutes = Math.max(0, Math.floor(Number(userData.totalPlayMinutes || userData.play_time || 0)));
         clientCurrentPlayTimeMinutes = playMinutes;
-        displayTotalPlayTrack.textContent = `${playMinutes} Mnt`;
+        pendingPlaySeconds = 0;
+        pendingPlayMinutes = 0;
+        renderPlayTimeLabel();
         displayAuthStatus.textContent = t('authOnline');
-        formInputDesc.value = Object.prototype.hasOwnProperty.call(userData, 'bio') ? (userData.bio || '') : t('googleDesc');
-        const accountPhotoURL = Object.prototype.hasOwnProperty.call(userData, 'photoURL') ? (userData.photoURL || '') : (firebaseUser.photoURL || '');
+        formInputDesc.value = Object.prototype.hasOwnProperty.call(userData, 'bio') ? normalizeProfessionalBio(userData.bio) : ''; 
+        const accountPhotoURL = Object.prototype.hasOwnProperty.call(userData, 'photo_url')
+            ? (userData.photo_url || '')
+            : (Object.prototype.hasOwnProperty.call(userData, 'photoURL') ? (userData.photoURL || '') : (supabaseUser.photoURL || ''));
         if (formInputPhotoUrl) formInputPhotoUrl.value = accountPhotoURL;
         setProfileAvatarFromUrl(accountPhotoURL);
+        if (supabaseUser?.uid) {
+            const selfProfile = upsertLocalUserProfile({
+                uid: supabaseUser.uid,
+                name: safeName,
+                id: displayProfileId.textContent || '—',
+                role: activeBadgeKey,
+                desc: formInputDesc.value || '',
+                photoURL: accountPhotoURL
+            });
+            if (selfProfile) supabaseProfileCache.set(supabaseUser.uid, selfProfile);
+        }
         syncAccountPanelFields();
+        startPlayTimeCounter();
     }
 
-    async function syncAuthenticatedUserDocument(firebaseUser, firebaseAuthBundle) {
-        const tools = firebaseAuthBundle.firestore;
-        const userRef = tools.doc(firebaseAuthBundle.db, 'users', firebaseUser.uid);
-        const userId = await getOrCreateSequentialUserId(firebaseUser, firebaseAuthBundle);
-        const userSnap = await tools.getDoc(userRef);
-        const existing = userSnap.exists() ? userSnap.data() : {};
-        const nextSystemRole = SYSTEM_ROLE_CATALOG[existing.systemRole] ? existing.systemRole : 'verified';
-        const nextOwnedBadges = normalizeOwnedBadgeKeys(existing.ownedBadges, ['verified', 'classical', 'pop', 'jazz']);
+    async function syncAuthenticatedUserDocument(authUser, supabase) {
+        const { data: existing, error: fetchError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.uid)
+            .maybeSingle();
+        if (fetchError) throw fetchError;
+
+        const userId = Number(existing?.user_number) >= 1 ? Number(existing.user_number) : await getOrCreateSequentialUserId(authUser, supabase);
+        const nextSystemRole = SYSTEM_ROLE_CATALOG[existing?.role] ? existing.role : 'verified';
+        const nextOwnedBadges = normalizeOwnedBadgeKeys(null, ['verified', 'classical', 'pop', 'jazz']);
         if (BADGE_CATALOG[nextSystemRole] && !nextOwnedBadges.includes(nextSystemRole)) nextOwnedBadges.unshift(nextSystemRole);
-        const nextActiveBadge = nextOwnedBadges.includes(existing.activeBadge) ? existing.activeBadge : (nextOwnedBadges.includes(nextSystemRole) ? nextSystemRole : nextOwnedBadges[0]);
-        const safeName = existing.displayName || firebaseUser.displayName || firebaseUser.email || 'Verified User';
+        const nextActiveBadge = nextOwnedBadges.includes(existing?.active_badge) ? existing.active_badge : (nextOwnedBadges.includes(nextSystemRole) ? nextSystemRole : nextOwnedBadges[0]);
+        const safeName = existing?.display_name || authUser.displayName || authUser.email || 'Verified User';
+        const safePhoto = Object.prototype.hasOwnProperty.call(existing || {}, 'photo_url') ? (existing.photo_url || '') : (authUser.photoURL || '');
         const mergedData = {
-            uid: firebaseUser.uid,
+            uid: authUser.uid,
             userId,
+            user_number: userId,
             displayName: safeName,
+            display_name: safeName,
             displayNameLower: safeName.toLowerCase(),
-            email: firebaseUser.email || existing.email || '',
-            photoURL: Object.prototype.hasOwnProperty.call(existing, 'photoURL') ? (existing.photoURL || '') : (firebaseUser.photoURL || ''),
+            photoURL: safePhoto,
+            photo_url: safePhoto,
             systemRole: nextSystemRole,
+            role: nextSystemRole,
             ownedBadges: nextOwnedBadges,
             activeBadge: nextActiveBadge,
-            totalPlayMinutes: Number(existing.totalPlayMinutes || 0),
-            bio: Object.prototype.hasOwnProperty.call(existing, 'bio') ? (existing.bio || '') : ''
+            active_badge: nextActiveBadge,
+            totalPlayMinutes: Number(existing?.play_time || 0),
+            play_time: Number(existing?.play_time || 0),
+            bio: Object.prototype.hasOwnProperty.call(existing || {}, 'bio') ? normalizeProfessionalBio(existing.bio) : ''
         };
-        await tools.setDoc(userRef, {
-            ...mergedData,
-            lastLoginAt: tools.serverTimestamp(),
-            updatedAt: tools.serverTimestamp()
-        }, { merge: true });
+        const { error } = await supabase.from('profiles').upsert({
+            id: authUser.uid,
+            user_number: userId,
+            display_name: mergedData.displayName,
+            display_name_lower: mergedData.displayNameLower,
+            bio: normalizeProfessionalBio(mergedData.bio),
+            photo_url: mergedData.photoURL,
+            role: mergedData.systemRole,
+            active_badge: mergedData.activeBadge,
+            play_time: mergedData.totalPlayMinutes,
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+        if (error) throw error;
         return mergedData;
     }
 
-    async function applyFirebaseGoogleUser(firebaseUser, firebaseAuthBundle) {
-        currentFirebaseUser = firebaseUser;
+    async function applySupabaseGoogleUser(authUser, supabase) {
+        currentSupabaseUser = authUser;
         isGoogleAuthenticated = true;
         displayProfileId.textContent = t('userIdPending');
         try {
-            const mergedUserData = await syncAuthenticatedUserDocument(firebaseUser, firebaseAuthBundle);
-            applyUserDocumentToAccount(firebaseUser, mergedUserData);
-            subscribeCurrentUserSocialData(firebaseAuthBundle, firebaseUser.uid);
-            subscribeCommunityPreviewRows(firebaseAuthBundle);
+            const mergedUserData = await syncAuthenticatedUserDocument(authUser, supabase);
+            applyUserDocumentToAccount(authUser, mergedUserData);
+            subscribeCurrentUserSocialData(supabase, authUser.uid);
+            subscribeCommunityPreviewRows(supabase);
         } catch (error) {
-            console.error('Firebase user sync failed:', error);
+            console.error('Supabase user sync failed:', error);
             currentUserCoreRole = 'verified';
             ownedBadgeKeys = ['verified', 'classical', 'pop', 'jazz'];
             activeBadgeKey = 'verified';
-            displayProfileName.textContent = firebaseUser.displayName || firebaseUser.email || 'Verified User';
+            displayProfileName.textContent = authUser.displayName || authUser.email || 'Verified User';
             formInputName.value = displayProfileName.textContent;
             displayProfileId.textContent = '—';
             displayTotalPlayTrack.textContent = '0 Min';
             displayAuthStatus.textContent = t('authOnline');
-            formInputDesc.value = t('googleDesc');
-            setProfileAvatarFromUrl(firebaseUser.photoURL || '');
+            formInputDesc.value = '';
+            setProfileAvatarFromUrl(authUser.photoURL || '');
             syncAccountPanelFields();
         }
     }
@@ -2348,9 +2564,10 @@
     }
 
     function applyGuestUser() {
+        resetPlayTimeCounter();
         stopUserRealtimeSubscriptions();
         clearSocialRows();
-        currentFirebaseUser = null;
+        currentSupabaseUser = null;
         isGoogleAuthenticated = false;
         displayProfileId.textContent = '—';
         currentUserCoreRole = "npc";
@@ -2360,45 +2577,53 @@
         formInputName.value = t('guestName');
         displayTotalPlayTrack.textContent = "0 Min";
         displayAuthStatus.textContent = t('authGuest');
-        formInputDesc.value = t('guestDesc');
+        formInputDesc.value = '';
         setProfileAvatarFromUrl('');
         if (formInputPhotoUrl) formInputPhotoUrl.value = '';
         syncAccountPanelFields();
     }
 
-    function applyQuickFirebaseIdentity(firebaseUser) {
-        if (!firebaseUser) return;
-        currentFirebaseUser = firebaseUser;
+    function applyQuickSupabaseIdentity(authUser) {
+        if (!authUser) return;
+        currentSupabaseUser = authUser;
         isGoogleAuthenticated = true;
         currentUserCoreRole = 'verified';
         ownedBadgeKeys = normalizeOwnedBadgeKeys(ownedBadgeKeys, ['verified', 'classical', 'pop', 'jazz']);
         if (!ownedBadgeKeys.includes('verified')) ownedBadgeKeys.unshift('verified');
         activeBadgeKey = ownedBadgeKeys.includes(activeBadgeKey) ? activeBadgeKey : 'verified';
-        const quickName = firebaseUser.displayName || firebaseUser.email || 'Verified User';
+        const quickName = authUser.displayName || authUser.email || 'Verified User';
         if (displayProfileName) displayProfileName.textContent = quickName;
         if (formInputName && !formInputName.value.trim()) formInputName.value = quickName;
         if (displayAuthStatus) displayAuthStatus.textContent = t('authOnline');
         if (displayProfileId && (!displayProfileId.textContent || displayProfileId.textContent === '—')) displayProfileId.textContent = t('userIdPending');
-        if (formInputDesc && !formInputDesc.value.trim()) formInputDesc.value = t('googleDesc');
-        setProfileAvatarFromUrl(firebaseUser.photoURL || '');
+        if (formInputDesc) formInputDesc.value = normalizeProfessionalBio(formInputDesc.value);
+        setProfileAvatarFromUrl(authUser.photoURL || '');
         syncAccountPanelFields();
     }
 
-    async function startFirebaseAuthRestore() {
+    async function startSupabaseAuthRestore() {
         if (authStateRestoreStarted) return;
         authStateRestoreStarted = true;
         try {
-            const bundle = await initPapianoFirebaseAuth();
-            bundle.onAuthStateChanged(bundle.auth, firebaseUser => {
-                if (!firebaseUser) {
+            const supabase = await initPapianoSupabaseAuth();
+            const { data } = await supabase.auth.getSession();
+            const sessionUser = data?.session?.user ? normalizeSupabaseUser(data.session.user) : null;
+            if (sessionUser) {
+                applyQuickSupabaseIdentity(sessionUser);
+                if (loginScreen.style.display !== 'none') enterMainApp();
+                applySupabaseGoogleUser(sessionUser, supabase).catch(error => console.error('Supabase user restore sync failed:', error));
+            } else if (mainAppScreen.style.display !== 'flex' && !mainAppScreen.classList.contains('active')) {
+                applyGuestUser();
+            }
+            supabase.auth.onAuthStateChange((_event, session) => {
+                const authUser = session?.user ? normalizeSupabaseUser(session.user) : null;
+                if (!authUser) {
                     if (mainAppScreen.style.display !== 'flex' && !mainAppScreen.classList.contains('active')) applyGuestUser();
                     return;
                 }
-                applyQuickFirebaseIdentity(firebaseUser);
+                applyQuickSupabaseIdentity(authUser);
                 if (loginScreen.style.display !== 'none') enterMainApp();
-                applyFirebaseGoogleUser(firebaseUser, bundle).catch(error => {
-                    console.error('Firebase user restore sync failed:', error);
-                });
+                applySupabaseGoogleUser(authUser, supabase).catch(error => console.error('Supabase auth state sync failed:', error));
             });
         } catch (error) {
             authStateRestoreStarted = false;
@@ -2413,24 +2638,20 @@
             if (btnAuthGoogle) {
                 btnAuthGoogle.disabled = true;
                 const label = btnAuthGoogle.querySelector('span');
-                if (label) label.textContent = appLanguage === 'id' ? 'Menghubungkan...' : 'Connecting...';
+                if (label) label.textContent = 'Connecting...';
             }
             try {
-                const wasInsideApp = mainAppScreen.style.display === 'flex';
-                const firebaseAuthBundle = await withFirebaseTimeout(initPapianoFirebaseAuth(), 'Firebase login init');
-                const result = await withFirebaseTimeout(firebaseAuthBundle.signInWithPopup(firebaseAuthBundle.auth, firebaseAuthBundle.provider), 'Google sign-in');
-                applyQuickFirebaseIdentity(result.user);
-                if (wasInsideApp) navigateActiveTab(0, appTabHeaderTitles[0]);
-                else enterMainApp();
-                applyFirebaseGoogleUser(result.user, firebaseAuthBundle).catch(error => {
-                    console.error('Firebase Google post-login sync failed:', error);
-                    showSoonPopup('Signed in, but data sync is not finished yet.');
+                const supabase = await withSupabaseTimeout(initPapianoSupabaseAuth(), 'Supabase login init');
+                const { error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: { redirectTo: window.location.origin + window.location.pathname, queryParams: { prompt: 'select_account' } }
                 });
+                if (error) throw error;
             } catch (error) {
-                console.error('Firebase Google login failed:', error);
+                console.error('Supabase Google login failed:', error);
                 alert(appLanguage === 'id'
-                    ? 'Google sign-in failed. Make sure the domain is allowed in Firebase Auth and the page is served over HTTP/HTTPS.'
-                    : 'Google login failed. Make sure the domain is allowed in Firebase Auth and the page is opened over HTTP/HTTPS.');
+                    ? 'Google login gagal. Isi Supabase URL/anon key dan aktifkan Google provider di Supabase Auth.'
+                    : 'Google login failed. Fill Supabase URL/anon key and enable Google provider in Supabase Auth.');
             } finally {
                 if (btnAuthGoogle) {
                     btnAuthGoogle.disabled = false;
@@ -2445,11 +2666,12 @@
     }
 
     async function logoutPapianoAccount() {
+        tickPlayTimeCounter();
+        await flushPlayTimeToSupabase();
+        resetPlayTimeCounter();
         try {
-            if (papianoFirebaseAuth?.currentUser) {
-                const bundle = await initPapianoFirebaseAuth();
-                await bundle.signOut(bundle.auth);
-            }
+            const supabase = await initPapianoSupabaseAuth();
+            await supabase.auth.signOut();
         } catch (error) {
             console.error('Logout failed:', error);
         }
@@ -2459,7 +2681,7 @@
         activeDirectPreviewUnsubscribes.clear();
         applyGuestUser();
         navigateActiveTab(0, appTabHeaderTitles[0] || 'Papiano');
-        showSoonPopup('Logged out.');
+        showPlannedPopup('Logged out.');
     }
 
     function navigateActiveTab(targetIndex, headerTitle, skipHistory = false) {
@@ -2485,7 +2707,7 @@
     }
 
     function executeSoloPianoModule() { 
-        showSoonPopupByKey('soloSoon');
+        showPlannedPopupByKey('soloPlanned');
     }
 
 
@@ -2532,8 +2754,8 @@
         announcements: { title: 'Official Announcements', kind: 'announcement', readOnly: true }
     };
 
-    function getActiveFirebaseUser() {
-        return currentFirebaseUser || papianoFirebaseAuth?.currentUser || null;
+    function getActiveSupabaseUser() {
+        return currentSupabaseUser || null;
     }
 
     function isPrivilegedAccount() {
@@ -2570,14 +2792,58 @@
     }
 
     function getDirectRoomIdForUid(targetUid) {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         if (!activeUser?.uid || !targetUid) return '';
         const ids = [activeUser.uid, targetUid].sort();
         return `direct_${ids[0]}_${ids[1]}`;
     }
 
+    function isUuidValue(value = '') {
+        return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+    }
+
+    function getSupabaseRoomType(roomKey = '') {
+        const key = String(roomKey || '').trim();
+        if (key === 'announcements') return 'announcement';
+        if (key.startsWith('direct_')) return 'private';
+        return 'group';
+    }
+
+    async function ensureSupabaseRoomId(supabase, roomKey = '') {
+        const key = String(roomKey || 'global').trim();
+        if (!key) throw new Error('Room id kosong.');
+        if (isUuidValue(key)) return key;
+        if (supabaseRoomIdCache.has(key)) return supabaseRoomIdCache.get(key);
+
+        const { data: existing, error: selectError } = await supabase
+            .from('rooms')
+            .select('id')
+            .eq('title', key)
+            .maybeSingle();
+        if (!selectError && existing?.id) {
+            supabaseRoomIdCache.set(key, existing.id);
+            return existing.id;
+        }
+
+        const activeUser = getActiveSupabaseUser();
+        const { data, error } = await supabase.from('rooms').insert({
+            type: getSupabaseRoomType(key),
+            title: key,
+            created_by: activeUser?.uid || null,
+            created_at: new Date().toISOString()
+        }).select('id').single();
+        if (error) throw error;
+        const roomId = data?.id;
+        if (!roomId) throw new Error('Room UUID could not be created.');
+        if (activeUser?.uid) {
+            await supabase.from('room_members').insert({ room_id: roomId, user_id: activeUser.uid }).then(() => null);
+        }
+        supabaseRoomIdCache.set(key, roomId);
+        return roomId;
+    }
+
     function getSeenStorageKey(roomId) {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         return `papiano_seen_${activeUser?.uid || 'guest'}_${roomId}`;
     }
 
@@ -2592,8 +2858,9 @@
     }
 
     function getMessagePreviewText(data = {}) {
-        const text = String(data.text || '').trim();
+        const text = String(data.text || data.body || data.content || '').trim();
         if (text) return text;
+        if (data.imageURL || data.media_url || data.image_url) return '[Image]';
         return 'Message';
     }
 
@@ -2606,7 +2873,7 @@
         const snippet = row.querySelector('.friend-last-chat');
         const stamp = row.querySelector('.friend-chat-stamp');
         const unread = row.querySelector('.friend-unread-badge');
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         const mine = !!(activeUser?.uid && data.uid === activeUser.uid);
         const preview = getMessagePreviewText(data);
         if (snippet) snippet.textContent = mine ? `You: ${preview}` : preview;
@@ -2621,45 +2888,52 @@
 
     function subscribeDirectChatPreview(targetUid) {
         if (!targetUid || activeDirectPreviewUnsubscribes.has(targetUid)) return;
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         if (!activeUser) return;
         const roomId = getDirectRoomIdForUid(targetUid);
         if (!roomId) return;
-        initPapianoFirebaseAuth().then(bundle => {
-            const tools = bundle.firestore;
-            const ref = tools.collection(bundle.db, 'chatRooms', roomId, 'messages');
-            const q = tools.query(ref, tools.orderBy('createdAt', 'desc'), tools.limit(1));
-            const unsub = tools.onSnapshot(q, snapshot => {
-                const row = document.querySelector(`[data-friend-uid="${targetUid}"]`);
-                if (row) row.setAttribute('data-direct-room-id', roomId);
-                if (snapshot.empty) {
-                    if (row) {
-                        const snippet = row.querySelector('.friend-last-chat');
-                        const stamp = row.querySelector('.friend-chat-stamp');
-                        const unread = row.querySelector('.friend-unread-badge');
+        initPapianoSupabaseAuth().then(async supabase => {
+            const row = document.querySelector(`[data-friend-uid="${targetUid}"]`);
+            if (row) row.setAttribute('data-direct-room-id', roomId);
+            const dbRoomId = await ensureSupabaseRoomId(supabase, roomId);
+            const renderPreview = async () => {
+                const { data, error } = await supabase.from('messages').select('*').eq('room_id', dbRoomId).order('created_at', { ascending: false }).limit(1);
+                if (error) throw error;
+                const latest = Array.isArray(data) ? data[0] : null;
+                if (latest) await enrichSupabaseMessageRows(supabase, [latest]);
+                if (!latest) {
+                    const liveRow = document.querySelector(`[data-friend-uid="${targetUid}"]`);
+                    if (liveRow) {
+                        const snippet = liveRow.querySelector('.friend-last-chat');
+                        const stamp = liveRow.querySelector('.friend-chat-stamp');
+                        const unread = liveRow.querySelector('.friend-unread-badge');
                         if (snippet) snippet.textContent = 'No messages yet.';
                         if (stamp) stamp.textContent = 'Friend';
                         if (unread) unread.style.display = 'none';
                     }
                     return;
                 }
-                const docSnap = snapshot.docs[0];
-                updateDirectPreviewRow(targetUid, docSnap.data() || {}, docSnap.id);
-            }, error => console.error('Direct chat preview failed:', error));
-            activeDirectPreviewUnsubscribes.set(targetUid, unsub);
+                const mapped = mapSupabaseMessage(latest);
+                updateDirectPreviewRow(targetUid, { uid: mapped.uid, displayName: mapped.displayName, text: mapped.text || (mapped.imageURL ? '[Image]' : 'Message') }, latest.id || '');
+            };
+            renderPreview().catch(error => console.error('Direct chat preview failed:', error));
+            const channel = supabase.channel(`direct_preview_${roomId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `room_id=eq.${dbRoomId}` }, () => {
+                renderPreview().catch(error => console.error('Direct chat preview refresh failed:', error));
+            }).subscribe();
+            activeDirectPreviewUnsubscribes.set(targetUid, function () { supabase.removeChannel(channel); });
         }).catch(error => console.error('Direct preview init failed:', error));
     }
 
     function openDirectChatWithUser(userKey, skipHistory = false) {
         const target = userFriendsDatabase[userKey];
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         if (!target || !target.uid) return;
         if (!activeUser) {
-            showSoonPopup('Sign in with Google to use direct chat.');
+            showPlannedPopup('Sign in with Google to use direct chat.');
             return;
         }
         if (!localFriendKeys.has(target.uid)) {
-            showSoonPopup('Add this user as a friend first.');
+            showPlannedPopup('Add this user as a friend first.');
             return;
         }
         activeChatRoomId = getDirectRoomIdForUid(target.uid);
@@ -2725,89 +2999,131 @@
     function subscribeActiveChatRoom(roomId) {
         if (typeof activeChatUnsubscribe === 'function') activeChatUnsubscribe();
         activeChatUnsubscribe = null;
-        initPapianoFirebaseAuth().then(bundle => {
-            const tools = bundle.firestore;
-            const messagesRef = tools.collection(bundle.db, 'chatRooms', roomId, 'messages');
-            const roomQuery = tools.query(messagesRef, tools.orderBy('createdAt', 'asc'), tools.limit(80));
-            activeChatUnsubscribe = tools.onSnapshot(roomQuery, snapshot => {
+        initPapianoSupabaseAuth().then(async supabase => {
+            const dbRoomId = await ensureSupabaseRoomId(supabase, roomId);
+            const renderMessages = async () => {
+                const { data, error } = await supabase.from('messages').select('*').eq('room_id', dbRoomId).order('created_at', { ascending: true }).limit(80);
+                if (error) throw error;
                 chatMessagesScrollArea.innerHTML = '';
-                if (snapshot.empty) {
+                if (!data || data.length === 0) {
                     const note = document.createElement('div');
                     note.className = 'chat-system-note';
                     note.textContent = roomId === 'announcements' ? 'No official announcements yet.' : 'No messages yet. Be the first to chat.';
                     chatMessagesScrollArea.appendChild(note);
                     return;
                 }
-                snapshot.forEach(docSnap => renderRealtimeMessage(docSnap.data()));
-                const lastDoc = snapshot.docs[snapshot.docs.length - 1];
-                if (roomId.startsWith('direct_') && lastDoc) markChatRoomRead(roomId, lastDoc.id);
+                const rows = await enrichSupabaseMessageRows(supabase, data || []);
+                rows.forEach(row => renderRealtimeMessage(mapSupabaseMessage(row)));
+                const lastRow = data[data.length - 1];
+                if (roomId.startsWith('direct_') && lastRow?.id) markChatRoomRead(roomId, lastRow.id);
                 chatMessagesScrollArea.scrollTop = chatMessagesScrollArea.scrollHeight;
-            }, error => {
-                console.error('Chat listener failed:', error);
-                chatMessagesScrollArea.innerHTML = '<div class="chat-system-note">Real chat cannot be read yet. Check Firestore rules.</div>';
+            };
+            renderMessages().catch(error => {
+                console.error('Chat load failed:', error);
+                chatMessagesScrollArea.innerHTML = '<div class="chat-system-note">Chat is unavailable. Check messages, rooms, and RLS settings.</div>';
             });
+            const channel = supabase.channel(`room_messages_${roomId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `room_id=eq.${dbRoomId}` }, () => {
+                renderMessages().catch(error => console.error('Chat refresh failed:', error));
+            }).subscribe();
+            activeChatUnsubscribe = function () { supabase.removeChannel(channel); };
         }).catch(error => {
-            console.error('Firebase chat init failed:', error);
-            chatMessagesScrollArea.innerHTML = '<div class="chat-system-note">Firebase is not ready for real chat yet.</div>';
+            console.error('Supabase chat init failed:', error);
+            chatMessagesScrollArea.innerHTML = '<div class="chat-system-note">Chat room could not be created or loaded. Check rooms and messages tables.</div>';
         });
     }
 
+    function mapSupabaseMessage(row = {}) {
+        const uid = row.sender_id || row.user_id || row.uid || '';
+        const cachedProfile = uid ? supabaseProfileCache.get(uid) || userFriendsDatabase[uid] : null;
+        return {
+            uid,
+            displayName: cachedProfile?.name || row.display_name || row.name || 'User',
+            userId: cachedProfile?.id || row.public_user_id || row.user_public_id || '',
+            activeBadge: cachedProfile?.role || row.active_badge || 'verified',
+            photoURL: cachedProfile?.photoURL || row.photo_url || '',
+            text: row.body || row.content || row.text || '',
+            imageURL: row.media_url || row.image_url || '',
+            replyTo: row.reply_to || '',
+            createdAt: row.created_at || ''
+        };
+    }
+
     function renderRealtimeMessage(data) {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         const side = data.uid && activeUser && data.uid === activeUser.uid ? 'outgoing' : 'incoming';
         appendMessageBubble(data.text || '', side, data.replyTo || null, {
             uid: data.uid || '',
             name: data.displayName || 'User',
             userId: data.userId || '',
             badge: data.activeBadge || 'verified',
-            photoURL: data.photoURL || ''
+            photoURL: data.photoURL || '',
+            imageURL: data.imageURL || ''
         });
     }
 
-    async function sendChatMessageToFirestore({ text = '' }) {
+    async function sendChatMessageToSupabase({ text = '', imageURL = '' }) {
         if (activeChatReadOnly || activeChatRoomId === 'announcements') {
-            showSoonPopup('Announcements are controlled from the admin panel.');
+            showPlannedPopup('Announcements are controlled from the admin panel.');
             return;
         }
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         if (!activeUser) {
-            showSoonPopup('Sign in with Google to send real messages.');
+            showPlannedPopup('Sign in with Google to send real messages.');
             return;
         }
         if (!activeChatRoomId) {
-            appendMessageBubble(text, 'outgoing', selectedReplyMessageText);
+            appendMessageBubble(text, 'outgoing', selectedReplyMessageText, { imageURL });
             return;
         }
-        const bundle = await initPapianoFirebaseAuth();
-        const tools = bundle.firestore;
-        await tools.addDoc(tools.collection(bundle.db, 'chatRooms', activeChatRoomId, 'messages'), {
+        const supabase = await initPapianoSupabaseAuth();
+        const dbRoomId = await ensureSupabaseRoomId(supabase, activeChatRoomId);
+        const cleanText = String(text || '').trim();
+        const cleanMediaURL = normalizePhotoUrl(imageURL || '');
+        const messagePayload = cleanMediaURL
+            ? { room_id: dbRoomId, sender_id: activeUser.uid, body: cleanText, media_url: cleanMediaURL, created_at: new Date().toISOString() }
+            : { room_id: dbRoomId, sender_id: activeUser.uid, body: cleanText, created_at: new Date().toISOString() };
+        const { error } = await supabase.from('messages').insert(messagePayload);
+        if (error) throw error;
+        appendMessageBubble(cleanText, 'outgoing', selectedReplyMessageText, {
             uid: activeUser.uid,
-            displayName: displayProfileName?.textContent || activeUser.displayName || 'User',
+            name: displayProfileName?.textContent || activeUser.displayName || 'User',
             userId: getCurrentPublicUserId(),
-            photoURL: activeUser.photoURL || '',
-            activeBadge: activeBadgeKey,
-            text: String(text || '').trim(),
-            replyTo: selectedReplyMessageText || '',
-            createdAt: tools.serverTimestamp()
+            badge: activeBadgeKey || 'verified',
+            photoURL: getCurrentUserPublicProfile().photoURL || '',
+            imageURL: cleanMediaURL
         });
+        await supabase.from('rooms').update({
+            last_message: cleanText || (cleanMediaURL ? '[Image]' : ''),
+            last_message_at: new Date().toISOString()
+        }).eq('id', dbRoomId).then(() => null);
     }
 
     async function executeSendMessage() {
         const rawText = chatInputFieldMessage.value || '';
         const text = trimToLimit(rawText, TEXT_LIMITS.chat);
         if (rawText.trim().length > TEXT_LIMITS.chat) {
-            showSoonPopup(getLengthWarning('Message', TEXT_LIMITS.chat));
+            showPlannedPopup(getLengthWarning('Message', TEXT_LIMITS.chat));
             chatInputFieldMessage.value = text;
             return;
         }
-        if(!text) return;
+        if (!text && !pendingChatImageDataUrl) return;
         try {
-            await sendChatMessageToFirestore({ text });
+            let imageURL = '';
+            if (pendingChatImageDataUrl) {
+                imageURL = pendingChatImageDataUrl;
+                try {
+                    imageURL = await uploadDataUrlToSupabaseStorage(pendingChatImageDataUrl, 'chat-media', 'chat');
+                } catch (uploadError) {
+                    console.warn('Chat media storage upload failed, keeping compressed inline image:', uploadError);
+                }
+            }
+            await sendChatMessageToSupabase({ text, imageURL });
             cancelActiveReplyState();
             chatInputFieldMessage.value = '';
+            clearPendingChatImage();
         } catch (error) {
             console.error('Send message failed:', error);
-            showSoonPopup('Message failed to send. Check login or Firebase rules.');
+            showPlannedPopup(`Message failed: ${error?.message || 'check Supabase rules'}`);
         }
     }
 
@@ -2832,7 +3148,7 @@
                 const av = document.createElement('div');
                 av.className = 'avatar-circle';
                 av.style.width = '32px'; av.style.height = '32px'; av.style.fontSize = '11px'; av.style.marginRight = '4px';
-                av.textContent = getInitialsFromName(senderName);
+                setAvatarNodeContent(av, senderName, senderData?.photoURL || '');
                 if (senderUid) av.onclick = function(e) { e.stopPropagation(); launchFriendProfileModal(senderUid); };
                 containerBox.appendChild(av);
             }
@@ -2851,17 +3167,30 @@
                     name: senderData.name,
                     id: senderData.userId || '—',
                     role: senderData.badge || 'verified',
-                    desc: 'Papiano user',
+                    desc: '',
+                    photoURL: senderData.photoURL || '',
                     likes: 0,
                     dislikes: 0,
                     comments: []
                 });
             }
         }
-        const messageTextNode = document.createElement('span');
-        messageTextNode.textContent = text;
-        bubble.appendChild(messageTextNode);
-        bubble.onclick = function() { initTriggerReplyContext(text); };
+        const imageURL = normalizePhotoUrl(senderData?.imageURL || '');
+        if (text) {
+            const messageTextNode = document.createElement('span');
+            messageTextNode.textContent = text;
+            bubble.appendChild(messageTextNode);
+        }
+        if (isValidPhotoUrl(imageURL) && imageURL) {
+            const imageNode = document.createElement('img');
+            imageNode.className = 'chat-image-preview';
+            imageNode.src = imageURL;
+            imageNode.alt = 'Chat image';
+            imageNode.loading = 'lazy';
+            bubble.appendChild(imageNode);
+        }
+        const replyText = text || (imageURL ? '[Image]' : '');
+        bubble.onclick = function() { if (replyText) initTriggerReplyContext(replyText); };
         
         containerBox.appendChild(bubble);
         nodeRow.appendChild(containerBox);
@@ -2886,10 +3215,10 @@
         if (!uid) return null;
         const profile = {
             uid,
-            name: rawData.name || rawData.displayName || 'Papiano User',
+            name: rawData.name || rawData.displayName || 'User',
             id: rawData.id || rawData.userId || '—',
             role: rawData.role || rawData.activeBadge || rawData.systemRole || 'verified',
-            desc: rawData.desc || rawData.bio || 'Papiano user',
+            desc: normalizeProfessionalBio(rawData.desc || rawData.bio || ''),
             photoURL: rawData.photoURL || '',
             likes: Number(rawData.likes || 0),
             dislikes: Number(rawData.dislikes || 0),
@@ -2902,11 +3231,11 @@
     function getProfileDataFromUserDoc(docId, data = {}) {
         return upsertLocalUserProfile({
             uid: docId || data.uid,
-            name: data.displayName || data.name || 'Papiano User',
-            id: data.userId ? `#${data.userId}` : (data.publicId || '—'),
-            role: data.activeBadge || data.systemRole || 'verified',
-            desc: data.bio || data.desc || 'Papiano user',
-            photoURL: data.photoURL || '',
+            name: data.display_name || data.displayName || data.name || 'User',
+            id: (data.user_number || data.userId) ? `#${data.user_number || data.userId}` : (data.publicId || '—'),
+            role: data.active_badge || data.activeBadge || data.systemRole || data.system_role || 'verified',
+            desc: normalizeProfessionalBio(data.bio || data.desc || ''),
+            photoURL: data.photo_url || data.photoURL || '',
             likes: data.likes || 0,
             dislikes: data.dislikes || 0,
             comments: data.comments || []
@@ -2914,7 +3243,7 @@
     }
 
     function updateProfileActionButtons(data) {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         const isSelf = !!(activeUser && data?.uid && activeUser.uid === data.uid);
         const alreadyFriend = !!(data?.uid && localFriendKeys.has(data.uid));
         if (fpAddFriendBtn) {
@@ -2935,11 +3264,11 @@
         const data = userFriendsDatabase[userKey];
         if(!data) return;
 
-        fpBigInitial.textContent = getInitialsFromName(data.name);
+        setAvatarNodeContent(fpBigInitial, data.name, data.photoURL || '');
         fpName.textContent = data.name;
         fpBadgeContainer.innerHTML = getRoleBadgeMarkup(data.role); 
         fpId.textContent = data.id || '—';
-        fpDesc.textContent = data.desc || 'Papiano user';
+        fpDesc.textContent = data.desc || '';
         fpLikeVal.textContent = data.likes || 0;
         fpDislikeVal.textContent = data.dislikes || 0;
         updateProfileActionButtons(data);
@@ -2969,7 +3298,7 @@
     function openDirectChatFromProfile() {
         if (!currentProfileTargetUid) return;
         if (!localFriendKeys.has(currentProfileTargetUid)) {
-            showSoonPopup('Add this user as a friend first.');
+            showPlannedPopup('Add this user as a friend first.');
             return;
         }
         openDirectChatWithUser(currentProfileTargetUid);
@@ -2986,53 +3315,46 @@
         document.querySelectorAll('.friend-request-row').forEach(row => row.remove());
     }
 
-    function subscribeCurrentUserSocialData(bundle, uid) {
-        if (!bundle?.db || !bundle?.firestore || !uid) return;
-        const tools = bundle.firestore;
-        if (typeof activeFriendsUnsubscribe === 'function') activeFriendsUnsubscribe();
-        if (typeof activeRequestsUnsubscribe === 'function') activeRequestsUnsubscribe();
-        const friendsRef = tools.collection(bundle.db, 'users', uid, 'friends');
-        activeFriendsUnsubscribe = tools.onSnapshot(friendsRef, snapshot => {
-            removeFriendRowsOnly();
-            snapshot.forEach(docSnap => {
-                const data = docSnap.data() || {};
-                const profile = upsertLocalUserProfile({
-                    uid: data.uid || docSnap.id,
-                    displayName: data.displayName,
-                    userId: data.userId,
-                    photoURL: data.photoURL,
-                    activeBadge: data.activeBadge,
-                    bio: data.bio || 'Papiano friend'
-                });
-                if (profile) {
-                    localFriendKeys.add(profile.uid);
-                    renderFriendRow(profile);
-                }
-            });
-            filterChatMatrixList();
-        }, error => {
-            console.error('Friends listener failed:', error);
-        });
+    function subscribeCurrentUserSocialData(supabase, uid) {
+        if (!supabase || !uid) return;
+        removeFriendRowsOnly();
+        removeRequestRowsOnly();
 
-        const requestsRef = tools.collection(bundle.db, 'users', uid, 'friendRequests');
-        activeRequestsUnsubscribe = tools.onSnapshot(requestsRef, snapshot => {
-            removeRequestRowsOnly();
-            snapshot.forEach(docSnap => {
-                const data = docSnap.data() || {};
-                const profile = upsertLocalUserProfile({
-                    uid: data.uid || docSnap.id,
-                    displayName: data.displayName,
-                    userId: data.userId,
-                    photoURL: data.photoURL,
-                    activeBadge: data.activeBadge,
-                    bio: data.bio || 'Papiano user'
-                });
-                if (profile) renderFriendRequestRow(profile);
+        supabase
+            .from('friends')
+            .select('*')
+            .or(`user_id.eq.${uid},friend_id.eq.${uid}`)
+            .then(async ({ data, error }) => {
+                if (error || !Array.isArray(data)) return;
+                const friendIds = [...new Set(data.map(item => item.user_id === uid ? item.friend_id : item.user_id).filter(Boolean))];
+                friendIds.forEach(friendUid => localFriendKeys.add(friendUid));
+                if (friendIds.length) {
+                    const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*').in('id', friendIds);
+                    if (!profilesError && Array.isArray(profilesData)) {
+                        profilesData.forEach(row => renderFriendRow(getProfileDataFromUserDoc(row.id, row)));
+                    }
+                }
+                filterChatMatrixList();
             });
-            filterChatMatrixList();
-        }, error => {
-            console.error('Friend request listener failed:', error);
-        });
+
+        supabase
+            .from('friend_requests')
+            .select('*')
+            .eq('to_user', uid)
+            .eq('status', 'pending')
+            .then(async ({ data, error }) => {
+                if (error || !Array.isArray(data)) return;
+                const requesterIds = [...new Set(data.map(item => item.from_user).filter(Boolean))];
+                if (!requesterIds.length) {
+                    filterChatMatrixList();
+                    return;
+                }
+                const { data: profilesData, error: profilesError } = await supabase.from('profiles').select('*').in('id', requesterIds);
+                if (!profilesError && Array.isArray(profilesData)) {
+                    profilesData.forEach(row => renderFriendRequestRow(getProfileDataFromUserDoc(row.id, row)));
+                }
+                filterChatMatrixList();
+            });
     }
 
     function renderFriendRequestRow(profile) {
@@ -3044,13 +3366,13 @@
         row.setAttribute('data-name', `${profile.name} ${profile.id}`.toLowerCase());
         row.onclick = function () { launchFriendProfileModal(profile.uid); };
         row.innerHTML = `
-            <div class="avatar-circle">${getInitialsFromName(profile.name)}</div>
+            <div class="avatar-circle">${getAvatarMarkup(profile.name, profile.photoURL)}</div>
             <div class="chat-body-content">
                 <div class="chat-row-header">
                     <div class="chat-user-name">${profile.name} ${getRoleBadgeMarkup(profile.role)}</div>
                     <div class="chat-timestamp">Request</div>
                 </div>
-                <div class="chat-row-header"><div class="chat-snippet">Ingin menjadi teman.</div></div>
+                <div class="chat-row-header"><div class="chat-snippet">Sent a friend request.</div></div>
             </div>
             <div class="chat-row-actions">
                 <button class="chat-mini-action accept" type="button">Terima</button>
@@ -3071,86 +3393,87 @@
     }
 
     async function acceptFriendRequest(requesterUid) {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         const requester = userFriendsDatabase[requesterUid];
         if (!activeUser || !requester) return;
         try {
-            const bundle = await initPapianoFirebaseAuth();
-            const tools = bundle.firestore;
+            const supabase = await initPapianoSupabaseAuth();
             const selfProfile = getCurrentUserPublicProfile();
             await Promise.all([
-                tools.setDoc(tools.doc(bundle.db, 'users', activeUser.uid, 'friends', requester.uid), {
-                    uid: requester.uid,
-                    displayName: requester.name,
-                    userId: requester.id || '—',
-                    photoURL: requester.photoURL || '',
-                    activeBadge: requester.role || 'verified',
-                    bio: requester.desc || '',
-                    createdAt: tools.serverTimestamp()
-                }, { merge: true }),
-                tools.setDoc(tools.doc(bundle.db, 'users', requester.uid, 'friends', activeUser.uid), selfProfile, { merge: true }),
-                tools.deleteDoc(tools.doc(bundle.db, 'users', activeUser.uid, 'friendRequests', requester.uid)),
-                tools.deleteDoc(tools.doc(bundle.db, 'users', requester.uid, 'outgoingFriendRequests', activeUser.uid))
-            ]);
+                supabase.from('friends').insert({
+                    user_id: activeUser.uid,
+                    friend_id: requester.uid,
+                    created_at: new Date().toISOString()
+                }),
+                supabase.from('friends').insert({
+                    user_id: requester.uid,
+                    friend_id: activeUser.uid,
+                    created_at: new Date().toISOString()
+                }),
+                supabase.from('friend_requests').update({ status: 'accepted' }).eq('from_user', requester.uid).eq('to_user', activeUser.uid)
+            ]).then(results => {
+                const failed = results.find(result => result?.error);
+                if (failed?.error) throw failed.error;
+            });
+            upsertLocalUserProfile({
+                uid: requester.uid,
+                name: requester.name,
+                id: requester.id || '—',
+                photoURL: requester.photoURL || '',
+                role: requester.role || 'verified',
+                desc: requester.desc || ''
+            });
+            upsertLocalUserProfile({ uid: selfProfile.uid, name: selfProfile.displayName, id: selfProfile.userId, photoURL: selfProfile.photoURL, role: selfProfile.activeBadge, desc: selfProfile.bio });
             localFriendKeys.add(requester.uid);
+            document.querySelector(`[data-request-uid="${requester.uid}"]`)?.remove();
             renderFriendRow(requester);
-            showSoonPopup(`${requester.name} jadi teman.`);
+            showPlannedPopup(`${requester.name} added as a friend.`);
         } catch (error) {
             console.error('Accept friend failed:', error);
-            showSoonPopup('Accept friend request failed. Check Firebase rules.');
+            showPlannedPopup('Accept friend request failed. Check Supabase table/RLS.');
         }
     }
 
     async function declineFriendRequest(requesterUid) {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         if (!activeUser || !requesterUid) return;
         try {
-            const bundle = await initPapianoFirebaseAuth();
-            const tools = bundle.firestore;
-            await tools.deleteDoc(tools.doc(bundle.db, 'users', activeUser.uid, 'friendRequests', requesterUid));
+            const supabase = await initPapianoSupabaseAuth();
+            const { error } = await supabase
+                .from('friend_requests')
+                .update({ status: 'declined' })
+                .eq('from_user', requesterUid)
+                .eq('to_user', activeUser.uid);
+            if (error) throw error;
             document.querySelector(`[data-request-uid="${requesterUid}"]`)?.remove();
             filterChatMatrixList();
         } catch (error) {
             console.error('Decline friend failed:', error);
-            showSoonPopup('Decline request failed.');
+            showPlannedPopup('Decline request failed.');
         }
     }
 
     async function addFriendByUid(targetUid) {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         const target = userFriendsDatabase[targetUid];
         if (!activeUser) {
-            showSoonPopup('Sign in with Google to add friends.');
+            showPlannedPopup('Sign in with Google to add friends.');
             return;
         }
         if (!target || target.uid === activeUser.uid || localFriendKeys.has(target.uid)) return;
         try {
-            const bundle = await initPapianoFirebaseAuth();
-            const tools = bundle.firestore;
-            const selfProfile = getCurrentUserPublicProfile();
-            await Promise.all([
-                tools.setDoc(tools.doc(bundle.db, 'users', target.uid, 'friendRequests', activeUser.uid), {
-                    uid: selfProfile.uid,
-                    displayName: selfProfile.displayName,
-                    userId: selfProfile.userId,
-                    photoURL: selfProfile.photoURL,
-                    activeBadge: selfProfile.activeBadge,
-                    bio: selfProfile.bio,
-                    createdAt: tools.serverTimestamp()
-                }, { merge: true }),
-                tools.setDoc(tools.doc(bundle.db, 'users', activeUser.uid, 'outgoingFriendRequests', target.uid), {
-                    uid: target.uid,
-                    displayName: target.name,
-                    userId: target.id || '—',
-                    photoURL: target.photoURL || '',
-                    activeBadge: target.role || 'verified',
-                    createdAt: tools.serverTimestamp()
-                }, { merge: true })
-            ]);
-            showSoonPopup(`Request dikirim ke ${target.name}.`);
+            const supabase = await initPapianoSupabaseAuth();
+            const { error } = await supabase.from('friend_requests').insert({
+                from_user: activeUser.uid,
+                to_user: target.uid,
+                status: 'pending',
+                created_at: new Date().toISOString()
+            });
+            if (error) throw error;
+            showPlannedPopup(`Request sent to ${target.name}.`);
         } catch (error) {
             console.error('Add friend failed:', error);
-            showSoonPopup('Add friend failed. Check Firebase rules.');
+            showPlannedPopup('Add friend failed. Check Supabase table/RLS.');
         }
     }
 
@@ -3176,51 +3499,82 @@
         activeProfileCommentsUnsubscribe = null;
         activeProfileReactionsUnsubscribe = null;
         renderProfileCommentsTrack([]);
-        initPapianoFirebaseAuth().then(bundle => {
-            const tools = bundle.firestore;
-            const commentsRef = tools.collection(bundle.db, 'users', targetUid, 'profileComments');
-            const commentsQuery = tools.query(commentsRef, tools.orderBy('createdAt', 'asc'), tools.limit(30));
-            activeProfileCommentsUnsubscribe = tools.onSnapshot(commentsQuery, snapshot => {
-                const comments = [];
-                snapshot.forEach(docSnap => comments.push(docSnap.data()));
-                renderProfileCommentsTrack(comments);
-            }, error => {
-                console.error('Profile comments listener failed:', error);
-                renderProfileCommentsTrack([]);
-            });
-            const reactionsRef = tools.collection(bundle.db, 'users', targetUid, 'reactions');
-            activeProfileReactionsUnsubscribe = tools.onSnapshot(reactionsRef, snapshot => {
+        initPapianoSupabaseAuth().then(supabase => {
+            const loadComments = async () => {
+                const { data, error } = await supabase
+                    .from('profile_comments')
+                    .select('*')
+                    .eq('profile_id', targetUid)
+                    .order('created_at', { ascending: true })
+                    .limit(30);
+                if (error) throw error;
+                await fetchSupabaseProfilesByIds(supabase, (data || []).map(row => row.author_id || row.user_id || row.uid || '').filter(Boolean));
+                renderProfileCommentsTrack((data || []).map(row => {
+                    const authorUid = row.author_id || row.user_id || row.uid || '';
+                    const authorProfile = authorUid ? supabaseProfileCache.get(authorUid) || userFriendsDatabase[authorUid] : null;
+                    return {
+                        uid: authorUid,
+                        displayName: authorProfile?.name || row.display_name || row.author || 'User',
+                        userId: authorProfile?.id || row.public_user_id || '',
+                        text: row.body || row.text || ''
+                    };
+                }));
+            };
+            const loadReactions = async () => {
+                const { data, error } = await supabase
+                    .from('profile_reactions')
+                    .select('reaction')
+                    .eq('profile_id', targetUid);
+                if (error) throw error;
                 let likes = 0;
                 let dislikes = 0;
-                snapshot.forEach(docSnap => {
-                    const type = docSnap.data()?.type;
-                    if (type === 'like') likes++;
-                    if (type === 'dislike') dislikes++;
+                (data || []).forEach(row => {
+                    if ((row.reaction || row.type) === 'like') likes++;
+                    if ((row.reaction || row.type) === 'dislike') dislikes++;
                 });
                 fpLikeVal.textContent = likes;
                 fpDislikeVal.textContent = dislikes;
-            }, error => console.error('Profile reactions listener failed:', error));
+            };
+            loadComments().catch(error => console.error('Profile comments load failed:', error));
+            loadReactions().catch(error => console.error('Profile reactions load failed:', error));
+            const commentsChannel = supabase
+                .channel(`profile_comments_${targetUid}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_comments', filter: `profile_id=eq.${targetUid}` }, () => loadComments().catch(error => console.error('Profile comments refresh failed:', error)))
+                .subscribe();
+            const reactionsChannel = supabase
+                .channel(`profile_reactions_${targetUid}`)
+                .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_reactions', filter: `profile_id=eq.${targetUid}` }, () => loadReactions().catch(error => console.error('Profile reactions refresh failed:', error)))
+                .subscribe();
+            activeProfileCommentsUnsubscribe = function () { supabase.removeChannel(commentsChannel); };
+            activeProfileReactionsUnsubscribe = function () { supabase.removeChannel(reactionsChannel); };
         }).catch(error => console.error('Profile engagement init failed:', error));
     }
 
     async function triggerVoteCount(voteType) {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         const data = userFriendsDatabase[localCurrentFpKey];
         if (!activeUser || !data?.uid) {
-            showSoonPopup('Sign in with Google to vote on profiles.');
+            showPlannedPopup('Sign in with Google to vote on profiles.');
             return;
         }
         try {
-            const bundle = await initPapianoFirebaseAuth();
-            const tools = bundle.firestore;
-            await tools.setDoc(tools.doc(bundle.db, 'users', data.uid, 'reactions', activeUser.uid), {
-                uid: activeUser.uid,
-                type: voteType === 'dislike' ? 'dislike' : 'like',
-                updatedAt: tools.serverTimestamp()
-            }, { merge: true });
+            const supabase = await initPapianoSupabaseAuth();
+            const reactionValue = voteType === 'dislike' ? 'dislike' : 'like';
+            const { data: existingReaction, error: findError } = await supabase
+                .from('profile_reactions')
+                .select('id')
+                .eq('profile_id', data.uid)
+                .eq('user_id', activeUser.uid)
+                .maybeSingle();
+            if (findError) throw findError;
+            const result = existingReaction?.id
+                ? await supabase.from('profile_reactions').update({ reaction: reactionValue }).eq('id', existingReaction.id)
+                : await supabase.from('profile_reactions').insert({ profile_id: data.uid, user_id: activeUser.uid, reaction: reactionValue, created_at: new Date().toISOString() });
+            if (result.error) throw result.error;
+            subscribeProfileEngagement(data.uid);
         } catch (error) {
             console.error('Profile vote failed:', error);
-            showSoonPopup('Vote failed. Check Firebase rules.');
+            showPlannedPopup('Vote failed. Check Supabase table/RLS.');
         }
     }
 
@@ -3254,30 +3608,30 @@
         const text = trimToLimit(rawText, TEXT_LIMITS.comment);
         const data = userFriendsDatabase[localCurrentFpKey];
         if (rawText.trim().length > TEXT_LIMITS.comment) {
-            showSoonPopup(getLengthWarning('Comment', TEXT_LIMITS.comment));
+            showPlannedPopup(getLengthWarning('Comment', TEXT_LIMITS.comment));
             newCommentInputField.value = text;
             return;
         }
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         if(!text || !data) return;
         if (!activeUser) {
-            showSoonPopup('Sign in with Google to comment on profiles.');
+            showPlannedPopup('Sign in with Google to comment on profiles.');
             return;
         }
         try {
-            const bundle = await initPapianoFirebaseAuth();
-            const tools = bundle.firestore;
-            await tools.addDoc(tools.collection(bundle.db, 'users', data.uid, 'profileComments'), {
-                uid: activeUser.uid,
-                displayName: displayProfileName?.textContent || activeUser.displayName || 'User',
-                userId: getCurrentPublicUserId(),
-                text,
-                createdAt: tools.serverTimestamp()
+            const supabase = await initPapianoSupabaseAuth();
+            const { error } = await supabase.from('profile_comments').insert({
+                profile_id: data.uid,
+                author_id: activeUser.uid,
+                body: text,
+                created_at: new Date().toISOString()
             });
+            if (error) throw error;
             newCommentInputField.value = '';
+            subscribeProfileEngagement(data.uid);
         } catch (error) {
             console.error('Profile comment failed:', error);
-            showSoonPopup('Comment failed. Check Firebase rules.');
+            showPlannedPopup('Comment failed. Check Supabase table/RLS.');
         }
     }
 
@@ -3289,7 +3643,7 @@
         filterChatMatrixList();
     }
 
-    function setEmptyChatState(visible, title = 'No results yet', text = 'Data will appear here.') {
+    function setEmptyChatState(visible, title = 'No results yet', text = 'Nothing to show yet.') {
         if (!chatEmptyRow) return;
         chatEmptyRow.style.display = visible ? 'flex' : 'none';
         const titleNode = document.getElementById('chatEmptyTitle');
@@ -3323,49 +3677,46 @@
         if (queryText.length >= 2) {
             setEmptyChatState(false);
             clearTimeout(userSearchDebounceTimer);
-            userSearchDebounceTimer = setTimeout(() => searchUsersFromFirestore(queryText), 320);
+            userSearchDebounceTimer = setTimeout(() => searchUsersFromSupabase(queryText), 320);
             return;
         }
 
         if (chatActiveSubViewMode === 'friends' && visibleCount === 0) setEmptyChatState(true, 'No friends yet', 'Search a user, open profile, then tap Add Friend.');
-        else if (chatActiveSubViewMode === 'requests') setEmptyChatState(true, 'No requests', 'Friend requests will appear here.');
-        else setEmptyChatState(visibleCount === 0, 'No chats yet', 'Global chat, announcements, and friends will appear here.');
+        else if (chatActiveSubViewMode === 'requests') setEmptyChatState(true, 'No requests', 'No pending friend requests.');
+        else setEmptyChatState(visibleCount === 0, 'No chats yet', 'No active conversations yet.');
     }
 
-    async function searchUsersFromFirestore(queryText) {
+    async function searchUsersFromSupabase(queryText) {
         if (!queryText || queryText.length < 2 || !chatMasterWrapperBox) return;
         removeSearchResultRows();
         try {
-            const bundle = await initPapianoFirebaseAuth();
-            const tools = bundle.firestore;
-            const usersRef = tools.collection(bundle.db, 'users');
+            const supabase = await initPapianoSupabaseAuth();
             const normalizedQuery = queryText.toLowerCase().trim();
-            const resultMap = new Map();
-
-            const nameQuery = tools.query(usersRef, tools.orderBy('displayNameLower'), tools.startAt(normalizedQuery), tools.endAt(normalizedQuery + '\uf8ff'), tools.limit(12));
-            const nameSnap = await tools.getDocs(nameQuery);
-            nameSnap.forEach(docSnap => resultMap.set(docSnap.id, docSnap.data()));
-
+            let request = supabase
+                .from('profiles')
+                .select('*')
+                .ilike('display_name', `${normalizedQuery}%`)
+                .limit(12);
             const numericId = Number(normalizedQuery.replace(/^#/, ''));
             if (Number.isInteger(numericId) && numericId >= 1) {
-                const idQuery = tools.query(usersRef, tools.where('userId', '==', numericId), tools.limit(5));
-                const idSnap = await tools.getDocs(idQuery);
-                idSnap.forEach(docSnap => resultMap.set(docSnap.id, docSnap.data()));
+                request = supabase.from('profiles').select('*').eq('user_number', numericId).limit(12);
             }
-
+            const { data, error } = await request;
+            if (error) throw error;
             let resultCount = 0;
-            const activeUser = getActiveFirebaseUser();
-            resultMap.forEach((data, docId) => {
+            const activeUser = getActiveSupabaseUser();
+            (data || []).forEach(row => {
+                const docId = row.id;
                 if (activeUser && docId === activeUser.uid) return;
-                const profile = getProfileDataFromUserDoc(docId, data);
+                const profile = getProfileDataFromUserDoc(docId, row);
                 renderSearchUserRow(profile);
                 resultCount++;
             });
-            if (resultCount === 0) setEmptyChatState(true, 'User tidak ditemukan', 'Coba nama lain atau User ID seperti #1.');
+            if (resultCount === 0) setEmptyChatState(true, 'User not found', 'Try another name or a User ID such as #1.');
             else setEmptyChatState(false);
         } catch (error) {
             console.error('Search users failed:', error);
-            setEmptyChatState(true, 'Search is not connected yet', 'Check Firestore rules for reading users.');
+            setEmptyChatState(true, 'Search failed', error?.message || 'Check Supabase profiles/RLS.');
         }
     }
 
@@ -3377,13 +3728,13 @@
         row.setAttribute('data-name', `${profile.name} ${profile.id}`.toLowerCase());
         row.onclick = function () { launchFriendProfileModal(profile.uid); };
         row.innerHTML = `
-            <div class="avatar-circle">${getInitialsFromName(profile.name)}</div>
+            <div class="avatar-circle">${getAvatarMarkup(profile.name, profile.photoURL)}</div>
             <div class="chat-body-content">
                 <div class="chat-row-header">
                     <div class="chat-user-name">${profile.name} ${getRoleBadgeMarkup(profile.role)}</div>
                     <div class="chat-timestamp">${profile.id || '—'}</div>
                 </div>
-                <div class="chat-row-header"><div class="chat-snippet">${profile.desc || 'Papiano user'}</div></div>
+                <div class="chat-row-header"><div class="chat-snippet">${profile.desc || ''}</div></div>
             </div>
             <div class="chat-row-actions"><button class="chat-mini-action" type="button">Tambah</button></div>
         `;
@@ -3410,7 +3761,7 @@
         if (roomId) row.setAttribute('data-direct-room-id', roomId);
         row.onclick = function () { openDirectChatWithUser(profile.uid); };
         row.innerHTML = `
-            <div class="avatar-circle">${getInitialsFromName(profile.name)}</div>
+            <div class="avatar-circle">${getAvatarMarkup(profile.name, profile.photoURL)}</div>
             <div class="chat-body-content">
                 <div class="chat-row-header">
                     <div class="chat-user-name">${profile.name} ${getRoleBadgeMarkup(profile.role)}</div>
@@ -3425,58 +3776,79 @@
     }
 
     async function applyProfileConfiguration() {
-        const activeUser = getActiveFirebaseUser();
+        const activeUser = getActiveSupabaseUser();
         if (!activeUser) {
-            showSoonPopup('Sign in with Google to edit your account.');
+            showPlannedPopup('Sign in with Google to edit your account.');
             return;
         }
         const profileNameRaw = formInputName.value || '';
         const nextProfileName = trimToLimit(profileNameRaw, TEXT_LIMITS.displayName);
         if (profileNameRaw.trim().length > TEXT_LIMITS.displayName) {
-            showSoonPopup(getLengthWarning('Display name', TEXT_LIMITS.displayName));
+            showPlannedPopup(getLengthWarning('Display name', TEXT_LIMITS.displayName));
             formInputName.value = nextProfileName;
             return;
         }
         if (nextProfileName.length < 2) {
-            showSoonPopup('Display name must be 2–24 characters.');
+            showPlannedPopup('Display name must be 2–24 characters.');
             return;
         }
         const bioRaw = formInputDesc.value || '';
         const nextBio = trimToLimit(bioRaw, TEXT_LIMITS.bio);
         if (bioRaw.trim().length > TEXT_LIMITS.bio) {
-            showSoonPopup(getLengthWarning('Bio', TEXT_LIMITS.bio));
+            showPlannedPopup(getLengthWarning('Bio', TEXT_LIMITS.bio));
             formInputDesc.value = nextBio;
             return;
         }
         const rawPhotoURL = formInputPhotoUrl ? formInputPhotoUrl.value : '';
-        const nextPhotoURL = normalizePhotoUrl(rawPhotoURL);
+        let nextPhotoURL = normalizePhotoUrl(rawPhotoURL);
         if (!isValidPhotoUrl(nextPhotoURL)) {
-            showSoonPopup('Profile photo must be a valid HTTPS image URL.');
+            showPlannedPopup('Profile photo must be a valid image.');
             return;
         }
         try {
-            const bundle = await initPapianoFirebaseAuth();
-            const tools = bundle.firestore;
-            await tools.setDoc(tools.doc(bundle.db, 'users', activeUser.uid), {
-                displayName: nextProfileName,
-                displayNameLower: nextProfileName.toLowerCase(),
+            const supabase = await initPapianoSupabaseAuth();
+            if (nextPhotoURL.startsWith('data:image/')) {
+                try {
+                    nextPhotoURL = await uploadDataUrlToSupabaseStorage(nextPhotoURL, 'avatars', 'avatar');
+                } catch (uploadError) {
+                    console.warn('Avatar storage upload failed on save, saving compressed inline image:', uploadError);
+                }
+            }
+            const currentNumberText = (displayProfileId?.textContent || '').replace('#', '').trim();
+            const currentNumber = Number(currentNumberText);
+            const { error } = await supabase.from('profiles').upsert({
+                id: activeUser.uid,
+                display_name: nextProfileName,
+                display_name_lower: nextProfileName.toLowerCase(),
                 bio: nextBio,
-                activeBadge: getSafeActiveBadge(),
-                photoURL: nextPhotoURL,
-                updatedAt: tools.serverTimestamp()
-            }, { merge: true });
+                active_badge: getSafeActiveBadge(),
+                photo_url: nextPhotoURL,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'id' });
+            if (error) throw error;
             displayProfileName.textContent = nextProfileName;
             formInputName.value = nextProfileName;
             formInputDesc.value = nextBio;
             if (formInputPhotoUrl) formInputPhotoUrl.value = nextPhotoURL;
             setProfileAvatarFromUrl(nextPhotoURL);
+            if (activeUser?.uid) {
+                upsertLocalUserProfile({
+                    uid: activeUser.uid,
+                    name: nextProfileName,
+                    id: getCurrentPublicUserId(),
+                    photoURL: nextPhotoURL,
+                    role: getSafeActiveBadge(),
+                    desc: nextBio
+                });
+                supabaseProfileCache.set(activeUser.uid, userFriendsDatabase[activeUser.uid]);
+            }
             displayProfileRole.innerHTML = getRoleBadgeMarkup(getSafeActiveBadge());
             syncAccountPanelFields();
-            showSoonPopup('Profile saved.');
+            showPlannedPopup('Profile saved.');
             navigateActiveTab(0, appTabHeaderTitles[0]);
         } catch (error) {
             console.error('Profile sync failed:', error);
-            showSoonPopup('Profile save failed. Check Firebase rules.');
+            showPlannedPopup(error?.message || 'Profile save failed. Check Supabase RLS/table columns.');
         }
     }
 
@@ -3512,33 +3884,40 @@
         setCopiedState();
     }
 
-    function subscribeCommunityPreviewRows(bundle = null) {
-        if (!bundle?.db || !bundle?.firestore) {
-            if (!isGoogleAuthenticated) return;
-            initPapianoFirebaseAuth().then(subscribeCommunityPreviewRows).catch(error => console.error('Community preview init failed:', error));
+    function subscribeCommunityPreviewRows(supabase = null) {
+        if (!supabase) {
+            initPapianoSupabaseAuth().then(subscribeCommunityPreviewRows).catch(error => console.error('Community preview init failed:', error));
             return;
         }
         activeCommunityPreviewUnsubscribes.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
         activeCommunityPreviewUnsubscribes = [];
-        const tools = bundle.firestore;
         const roomTargets = [
             { id: 'global', title: document.getElementById('globalChatTitle'), stamp: document.getElementById('globalChatStamp'), snippet: document.getElementById('globalChatSnippet'), empty: 'No global messages yet.' },
             { id: 'announcements', title: document.getElementById('announcementTitle'), stamp: document.getElementById('announcementStamp'), snippet: document.getElementById('announcementSnippet'), empty: 'No official announcements yet.' }
         ];
         roomTargets.forEach(target => {
-            const ref = tools.collection(bundle.db, 'chatRooms', target.id, 'messages');
-            const q = tools.query(ref, tools.orderBy('createdAt', 'desc'), tools.limit(1));
-            const unsub = tools.onSnapshot(q, snapshot => {
-                if (snapshot.empty) {
+            let dbRoomId = '';
+            const loadPreview = async () => {
+                if (!dbRoomId) dbRoomId = await ensureSupabaseRoomId(supabase, target.id);
+                const { data, error } = await supabase.from('messages').select('*').eq('room_id', dbRoomId).order('created_at', { ascending: false }).limit(1);
+                if (error) throw error;
+                const row = Array.isArray(data) ? data[0] : null;
+                if (row) await enrichSupabaseMessageRows(supabase, [row]);
+                if (!row) {
                     if (target.snippet) target.snippet.textContent = target.empty;
                     if (target.stamp) target.stamp.textContent = target.id === 'global' ? 'Public' : 'Official';
                     return;
                 }
-                const data = snapshot.docs[0].data() || {};
-                if (target.snippet) target.snippet.textContent = data.text || target.empty;
-                if (target.stamp) target.stamp.textContent = data.displayName || (target.id === 'global' ? 'Public' : 'Official');
-            }, error => console.error(`${target.id} preview listener failed:`, error));
-            activeCommunityPreviewUnsubscribes.push(unsub);
+                const mapped = mapSupabaseMessage(row);
+                if (target.snippet) target.snippet.textContent = mapped.text || (mapped.imageURL ? '[Image]' : target.empty);
+                if (target.stamp) target.stamp.textContent = mapped.displayName || (target.id === 'global' ? 'Public' : 'Official');
+            };
+            loadPreview().catch(error => console.error(`${target.id} preview load failed:`, error));
+            ensureSupabaseRoomId(supabase, target.id).then(roomUuid => {
+                dbRoomId = roomUuid;
+                const channel = supabase.channel(`community_preview_${target.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'messages', filter: `room_id=eq.${roomUuid}` }, () => loadPreview().catch(error => console.error(`${target.id} preview refresh failed:`, error))).subscribe();
+                activeCommunityPreviewUnsubscribes.push(function () { supabase.removeChannel(channel); });
+            }).catch(error => console.error(`${target.id} room resolve failed:`, error));
         });
     }
 
@@ -3550,9 +3929,21 @@
             if (document.exitFullscreen) document.exitFullscreen();
         }
     }
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            tickPlayTimeCounter();
+            flushPlayTimeToSupabase();
+            return;
+        }
+        if (isGoogleAuthenticated) startPlayTimeCounter();
+    });
+    window.addEventListener('pagehide', () => {
+        tickPlayTimeCounter();
+        flushPlayTimeToSupabase();
+    });
     document.addEventListener('fullscreenchange', () => { fsIcon.textContent = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen'; });
     filterChatMatrixList();
-    startFirebaseAuthRestore();
+    startSupabaseAuthRestore();
 </script>
 
 </body>
