@@ -2165,14 +2165,12 @@
         return tools.runTransaction(firebaseAuthBundle.db, async transaction => {
             const now = tools.serverTimestamp();
             const userSnap = await transaction.get(userRef);
+            const existingData = userSnap.exists() ? userSnap.data() : {};
             if (userSnap.exists()) {
-                const existingUserId = Number(userSnap.data()?.userId);
-                const safeExistingName = firebaseUser.displayName || firebaseUser.email || 'Verified User';
+                const existingUserId = Number(existingData?.userId);
                 transaction.set(userRef, {
-                    displayName: safeExistingName,
-                    displayNameLower: safeExistingName.toLowerCase(),
-                    email: firebaseUser.email || '',
-                    photoURL: firebaseUser.photoURL || '',
+                    uid: firebaseUser.uid,
+                    email: firebaseUser.email || existingData.email || '',
                     lastLoginAt: now
                 }, { merge: true });
                 if (Number.isInteger(existingUserId) && existingUserId >= 1) return existingUserId;
@@ -2180,18 +2178,22 @@
             const counterSnap = await transaction.get(counterRef);
             const lastUserId = Number(counterSnap.exists() ? counterSnap.data()?.lastUserId : 0);
             const nextUserId = Math.max(0, Math.floor(lastUserId || 0)) + 1;
+            const fallbackName = existingData.displayName || firebaseUser.displayName || firebaseUser.email || 'Verified User';
+            const fallbackBadges = normalizeOwnedBadgeKeys(existingData.ownedBadges, ['verified', 'classical', 'pop', 'jazz']);
+            const fallbackRole = SYSTEM_ROLE_CATALOG[existingData.systemRole] ? existingData.systemRole : 'verified';
+            const fallbackActiveBadge = fallbackBadges.includes(existingData.activeBadge) ? existingData.activeBadge : 'verified';
             transaction.set(counterRef, { lastUserId: nextUserId, updatedAt: now }, { merge: true });
             transaction.set(userRef, {
                 uid: firebaseUser.uid,
                 userId: nextUserId,
-                displayName: firebaseUser.displayName || firebaseUser.email || 'Verified User',
-                displayNameLower: (firebaseUser.displayName || firebaseUser.email || 'Verified User').toLowerCase(),
-                email: firebaseUser.email || '',
-                photoURL: firebaseUser.photoURL || '',
-                systemRole: 'verified',
-                ownedBadges: ['verified', 'classical', 'pop', 'jazz'],
-                activeBadge: 'verified',
-                createdAt: now,
+                displayName: fallbackName,
+                displayNameLower: (existingData.displayNameLower || fallbackName.toLowerCase()),
+                email: firebaseUser.email || existingData.email || '',
+                photoURL: Object.prototype.hasOwnProperty.call(existingData, 'photoURL') ? (existingData.photoURL || '') : (firebaseUser.photoURL || ''),
+                systemRole: fallbackRole,
+                ownedBadges: fallbackBadges,
+                activeBadge: fallbackActiveBadge,
+                createdAt: existingData.createdAt || now,
                 lastLoginAt: now
             }, { merge: true });
             return nextUserId;
@@ -2265,9 +2267,10 @@
         clientCurrentPlayTimeMinutes = playMinutes;
         displayTotalPlayTrack.textContent = `${playMinutes} Mnt`;
         displayAuthStatus.textContent = t('authOnline');
-        formInputDesc.value = userData.bio || t('googleDesc');
-        if (formInputPhotoUrl) formInputPhotoUrl.value = userData.photoURL || firebaseUser.photoURL || '';
-        setProfileAvatarFromUrl(userData.photoURL || firebaseUser.photoURL || '');
+        formInputDesc.value = Object.prototype.hasOwnProperty.call(userData, 'bio') ? (userData.bio || '') : t('googleDesc');
+        const accountPhotoURL = Object.prototype.hasOwnProperty.call(userData, 'photoURL') ? (userData.photoURL || '') : (firebaseUser.photoURL || '');
+        if (formInputPhotoUrl) formInputPhotoUrl.value = accountPhotoURL;
+        setProfileAvatarFromUrl(accountPhotoURL);
         syncAccountPanelFields();
     }
 
@@ -2288,12 +2291,12 @@
             displayName: safeName,
             displayNameLower: safeName.toLowerCase(),
             email: firebaseUser.email || existing.email || '',
-            photoURL: existing.photoURL || firebaseUser.photoURL || '',
+            photoURL: Object.prototype.hasOwnProperty.call(existing, 'photoURL') ? (existing.photoURL || '') : (firebaseUser.photoURL || ''),
             systemRole: nextSystemRole,
             ownedBadges: nextOwnedBadges,
             activeBadge: nextActiveBadge,
             totalPlayMinutes: Number(existing.totalPlayMinutes || 0),
-            bio: existing.bio || ''
+            bio: Object.prototype.hasOwnProperty.call(existing, 'bio') ? (existing.bio || '') : ''
         };
         await tools.setDoc(userRef, {
             ...mergedData,
@@ -3445,29 +3448,30 @@
             formInputDesc.value = nextBio;
             return;
         }
-        displayProfileName.textContent = nextProfileName || 'Papiano User';
-        displayProfileRole.innerHTML = getRoleBadgeMarkup(getSafeActiveBadge());
-        syncAccountPanelFields();
+        const rawPhotoURL = formInputPhotoUrl ? formInputPhotoUrl.value : '';
+        const nextPhotoURL = normalizePhotoUrl(rawPhotoURL);
+        if (!isValidPhotoUrl(nextPhotoURL)) {
+            showSoonPopup('Profile photo must be a valid HTTPS image URL.');
+            return;
+        }
         try {
             const bundle = await initPapianoFirebaseAuth();
             const tools = bundle.firestore;
-            const rawPhotoURL = formInputPhotoUrl ? formInputPhotoUrl.value : '';
-            const nextPhotoURL = normalizePhotoUrl(rawPhotoURL);
-            if (!isValidPhotoUrl(nextPhotoURL)) {
-                showSoonPopup('Profile photo must be a valid HTTPS image URL.');
-                return;
-            }
-            if (formInputPhotoUrl) formInputPhotoUrl.value = nextPhotoURL;
-            setProfileAvatarFromUrl(nextPhotoURL);
-            const safeProfileName = displayProfileName.textContent.trim() || 'Papiano User';
             await tools.setDoc(tools.doc(bundle.db, 'users', activeUser.uid), {
-                displayName: safeProfileName,
-                displayNameLower: safeProfileName.toLowerCase(),
+                displayName: nextProfileName,
+                displayNameLower: nextProfileName.toLowerCase(),
                 bio: nextBio,
                 activeBadge: getSafeActiveBadge(),
                 photoURL: nextPhotoURL,
                 updatedAt: tools.serverTimestamp()
             }, { merge: true });
+            displayProfileName.textContent = nextProfileName;
+            formInputName.value = nextProfileName;
+            formInputDesc.value = nextBio;
+            if (formInputPhotoUrl) formInputPhotoUrl.value = nextPhotoURL;
+            setProfileAvatarFromUrl(nextPhotoURL);
+            displayProfileRole.innerHTML = getRoleBadgeMarkup(getSafeActiveBadge());
+            syncAccountPanelFields();
             showSoonPopup('Profile saved.');
             navigateActiveTab(0, appTabHeaderTitles[0]);
         } catch (error) {
