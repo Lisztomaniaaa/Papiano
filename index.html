@@ -1030,6 +1030,93 @@
         top: -6px;
         right: -6px;
     }
+
+    /* --- NOTIFICATION DROPDOWN PANEL --- */
+    .notification-dropdown-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 200;
+        display: none;
+        align-items: flex-start;
+        justify-content: flex-end;
+        padding: 72px 16px 0 16px;
+    }
+    .notification-dropdown-overlay.active { display: flex; }
+    .notification-dropdown-panel {
+        width: 100%;
+        max-width: 360px;
+        max-height: 70vh;
+        overflow-y: auto;
+        background: var(--surface);
+        border: var(--brutal-border);
+        border-radius: 20px;
+        box-shadow: var(--brutal-shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+    }
+    .notif-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 2px solid var(--dark-block);
+    }
+    .notif-panel-title { font-size: 16px; font-weight: 900; color: var(--dark-block); text-transform: uppercase; }
+    .notif-clear-btn {
+        min-height: 30px;
+        padding: 0 12px;
+        border: 2px solid var(--dark-block);
+        border-radius: 10px;
+        background: #FB7185;
+        color: var(--dark-block);
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        cursor: pointer;
+        box-shadow: 2px 2px 0px var(--dark-block);
+    }
+    .notif-clear-btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0px var(--dark-block); }
+    .notif-section-label {
+        padding: 10px 20px 6px;
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        color: var(--dark-block);
+        opacity: 0.7;
+    }
+    .notif-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px;
+        border-bottom: 1.5px solid rgba(26,26,26,0.1);
+        cursor: pointer;
+    }
+    .notif-item:last-child { border-bottom: none; }
+    .notif-item:active { background: rgba(255,222,77,0.3); }
+    .notif-icon-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        border: 2px solid var(--dark-block);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 2px 2px 0px var(--dark-block);
+    }
+    .notif-icon-circle.notif-announce { background: var(--accent-green); }
+    .notif-icon-circle.notif-message { background: var(--accent-blue); }
+    .notif-icon-circle.notif-friend { background: var(--accent-pink); }
+    .notif-icon-circle .material-symbols-rounded { font-size: 20px; color: var(--dark-block); }
+    .notif-body { flex: 1; min-width: 0; }
+    .notif-body-title { font-size: 13px; font-weight: 900; color: var(--dark-block); text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .notif-body-desc { font-size: 12px; font-weight: 700; color: var(--dark-block); opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .notif-time { font-size: 10px; font-weight: 800; color: var(--dark-block); opacity: 0.6; flex-shrink: 0; }
+    .notif-empty-state { padding: 32px 20px; text-align: center; font-size: 14px; font-weight: 900; color: var(--dark-block); text-transform: uppercase; opacity: 0.6; }
+    .friend-action-button.unfriend-action { background: #FBBF24; }
     .top-action-btn.has-badge { position: relative; }
     .chat-room-tools { display: flex; align-items: center; gap: 8px; }
     .history-clear-btn { background: #FB7185; }
@@ -1329,6 +1416,7 @@
                 <div class="profile-action-grid">
                     <button class="friend-action-button" id="fpAddFriendBtn" type="button" onclick="addFriendFromProfile()"><span class="material-symbols-rounded">person_add</span><span>Add</span></button>
                     <button class="friend-action-button" id="fpOpenChatBtn" type="button" onclick="openDirectChatFromProfile()"><span class="material-symbols-rounded">chat</span><span>Chat</span></button>
+                    <button class="friend-action-button unfriend-action" id="fpUnfriendBtn" type="button" onclick="unfriendFromProfile()"><span class="material-symbols-rounded">person_remove</span><span>Unfriend</span></button>
                     <button class="friend-action-button block-user-action" id="fpBlockUserBtn" type="button" onclick="blockUserFromProfile()"><span class="material-symbols-rounded">block</span><span>Block</span></button>
                 </div>
                 <div class="friend-votes-container">
@@ -1357,6 +1445,18 @@
                 <div class="badge-picker-note">Users can only select badges available on their account. Authority roles remain controlled by the system/admin panel.</div>
                 <div class="badge-picker-list" id="badgePickerList"></div>
                 <button class="btn-submit-config" style="background:#CBD5E1;" type="button" onclick="closeBadgePickerModal()">Close</button>
+            </div>
+        </div>
+
+        <div class="notification-dropdown-overlay" id="notifDropdownOverlay" onclick="closeNotificationPanel()">
+            <div class="notification-dropdown-panel" onclick="event.stopPropagation()">
+                <div class="notif-panel-header">
+                    <span class="notif-panel-title">Notifications</span>
+                    <button class="notif-clear-btn" type="button" onclick="clearAllNotifications()">Clear All</button>
+                </div>
+                <div id="notifPanelContent">
+                    <div class="notif-empty-state">No notifications yet</div>
+                </div>
             </div>
         </div>
 
@@ -1475,7 +1575,7 @@
             <div class="app-tab-page" id="pageChat">
                 <div class="chat-search-bar-box">
                     <span class="material-symbols-rounded">search</span>
-                    <input type="text" class="chat-search-input" id="friendSearchField" placeholder="Search friends or groups..." maxlength="64" inputmode="search" enterkeyhint="search" oninput="filterChatMatrixList()">
+                    <input type="text" class="chat-search-input" id="friendSearchField" placeholder="Search all users..." maxlength="64" inputmode="search" enterkeyhint="search" oninput="filterChatMatrixList()">
                 </div>
 
                 <div class="friends-action-nav-bar">
@@ -1913,6 +2013,12 @@
         return String(value || '').trim().slice(0, maxLength);
     }
 
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str || '';
+        return div.innerHTML;
+    }
+
     function getLengthWarning(label, maxLength) {
         return `${label} max ${maxLength} characters.`;
     }
@@ -1974,7 +2080,7 @@
             storeTitle: 'Store', storeSub: 'Badges, frames, and cosmetic items',
             donationTitle: 'Donation & Support', donationSub: 'Open support links and donation addresses',
             questTitle: 'Quest & Leaderboard',
-            searchPlaceholder: 'Search friends or groups...',
+            searchPlaceholder: 'Search all users...',
             chatAll: 'All', chatFriends: 'Friends', chatRequests: 'Requests',
             chatEmptyTitle: 'No chats yet', chatEmptyText: 'No chat data yet.',
             aboutCenter: 'Papiano Information Center',
@@ -3521,21 +3627,73 @@
     }
 
     function openNotificationCenter() {
+        const overlay = document.getElementById('notifDropdownOverlay');
+        if (!overlay) return;
+        overlay.classList.add('active');
+        renderNotificationPanel();
+    }
+
+    function closeNotificationPanel() {
+        const overlay = document.getElementById('notifDropdownOverlay');
+        if (overlay) overlay.classList.remove('active');
+    }
+
+    function clearAllNotifications() {
+        window.PapianoSocial.notifications.length = 0;
+        updateNotificationBadge();
+        renderNotificationPanel();
+    }
+
+    function renderNotificationPanel() {
+        const container = document.getElementById('notifPanelContent');
+        if (!container) return;
         const notifications = window.PapianoSocial?.notifications || [];
         if (!notifications.length) {
-            showPlannedPopup('No notifications yet.');
+            container.innerHTML = '<div class="notif-empty-state">No notifications yet</div>';
             return;
         }
-        const summary = [];
         const announcements = notifications.filter(n => n.type === 'announcement');
         const unread = notifications.filter(n => n.type === 'unread_message');
         const friendReqs = notifications.filter(n => n.type === 'friend_request');
-        if (announcements.length) summary.push(`${announcements.length} announcement${announcements.length > 1 ? 's' : ''}`);
-        if (unread.length) summary.push(`${unread.length} unread message${unread.length > 1 ? 's' : ''}`);
-        if (friendReqs.length) summary.push(`${friendReqs.length} friend request${friendReqs.length > 1 ? 's' : ''}`);
-        showPlannedPopup(summary.join(', ') || `${notifications.length} notifications`);
-        window.PapianoSocial.notifications.length = 0;
-        updateNotificationBadge();
+        let html = '';
+        if (announcements.length) {
+            html += '<div class="notif-section-label">Announcements</div>';
+            announcements.forEach(n => {
+                const time = n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+                html += `<div class="notif-item" onclick="closeNotificationPanel(); navigateActiveTab(1, appTabHeaderTitles[1]); openCommunityRoom('announcements');">
+                    <div class="notif-icon-circle notif-announce"><span class="material-symbols-rounded">campaign</span></div>
+                    <div class="notif-body"><div class="notif-body-title">Announcement</div><div class="notif-body-desc">${escapeHtml(n.payload?.body || 'New announcement')}</div></div>
+                    <span class="notif-time">${time}</span>
+                </div>`;
+            });
+        }
+        if (unread.length) {
+            html += '<div class="notif-section-label">Unread Messages</div>';
+            unread.forEach(n => {
+                const time = n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+                const senderProfile = supabaseProfileCache.get(n.payload?.senderId);
+                const senderName = senderProfile?.name || 'Someone';
+                html += `<div class="notif-item" onclick="closeNotificationPanel(); navigateActiveTab(1, appTabHeaderTitles[1]);">
+                    <div class="notif-icon-circle notif-message"><span class="material-symbols-rounded">chat_bubble</span></div>
+                    <div class="notif-body"><div class="notif-body-title">${escapeHtml(senderName)}</div><div class="notif-body-desc">${escapeHtml(n.payload?.body || 'New message')}</div></div>
+                    <span class="notif-time">${time}</span>
+                </div>`;
+            });
+        }
+        if (friendReqs.length) {
+            html += '<div class="notif-section-label">Friend Requests</div>';
+            friendReqs.forEach(n => {
+                const time = n.createdAt ? new Date(n.createdAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+                const fromProfile = supabaseProfileCache.get(n.payload?.fromUser);
+                const fromName = fromProfile?.name || 'Someone';
+                html += `<div class="notif-item" onclick="closeNotificationPanel(); navigateActiveTab(1, appTabHeaderTitles[1]); switchChatSubView('requests');">
+                    <div class="notif-icon-circle notif-friend"><span class="material-symbols-rounded">person_add</span></div>
+                    <div class="notif-body"><div class="notif-body-title">${escapeHtml(fromName)}</div><div class="notif-body-desc">Wants to be your friend</div></div>
+                    <span class="notif-time">${time}</span>
+                </div>`;
+            });
+        }
+        container.innerHTML = html;
     }
 
     function subscribeNotifications(supabase, uid) {
@@ -3683,7 +3841,7 @@
         const pendingRequest = !!(data?.uid && pendingFriendRequestKeys.has(data.uid));
         const blockedUser = !!(data?.uid && blockedUserKeys.has(data.uid));
         if (fpAddFriendBtn) {
-            fpAddFriendBtn.style.display = alreadyFriend || blockedUser ? 'none' : 'inline-flex';
+            fpAddFriendBtn.style.display = (alreadyFriend || blockedUser) ? 'none' : 'inline-flex';
             fpAddFriendBtn.disabled = isSelf || !data?.uid || pendingRequest;
             const textNode = fpAddFriendBtn.querySelector('span:last-child');
             if (textNode) textNode.textContent = isSelf ? 'Your Account' : (pendingRequest ? 'Requested' : 'Add Friend');
@@ -3691,6 +3849,11 @@
         if (fpOpenChatBtn) {
             fpOpenChatBtn.style.display = (!isSelf && alreadyFriend && data?.uid && !blockedUser) ? 'inline-flex' : 'none';
             fpOpenChatBtn.disabled = isSelf || !alreadyFriend || !data?.uid || blockedUser;
+        }
+        const fpUnfriendBtn = document.getElementById('fpUnfriendBtn');
+        if (fpUnfriendBtn) {
+            fpUnfriendBtn.style.display = (!isSelf && alreadyFriend && data?.uid && !blockedUser) ? 'inline-flex' : 'none';
+            fpUnfriendBtn.disabled = isSelf || !alreadyFriend || !data?.uid;
         }
         if (fpBlockUserBtn) {
             fpBlockUserBtn.style.display = (!isSelf && data?.uid) ? 'inline-flex' : 'none';
@@ -3753,6 +3916,30 @@
         await blockUserByUid(currentProfileTargetUid);
         const data = userFriendsDatabase[currentProfileTargetUid];
         if (data) updateProfileActionButtons(data);
+    }
+
+    async function unfriendFromProfile() {
+        if (!currentProfileTargetUid) return;
+        const activeUser = getActiveSupabaseUser();
+        if (!activeUser?.uid) { showPlannedPopup('Sign in to unfriend.'); return; }
+        try {
+            const supabase = await initPapianoSupabaseAuth();
+            // Delete friend rows in both directions
+            const { error: e1 } = await supabase.from('friends').delete().eq('user_id', activeUser.uid).eq('friend_id', currentProfileTargetUid);
+            const { error: e2 } = await supabase.from('friends').delete().eq('user_id', currentProfileTargetUid).eq('friend_id', activeUser.uid);
+            if (e1) throw e1;
+            if (e2) throw e2;
+            localFriendKeys.delete(currentProfileTargetUid);
+            // Remove friend row from UI
+            document.querySelector(`[data-friend-uid="${currentProfileTargetUid}"]`)?.remove();
+            const data = userFriendsDatabase[currentProfileTargetUid];
+            if (data) updateProfileActionButtons(data);
+            showPlannedPopup('User removed from friends.');
+            filterChatMatrixList();
+        } catch (error) {
+            console.error('Unfriend failed:', error);
+            showPlannedPopup('Could not unfriend user.');
+        }
     }
 
     async function blockUserByUid(targetUid) {
