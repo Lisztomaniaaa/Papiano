@@ -2974,4 +2974,115 @@
             const profile = normalizeProfile(activeFriendProfileKey, snap.data() || {});
             activeFriendProfileData = profile;
             if (friendProfiles.has(activeFriendProfileKey)) friendProfiles.set(activeFriendProfileKey, profile);
-            if (document.getElementById('fpLikeVal')) document.getElementById('fpLikeVal').textCon
+            if (document.getElementById('fpLikeVal')) document.getElementById('fpLikeVal').textContent = profile.likes || 0;
+            if (document.getElementById('fpDislikeVal')) document.getElementById('fpDislikeVal').textContent = profile.dislikes || 0;
+            showToast('Reaction saved.');
+        } catch (error) {
+            showToast(error?.message || 'Reaction failed.');
+        }
+    }
+
+    async function submitNewProfileComment() {
+        const input = document.getElementById('newCommentInputField');
+        const text = (input?.value || '').trim().slice(0, 240);
+        if (!currentUser?.uid || !activeFriendProfileKey) {
+            showToast('Sign in to comment.');
+            return;
+        }
+        if (!text) return;
+        try {
+            const profile = loadProfile();
+            await firestoreDb.collection('profiles').doc(activeFriendProfileKey).collection('comments').add({
+                authorId: currentUser.uid,
+                authorName: profile.name || 'Papiano User',
+                authorUserId: profile.userId || '',
+                text,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            if (input) input.value = '';
+            await loadProfileComments(activeFriendProfileKey, document.getElementById('commentsStreamBoxArea'));
+            showToast('Comment sent.');
+        } catch (error) {
+            showToast(error?.message || 'Comment failed.');
+        }
+    }
+
+    function copyDonationAddress(value, label, button) {
+        const text = String(value || '').trim();
+        if (!text) {
+            showToast('Nothing to copy.');
+            return;
+        }
+        navigator.clipboard?.writeText(text).then(() => {
+            const original = button?.textContent;
+            if (button) button.textContent = 'Copied';
+            showToast(`${label || 'Address'} copied.`);
+            if (button) setTimeout(() => { button.textContent = original || 'Copy'; }, 1200);
+        }).catch(() => showToast('Copy failed.'));
+    }
+
+    function toggleScreenWindow() {
+        const doc = document;
+        if (!doc.fullscreenElement) {
+            doc.documentElement.requestFullscreen?.();
+            if (fsIcon) fsIcon.textContent = 'fullscreen_exit';
+        } else {
+            doc.exitFullscreen?.();
+            if (fsIcon) fsIcon.textContent = 'fullscreen';
+        }
+    }
+
+    function startCarousel() {
+        const track = document.getElementById('carouselTrack');
+        const dots = [...document.querySelectorAll('#carouselDots .dot')];
+        if (!track || !dots.length) return;
+        clearInterval(carouselTimer);
+        const apply = () => {
+            track.style.transform = `translateX(-${carouselIndex * 100}%)`;
+            dots.forEach((dot, index) => dot.classList.toggle('active', index === carouselIndex));
+        };
+        apply();
+        carouselTimer = setInterval(() => {
+            carouselIndex = (carouselIndex + 1) % dots.length;
+            apply();
+        }, 3600);
+    }
+
+    document.addEventListener('fullscreenchange', () => {
+        if (fsIcon) fsIcon.textContent = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen';
+    });
+
+    btnAuthGoogle?.addEventListener('click', () => processAppAuth('google'));
+    btnAuthGuest?.addEventListener('click', () => processAppAuth('visitor'));
+    chatInputFieldMessage?.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            executeSendMessage();
+        }
+    });
+
+    firebaseAuth.onAuthStateChanged(async user => {
+        if (user) {
+            try {
+                await ensureUserProfile(user);
+            } catch (error) {
+                appContainer.classList.remove('auth-pending');
+                showToast(error?.message || 'Profile load failed.');
+            }
+        } else {
+            appContainer.classList.remove('auth-pending');
+            updateProfileView(loadProfile());
+            renderBadge(selectedBadgeId);
+            stopCommunityListeners();
+        }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+        appContainer.classList.remove('auth-pending');
+        updateProfileView(loadProfile());
+        renderBadge(selectedBadgeId);
+    });
+</script>
+
+</body>
+</html>
