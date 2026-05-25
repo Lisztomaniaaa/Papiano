@@ -2671,7 +2671,13 @@
 
         const userId = Number(existing?.user_number) >= 1 ? Number(existing.user_number) : await getOrCreateSequentialUserId(authUser, supabase);
         const nextSystemRole = SYSTEM_ROLE_CATALOG[existing?.role] ? existing.role : 'verified';
-        const nextOwnedBadges = normalizeOwnedBadgeKeys(null, ['verified', 'classical', 'pop', 'jazz']);
+        const defaultBadges = nextSystemRole === 'verified'
+            ? ['verified', 'classical', 'pop', 'jazz']
+            : [nextSystemRole, 'verified', 'classical', 'pop', 'jazz'];
+        const nextOwnedBadges = normalizeOwnedBadgeKeys(
+            Array.isArray(existing?.owned_badges) && existing.owned_badges.length ? existing.owned_badges : null,
+            defaultBadges
+        );
         if (BADGE_CATALOG[nextSystemRole] && !nextOwnedBadges.includes(nextSystemRole)) nextOwnedBadges.unshift(nextSystemRole);
         const nextActiveBadge = nextOwnedBadges.includes(existing?.active_badge) ? existing.active_badge : (nextOwnedBadges.includes(nextSystemRole) ? nextSystemRole : nextOwnedBadges[0]);
         const safeName = existing?.display_name || authUser.displayName || authUser.email || 'Verified User';
@@ -2703,6 +2709,7 @@
             photo_url: mergedData.photoURL,
             role: mergedData.systemRole,
             active_badge: mergedData.activeBadge,
+            owned_badges: mergedData.ownedBadges,
             play_time: mergedData.totalPlayMinutes,
             updated_at: new Date().toISOString()
         }, { onConflict: 'id' });
