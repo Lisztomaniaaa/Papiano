@@ -3335,7 +3335,7 @@
             actions.className = 'msg-action-strip';
             actions.innerHTML = `
                 <button class="msg-action-btn" type="button">Edit</button>
-                <button class="msg-action-btn danger" type="button">Delete for me</button>
+                <button class="msg-action-btn danger" type="button">Delete</button>
             `;
             const editBtn = actions.querySelector('.msg-action-btn:not(.danger)');
             const deleteBtn = actions.querySelector('.msg-action-btn.danger');
@@ -3345,7 +3345,7 @@
             };
             deleteBtn.onclick = function(event) {
                 event.stopPropagation();
-                deleteMessageForMe(nodeRow.dataset.messageId || '', nodeRow);
+                deleteMessageForAll(nodeRow.dataset.messageId || '', nodeRow);
             };
             nodeRow.appendChild(actions);
         } else {
@@ -3399,7 +3399,7 @@
         }
     }
 
-    async function deleteMessageForMe(messageId, rowNode) {
+    async function deleteMessageForAll(messageId, rowNode) {
         if (!messageId || !rowNode) {
             rowNode?.classList.add('message-soft-hidden');
             return;
@@ -3408,16 +3408,12 @@
         if (!activeUser?.uid) return;
         try {
             const supabase = await initPapianoSupabaseAuth();
-            const { data, error: readError } = await supabase.from('messages').select('deleted_for').eq('id', messageId).maybeSingle();
-            if (readError) throw readError;
-            const currentList = Array.isArray(data?.deleted_for) ? data.deleted_for : [];
-            const nextList = [...new Set([...currentList, activeUser.uid])];
-            const { error } = await supabase.from('messages').update({ deleted_for: nextList }).eq('id', messageId);
+            const { error } = await supabase.from('messages').delete().eq('id', messageId).eq('sender_id', activeUser.uid);
             if (error) throw error;
             rowNode.classList.add('message-soft-hidden');
-            showPlannedPopup('Message deleted for you.');
+            showPlannedPopup('Message deleted.');
         } catch (error) {
-            console.error('Delete for me failed:', error);
+            console.error('Delete message failed:', error);
             showPlannedPopup('Could not delete message.');
         }
     }
