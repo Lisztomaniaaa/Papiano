@@ -1721,6 +1721,8 @@
 
     const appTabHeaderTitles = ['Papiano', 'Community', 'About', 'Account'];
     const tabPages = ['pageHome', 'pageChat', 'pageAbout', 'pageAccount'];
+    let currentActiveTabIndex = 0;
+    let nativeBackGuardReady = false;
     const storageKey = 'papiano_profile_cache_v2';
     const firebaseConfig = {
         apiKey: "AIzaSyCAe0RRzCQ-a2cyaktVXIJsTVRNEvUSkmk",
@@ -2137,6 +2139,8 @@
     }
 
     function navigateActiveTab(index, title) {
+        currentActiveTabIndex = index;
+        ensureNativeBackGuard();
         tabPages.forEach((id, pageIndex) => {
             document.getElementById(id)?.classList.toggle('active', pageIndex === index);
         });
@@ -2145,6 +2149,55 @@
         });
         if (navBarStateTitle) navBarStateTitle.textContent = title || appTabHeaderTitles[index] || 'Papiano';
         closeChatOverlayRoom();
+    }
+
+    function ensureNativeBackGuard() {
+        if (nativeBackGuardReady || !window.history?.pushState) return;
+        nativeBackGuardReady = true;
+        try {
+            window.history.replaceState({ papianoBase: true }, document.title, window.location.href);
+            window.history.pushState({ papianoGuard: true }, document.title, window.location.href);
+        } catch (error) {
+            return;
+        }
+        window.addEventListener('popstate', () => {
+            const handled = handleNativeBackAction();
+            if (handled) {
+                window.history.pushState({ papianoGuard: true }, document.title, window.location.href);
+            } else {
+                nativeBackGuardReady = false;
+            }
+        });
+    }
+
+    function handleNativeBackAction() {
+        if (chatToolsModal?.classList.contains('active')) {
+            closeChatToolsMenu();
+            return true;
+        }
+        if (badgePickerModal && badgePickerModal.style.display === 'flex') {
+            closeBadgePickerModal();
+            return true;
+        }
+        const friendProfileModal = document.getElementById('friendProfileModal');
+        if (friendProfileModal?.classList.contains('active')) {
+            closeFriendProfileModal();
+            return true;
+        }
+        const openReference = Array.from(document.querySelectorAll('.sub-page-reference')).find(node => node.style.display === 'flex');
+        if (openReference) {
+            openReference.style.display = 'none';
+            return true;
+        }
+        if (chatOverlayRoom && chatOverlayRoom.style.display === 'flex') {
+            closeChatOverlayRoom();
+            return true;
+        }
+        if (mainAppScreen?.classList.contains('active') && currentActiveTabIndex !== 0) {
+            navigateActiveTab(0, appTabHeaderTitles[0]);
+            return true;
+        }
+        return false;
     }
 
     function launchSubPageReferenceNode(id) {
@@ -3519,6 +3572,7 @@
         appContainer.classList.remove('auth-pending');
         updateProfileView(loadProfile());
         renderBadge(selectedBadgeId);
+        ensureNativeBackGuard();
     });
 </script>
 
