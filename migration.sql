@@ -12,12 +12,12 @@
 CREATE TABLE IF NOT EXISTS public.profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     user_number BIGINT UNIQUE,
-    display_name TEXT DEFAULT '',
-    display_name_lower TEXT DEFAULT '',
-    bio TEXT DEFAULT '',
-    photo_url TEXT DEFAULT '',
-    role TEXT DEFAULT 'npc',
-    active_badge TEXT DEFAULT 'npc',
+    display_name TEXT,
+    display_name_lower TEXT,
+    bio TEXT,
+    photo_url TEXT,
+    role TEXT DEFAULT 'user',
+    active_badge TEXT DEFAULT 'verified',
     owned_badges TEXT[] DEFAULT ARRAY['npc']::TEXT[],
     play_time INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -30,22 +30,22 @@ DO $$ BEGIN
         ALTER TABLE public.profiles ADD COLUMN user_number BIGINT UNIQUE;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='display_name') THEN
-        ALTER TABLE public.profiles ADD COLUMN display_name TEXT DEFAULT '';
+        ALTER TABLE public.profiles ADD COLUMN display_name TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='display_name_lower') THEN
-        ALTER TABLE public.profiles ADD COLUMN display_name_lower TEXT DEFAULT '';
+        ALTER TABLE public.profiles ADD COLUMN display_name_lower TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='bio') THEN
-        ALTER TABLE public.profiles ADD COLUMN bio TEXT DEFAULT '';
+        ALTER TABLE public.profiles ADD COLUMN bio TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='photo_url') THEN
-        ALTER TABLE public.profiles ADD COLUMN photo_url TEXT DEFAULT '';
+        ALTER TABLE public.profiles ADD COLUMN photo_url TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='role') THEN
-        ALTER TABLE public.profiles ADD COLUMN role TEXT DEFAULT 'npc';
+        ALTER TABLE public.profiles ADD COLUMN role TEXT DEFAULT 'user';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='active_badge') THEN
-        ALTER TABLE public.profiles ADD COLUMN active_badge TEXT DEFAULT 'npc';
+        ALTER TABLE public.profiles ADD COLUMN active_badge TEXT DEFAULT 'verified';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='owned_badges') THEN
         ALTER TABLE public.profiles ADD COLUMN owned_badges TEXT[] DEFAULT ARRAY['npc']::TEXT[];
@@ -70,26 +70,26 @@ CREATE INDEX IF NOT EXISTS idx_profiles_display_name_lower ON public.profiles(di
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.rooms (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    type TEXT DEFAULT 'group',
-    title TEXT DEFAULT '',
-    created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-    last_message TEXT DEFAULT '',
+    type TEXT DEFAULT 'direct',
+    title TEXT,
+    created_by UUID,
+    last_message TEXT,
     last_message_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='rooms' AND column_name='type') THEN
-        ALTER TABLE public.rooms ADD COLUMN type TEXT DEFAULT 'group';
+        ALTER TABLE public.rooms ADD COLUMN type TEXT DEFAULT 'direct';
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='rooms' AND column_name='title') THEN
-        ALTER TABLE public.rooms ADD COLUMN title TEXT DEFAULT '';
+        ALTER TABLE public.rooms ADD COLUMN title TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='rooms' AND column_name='created_by') THEN
-        ALTER TABLE public.rooms ADD COLUMN created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL;
+        ALTER TABLE public.rooms ADD COLUMN created_by UUID;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='rooms' AND column_name='last_message') THEN
-        ALTER TABLE public.rooms ADD COLUMN last_message TEXT DEFAULT '';
+        ALTER TABLE public.rooms ADD COLUMN last_message TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='rooms' AND column_name='last_message_at') THEN
         ALTER TABLE public.rooms ADD COLUMN last_message_at TIMESTAMPTZ;
@@ -107,13 +107,16 @@ CREATE INDEX IF NOT EXISTS idx_rooms_type ON public.rooms(type);
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.room_members (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    room_id UUID NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    joined_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(room_id, user_id)
+    room_id UUID,
+    user_id UUID,
+    role TEXT DEFAULT 'member',
+    joined_at TIMESTAMPTZ DEFAULT now()
 );
 
 DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='room_members' AND column_name='role') THEN
+        ALTER TABLE public.room_members ADD COLUMN role TEXT DEFAULT 'member';
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='room_members' AND column_name='joined_at') THEN
         ALTER TABLE public.room_members ADD COLUMN joined_at TIMESTAMPTZ DEFAULT now();
     END IF;
@@ -127,23 +130,39 @@ CREATE INDEX IF NOT EXISTS idx_room_members_user_id ON public.room_members(user_
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    room_id UUID NOT NULL REFERENCES public.rooms(id) ON DELETE CASCADE,
-    sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    body TEXT DEFAULT '',
-    media_url TEXT DEFAULT '',
-    reply_to TEXT DEFAULT '',
-    created_at TIMESTAMPTZ DEFAULT now()
+    room_id UUID,
+    sender_id UUID,
+    body TEXT,
+    media_url TEXT,
+    reply_to UUID,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    status TEXT DEFAULT 'sent',
+    edited BOOLEAN DEFAULT false,
+    edited_at TIMESTAMPTZ,
+    deleted_for UUID[] DEFAULT '{}'::UUID[]
 );
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='body') THEN
-        ALTER TABLE public.messages ADD COLUMN body TEXT DEFAULT '';
+        ALTER TABLE public.messages ADD COLUMN body TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='media_url') THEN
-        ALTER TABLE public.messages ADD COLUMN media_url TEXT DEFAULT '';
+        ALTER TABLE public.messages ADD COLUMN media_url TEXT;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='reply_to') THEN
-        ALTER TABLE public.messages ADD COLUMN reply_to TEXT DEFAULT '';
+        ALTER TABLE public.messages ADD COLUMN reply_to UUID;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='status') THEN
+        ALTER TABLE public.messages ADD COLUMN status TEXT DEFAULT 'sent';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='edited') THEN
+        ALTER TABLE public.messages ADD COLUMN edited BOOLEAN DEFAULT false;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='edited_at') THEN
+        ALTER TABLE public.messages ADD COLUMN edited_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='deleted_for') THEN
+        ALTER TABLE public.messages ADD COLUMN deleted_for UUID[] DEFAULT '{}'::UUID[];
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='created_at') THEN
         ALTER TABLE public.messages ADD COLUMN created_at TIMESTAMPTZ DEFAULT now();
@@ -159,10 +178,9 @@ CREATE INDEX IF NOT EXISTS idx_messages_room_created ON public.messages(room_id,
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.friends (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    friend_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(user_id, friend_id)
+    user_id UUID,
+    friend_id UUID,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_friends_user_id ON public.friends(user_id);
@@ -173,15 +191,23 @@ CREATE INDEX IF NOT EXISTS idx_friends_friend_id ON public.friends(friend_id);
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.friend_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    from_user UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    to_user UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    from_user UUID,
+    to_user UUID,
     status TEXT DEFAULT 'pending',
-    created_at TIMESTAMPTZ DEFAULT now()
+    created_at TIMESTAMPTZ DEFAULT now(),
+    sender_id UUID REFERENCES public.profiles(id),
+    receiver_id UUID REFERENCES public.profiles(id)
 );
 
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='friend_requests' AND column_name='status') THEN
         ALTER TABLE public.friend_requests ADD COLUMN status TEXT DEFAULT 'pending';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='friend_requests' AND column_name='sender_id') THEN
+        ALTER TABLE public.friend_requests ADD COLUMN sender_id UUID REFERENCES public.profiles(id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='friend_requests' AND column_name='receiver_id') THEN
+        ALTER TABLE public.friend_requests ADD COLUMN receiver_id UUID REFERENCES public.profiles(id);
     END IF;
 END $$;
 
@@ -194,14 +220,12 @@ CREATE INDEX IF NOT EXISTS idx_friend_requests_status ON public.friend_requests(
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.blocked_users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    blocked_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    reason TEXT DEFAULT '',
-    created_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(user_id, blocked_id)
+    blocker_id UUID REFERENCES public.profiles(id),
+    blocked_id UUID REFERENCES public.profiles(id),
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_blocked_users_user_id ON public.blocked_users(user_id);
+CREATE INDEX IF NOT EXISTS idx_blocked_users_blocker_id ON public.blocked_users(blocker_id);
 CREATE INDEX IF NOT EXISTS idx_blocked_users_blocked_id ON public.blocked_users(blocked_id);
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -209,17 +233,11 @@ CREATE INDEX IF NOT EXISTS idx_blocked_users_blocked_id ON public.blocked_users(
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.profile_comments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    author_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    body TEXT DEFAULT '',
+    profile_id UUID,
+    author_id UUID,
+    body TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
-
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profile_comments' AND column_name='body') THEN
-        ALTER TABLE public.profile_comments ADD COLUMN body TEXT DEFAULT '';
-    END IF;
-END $$;
 
 CREATE INDEX IF NOT EXISTS idx_profile_comments_profile_id ON public.profile_comments(profile_id);
 CREATE INDEX IF NOT EXISTS idx_profile_comments_author_id ON public.profile_comments(author_id);
@@ -229,18 +247,11 @@ CREATE INDEX IF NOT EXISTS idx_profile_comments_author_id ON public.profile_comm
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.profile_reactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    profile_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    reaction TEXT DEFAULT 'like',
-    created_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE(profile_id, user_id)
+    profile_id UUID,
+    user_id UUID,
+    reaction TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
 );
-
-DO $$ BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profile_reactions' AND column_name='reaction') THEN
-        ALTER TABLE public.profile_reactions ADD COLUMN reaction TEXT DEFAULT 'like';
-    END IF;
-END $$;
 
 CREATE INDEX IF NOT EXISTS idx_profile_reactions_profile_id ON public.profile_reactions(profile_id);
 CREATE INDEX IF NOT EXISTS idx_profile_reactions_user_id ON public.profile_reactions(user_id);
@@ -359,13 +370,13 @@ END $$;
 -- ─── BLOCKED_USERS POLICIES ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='blocked_users' AND policyname='blocked_users_select_own') THEN
-        CREATE POLICY blocked_users_select_own ON public.blocked_users FOR SELECT USING (auth.uid() = user_id);
+        CREATE POLICY blocked_users_select_own ON public.blocked_users FOR SELECT USING (auth.uid() = blocker_id);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='blocked_users' AND policyname='blocked_users_insert_own') THEN
-        CREATE POLICY blocked_users_insert_own ON public.blocked_users FOR INSERT WITH CHECK (auth.uid() = user_id);
+        CREATE POLICY blocked_users_insert_own ON public.blocked_users FOR INSERT WITH CHECK (auth.uid() = blocker_id);
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='blocked_users' AND policyname='blocked_users_delete_own') THEN
-        CREATE POLICY blocked_users_delete_own ON public.blocked_users FOR DELETE USING (auth.uid() = user_id);
+        CREATE POLICY blocked_users_delete_own ON public.blocked_users FOR DELETE USING (auth.uid() = blocker_id);
     END IF;
 END $$;
 
@@ -412,8 +423,6 @@ END $$;
 -- REALTIME — Enable publication for tables that need live updates
 -- =============================================================================
 DO $$ BEGIN
-    -- Remove and re-add to ensure the publication includes all needed tables
-    -- This is idempotent: dropping a table from publication that isn't there is a no-op handled by exception
     BEGIN
         ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
     EXCEPTION WHEN duplicate_object THEN NULL;
