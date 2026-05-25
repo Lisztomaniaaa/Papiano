@@ -139,7 +139,8 @@ CREATE TABLE IF NOT EXISTS public.messages (
     status TEXT DEFAULT 'sent',
     edited BOOLEAN DEFAULT false,
     edited_at TIMESTAMPTZ,
-    deleted_for UUID[] DEFAULT '{}'::UUID[]
+    deleted_for UUID[] DEFAULT '{}'::UUID[],
+    mentions JSONB DEFAULT '[]'::JSONB
 );
 
 DO $$ BEGIN
@@ -163,6 +164,9 @@ DO $$ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='deleted_for') THEN
         ALTER TABLE public.messages ADD COLUMN deleted_for UUID[] DEFAULT '{}'::UUID[];
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='mentions') THEN
+        ALTER TABLE public.messages ADD COLUMN mentions JSONB DEFAULT '[]'::JSONB;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='messages' AND column_name='created_at') THEN
         ALTER TABLE public.messages ADD COLUMN created_at TIMESTAMPTZ DEFAULT now();
