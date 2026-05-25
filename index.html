@@ -1378,7 +1378,7 @@
             <div class="chat-room-header">
                 <button class="top-action-btn" onclick="closeChatOverlayRoom()"><span class="material-symbols-rounded">arrow_back</span></button>
                 <div class="chat-room-title" id="chatRoomActiveTitle">Chat</div>
-                <div class="chat-room-tools"></div>
+                <div class="chat-room-tools"><button class="top-action-btn" id="chatRoomMenuBtn" style="display:none;" type="button" onclick="openChatToolsMenu()"><span class="material-symbols-rounded">menu</span></button></div>
             </div>
             <div class="chat-messages-scroll" id="chatMessagesScrollArea"></div>
             
@@ -1397,6 +1397,24 @@
                 <button class="btn-send-message" type="button" onclick="triggerChatImagePicker()" aria-label="Upload image"><span class="material-symbols-rounded">image</span></button>
                 <input type="text" class="chat-input-field" id="chatInputFieldMessage" placeholder="Type a reply..." maxlength="500" inputmode="text" enterkeyhint="send">
                 <button class="btn-send-message" onclick="executeSendMessage()"><span class="material-symbols-rounded">send</span></button>
+            </div>
+        </div>
+
+        <div class="modal-profile-overlay" id="chatToolsModal">
+            <div class="friend-profile-sheet">
+                <div class="friend-hero">
+                    <div class="friend-avatar-big"><span class="material-symbols-rounded">menu</span></div>
+                    <div class="friend-name-big">Chat Tools</div>
+                </div>
+                <div class="profile-action-grid">
+                    <button class="friend-action-button" type="button" onclick="clearActiveChatHistory()"><span class="material-symbols-rounded">folder_delete</span><span>Clear for me</span></button>
+                    <button class="friend-action-button" type="button" onclick="clearActiveChatForAll()"><span class="material-symbols-rounded">delete_forever</span><span>Clear for all</span></button>
+                </div>
+                <div class="comments-header-title">Blocked Users</div>
+                <div class="comments-stream-box" id="blockedUsersListBox">
+                    <div class="comment-node-bubble"><div class="comment-node-author">Block List</div>No blocked users.</div>
+                </div>
+                <button class="btn-submit-config" style="background:#CBD5E1;" type="button" onclick="closeChatToolsMenu()">Close</button>
             </div>
         </div>
 
@@ -1693,6 +1711,9 @@
     const chatRoomActiveTitle = document.getElementById('chatRoomActiveTitle');
     const chatMessagesScrollArea = document.getElementById('chatMessagesScrollArea');
     const chatInputFieldMessage = document.getElementById('chatInputFieldMessage');
+    const chatRoomMenuBtn = document.getElementById('chatRoomMenuBtn');
+    const chatToolsModal = document.getElementById('chatToolsModal');
+    const blockedUsersListBox = document.getElementById('blockedUsersListBox');
     const activeReplyContextBar = document.getElementById('activeReplyContextBar');
     const replyContextTextPreview = document.getElementById('replyContextTextPreview');
     const chatNavUnreadBadge = document.getElementById('chatNavUnreadBadge');
@@ -1859,15 +1880,21 @@
     }
 
     function profileMatchesSearch(profile, query) {
-        const q = String(query || '').trim().toLowerCase().replace(/^#/, '');
+        const raw = String(query || '').trim().toLowerCase();
+        const q = raw.replace(/^#/, '');
         if (!q) return false;
+        const publicId = String(profile.publicId || '').toLowerCase();
+        const userId = String(profile.userId || '').toLowerCase().replace(/^#/, '');
+        const uid = String(profile.uid || '').toLowerCase();
+        if (/^\d+$/.test(q) && (q === publicId || q === userId)) return true;
         const haystack = [
             profile.name,
             profile.desc,
             profile.userId,
             profile.publicId,
-            profile.searchName
-        ].join(' ').toLowerCase().replace('#', '');
+            profile.searchName,
+            uid
+        ].join(' ').toLowerCase().replace(/#/g, '');
         return haystack.includes(q);
     }
 
@@ -2304,6 +2331,7 @@
                 blockedUserIds = new Set(snapshot.docs.map(doc => doc.data()?.blockedId).filter(Boolean));
                 blockedUserIds.forEach(uid => directChatProfiles.delete(uid));
                 renderFriendRows();
+                if (chatToolsModal?.classList.contains('active')) renderBlockedUsersMenuList();
             }, error => showToast(error?.message || 'Block list failed.'));
 
         unsubscribeDirectChats = firestoreDb.collection('chatRooms')
@@ -2320,6 +2348,9 @@
                 rooms.forEach(room => {
                     const targetUid = room.participants.find(uid => uid !== currentUser.uid);
                     if (!targetUid || blockedUserIds.has(targetUid)) return;
+                    const folderHidden = Array.isArray(room.hiddenFolderFor) && room.hiddenFolderFor.includes(currentUser.uid);
+                    const blockedFolder = Array.isArray(room.blockedFor) && room.blockedFor.includes(currentUser.uid);
+                    if (folderHidden || blockedFolder) return;
                     const profile = hydrated.get(targetUid) || normalizeProfile(targetUid, {});
                     const previewCleared = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid);
                     directChatProfiles.set(targetUid, {
@@ -2402,8 +2433,10 @@
             if (/^#?\d+$/.test(clean)) {
                 const publicId = Number(clean.replace('#', ''));
                 if (Number.isInteger(publicId) && publicId > 0) {
-                    const idSnap = await firestoreDb.collection('profiles').where('publicId', '==', publicId).limit(12).get();
-                    idSnap.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
+                    const idSnap = await firestoreDb.collection('profiles').where('publicId', '==', publicId).limit(12).get().catch(() => null);
+                    idSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
+                    const userIdSnap = await firestoreDb.collection('profiles').where('userId', '==', formatPublicUserId(publicId)).limit(12).get().catch(() => null);
+                    userIdSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
                 }
             }
             if (clean.length >= 2) {
@@ -2424,9 +2457,10 @@
                     .get()
                     .catch(() => null);
                 nameSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
-
+            }
+            if (!found.size || /^#?\d+$/.test(clean)) {
                 const fallbackSnap = await firestoreDb.collection('profiles')
-                    .limit(80)
+                    .limit(120)
                     .get()
                     .catch(() => null);
                 fallbackSnap?.forEach(doc => {
@@ -2500,6 +2534,7 @@
         activeChatRoomType = 'group';
         activeChatTargetUid = '';
         if (chatRoomActiveTitle) chatRoomActiveTitle.textContent = roomTitles[normalizedRoomId] || 'Chat';
+        if (chatRoomMenuBtn) chatRoomMenuBtn.style.display = normalizedRoomId === 'global' ? 'flex' : 'none';
         if (chatInputBar) chatInputBar.classList.toggle('read-only', !currentUser?.uid);
         if (chatOverlayRoom) chatOverlayRoom.style.display = 'flex';
         listenToActiveRoomMessages();
@@ -2537,6 +2572,7 @@
         activeChatRoomType = 'dm';
         activeChatTargetUid = targetUid;
         if (chatRoomActiveTitle) chatRoomActiveTitle.textContent = profile.name || 'Private Chat';
+        if (chatRoomMenuBtn) chatRoomMenuBtn.style.display = 'none';
         if (chatInputBar) chatInputBar.classList.remove('read-only');
         if (chatOverlayRoom) chatOverlayRoom.style.display = 'flex';
         if (chatMessagesScrollArea) chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Opening chat...</div>`;
@@ -2557,6 +2593,8 @@
             await firestoreDb.collection('chatRooms').doc(roomId).set({
                 type: 'dm',
                 participants: [currentUser.uid, targetUid],
+                hiddenFolderFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
+                clearedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
                 [`unreadCount.${currentUser.uid}`]: 0,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
@@ -2710,11 +2748,41 @@
         if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
         unsubscribeMessages = null;
         if (chatOverlayRoom) chatOverlayRoom.style.display = 'none';
+        if (chatRoomMenuBtn) chatRoomMenuBtn.style.display = 'none';
+        closeChatToolsMenu();
         activeChatRoomId = '';
         activeChatRoomType = '';
         activeChatTargetUid = '';
         cancelActiveReplyState();
         clearPendingChatImage();
+    }
+
+    async function openChatToolsMenu() {
+        if (!chatToolsModal) return;
+        await renderBlockedUsersMenuList();
+        chatToolsModal.classList.add('active');
+    }
+
+    function closeChatToolsMenu() {
+        chatToolsModal?.classList.remove('active');
+    }
+
+    async function renderBlockedUsersMenuList() {
+        if (!blockedUsersListBox) return;
+        if (!currentUser?.uid || !blockedUserIds.size) {
+            blockedUsersListBox.innerHTML = `<div class="comment-node-bubble"><div class="comment-node-author">Block List</div>No blocked users.</div>`;
+            return;
+        }
+        blockedUsersListBox.innerHTML = `<div class="comment-node-bubble"><div class="comment-node-author">Block List</div>Loading blocked users...</div>`;
+        try {
+            const profiles = await hydrateProfilesByIds([...blockedUserIds]);
+            blockedUsersListBox.innerHTML = [...blockedUserIds].map(uid => {
+                const profile = profiles.get(uid) || normalizeProfile(uid, {});
+                return `<div class="comment-node-bubble"><div class="comment-node-author">${escapeHtml(profile.name || 'Papiano User')} ${escapeHtml(profile.userId || '')}</div><button class="chat-mini-action accept" type="button" onclick="unblockUser('${escapeHtml(uid)}'); renderBlockedUsersMenuList();">Unblock</button></div>`;
+            }).join('') || `<div class="comment-node-bubble"><div class="comment-node-author">Block List</div>No blocked users.</div>`;
+        } catch (error) {
+            blockedUsersListBox.innerHTML = `<div class="comment-node-bubble"><div class="comment-node-author">Block List</div>${escapeHtml(error?.message || 'Blocked list failed.')}</div>`;
+        }
     }
 
     async function clearActiveChatHistory() {
@@ -2723,13 +2791,68 @@
             return;
         }
         try {
-            const snap = await firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').limit(100).get();
+            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
+            const snap = await roomRef.collection('messages').limit(100).get();
             const batch = firestoreDb.batch();
             snap.docs.forEach(doc => batch.set(doc.ref, { hiddenFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid) }, { merge: true }));
+            const roomPatch = {
+                clearedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if (activeChatRoomType === 'dm') roomPatch.hiddenFolderFor = firebase.firestore.FieldValue.arrayUnion(currentUser.uid);
+            batch.set(roomRef, roomPatch, { merge: true });
             await batch.commit();
-            showToast('Chat hidden for you.');
+            if (activeChatRoomType === 'dm' && activeChatTargetUid) directChatProfiles.delete(activeChatTargetUid);
+            renderFriendRows();
+            closeChatToolsMenu();
+            closeChatOverlayRoom();
+            showToast(activeChatRoomType === 'dm' ? 'Chat folder deleted for you.' : 'Chat hidden for you.');
         } catch (error) {
             showToast(error?.message || 'Delete history failed.');
+        }
+    }
+
+    async function clearActiveChatForAll() {
+        if (!currentUser?.uid || !activeChatRoomId) {
+            showToast('No active chat.');
+            return;
+        }
+        if (!confirm('Clear this chat for everyone?')) return;
+        try {
+            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
+            const roomSnap = await roomRef.get().catch(() => null);
+            const roomData = roomSnap?.exists ? (roomSnap.data() || {}) : {};
+            const participants = Array.isArray(roomData.participants) && roomData.participants.length
+                ? roomData.participants
+                : [currentUser.uid, activeChatTargetUid].filter(Boolean);
+            const snap = await roomRef.collection('messages')
+                .orderBy('createdAt', 'desc')
+                .limit(160)
+                .get();
+            const batch = firestoreDb.batch();
+            snap.docs.forEach(doc => batch.set(doc.ref, {
+                deletedForAll: true,
+                text: '',
+                imageURL: '',
+                imagePath: '',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }));
+            const roomPatch = {
+                clearedBy: firebase.firestore.FieldValue.arrayUnion(...participants),
+                lastMessage: 'Chat cleared',
+                lastSenderId: currentUser.uid,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if (activeChatRoomType === 'dm') roomPatch.hiddenFolderFor = firebase.firestore.FieldValue.arrayUnion(...participants);
+            batch.set(roomRef, roomPatch, { merge: true });
+            await batch.commit();
+            if (activeChatRoomType === 'dm' && activeChatTargetUid) directChatProfiles.delete(activeChatTargetUid);
+            renderFriendRows();
+            closeChatToolsMenu();
+            closeChatOverlayRoom();
+            showToast(activeChatRoomType === 'dm' ? 'Chat folder deleted for everyone.' : 'Chat cleared for all.');
+        } catch (error) {
+            showToast(error?.message || 'Clear for all failed.');
         }
     }
 
@@ -3045,11 +3168,28 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             const dmId = getDirectRoomId(currentUser.uid, targetUid);
+            const participants = [currentUser.uid, targetUid];
             batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
-                clearedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                blockedFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
+                type: 'dm',
+                participants,
+                clearedBy: firebase.firestore.FieldValue.arrayUnion(...participants),
+                blockedFor: firebase.firestore.FieldValue.arrayUnion(...participants),
+                hiddenFolderFor: firebase.firestore.FieldValue.arrayUnion(...participants),
+                lastMessage: 'Chat cleared',
+                lastSenderId: currentUser.uid,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
+            const messagesSnap = await firestoreDb.collection('chatRooms').doc(dmId).collection('messages')
+                .orderBy('createdAt', 'desc')
+                .limit(160)
+                .get();
+            messagesSnap.docs.forEach(doc => batch.set(doc.ref, {
+                deletedForAll: true,
+                text: '',
+                imageURL: '',
+                imagePath: '',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }));
             await batch.commit();
             blockedUserIds.add(targetUid);
             directChatProfiles.delete(targetUid);
@@ -3075,7 +3215,7 @@
             const batch = firestoreDb.batch();
             batch.delete(firestoreDb.collection('blocks').doc(blockId));
             batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
-                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
+                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             await batch.commit();
@@ -3093,18 +3233,40 @@
             showToast('Sign in to react.');
             return;
         }
-        const field = type === 'dislike' ? 'dislikes' : 'likes';
+        if (activeFriendProfileKey === currentUser.uid) {
+            showToast('You cannot react to yourself.');
+            return;
+        }
+        const nextField = type === 'dislike' ? 'dislikes' : 'likes';
         try {
-            await firestoreDb.collection('profiles').doc(activeFriendProfileKey).set({
-                [field]: firebase.firestore.FieldValue.increment(1),
+            const profileRef = firestoreDb.collection('profiles').doc(activeFriendProfileKey);
+            const reactionRef = profileRef.collection('reactions').doc(currentUser.uid);
+            const reactionSnap = await reactionRef.get();
+            const oldType = reactionSnap.exists ? reactionSnap.data()?.type : '';
+            if (oldType === type) {
+                showToast('Reaction already saved.');
+                return;
+            }
+            const batch = firestoreDb.batch();
+            const updateData = {
+                [nextField]: firebase.firestore.FieldValue.increment(1),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if (oldType === 'like') updateData.likes = firebase.firestore.FieldValue.increment(-1);
+            if (oldType === 'dislike') updateData.dislikes = firebase.firestore.FieldValue.increment(-1);
+            batch.set(profileRef, updateData, { merge: true });
+            batch.set(reactionRef, {
+                type,
+                voterId: currentUser.uid,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            const snap = await firestoreDb.collection('profiles').doc(activeFriendProfileKey).get();
+            await batch.commit();
+            const snap = await profileRef.get();
             const profile = normalizeProfile(activeFriendProfileKey, snap.data() || {});
             activeFriendProfileData = profile;
             if (friendProfiles.has(activeFriendProfileKey)) friendProfiles.set(activeFriendProfileKey, profile);
-            if (document.getElementById('fpLikeVal')) document.getElementById('fpLikeVal').textContent = profile.likes || 0;
-            if (document.getElementById('fpDislikeVal')) document.getElementById('fpDislikeVal').textContent = profile.dislikes || 0;
+            if (document.getElementById('fpLikeVal')) document.getElementById('fpLikeVal').textContent = Math.max(0, profile.likes || 0);
+            if (document.getElementById('fpDislikeVal')) document.getElementById('fpDislikeVal').textContent = Math.max(0, profile.dislikes || 0);
             showToast('Reaction saved.');
         } catch (error) {
             showToast(error?.message || 'Reaction failed.');
@@ -3118,10 +3280,20 @@
             showToast('Sign in to comment.');
             return;
         }
+        if (activeFriendProfileKey === currentUser.uid) {
+            showToast('You cannot comment on yourself.');
+            return;
+        }
         if (!text) return;
         try {
+            const commentsRef = firestoreDb.collection('profiles').doc(activeFriendProfileKey).collection('comments');
+            const ownSnap = await commentsRef.where('authorId', '==', currentUser.uid).limit(5).get();
+            if (ownSnap.size >= 5) {
+                showToast('Comment limit reached. Max 5 comments per profile.');
+                return;
+            }
             const profile = loadProfile();
-            await firestoreDb.collection('profiles').doc(activeFriendProfileKey).collection('comments').add({
+            await commentsRef.add({
                 authorId: currentUser.uid,
                 authorName: profile.name || 'Papiano User',
                 authorUserId: profile.userId || '',
