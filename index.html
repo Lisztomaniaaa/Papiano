@@ -221,6 +221,9 @@
         letter-spacing: 0.2px;
     }
     .friend-nav-btn.active { background: var(--bg-app); color: var(--dark-block); }
+    .friend-nav-btn { position: relative; }
+    .mini-count-badge { position: absolute; top: -8px; right: -7px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; border: 2px solid var(--dark-block); background: #FB7185; color: var(--dark-block); display: none; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; line-height: 1; box-shadow: 2px 2px 0px var(--dark-block); }
+    .row-count-badge { background: #FB7185; color: var(--dark-block); font-size: 10px; min-width: 22px; height: 22px; border: 2px solid var(--dark-block); border-radius: 999px; display: none; align-items: center; justify-content: center; font-weight: 900; padding: 0 6px; box-shadow: 2px 2px 0px var(--dark-block); }
 
     .chat-list-group { display: flex; flex-direction: column; background: var(--surface); border: var(--brutal-border); border-radius: 24px; overflow: hidden; box-shadow: var(--brutal-shadow); }
     .chat-row-item { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: var(--surface); cursor: pointer; border-bottom: 2px solid var(--dark-block); }
@@ -1403,16 +1406,12 @@
         <div class="modal-profile-overlay" id="chatToolsModal">
             <div class="friend-profile-sheet">
                 <div class="friend-hero">
-                    <div class="friend-avatar-big"><span class="material-symbols-rounded">menu</span></div>
-                    <div class="friend-name-big">Chat Tools</div>
+                    <div class="friend-avatar-big"><span class="material-symbols-rounded">folder_delete</span></div>
+                    <div class="friend-name-big">Delete Chat Folder</div>
                 </div>
                 <div class="profile-action-grid">
                     <button class="friend-action-button" type="button" onclick="clearActiveChatHistory()"><span class="material-symbols-rounded">folder_delete</span><span>Clear for me</span></button>
                     <button class="friend-action-button" type="button" onclick="clearActiveChatForAll()"><span class="material-symbols-rounded">delete_forever</span><span>Clear for all</span></button>
-                </div>
-                <div class="comments-header-title">Blocked Users</div>
-                <div class="comments-stream-box" id="blockedUsersListBox">
-                    <div class="comment-node-bubble"><div class="comment-node-author">Block List</div>No blocked users.</div>
                 </div>
                 <button class="btn-submit-config" style="background:#CBD5E1;" type="button" onclick="closeChatToolsMenu()">Close</button>
             </div>
@@ -1510,7 +1509,7 @@
                 <div class="friends-action-nav-bar">
                     <button class="friend-nav-btn active" id="subTabChatsBtn" onclick="switchChatSubView('chats')">Chat</button>
                     <button class="friend-nav-btn" id="subTabFriendsBtn" onclick="switchChatSubView('friends')">Friend List</button>
-                    <button class="friend-nav-btn" id="subTabRequestsBtn" onclick="switchChatSubView('requests')">Request</button>
+                    <button class="friend-nav-btn" id="subTabRequestsBtn" onclick="switchChatSubView('requests')">Request<span class="mini-count-badge" id="friendRequestsBadge">0</span></button>
                 </div>
 
                 <div class="chat-list-group" id="chatMasterWrapperBox">
@@ -1531,7 +1530,7 @@
                                 <div class="chat-user-name" id="announcementTitle">Official Announcements</div>
                                 <div class="chat-timestamp" id="announcementStamp">Official</div>
                             </div>
-                            <div class="chat-row-header"><div class="chat-snippet" id="announcementSnippet">Official updates panel.</div><span class="pin-indicator">PIN</span></div>
+                            <div class="chat-row-header"><div class="chat-snippet" id="announcementSnippet">Official updates panel.</div><span class="row-count-badge" id="announcementUnreadBadge">0</span><span class="pin-indicator">PIN</span></div>
                         </div>
                     </div>
 
@@ -1713,10 +1712,11 @@
     const chatInputFieldMessage = document.getElementById('chatInputFieldMessage');
     const chatRoomMenuBtn = document.getElementById('chatRoomMenuBtn');
     const chatToolsModal = document.getElementById('chatToolsModal');
-    const blockedUsersListBox = document.getElementById('blockedUsersListBox');
     const activeReplyContextBar = document.getElementById('activeReplyContextBar');
     const replyContextTextPreview = document.getElementById('replyContextTextPreview');
     const chatNavUnreadBadge = document.getElementById('chatNavUnreadBadge');
+    const friendRequestsBadge = document.getElementById('friendRequestsBadge');
+    const announcementUnreadBadge = document.getElementById('announcementUnreadBadge');
 
     const appTabHeaderTitles = ['Papiano', 'Community', 'About', 'Account'];
     const tabPages = ['pageHome', 'pageChat', 'pageAbout', 'pageAccount'];
@@ -1754,7 +1754,10 @@
     let unsubscribeDirectChats = null;
     let unsubscribeBlocks = null;
     let unsubscribeMessages = null;
+    let unsubscribeAnnouncementRoom = null;
     let privateUnreadTotal = 0;
+    let friendRequestUnreadTotal = 0;
+    let announcementUnreadTotal = 0;
 
     let activeChatRoomId = '';
     let activeChatRoomType = '';
@@ -2208,7 +2211,7 @@
                     <div class="chat-user-name">${escapeHtml(profile.name || 'Papiano User')} ${renderBadge(profile.badgeId || 'common')} ${isBlocked ? '<span class="badge-role-pill badge-rarity-system">Blocked</span>' : ''}</div>
                     <div class="chat-timestamp">${stamp}</div>
                 </div>
-                <div class="chat-row-header"><div class="chat-snippet">${escapeHtml(snippet)}</div></div>
+                <div class="chat-row-header"><div class="chat-snippet">${escapeHtml(snippet)}</div>${type === 'dm' && Number(profile.unreadForMe || 0) > 0 ? `<span class="row-count-badge" style="display:flex;">${profile.unreadForMe > 99 ? '99+' : escapeHtml(profile.unreadForMe)}</span>` : ''}</div>
             </div>
             ${actions}
         `;
@@ -2261,16 +2264,38 @@
         return a.exists || b.exists;
     }
 
+    function renderSmallBadge(node, total) {
+        if (!node) return;
+        const safeTotal = Math.max(0, Number(total) || 0);
+        if (safeTotal > 0) {
+            node.textContent = safeTotal > 99 ? '99+' : String(safeTotal);
+            node.style.display = 'flex';
+        } else {
+            node.textContent = '0';
+            node.style.display = 'none';
+        }
+    }
+
+    function updateNotificationBadges() {
+        const total = privateUnreadTotal + friendRequestUnreadTotal + announcementUnreadTotal;
+        renderSmallBadge(chatNavUnreadBadge, total);
+        renderSmallBadge(friendRequestsBadge, friendRequestUnreadTotal);
+        renderSmallBadge(announcementUnreadBadge, announcementUnreadTotal);
+    }
+
     function updatePrivateUnreadBadge(total) {
         privateUnreadTotal = Math.max(0, Number(total) || 0);
-        if (!chatNavUnreadBadge) return;
-        if (privateUnreadTotal > 0) {
-            chatNavUnreadBadge.textContent = privateUnreadTotal > 99 ? '99+' : String(privateUnreadTotal);
-            chatNavUnreadBadge.style.display = 'flex';
-        } else {
-            chatNavUnreadBadge.textContent = '0';
-            chatNavUnreadBadge.style.display = 'none';
-        }
+        updateNotificationBadges();
+    }
+
+    function updateFriendRequestBadge(total) {
+        friendRequestUnreadTotal = Math.max(0, Number(total) || 0);
+        updateNotificationBadges();
+    }
+
+    function updateAnnouncementUnreadBadge(total) {
+        announcementUnreadTotal = Math.max(0, Number(total) || 0);
+        updateNotificationBadges();
     }
 
     function stopCommunityListeners() {
@@ -2279,17 +2304,21 @@
         if (typeof unsubscribeDirectChats === 'function') unsubscribeDirectChats();
         if (typeof unsubscribeBlocks === 'function') unsubscribeBlocks();
         if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
+        if (typeof unsubscribeAnnouncementRoom === 'function') unsubscribeAnnouncementRoom();
         unsubscribeFriends = null;
         unsubscribeRequests = null;
         unsubscribeDirectChats = null;
         unsubscribeBlocks = null;
         unsubscribeMessages = null;
+        unsubscribeAnnouncementRoom = null;
         friendProfiles.clear();
         pendingFriendRequests.clear();
         directChatProfiles.clear();
         blockedUserIds.clear();
         searchProfiles.clear();
         updatePrivateUnreadBadge(0);
+        updateFriendRequestBadge(0);
+        updateAnnouncementUnreadBadge(0);
         renderFriendRows();
     }
 
@@ -2322,6 +2351,7 @@
                     const profile = profiles.get(item.requesterId) || normalizeProfile(item.requesterId, {});
                     pendingFriendRequests.set(item.id, { ...profile, requestId: item.id });
                 });
+                updateFriendRequestBadge(requestDocs.length);
                 renderFriendRows();
             }, error => showToast(error?.message || 'Requests failed.'));
 
@@ -2331,8 +2361,13 @@
                 blockedUserIds = new Set(snapshot.docs.map(doc => doc.data()?.blockedId).filter(Boolean));
                 blockedUserIds.forEach(uid => directChatProfiles.delete(uid));
                 renderFriendRows();
-                if (chatToolsModal?.classList.contains('active')) renderBlockedUsersMenuList();
             }, error => showToast(error?.message || 'Block list failed.'));
+
+        unsubscribeAnnouncementRoom = firestoreDb.collection('chatRooms').doc(getGroupRoomId('announcements'))
+            .onSnapshot(snapshot => {
+                const data = snapshot.exists ? (snapshot.data() || {}) : {};
+                updateAnnouncementUnreadBadge(Math.max(0, Number(data.unreadCount?.[currentUser.uid]) || 0));
+            }, error => console.warn('Announcement unread failed:', error));
 
         unsubscribeDirectChats = firestoreDb.collection('chatRooms')
             .where('participants', 'array-contains', currentUser.uid)
@@ -2356,7 +2391,8 @@
                     directChatProfiles.set(targetUid, {
                         ...profile,
                         lastMessage: previewCleared ? 'No messages yet.' : (room.lastMessage || 'No messages yet.'),
-                        lastMessageAt: previewCleared ? null : (room.updatedAt || null)
+                        lastMessageAt: previewCleared ? null : (room.updatedAt || null),
+                        unreadForMe: Math.max(0, Number(room.unreadCount?.[currentUser.uid]) || 0)
                     });
                 });
                 renderFriendRows();
@@ -2534,11 +2570,12 @@
         activeChatRoomType = 'group';
         activeChatTargetUid = '';
         if (chatRoomActiveTitle) chatRoomActiveTitle.textContent = roomTitles[normalizedRoomId] || 'Chat';
-        if (chatRoomMenuBtn) chatRoomMenuBtn.style.display = normalizedRoomId === 'global' ? 'flex' : 'none';
+        if (chatRoomMenuBtn) chatRoomMenuBtn.style.display = 'flex';
         if (chatInputBar) chatInputBar.classList.toggle('read-only', !currentUser?.uid);
         if (chatOverlayRoom) chatOverlayRoom.style.display = 'flex';
         listenToActiveRoomMessages();
         ensureGroupRoomHistoryVisible(normalizedRoomId);
+        markActiveRoomRead();
     }
 
     async function ensureGroupRoomHistoryVisible(roomId) {
@@ -2572,7 +2609,7 @@
         activeChatRoomType = 'dm';
         activeChatTargetUid = targetUid;
         if (chatRoomActiveTitle) chatRoomActiveTitle.textContent = profile.name || 'Private Chat';
-        if (chatRoomMenuBtn) chatRoomMenuBtn.style.display = 'none';
+        if (chatRoomMenuBtn) chatRoomMenuBtn.style.display = 'flex';
         if (chatInputBar) chatInputBar.classList.remove('read-only');
         if (chatOverlayRoom) chatOverlayRoom.style.display = 'flex';
         if (chatMessagesScrollArea) chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Opening chat...</div>`;
@@ -2593,15 +2630,31 @@
             await firestoreDb.collection('chatRooms').doc(roomId).set({
                 type: 'dm',
                 participants: [currentUser.uid, targetUid],
-                hiddenFolderFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
-                clearedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
+                hiddenFolderFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
+                clearedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
+                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
                 [`unreadCount.${currentUser.uid}`]: 0,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             listenToActiveRoomMessages();
+            markActiveRoomRead();
         } catch (error) {
             closeChatOverlayRoom();
             showToast(error?.message || 'Private chat failed.');
+        }
+    }
+
+    async function markActiveRoomRead() {
+        if (!currentUser?.uid || !activeChatRoomId || !firestoreDb) return;
+        try {
+            await firestoreDb.collection('chatRooms').doc(activeChatRoomId).set({
+                [`unreadCount.${currentUser.uid}`]: 0,
+                [`lastReadAt.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            if (activeChatRoomType === 'dm') updatePrivateUnreadBadge(Math.max(0, privateUnreadTotal - 1));
+            if (activeChatRoomId === getGroupRoomId('announcements')) updateAnnouncementUnreadBadge(0);
+        } catch (error) {
+            console.warn('Mark read skipped:', error);
         }
     }
 
@@ -2757,32 +2810,13 @@
         clearPendingChatImage();
     }
 
-    async function openChatToolsMenu() {
+    function openChatToolsMenu() {
         if (!chatToolsModal) return;
-        await renderBlockedUsersMenuList();
         chatToolsModal.classList.add('active');
     }
 
     function closeChatToolsMenu() {
         chatToolsModal?.classList.remove('active');
-    }
-
-    async function renderBlockedUsersMenuList() {
-        if (!blockedUsersListBox) return;
-        if (!currentUser?.uid || !blockedUserIds.size) {
-            blockedUsersListBox.innerHTML = `<div class="comment-node-bubble"><div class="comment-node-author">Block List</div>No blocked users.</div>`;
-            return;
-        }
-        blockedUsersListBox.innerHTML = `<div class="comment-node-bubble"><div class="comment-node-author">Block List</div>Loading blocked users...</div>`;
-        try {
-            const profiles = await hydrateProfilesByIds([...blockedUserIds]);
-            blockedUsersListBox.innerHTML = [...blockedUserIds].map(uid => {
-                const profile = profiles.get(uid) || normalizeProfile(uid, {});
-                return `<div class="comment-node-bubble"><div class="comment-node-author">${escapeHtml(profile.name || 'Papiano User')} ${escapeHtml(profile.userId || '')}</div><button class="chat-mini-action accept" type="button" onclick="unblockUser('${escapeHtml(uid)}'); renderBlockedUsersMenuList();">Unblock</button></div>`;
-            }).join('') || `<div class="comment-node-bubble"><div class="comment-node-author">Block List</div>No blocked users.</div>`;
-        } catch (error) {
-            blockedUsersListBox.innerHTML = `<div class="comment-node-bubble"><div class="comment-node-author">Block List</div>${escapeHtml(error?.message || 'Blocked list failed.')}</div>`;
-        }
     }
 
     async function clearActiveChatHistory() {
@@ -2946,7 +2980,13 @@
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             if (activeChatRoomType === 'dm' && activeChatTargetUid) {
+                roomUpdate.hiddenFolderFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
+                roomUpdate.clearedBy = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
+                roomUpdate.blockedFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
                 roomUpdate[`unreadCount.${activeChatTargetUid}`] = firebase.firestore.FieldValue.increment(1);
+                roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
+            }
+            if (activeChatRoomType === 'group') {
                 roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
             }
             await roomRef.set(roomUpdate, { merge: true });
@@ -3216,6 +3256,8 @@
             batch.delete(firestoreDb.collection('blocks').doc(blockId));
             batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
                 blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
+                hiddenFolderFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
+                clearedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             await batch.commit();
