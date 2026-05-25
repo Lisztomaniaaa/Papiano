@@ -1346,6 +1346,7 @@
                 <div class="profile-action-grid">
                     <button class="friend-action-button" id="fpAddFriendBtn" type="button" onclick="addFriendFromProfile()"><span class="material-symbols-rounded">person_add</span><span>Add</span></button>
                     <button class="friend-action-button" id="fpOpenChatBtn" type="button" onclick="openDirectChatFromProfile()"><span class="material-symbols-rounded">chat</span><span>Chat</span></button>
+                    <button class="friend-action-button" id="fpUnfriendBtn" type="button" onclick="unfriendFromProfile()"><span class="material-symbols-rounded">person_remove</span><span>Unfriend</span></button>
                     <button class="friend-action-button block-user-action" id="fpBlockUserBtn" type="button" onclick="blockUserFromProfile()"><span class="material-symbols-rounded">block</span><span>Block</span></button>
                 </div>
                 <div class="friend-votes-container">
@@ -2298,6 +2299,47 @@
         updateNotificationBadges();
     }
 
+    function toMillisTimestamp(value) {
+        if (!value) return 0;
+        if (typeof value === 'number') return value;
+        if (value?.toMillis) return value.toMillis();
+        if (value?.toDate) return value.toDate().getTime();
+        if (value instanceof Date) return value.getTime();
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function getAnnouncementReadStorageKey() {
+        return currentUser?.uid ? `papiano_announcement_read_${currentUser.uid}` : '';
+    }
+
+    function getRoomUnreadForMe(room) {
+        if (!currentUser?.uid || !room) return 0;
+        const explicitUnread = Math.max(0, Number(room.unreadCount?.[currentUser.uid]) || 0);
+        if (explicitUnread > 0) return explicitUnread;
+        const updatedMs = toMillisTimestamp(room.updatedAt);
+        const lastReadMs = toMillisTimestamp(room.lastReadAt?.[currentUser.uid]);
+        if (updatedMs > lastReadMs && room.lastSenderId && room.lastSenderId !== currentUser.uid) return 1;
+        return 0;
+    }
+
+    function syncDirectUnreadFromProfiles() {
+        const total = [...directChatProfiles.values()].reduce((sum, profile) => sum + Math.max(0, Number(profile.unreadForMe) || 0), 0);
+        updatePrivateUnreadBadge(total);
+    }
+
+    function computeAnnouncementUnread(data) {
+        if (!currentUser?.uid) return 0;
+        const explicitUnread = Math.max(0, Number(data?.unreadCount?.[currentUser.uid]) || 0);
+        if (explicitUnread > 0) return explicitUnread;
+        const updatedMs = toMillisTimestamp(data?.updatedAt);
+        const serverReadMs = toMillisTimestamp(data?.lastReadAt?.[currentUser.uid]);
+        const localReadMs = Number(localStorage.getItem(getAnnouncementReadStorageKey()) || 0);
+        const lastReadMs = Math.max(serverReadMs, localReadMs);
+        if (updatedMs > lastReadMs && data?.lastSenderId && data.lastSenderId !== currentUser.uid) return 1;
+        return 0;
+    }
+
     function stopCommunityListeners() {
         if (typeof unsubscribeFriends === 'function') unsubscribeFriends();
         if (typeof unsubscribeRequests === 'function') unsubscribeRequests();
@@ -2366,7 +2408,10 @@
         unsubscribeAnnouncementRoom = firestoreDb.collection('chatRooms').doc(getGroupRoomId('announcements'))
             .onSnapshot(snapshot => {
                 const data = snapshot.exists ? (snapshot.data() || {}) : {};
-                updateAnnouncementUnreadBadge(Math.max(0, Number(data.unreadCount?.[currentUser.uid]) || 0));
+                updateAnnouncementUnreadBadge(computeAnnouncementUnread(data));
+                if (announcementSnippet && data.lastMessage) announcementSnippet.textContent = data.lastMessage;
+                const stamp = document.getElementById('announcementStamp');
+                if (stamp && data.updatedAt) stamp.textContent = formatMessageTime(data.updatedAt);
             }, error => console.warn('Announcement unread failed:', error));
 
         unsubscribeDirectChats = firestoreDb.collection('chatRooms')
@@ -2376,8 +2421,6 @@
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .filter(room => room.type === 'dm' && Array.isArray(room.participants));
                 const targetIds = [...new Set(rooms.map(room => room.participants.find(uid => uid !== currentUser.uid)).filter(Boolean))];
-                const unreadTotal = rooms.reduce((sum, room) => sum + Math.max(0, Number(room.unreadCount?.[currentUser.uid]) || 0), 0);
-                updatePrivateUnreadBadge(unreadTotal);
                 const hydrated = await hydrateProfilesByIds(targetIds);
                 directChatProfiles.clear();
                 rooms.forEach(room => {
@@ -2388,13 +2431,15 @@
                     if (folderHidden || blockedFolder) return;
                     const profile = hydrated.get(targetUid) || normalizeProfile(targetUid, {});
                     const previewCleared = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid);
+                    const unreadForMe = previewCleared ? 0 : getRoomUnreadForMe(room);
                     directChatProfiles.set(targetUid, {
                         ...profile,
                         lastMessage: previewCleared ? 'No messages yet.' : (room.lastMessage || 'No messages yet.'),
                         lastMessageAt: previewCleared ? null : (room.updatedAt || null),
-                        unreadForMe: Math.max(0, Number(room.unreadCount?.[currentUser.uid]) || 0)
+                        unreadForMe
                     });
                 });
+                syncDirectUnreadFromProfiles();
                 renderFriendRows();
             }, error => showToast(error?.message || 'Private chat list failed.'));
     }
@@ -2586,8 +2631,7 @@
                 type: 'group',
                 roomKey: roomId || 'global',
                 historyVisible: true,
-                participants: [],
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                participants: []
             }, { merge: true });
         } catch (error) {
             console.warn('Group room history metadata skipped:', error);
@@ -2651,8 +2695,15 @@
                 [`unreadCount.${currentUser.uid}`]: 0,
                 [`lastReadAt.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            if (activeChatRoomType === 'dm') updatePrivateUnreadBadge(Math.max(0, privateUnreadTotal - 1));
-            if (activeChatRoomId === getGroupRoomId('announcements')) updateAnnouncementUnreadBadge(0);
+            if (activeChatRoomType === 'dm' && activeChatTargetUid && directChatProfiles.has(activeChatTargetUid)) {
+                directChatProfiles.set(activeChatTargetUid, { ...directChatProfiles.get(activeChatTargetUid), unreadForMe: 0 });
+                syncDirectUnreadFromProfiles();
+                renderFriendRows();
+            }
+            if (activeChatRoomId === getGroupRoomId('announcements')) {
+                localStorage.setItem(getAnnouncementReadStorageKey(), String(Date.now()));
+                updateAnnouncementUnreadBadge(0);
+            }
         } catch (error) {
             console.warn('Mark read skipped:', error);
         }
@@ -3114,6 +3165,7 @@
         const commentsStreamBoxArea = document.getElementById('commentsStreamBoxArea');
         const fpAddFriendBtn = document.getElementById('fpAddFriendBtn');
         const fpOpenChatBtn = document.getElementById('fpOpenChatBtn');
+        const fpUnfriendBtn = document.getElementById('fpUnfriendBtn');
         const fpBlockUserBtn = document.getElementById('fpBlockUserBtn');
 
         if (fpBigInitial) {
@@ -3130,8 +3182,13 @@
         if (fpLikeVal) fpLikeVal.textContent = profile.likes || 0;
         if (fpDislikeVal) fpDislikeVal.textContent = profile.dislikes || 0;
         const isBlocked = blockedUserIds.has(profile.uid);
-        if (fpAddFriendBtn) fpAddFriendBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || friendProfiles.has(profile.uid) || isBlocked;
-        if (fpOpenChatBtn) fpOpenChatBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || !friendProfiles.has(profile.uid) || isBlocked;
+        const isFriend = friendProfiles.has(profile.uid);
+        if (fpAddFriendBtn) fpAddFriendBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || isFriend || isBlocked;
+        if (fpOpenChatBtn) fpOpenChatBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || !isFriend || isBlocked;
+        if (fpUnfriendBtn) {
+            fpUnfriendBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || !isFriend;
+            fpUnfriendBtn.style.display = isFriend && profile.uid !== currentUser?.uid ? 'inline-flex' : 'none';
+        }
         if (fpBlockUserBtn) {
             fpBlockUserBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid;
             fpBlockUserBtn.innerHTML = isBlocked
@@ -3181,6 +3238,44 @@
             return;
         }
         openDirectRoom(activeFriendProfileKey);
+    }
+
+    async function unfriendFromProfile() {
+        if (!currentUser?.uid || !activeFriendProfileKey) {
+            showToast('No profile selected.');
+            return;
+        }
+        const targetUid = activeFriendProfileKey;
+        if (targetUid === currentUser.uid) {
+            showToast('You cannot unfriend yourself.');
+            return;
+        }
+        if (!friendProfiles.has(targetUid)) {
+            showToast('This user is not in your friend list.');
+            return;
+        }
+        try {
+            const pairId = buildPairId(currentUser.uid, targetUid);
+            const dmId = getDirectRoomId(currentUser.uid, targetUid);
+            const batch = firestoreDb.batch();
+            batch.delete(firestoreDb.collection('friendships').doc(pairId));
+            batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
+                hiddenFolderFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
+                [`unreadCount.${currentUser.uid}`]: 0,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            await batch.commit();
+            const oldProfile = friendProfiles.get(targetUid) || activeFriendProfileData || normalizeProfile(targetUid, {});
+            friendProfiles.delete(targetUid);
+            directChatProfiles.delete(targetUid);
+            searchProfiles.set(targetUid, oldProfile);
+            if (activeChatRoomType === 'dm' && activeChatTargetUid === targetUid) closeChatOverlayRoom();
+            renderFriendRows();
+            closeFriendProfileModal();
+            showToast('User removed from friend list.');
+        } catch (error) {
+            showToast(error?.message || 'Unfriend failed.');
+        }
     }
 
     async function blockUserFromProfile() {
