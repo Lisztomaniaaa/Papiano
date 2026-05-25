@@ -427,7 +427,8 @@
     /* --- FIXED BOTTOM NAVIGATION BAR --- */
     .bottom-nav-bar { height: 72px; background: var(--surface); display: flex; justify-content: space-around; align-items: center; z-index: 10; border-top: var(--brutal-border); }
     .nav-tab-action { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: var(--dark-block); width: 64px; background: none; border: none; }
-    .nav-pill-wrapper { width: 52px; height: 32px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: all 0.1s; border: 2px solid transparent; }
+    .nav-pill-wrapper { width: 52px; height: 32px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: all 0.1s; border: 2px solid transparent; position: relative; }
+    .nav-unread-badge { position: absolute; top: -10px; right: -10px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; border: 2px solid var(--dark-block); background: #FB7185; color: var(--dark-block); display: none; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; line-height: 1; box-shadow: 2px 2px 0px var(--dark-block); }
     .nav-tab-action .material-symbols-rounded { font-size: 24px; }
     .nav-text-label { font-size: 11px; font-weight: 900; text-transform: uppercase; }
 
@@ -1632,7 +1633,7 @@
 
         <nav class="bottom-nav-bar">
             <button class="nav-tab-action active" onclick="navigateActiveTab(0, appTabHeaderTitles[0])"><div class="nav-pill-wrapper"><span class="material-symbols-rounded">home</span></div><div class="nav-text-label">Home</div></button>
-            <button class="nav-tab-action" onclick="navigateActiveTab(1, appTabHeaderTitles[1])"><div class="nav-pill-wrapper"><span class="material-symbols-rounded">chat_bubble</span></div><div class="nav-text-label">Chat</div></button>
+            <button class="nav-tab-action" onclick="navigateActiveTab(1, appTabHeaderTitles[1])"><div class="nav-pill-wrapper"><span class="material-symbols-rounded">chat_bubble</span><span class="nav-unread-badge" id="chatNavUnreadBadge">0</span></div><div class="nav-text-label">Chat</div></button>
             <button class="nav-tab-action" onclick="navigateActiveTab(2, appTabHeaderTitles[2])"><div class="nav-pill-wrapper"><span class="material-symbols-rounded">help_center</span></div><div class="nav-text-label">About</div></button>
             <button class="nav-tab-action" onclick="navigateActiveTab(3, appTabHeaderTitles[3])"><div class="nav-pill-wrapper"><span class="material-symbols-rounded">manage_accounts</span></div><div class="nav-text-label">Account</div></button>
         </nav>
@@ -1646,7 +1647,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
     const loginScreen = document.getElementById('loginScreen');
@@ -1689,6 +1690,7 @@
     const chatMessagesScrollArea = document.getElementById('chatMessagesScrollArea');
     const chatInputFieldMessage = document.getElementById('chatInputFieldMessage');
     const activeReplyContextBar = document.getElementById('activeReplyContextBar');
+    const chatNavUnreadBadge = document.getElementById('chatNavUnreadBadge');
 
     const appTabHeaderTitles = ['Papiano', 'Community', 'About', 'Account'];
     const tabPages = ['pageHome', 'pageChat', 'pageAbout', 'pageAccount'];
@@ -1705,7 +1707,12 @@
     const firebaseApp = firebase.initializeApp(firebaseConfig);
     const firebaseAuth = firebase.auth();
     const firestoreDb = firebase.firestore();
-    const firebaseStorage = firebase.storage();
+
+    const supabaseStorageConfig = {
+        url: "https://yddzwxmzxdagiltrjmgc.supabase.co",
+        key: "sb_publishable_OzcmvT0haHr9JrFhP9bHiA_EQpY86Ka"
+    };
+    const supabaseStorageClient = window.supabase.createClient(supabaseStorageConfig.url, supabaseStorageConfig.key);
 
     let currentUser = null;
     let currentProfile = null;
@@ -1717,6 +1724,7 @@
     let unsubscribeRequests = null;
     let unsubscribeDirectChats = null;
     let unsubscribeMessages = null;
+    let privateUnreadTotal = 0;
 
     let activeChatRoomId = '';
     let activeChatRoomType = '';
@@ -1944,6 +1952,48 @@
         return /^(data:image\/(png|jpe?g|webp);base64,|https:\/\/)/i.test(String(src || ''));
     }
 
+    function safeSupabaseStorageName(value, fallback = 'image') {
+        const clean = String(value || fallback)
+            .toLowerCase()
+            .replace(/[^a-z0-9_.-]/g, '_')
+            .replace(/_+/g, '_')
+            .slice(-90);
+        return clean || fallback;
+    }
+
+    function getImageExtensionFromFile(file) {
+        const fromType = String(file?.type || '').split('/')[1] || '';
+        const ext = fromType.replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '').toLowerCase();
+        return ext || 'jpg';
+    }
+
+    async function uploadImageToSupabaseStorage(bucketName, file, folderName, fileNamePrefix) {
+        if (!supabaseStorageClient) throw new Error('Supabase Storage is not ready.');
+        if (!currentUser?.uid) throw new Error('Sign in before uploading.');
+        if (!file || !/^image\//i.test(file.type || '')) throw new Error('Select a valid image file.');
+
+        const ext = getImageExtensionFromFile(file);
+        const safeOriginalName = safeSupabaseStorageName(file.name || `${fileNamePrefix}.${ext}`);
+        const safeUid = safeSupabaseStorageName(currentUser.uid, 'user');
+        const safeFolder = safeSupabaseStorageName(folderName, 'uploads');
+        const safePrefix = safeSupabaseStorageName(fileNamePrefix, 'image');
+        const path = `${safeUid}/${safeFolder}/${safePrefix}_${Date.now()}_${safeOriginalName}`;
+
+        const { error } = await supabaseStorageClient
+            .storage
+            .from(bucketName)
+            .upload(path, file, {
+                cacheControl: '3600',
+                contentType: file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+                upsert: false
+            });
+
+        if (error) throw error;
+        const { data } = supabaseStorageClient.storage.from(bucketName).getPublicUrl(path);
+        if (!data?.publicUrl) throw new Error('Storage uploaded, but public URL was not returned.');
+        return { url: data.publicUrl, path };
+    }
+
     async function applyProfileConfiguration() {
         if (!currentUser?.uid) {
             showToast('Sign in to save profile.');
@@ -1991,15 +2041,14 @@
         }
         try {
             showToast('Uploading photo...');
-            const ext = (file.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-            const ref = firebaseStorage.ref().child(`profile-photos/${currentUser.uid}/avatar.${ext}`);
-            await ref.put(file, { contentType: file.type });
-            const url = await ref.getDownloadURL();
-            if (formInputPhotoUrl) formInputPhotoUrl.value = url;
-            updateProfileView({ ...loadProfile(), photoURL: url, badgeId: selectedBadgeId });
+            const upload = await uploadImageToSupabaseStorage('avatars', file, 'profile', 'avatar');
+            if (formInputPhotoUrl) formInputPhotoUrl.value = upload.url;
+            updateProfileView({ ...loadProfile(), photoURL: upload.url, badgeId: selectedBadgeId });
             showToast('Photo uploaded. Tap Save.');
         } catch (error) {
             showToast(error?.message || 'Photo upload failed.');
+        } finally {
+            if (event?.target) event.target.value = '';
         }
     }
 
@@ -2147,6 +2196,18 @@
         return a.exists || b.exists;
     }
 
+    function updatePrivateUnreadBadge(total) {
+        privateUnreadTotal = Math.max(0, Number(total) || 0);
+        if (!chatNavUnreadBadge) return;
+        if (privateUnreadTotal > 0) {
+            chatNavUnreadBadge.textContent = privateUnreadTotal > 99 ? '99+' : String(privateUnreadTotal);
+            chatNavUnreadBadge.style.display = 'flex';
+        } else {
+            chatNavUnreadBadge.textContent = '0';
+            chatNavUnreadBadge.style.display = 'none';
+        }
+    }
+
     function stopCommunityListeners() {
         if (typeof unsubscribeFriends === 'function') unsubscribeFriends();
         if (typeof unsubscribeRequests === 'function') unsubscribeRequests();
@@ -2160,6 +2221,7 @@
         pendingFriendRequests.clear();
         directChatProfiles.clear();
         searchProfiles.clear();
+        updatePrivateUnreadBadge(0);
         renderFriendRows();
     }
 
@@ -2202,6 +2264,8 @@
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .filter(room => room.type === 'dm' && Array.isArray(room.participants));
                 const targetIds = [...new Set(rooms.map(room => room.participants.find(uid => uid !== currentUser.uid)).filter(Boolean))];
+                const unreadTotal = rooms.reduce((sum, room) => sum + Math.max(0, Number(room.unreadCount?.[currentUser.uid]) || 0), 0);
+                updatePrivateUnreadBadge(unreadTotal);
                 directChatProfiles = await hydrateProfilesByIds(targetIds);
                 renderFriendRows();
             }, error => showToast(error?.message || 'Private chat list failed.'));
@@ -2375,6 +2439,7 @@
             await firestoreDb.collection('chatRooms').doc(roomId).set({
                 type: 'dm',
                 participants: [currentUser.uid, targetUid],
+                [`unreadCount.${currentUser.uid}`]: 0,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             activeChatRoomId = roomId;
@@ -2494,18 +2559,17 @@
         }
         try {
             showToast('Uploading image...');
-            const safeName = file.name.replace(/[^a-z0-9_.-]/gi, '_').slice(-80) || 'image.jpg';
-            const path = `chat-images/${currentUser.uid}/${Date.now()}_${safeName}`;
-            const ref = firebaseStorage.ref().child(path);
-            await ref.put(file, { contentType: file.type });
-            pendingChatImageData = await ref.getDownloadURL();
-            pendingChatImagePath = path;
+            const upload = await uploadImageToSupabaseStorage('chat-images', file, 'chat', 'message');
+            pendingChatImageData = upload.url;
+            pendingChatImagePath = upload.path;
             if (chatSelectedImagePreviewImg) chatSelectedImagePreviewImg.src = pendingChatImageData;
-            if (chatSelectedImagePreviewText) chatSelectedImagePreviewText.textContent = safeName;
+            if (chatSelectedImagePreviewText) chatSelectedImagePreviewText.textContent = safeSupabaseStorageName(file.name || 'image');
             if (chatSelectedImagePreview) chatSelectedImagePreview.classList.add('active');
             showToast('Image ready.');
         } catch (error) {
             showToast(error?.message || 'Image upload failed.');
+        } finally {
+            if (event?.target) event.target.value = '';
         }
     }
 
@@ -2548,12 +2612,18 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            await roomRef.set({
+            const roomUpdate = {
                 type: activeChatRoomType || 'group',
                 participants: activeChatRoomType === 'dm' ? [currentUser.uid, activeChatTargetUid] : [],
                 lastMessage: text || 'Image',
+                lastSenderId: currentUser.uid,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            };
+            if (activeChatRoomType === 'dm' && activeChatTargetUid) {
+                roomUpdate[`unreadCount.${activeChatTargetUid}`] = firebase.firestore.FieldValue.increment(1);
+                roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
+            }
+            await roomRef.set(roomUpdate, { merge: true });
             if (chatInputFieldMessage) chatInputFieldMessage.value = '';
             clearPendingChatImage();
         } catch (error) {
