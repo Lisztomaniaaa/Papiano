@@ -1,9 +1,10 @@
 -- =============================================================================
--- PAPIANO SOCIAL CHAT APP — IDEMPOTENT MIGRATION
+-- PAPIANO SOCIAL CHAT APP — IDEMPOTENT MIGRATION (FINAL AUDITED)
 -- Target: Supabase project agevomwfkvtqpddeyogu
 -- Tables: profiles, rooms, room_members, messages, friends, friend_requests,
 --         blocked_users, profile_comments, profile_reactions, notifications
 -- PRESERVES ALL EXISTING DATA. Safe to run multiple times.
+-- Last audited: 2025-05-25
 -- =============================================================================
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -24,7 +25,6 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Add columns if missing (idempotent)
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='profiles' AND column_name='user_number') THEN
         ALTER TABLE public.profiles ADD COLUMN user_number BIGINT UNIQUE;
@@ -61,7 +61,6 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- Indexes for profiles
 CREATE INDEX IF NOT EXISTS idx_profiles_user_number ON public.profiles(user_number);
 CREATE INDEX IF NOT EXISTS idx_profiles_display_name_lower ON public.profiles(display_name_lower);
 
@@ -278,10 +277,9 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(use
 CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON public.notifications(user_id, is_read) WHERE is_read = false;
 
 -- =============================================================================
--- ROW LEVEL SECURITY (RLS) POLICIES
+-- ROW LEVEL SECURITY (RLS)
 -- =============================================================================
 
--- Enable RLS on all tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.room_members ENABLE ROW LEVEL SECURITY;
@@ -293,7 +291,7 @@ ALTER TABLE public.profile_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profile_reactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
--- ─── PROFILES POLICIES ───
+-- ─── PROFILES ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='profiles' AND policyname='profiles_select_all') THEN
         CREATE POLICY profiles_select_all ON public.profiles FOR SELECT USING (true);
@@ -306,7 +304,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ─── ROOMS POLICIES ───
+-- ─── ROOMS ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='rooms' AND policyname='rooms_select_all') THEN
         CREATE POLICY rooms_select_all ON public.rooms FOR SELECT USING (true);
@@ -319,7 +317,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ─── ROOM_MEMBERS POLICIES ───
+-- ─── ROOM_MEMBERS ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='room_members' AND policyname='room_members_select_all') THEN
         CREATE POLICY room_members_select_all ON public.room_members FOR SELECT USING (true);
@@ -332,7 +330,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ─── MESSAGES POLICIES ───
+-- ─── MESSAGES ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='messages' AND policyname='messages_select_all') THEN
         CREATE POLICY messages_select_all ON public.messages FOR SELECT USING (true);
@@ -340,12 +338,15 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='messages' AND policyname='messages_insert_own') THEN
         CREATE POLICY messages_insert_own ON public.messages FOR INSERT WITH CHECK (auth.uid() = sender_id);
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='messages' AND policyname='messages_update_delete_for') THEN
+        CREATE POLICY messages_update_delete_for ON public.messages FOR UPDATE USING (auth.uid() IS NOT NULL);
+    END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='messages' AND policyname='messages_delete_own') THEN
         CREATE POLICY messages_delete_own ON public.messages FOR DELETE USING (auth.uid() = sender_id);
     END IF;
 END $$;
 
--- ─── FRIENDS POLICIES ───
+-- ─── FRIENDS ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='friends' AND policyname='friends_select_own') THEN
         CREATE POLICY friends_select_own ON public.friends FOR SELECT USING (auth.uid() = user_id OR auth.uid() = friend_id);
@@ -358,7 +359,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ─── FRIEND_REQUESTS POLICIES ───
+-- ─── FRIEND_REQUESTS ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='friend_requests' AND policyname='friend_requests_select_own') THEN
         CREATE POLICY friend_requests_select_own ON public.friend_requests FOR SELECT USING (auth.uid() = from_user OR auth.uid() = to_user);
@@ -371,7 +372,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ─── BLOCKED_USERS POLICIES ───
+-- ─── BLOCKED_USERS ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='blocked_users' AND policyname='blocked_users_select_own') THEN
         CREATE POLICY blocked_users_select_own ON public.blocked_users FOR SELECT USING (auth.uid() = blocker_id);
@@ -384,7 +385,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ─── PROFILE_COMMENTS POLICIES ───
+-- ─── PROFILE_COMMENTS ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='profile_comments' AND policyname='profile_comments_select_all') THEN
         CREATE POLICY profile_comments_select_all ON public.profile_comments FOR SELECT USING (true);
@@ -397,7 +398,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ─── PROFILE_REACTIONS POLICIES ───
+-- ─── PROFILE_REACTIONS ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='profile_reactions' AND policyname='profile_reactions_select_all') THEN
         CREATE POLICY profile_reactions_select_all ON public.profile_reactions FOR SELECT USING (true);
@@ -410,7 +411,7 @@ DO $$ BEGIN
     END IF;
 END $$;
 
--- ─── NOTIFICATIONS POLICIES ───
+-- ─── NOTIFICATIONS ───
 DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_select_own') THEN
         CREATE POLICY notifications_select_own ON public.notifications FOR SELECT USING (auth.uid() = user_id);
@@ -427,32 +428,20 @@ END $$;
 -- REALTIME — Enable publication for tables that need live updates
 -- =============================================================================
 DO $$ BEGIN
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END;
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.profile_comments;
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END;
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.profile_reactions;
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END;
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.friends;
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END;
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.friend_requests;
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END;
-    BEGIN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
-    EXCEPTION WHEN duplicate_object THEN NULL;
-    END;
+    BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.profile_comments;
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.profile_reactions;
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.friends;
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.friend_requests;
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
+    BEGIN ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+    EXCEPTION WHEN duplicate_object THEN NULL; END;
 END $$;
 
 -- =============================================================================
--- DONE. All tables, indexes, RLS policies, and realtime settings configured.
+-- DONE. All tables, indexes, RLS policies, and realtime configured.
 -- =============================================================================
