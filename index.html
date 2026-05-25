@@ -266,6 +266,12 @@
     .msg-node-row.row-incoming { align-items: flex-start; }
     .msg-container-with-avatar { display: flex; gap: 8px; width: 100%; align-items: flex-end; }
     .row-outgoing .msg-container-with-avatar { justify-content: flex-end; }
+    .message-avatar { width: 34px; height: 34px; border-radius: 12px; border: 2px solid var(--dark-block); background: var(--surface); color: var(--dark-block); display: inline-flex; align-items: center; justify-content: center; flex: 0 0 34px; overflow: hidden; font-size: 11px; font-weight: 900; box-shadow: 2px 2px 0px var(--dark-block); cursor: pointer; }
+    .message-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .row-outgoing .message-avatar { order: 2; }
+    .reply-source-card { display: grid; gap: 2px; margin-bottom: 8px; padding: 7px 9px; border-left: 4px solid var(--dark-block); border-radius: 9px; background: rgba(255,255,255,0.58); font-size: 11px; font-weight: 900; line-height: 1.25; }
+    .reply-source-card strong, .reply-source-card span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .msg-bubble.swiping { transition: transform 0.08s linear; }
 
     .msg-reply-reference { display: flex; align-items: center; gap: 6px; background: var(--surface); padding: 6px 12px; border: 2px solid var(--dark-block); border-radius: 10px; font-size: 11px; font-weight: 800; color: var(--dark-block); max-width: 65%; box-shadow: 2px 2px 0px var(--dark-block); margin-bottom: 2px; }
     .msg-reply-icon { font-size: 14px; color: var(--dark-block); font-weight: 900; }
@@ -1372,9 +1378,7 @@
             <div class="chat-room-header">
                 <button class="top-action-btn" onclick="closeChatOverlayRoom()"><span class="material-symbols-rounded">arrow_back</span></button>
                 <div class="chat-room-title" id="chatRoomActiveTitle">Chat</div>
-                <div class="chat-room-tools">
-                    <button class="top-action-btn history-clear-btn" id="clearChatHistoryBtn" type="button" onclick="clearActiveChatHistory()" aria-label="Delete chat history"><span class="material-symbols-rounded">delete</span></button>
-                </div>
+                <div class="chat-room-tools"></div>
             </div>
             <div class="chat-messages-scroll" id="chatMessagesScrollArea"></div>
             
@@ -1482,7 +1486,7 @@
             <div class="app-tab-page" id="pageChat">
                 <div class="chat-search-bar-box">
                     <span class="material-symbols-rounded">search</span>
-                    <input type="text" class="chat-search-input" id="friendSearchField" placeholder="Search chat, friend, or #ID..." maxlength="64" inputmode="search" enterkeyhint="search" oninput="filterChatMatrixList()">
+                    <input type="text" class="chat-search-input" id="friendSearchField" placeholder="Search people, chat, or #ID..." maxlength="64" inputmode="search" enterkeyhint="search" oninput="filterChatMatrixList()">
                 </div>
 
                 <div class="friends-action-nav-bar">
@@ -1690,6 +1694,7 @@
     const chatMessagesScrollArea = document.getElementById('chatMessagesScrollArea');
     const chatInputFieldMessage = document.getElementById('chatInputFieldMessage');
     const activeReplyContextBar = document.getElementById('activeReplyContextBar');
+    const replyContextTextPreview = document.getElementById('replyContextTextPreview');
     const chatNavUnreadBadge = document.getElementById('chatNavUnreadBadge');
 
     const appTabHeaderTitles = ['Papiano', 'Community', 'About', 'Account'];
@@ -1720,6 +1725,7 @@
     let pendingFriendRequests = new Map();
     let directChatProfiles = new Map();
     let searchProfiles = new Map();
+    let messageProfiles = new Map();
     let unsubscribeFriends = null;
     let unsubscribeRequests = null;
     let unsubscribeDirectChats = null;
@@ -1733,6 +1739,10 @@
     let selectedBadgeId = 'common';
     let pendingChatImageData = '';
     let pendingChatImagePath = '';
+    let activeReplyMessage = null;
+    let swipeStartX = 0;
+    let swipeStartY = 0;
+    let swipeMoved = false;
     let profileSearchTimer = null;
     let lastProfileSearchQuery = '';
     let toastTimer = null;
@@ -1835,7 +1845,7 @@
             name: String(data.name || data.displayName || 'Papiano User').slice(0, 24),
             desc: String(data.desc || data.bio || '').slice(0, 160),
             badgeId: getBadge(data.badgeId || 'common').id,
-            photoURL: String(data.photoURL || ''),
+            photoURL: String(data.photoURL || data.avatar_url || data.avatarURL || ''),
             playTime: String(data.playTime || '0 Min'),
             publicId: Number.isInteger(publicId) && publicId > 0 ? publicId : 0,
             userId: data.userId || (publicId > 0 ? formatPublicUserId(publicId) : safeUserId(uid)),
@@ -2328,24 +2338,43 @@
     async function searchProfileByPublicId(query) {
         if (!currentUser?.uid || currentChatSubView !== 'friends') return;
         const clean = String(query || '').trim();
-        if (clean === lastProfileSearchQuery) return;
-        lastProfileSearchQuery = clean;
+        const normalized = clean.toLowerCase();
+        if (normalized === lastProfileSearchQuery) return;
+        lastProfileSearchQuery = normalized;
         searchProfiles.clear();
-        if (!/^#?\d+$/.test(clean)) {
-            renderFriendRows();
-            return;
-        }
-        const publicId = Number(clean.replace('#', ''));
-        if (!Number.isInteger(publicId) || publicId < 1) {
+        if (clean.length < 1) {
             renderFriendRows();
             return;
         }
         try {
-            const snap = await firestoreDb.collection('profiles').where('publicId', '==', publicId).limit(1).get();
-            snap.forEach(doc => {
-                if (doc.id !== currentUser.uid && !friendProfiles.has(doc.id)) {
-                    searchProfiles.set(doc.id, normalizeProfile(doc.id, doc.data() || {}));
+            const found = new Map();
+            if (/^#?\d+$/.test(clean)) {
+                const publicId = Number(clean.replace('#', ''));
+                if (Number.isInteger(publicId) && publicId > 0) {
+                    const idSnap = await firestoreDb.collection('profiles').where('publicId', '==', publicId).limit(8).get();
+                    idSnap.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
                 }
+            }
+            if (clean.length >= 2) {
+                const nameSnap = await firestoreDb.collection('profiles')
+                    .orderBy('name')
+                    .startAt(clean)
+                    .endAt(clean + '\uf8ff')
+                    .limit(12)
+                    .get();
+                nameSnap.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
+
+                const lowerSnap = await firestoreDb.collection('profiles')
+                    .orderBy('searchName')
+                    .startAt(normalized)
+                    .endAt(normalized + '\uf8ff')
+                    .limit(12)
+                    .get()
+                    .catch(() => null);
+                lowerSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
+            }
+            found.forEach((profile, uid) => {
+                if (uid !== currentUser.uid && !friendProfiles.has(uid)) searchProfiles.set(uid, profile);
             });
         } catch (error) {
             showToast(error?.message || 'Search failed.');
@@ -2396,7 +2425,7 @@
             const text = document.getElementById('chatEmptyText');
             const emptyCopy = {
                 chats: ['No chat found', 'No matching chat room.'],
-                friends: currentUser ? ['No friends found', 'Search a user ID like #1 to add friends.'] : ['Sign in required', 'Login to search and add friends.'],
+                friends: currentUser ? ['No users found', 'Search by name or #ID to add friends.'] : ['Sign in required', 'Login to search and add friends.'],
                 requests: ['No requests yet', 'Friend requests will appear here.']
             }[currentChatSubView] || ['No results yet', 'No matching item.'];
             if (title) title.textContent = emptyCopy[0];
@@ -2465,20 +2494,53 @@
         unsubscribeMessages = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages')
             .orderBy('createdAt', 'asc')
             .limit(120)
-            .onSnapshot(snapshot => {
+            .onSnapshot(async snapshot => {
                 const messages = snapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(item => !(Array.isArray(item.hiddenFor) && item.hiddenFor.includes(currentUser?.uid)));
+                    .filter(item => !(Array.isArray(item.hiddenFor) && item.hiddenFor.includes(currentUser?.uid)))
+                    .filter(item => item.deletedForAll !== true);
+                await hydrateMessageProfiles(messages);
                 renderChatMessages(messages);
             }, error => {
                 if (chatMessagesScrollArea) chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">${escapeHtml(error?.message || 'Messages failed.')}</div>`;
             });
     }
 
+    async function hydrateMessageProfiles(messages) {
+        const ids = [...new Set((messages || []).map(item => item.senderId).filter(Boolean))];
+        const missing = ids.filter(uid => !messageProfiles.has(uid));
+        if (!missing.length) return;
+        const loaded = await hydrateProfilesByIds(missing);
+        loaded.forEach((profile, uid) => messageProfiles.set(uid, profile));
+    }
+
     function formatMessageTime(value) {
         const date = value?.toDate ? value.toDate() : value instanceof Date ? value : null;
         if (!date) return 'Sending';
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getMessageSenderProfile(message) {
+        if (message.senderId === currentUser?.uid && currentProfile) return currentProfile;
+        return messageProfiles.get(message.senderId) || friendProfiles.get(message.senderId) || directChatProfiles.get(message.senderId) || searchProfiles.get(message.senderId) || normalizeProfile(message.senderId || '', {
+            name: message.senderName || 'Papiano User',
+            userId: message.senderUserId || '',
+            photoURL: message.senderPhotoURL || '',
+            badgeId: message.senderBadgeId || 'common'
+        });
+    }
+
+    function renderMessageAvatar(profile) {
+        const avatarBody = profile?.photoURL && isSafeImage(profile.photoURL)
+            ? `<img src="${escapeHtml(profile.photoURL)}" alt="">`
+            : escapeHtml(getInitials(profile?.name || 'User'));
+        return `<button class="message-avatar" type="button" onclick="event.stopPropagation(); launchFriendProfileModal('${escapeHtml(profile?.uid || '')}')">${avatarBody}</button>`;
+    }
+
+    function createReplyPreview(reply) {
+        if (!reply) return '';
+        const label = reply.imageURL ? 'Photo' : String(reply.text || '').slice(0, 90);
+        return `<div class="reply-source-card"><strong>${escapeHtml(reply.senderName || 'User')}</strong><span>${escapeHtml(label || 'Message')}</span></div>`;
     }
 
     function renderChatMessages(messages) {
@@ -2490,19 +2552,23 @@
         chatMessagesScrollArea.innerHTML = messages.map(message => {
             const mine = message.senderId === currentUser?.uid;
             const rowClass = mine ? 'row-outgoing msg-outgoing' : 'row-incoming msg-incoming';
+            const profile = getMessageSenderProfile(message);
             const image = message.imageURL ? `<img class="chat-image-preview" src="${escapeHtml(message.imageURL)}" alt="Chat image">` : '';
             const text = message.text ? escapeHtml(message.text) : '';
             const edited = message.editedAt ? `<span class="msg-edited-label">Edited</span>` : '';
+            const status = mine ? (message.createdAt ? 'Sent' : 'Sending') : '';
             const actions = mine
-                ? `<div class="msg-action-strip"><button class="msg-action-btn" type="button" onclick="editOwnMessage('${message.id}')">Edit</button><button class="msg-action-btn danger" type="button" onclick="deleteMessageForMe('${message.id}')">Delete</button></div>`
-                : `<div class="msg-action-strip"><button class="msg-action-btn danger" type="button" onclick="deleteMessageForMe('${message.id}')">Delete</button></div>`;
+                ? `<div class="msg-action-strip"><button class="msg-action-btn" type="button" onclick="beginReplyToMessage('${message.id}')">Reply</button><button class="msg-action-btn" type="button" onclick="editOwnMessage('${message.id}')">Edit</button><button class="msg-action-btn danger" type="button" onclick="deleteMessageForAll('${message.id}')">Delete for all</button></div>`
+                : `<div class="msg-action-strip"><button class="msg-action-btn" type="button" onclick="beginReplyToMessage('${message.id}')">Reply</button><button class="msg-action-btn danger" type="button" onclick="deleteMessageForMe('${message.id}')">Delete for me</button></div>`;
             return `
-                <div class="msg-node-row ${rowClass}" onclick="this.classList.toggle('active-actions')">
+                <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
                     <div class="msg-container-with-avatar">
-                        <div class="msg-bubble">
-                            ${!mine ? `<b class="msg-sender-name">${escapeHtml(message.senderName || 'Papiano User')} ${escapeHtml(message.senderUserId || '')}</b>` : ''}
+                        ${renderMessageAvatar(profile)}
+                        <div class="msg-bubble" onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)">
+                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
+                            ${createReplyPreview(message.replyTo)}
                             ${text}${image}
-                            <div class="msg-meta-line"><span>${formatMessageTime(message.createdAt)}</span>${edited}<span class="msg-status-label">${mine ? 'Sent' : ''}</span></div>
+                            <div class="msg-meta-line"><span>${formatMessageTime(message.createdAt)}</span>${edited}<span class="msg-status-label">${status}</span></div>
                         </div>
                     </div>
                     ${actions}
@@ -2510,6 +2576,47 @@
             `;
         }).join('');
         chatMessagesScrollArea.scrollTop = chatMessagesScrollArea.scrollHeight;
+    }
+
+    function handleMessageRowClick(event, row) {
+        if (swipeMoved || event.target.closest('button')) return;
+        row.classList.toggle('active-actions');
+    }
+
+    function startMessageSwipe(event, bubble) {
+        swipeStartX = event.clientX || 0;
+        swipeStartY = event.clientY || 0;
+        swipeMoved = false;
+        bubble.classList.add('swiping');
+    }
+
+    function moveMessageSwipe(event, bubble) {
+        if (!swipeStartX) return;
+        const dx = (event.clientX || 0) - swipeStartX;
+        const dy = Math.abs((event.clientY || 0) - swipeStartY);
+        if (Math.abs(dx) < 8 || dy > 34) return;
+        swipeMoved = true;
+        const mine = bubble.closest('.msg-node-row')?.classList.contains('row-outgoing');
+        const allowed = mine ? Math.min(0, dx) : Math.max(0, dx);
+        const clamped = Math.max(-76, Math.min(76, allowed));
+        bubble.style.transform = `translateX(${clamped}px)`;
+    }
+
+    function endMessageSwipe(event, bubble, messageId) {
+        const dx = (event.clientX || 0) - swipeStartX;
+        const mine = bubble.closest('.msg-node-row')?.classList.contains('row-outgoing');
+        cancelMessageSwipe(bubble);
+        if ((mine && dx < -54) || (!mine && dx > 54)) beginReplyToMessage(messageId);
+        setTimeout(() => { swipeMoved = false; }, 80);
+    }
+
+    function cancelMessageSwipe(bubble) {
+        if (bubble) {
+            bubble.style.transform = '';
+            bubble.classList.remove('swiping');
+        }
+        swipeStartX = 0;
+        swipeStartY = 0;
     }
 
     function closeChatOverlayRoom() {
@@ -2605,9 +2712,18 @@
                 senderId: currentUser.uid,
                 senderName: profile.name || 'Papiano User',
                 senderUserId: profile.userId || '',
+                senderPhotoURL: profile.photoURL || '',
+                senderBadgeId: profile.badgeId || 'common',
                 text,
                 imageURL: pendingChatImageData || '',
                 imagePath: pendingChatImagePath || '',
+                replyTo: activeReplyMessage ? {
+                    messageId: activeReplyMessage.id || '',
+                    senderId: activeReplyMessage.senderId || '',
+                    senderName: activeReplyMessage.senderName || 'User',
+                    text: activeReplyMessage.text || '',
+                    imageURL: activeReplyMessage.imageURL || ''
+                } : null,
                 hiddenFor: [],
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2625,6 +2741,7 @@
             }
             await roomRef.set(roomUpdate, { merge: true });
             if (chatInputFieldMessage) chatInputFieldMessage.value = '';
+            cancelActiveReplyState();
             clearPendingChatImage();
         } catch (error) {
             showToast(error?.message || 'Message failed.');
@@ -2661,21 +2778,72 @@
                 hiddenFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            showToast('Message hidden.');
+            showToast('Message hidden for you.');
         } catch (error) {
             showToast(error?.message || 'Delete failed.');
         }
     }
 
+    async function deleteMessageForAll(messageId) {
+        if (!currentUser?.uid || !activeChatRoomId || !messageId) return;
+        try {
+            const ref = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId);
+            const snap = await ref.get();
+            const data = snap.data() || {};
+            if (data.senderId !== currentUser.uid) {
+                showToast('Only your messages can be deleted for all.');
+                return;
+            }
+            await ref.set({
+                deletedForAll: true,
+                text: '',
+                imageURL: '',
+                imagePath: '',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            showToast('Message deleted for all.');
+        } catch (error) {
+            showToast(error?.message || 'Delete failed.');
+        }
+    }
+
+    async function beginReplyToMessage(messageId) {
+        if (!activeChatRoomId || !messageId) return;
+        try {
+            const ref = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId);
+            const snap = await ref.get();
+            if (!snap.exists) return;
+            const data = { id: snap.id, ...snap.data() };
+            const profile = getMessageSenderProfile(data);
+            activeReplyMessage = {
+                id: data.id,
+                senderId: data.senderId || '',
+                senderName: profile.name || data.senderName || 'User',
+                text: String(data.text || '').slice(0, 120),
+                imageURL: data.imageURL || ''
+            };
+            if (replyContextTextPreview) {
+                const preview = activeReplyMessage.imageURL ? 'Photo' : activeReplyMessage.text || 'Message';
+                replyContextTextPreview.textContent = `Replying to ${activeReplyMessage.senderName}: ${preview}`;
+            }
+            if (activeReplyContextBar) activeReplyContextBar.style.display = 'flex';
+            chatInputFieldMessage?.focus();
+        } catch (error) {
+            showToast(error?.message || 'Reply failed.');
+        }
+    }
+
     function cancelActiveReplyState() {
+        activeReplyMessage = null;
         if (activeReplyContextBar) activeReplyContextBar.style.display = 'none';
+        if (replyContextTextPreview) replyContextTextPreview.textContent = 'Replying...';
     }
 
     let activeFriendProfileKey = '';
     let activeFriendProfileData = null;
 
     function launchFriendProfileModal(profileKey) {
-        const profile = friendProfiles.get(profileKey) || pendingFriendRequests.get(profileKey) || searchProfiles.get(profileKey) || directChatProfiles.get(profileKey);
+        const profile = friendProfiles.get(profileKey) || pendingFriendRequests.get(profileKey) || searchProfiles.get(profileKey) || directChatProfiles.get(profileKey) || messageProfiles.get(profileKey);
         const modal = document.getElementById('friendProfileModal');
         if (!profile || !modal) {
             showToast('No profile selected.');
@@ -2806,115 +2974,4 @@
             const profile = normalizeProfile(activeFriendProfileKey, snap.data() || {});
             activeFriendProfileData = profile;
             if (friendProfiles.has(activeFriendProfileKey)) friendProfiles.set(activeFriendProfileKey, profile);
-            if (document.getElementById('fpLikeVal')) document.getElementById('fpLikeVal').textContent = profile.likes || 0;
-            if (document.getElementById('fpDislikeVal')) document.getElementById('fpDislikeVal').textContent = profile.dislikes || 0;
-            showToast('Reaction saved.');
-        } catch (error) {
-            showToast(error?.message || 'Reaction failed.');
-        }
-    }
-
-    async function submitNewProfileComment() {
-        const input = document.getElementById('newCommentInputField');
-        const text = (input?.value || '').trim().slice(0, 240);
-        if (!currentUser?.uid || !activeFriendProfileKey) {
-            showToast('Sign in to comment.');
-            return;
-        }
-        if (!text) return;
-        try {
-            const profile = loadProfile();
-            await firestoreDb.collection('profiles').doc(activeFriendProfileKey).collection('comments').add({
-                authorId: currentUser.uid,
-                authorName: profile.name || 'Papiano User',
-                authorUserId: profile.userId || '',
-                text,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            if (input) input.value = '';
-            await loadProfileComments(activeFriendProfileKey, document.getElementById('commentsStreamBoxArea'));
-            showToast('Comment sent.');
-        } catch (error) {
-            showToast(error?.message || 'Comment failed.');
-        }
-    }
-
-    function copyDonationAddress(value, label, button) {
-        const text = String(value || '').trim();
-        if (!text) {
-            showToast('Nothing to copy.');
-            return;
-        }
-        navigator.clipboard?.writeText(text).then(() => {
-            const original = button?.textContent;
-            if (button) button.textContent = 'Copied';
-            showToast(`${label || 'Address'} copied.`);
-            if (button) setTimeout(() => { button.textContent = original || 'Copy'; }, 1200);
-        }).catch(() => showToast('Copy failed.'));
-    }
-
-    function toggleScreenWindow() {
-        const doc = document;
-        if (!doc.fullscreenElement) {
-            doc.documentElement.requestFullscreen?.();
-            if (fsIcon) fsIcon.textContent = 'fullscreen_exit';
-        } else {
-            doc.exitFullscreen?.();
-            if (fsIcon) fsIcon.textContent = 'fullscreen';
-        }
-    }
-
-    function startCarousel() {
-        const track = document.getElementById('carouselTrack');
-        const dots = [...document.querySelectorAll('#carouselDots .dot')];
-        if (!track || !dots.length) return;
-        clearInterval(carouselTimer);
-        const apply = () => {
-            track.style.transform = `translateX(-${carouselIndex * 100}%)`;
-            dots.forEach((dot, index) => dot.classList.toggle('active', index === carouselIndex));
-        };
-        apply();
-        carouselTimer = setInterval(() => {
-            carouselIndex = (carouselIndex + 1) % dots.length;
-            apply();
-        }, 3600);
-    }
-
-    document.addEventListener('fullscreenchange', () => {
-        if (fsIcon) fsIcon.textContent = document.fullscreenElement ? 'fullscreen_exit' : 'fullscreen';
-    });
-
-    btnAuthGoogle?.addEventListener('click', () => processAppAuth('google'));
-    btnAuthGuest?.addEventListener('click', () => processAppAuth('visitor'));
-    chatInputFieldMessage?.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            executeSendMessage();
-        }
-    });
-
-    firebaseAuth.onAuthStateChanged(async user => {
-        if (user) {
-            try {
-                await ensureUserProfile(user);
-            } catch (error) {
-                appContainer.classList.remove('auth-pending');
-                showToast(error?.message || 'Profile load failed.');
-            }
-        } else {
-            appContainer.classList.remove('auth-pending');
-            updateProfileView(loadProfile());
-            renderBadge(selectedBadgeId);
-            stopCommunityListeners();
-        }
-    });
-
-    window.addEventListener('DOMContentLoaded', () => {
-        appContainer.classList.remove('auth-pending');
-        updateProfileView(loadProfile());
-        renderBadge(selectedBadgeId);
-    });
-</script>
-
-</body>
-</html>
+            if (document.getElementById('fpLikeVal')) document.getElementById('fpLikeVal').textCon
