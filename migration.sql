@@ -341,8 +341,8 @@ DO $$ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='messages' AND policyname='messages_update_delete_for') THEN
         CREATE POLICY messages_update_delete_for ON public.messages FOR UPDATE USING (auth.uid() IS NOT NULL);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='messages' AND policyname='messages_delete_own') THEN
-        CREATE POLICY messages_delete_own ON public.messages FOR DELETE USING (auth.uid() = sender_id);
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='messages' AND policyname='messages_delete_all_auth') THEN
+        CREATE POLICY messages_delete_all_auth ON public.messages FOR DELETE USING (auth.uid() IS NOT NULL);
     END IF;
 END $$;
 
@@ -369,6 +369,9 @@ DO $$ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='friend_requests' AND policyname='friend_requests_update_own') THEN
         CREATE POLICY friend_requests_update_own ON public.friend_requests FOR UPDATE USING (auth.uid() = to_user);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='friend_requests' AND policyname='friend_requests_delete_own') THEN
+        CREATE POLICY friend_requests_delete_own ON public.friend_requests FOR DELETE USING (auth.uid() = from_user OR auth.uid() = to_user);
     END IF;
 END $$;
 
@@ -421,6 +424,9 @@ DO $$ BEGIN
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_update_own') THEN
         CREATE POLICY notifications_update_own ON public.notifications FOR UPDATE USING (auth.uid() = user_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='notifications' AND policyname='notifications_delete_own') THEN
+        CREATE POLICY notifications_delete_own ON public.notifications FOR DELETE USING (auth.uid() = user_id);
     END IF;
 END $$;
 
