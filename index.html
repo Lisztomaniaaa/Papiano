@@ -3125,6 +3125,10 @@
             showPlannedPopup('Sign in with Google to use direct chat.');
             return;
         }
+        if (blockedUserKeys.has(target.uid)) {
+            showPlannedPopup('You have blocked this user. Unblock to chat.');
+            return;
+        }
         if (!localFriendKeys.has(target.uid)) {
             showPlannedPopup('Add this user as a friend first.');
             return;
@@ -3139,6 +3143,13 @@
         chatOverlayRoom.style.display = 'flex';
         setTimeout(() => chatOverlayRoom.classList.add('active'), 10);
         subscribeActiveChatRoom(activeChatRoomId);
+        // Check if the other user has blocked current user
+        initPapianoSupabaseAuth().then(async supabase => {
+            const { data: blockRow } = await supabase.from('blocked_users').select('id').eq('blocker_id', target.uid).eq('blocked_id', activeUser.uid).maybeSingle();
+            if (blockRow) {
+                setChatInputState(true, 'Cannot send messages to this user');
+            }
+        }).catch(() => {});
         if (!skipHistory) pushAppHistoryState({ route: 'chat-room', tabIndex: 1, headerTitle: 'Chat Hub' });
     }
 
@@ -3248,6 +3259,8 @@
     function renderRealtimeMessage(data) {
         const activeUser = getActiveSupabaseUser();
         if (activeUser?.uid && Array.isArray(data.deletedFor) && data.deletedFor.includes(activeUser.uid)) return;
+        // Hide messages from blocked users
+        if (data.uid && blockedUserKeys.has(data.uid)) return;
         const side = data.uid && activeUser && data.uid === activeUser.uid ? 'outgoing' : 'incoming';
         appendMessageBubble(data.text || '', side, data.replyTo || null, {
             id: data.id || '',
@@ -3272,6 +3285,23 @@
         if (!activeUser) {
             showPlannedPopup('Sign in with Google to send real messages.');
             return;
+        }
+        // Block check: prevent sending if you blocked the target or the target blocked you
+        if (activeChatRoomId && activeChatRoomId.startsWith('direct_') && dynamicActiveUserKey) {
+            if (blockedUserKeys.has(dynamicActiveUserKey)) {
+                showPlannedPopup('You have blocked this user. Unblock to send messages.');
+                return;
+            }
+            // Check if target has blocked current user (server-side check)
+            try {
+                const supabaseCheck = await initPapianoSupabaseAuth();
+                const { data: blockRow } = await supabaseCheck.from('blocked_users').select('id').eq('blocker_id', dynamicActiveUserKey).eq('blocked_id', activeUser.uid).maybeSingle();
+                if (blockRow) {
+                    showPlannedPopup('You cannot send messages to this user.');
+                    setChatInputState(true, 'Cannot send messages');
+                    return;
+                }
+            } catch (_) {}
         }
         if (!activeChatRoomId) {
             appendMessageBubble(text, 'outgoing', selectedReplyMessageText, { imageURL, status: 'sent' });
@@ -3868,7 +3898,17 @@
         localCurrentFpKey = userKey;
         currentProfileTargetUid = userKey;
         const data = userFriendsDatabase[userKey];
-        if(!data) return;
+        if(!data) {
+            // Fetch profile from Supabase if not in local cache
+            initPapianoSupabaseAuth().then(async supabase => {
+                const { data: row, error } = await supabase.from('profiles').select('*').eq('id', userKey).maybeSingle();
+                if (error || !row) { showPlannedPopup('Could not load user profile.'); return; }
+                const profile = getProfileDataFromUserDoc(row.id, row);
+                if (profile) supabaseProfileCache.set(row.id, profile);
+                launchFriendProfileModal(userKey, skipHistory);
+            }).catch(() => showPlannedPopup('Could not load user profile.'));
+            return;
+        }
 
         setAvatarNodeContent(fpBigInitial, data.name, data.photoURL || '');
         fpName.textContent = data.name;
