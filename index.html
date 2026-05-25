@@ -1726,9 +1726,12 @@
     let directChatProfiles = new Map();
     let searchProfiles = new Map();
     let messageProfiles = new Map();
+    let activeMessagesCache = new Map();
+    let blockedUserIds = new Set();
     let unsubscribeFriends = null;
     let unsubscribeRequests = null;
     let unsubscribeDirectChats = null;
+    let unsubscribeBlocks = null;
     let unsubscribeMessages = null;
     let privateUnreadTotal = 0;
 
@@ -1849,9 +1852,23 @@
             playTime: String(data.playTime || '0 Min'),
             publicId: Number.isInteger(publicId) && publicId > 0 ? publicId : 0,
             userId: data.userId || (publicId > 0 ? formatPublicUserId(publicId) : safeUserId(uid)),
+            searchName: String(data.searchName || data.name || data.displayName || '').toLowerCase(),
             likes: Number(data.likes || 0),
             dislikes: Number(data.dislikes || 0)
         };
+    }
+
+    function profileMatchesSearch(profile, query) {
+        const q = String(query || '').trim().toLowerCase().replace(/^#/, '');
+        if (!q) return false;
+        const haystack = [
+            profile.name,
+            profile.desc,
+            profile.userId,
+            profile.publicId,
+            profile.searchName
+        ].join(' ').toLowerCase().replace('#', '');
+        return haystack.includes(q);
     }
 
     async function ensureUserProfile(user) {
@@ -1860,6 +1877,7 @@
         const counterRef = firestoreDb.collection('counters').doc('publicUserId');
         const base = {
             name: user.displayName || 'Papiano User',
+            searchName: String(user.displayName || 'Papiano User').toLowerCase(),
             desc: '',
             badgeId: 'common',
             photoURL: user.photoURL || '',
@@ -1884,6 +1902,7 @@
                 ...oldData,
                 publicId,
                 userId: formatPublicUserId(publicId),
+                searchName: String(oldData.searchName || oldData.name || base.name || 'Papiano User').toLowerCase(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
 
@@ -2015,6 +2034,7 @@
             ...loadProfile(),
             uid: currentUser.uid,
             name: cleanName,
+            searchName: cleanName.toLowerCase(),
             desc: cleanDesc,
             badgeId: selectedBadgeId,
             photoURL: formInputPhotoUrl?.value || '',
@@ -2132,28 +2152,36 @@
         row.className = `chat-row-item ${rowClass}`;
         row.dataset.type = type || 'friend';
         row.dataset.uid = profile.uid || '';
-        row.dataset.name = `${profile.name || ''} ${profile.desc || ''} ${profile.userId || ''}`.toLowerCase();
+        row.dataset.name = `${profile.name || ''} ${profile.desc || ''} ${profile.userId || ''} ${profile.publicId || ''} ${profile.searchName || ''}`.toLowerCase();
         row.style.display = 'none';
         row.onclick = () => {
             if (type === 'dm') openDirectRoom(profile.uid);
             else launchFriendProfileModal(profile.uid || profile.requestId);
         };
-        const stamp = type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? 'Private' : 'Friend';
+        const isBlocked = blockedUserIds.has(profile.uid);
+        const stamp = isBlocked && type === 'friend' ? 'Blocked' : type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? formatMessageTime(profile.lastMessageAt) : 'Friend';
+        const snippet = isBlocked
+            ? 'User blocked. Unblock to chat.'
+            : type === 'dm'
+                ? (profile.lastMessage || 'No messages yet.')
+                : (profile.desc || (type === 'search' ? 'Tap profile or add friend.' : 'No bio yet.'));
         const actions = type === 'request'
             ? `<div class="chat-row-actions"><button class="chat-mini-action accept" type="button" onclick="event.stopPropagation(); respondFriendRequest('${profile.requestId}', true)">Accept</button><button class="chat-mini-action decline" type="button" onclick="event.stopPropagation(); respondFriendRequest('${profile.requestId}', false)">Decline</button></div>`
             : type === 'search'
                 ? `<div class="chat-row-actions"><button class="chat-mini-action accept" type="button" onclick="event.stopPropagation(); sendFriendRequest('${profile.uid}')">Add</button></div>`
                 : type === 'friend'
-                    ? `<div class="chat-row-actions"><button class="chat-mini-action accept" type="button" onclick="event.stopPropagation(); openDirectRoom('${profile.uid}')">Chat</button></div>`
+                    ? (isBlocked
+                        ? `<div class="chat-row-actions"><button class="chat-mini-action accept" type="button" onclick="event.stopPropagation(); unblockUser('${profile.uid}')">Unblock</button></div>`
+                        : `<div class="chat-row-actions"><button class="chat-mini-action accept" type="button" onclick="event.stopPropagation(); openDirectRoom('${profile.uid}')">Chat</button></div>`)
                     : '';
         row.innerHTML = `
-            <div class="avatar-circle" style="background:var(--accent-green);">${profile.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="">` : escapeHtml(getInitials(profile.name))}</div>
+            <div class="avatar-circle" style="background:var(--accent-green);" onclick="event.stopPropagation(); launchFriendProfileModal('${escapeHtml(profile.uid || '')}')">${profile.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="">` : escapeHtml(getInitials(profile.name))}</div>
             <div class="chat-body-content">
                 <div class="chat-row-header">
-                    <div class="chat-user-name">${escapeHtml(profile.name || 'Papiano User')} ${renderBadge(profile.badgeId || 'common')}</div>
+                    <div class="chat-user-name">${escapeHtml(profile.name || 'Papiano User')} ${renderBadge(profile.badgeId || 'common')} ${isBlocked ? '<span class="badge-role-pill badge-rarity-system">Blocked</span>' : ''}</div>
                     <div class="chat-timestamp">${stamp}</div>
                 </div>
-                <div class="chat-row-header"><div class="chat-snippet">${escapeHtml(profile.desc || profile.userId || 'No bio yet.')}</div></div>
+                <div class="chat-row-header"><div class="chat-snippet">${escapeHtml(snippet)}</div></div>
             </div>
             ${actions}
         `;
@@ -2222,14 +2250,17 @@
         if (typeof unsubscribeFriends === 'function') unsubscribeFriends();
         if (typeof unsubscribeRequests === 'function') unsubscribeRequests();
         if (typeof unsubscribeDirectChats === 'function') unsubscribeDirectChats();
+        if (typeof unsubscribeBlocks === 'function') unsubscribeBlocks();
         if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
         unsubscribeFriends = null;
         unsubscribeRequests = null;
         unsubscribeDirectChats = null;
+        unsubscribeBlocks = null;
         unsubscribeMessages = null;
         friendProfiles.clear();
         pendingFriendRequests.clear();
         directChatProfiles.clear();
+        blockedUserIds.clear();
         searchProfiles.clear();
         updatePrivateUnreadBadge(0);
         renderFriendRows();
@@ -2267,6 +2298,14 @@
                 renderFriendRows();
             }, error => showToast(error?.message || 'Requests failed.'));
 
+        unsubscribeBlocks = firestoreDb.collection('blocks')
+            .where('blockerId', '==', currentUser.uid)
+            .onSnapshot(snapshot => {
+                blockedUserIds = new Set(snapshot.docs.map(doc => doc.data()?.blockedId).filter(Boolean));
+                blockedUserIds.forEach(uid => directChatProfiles.delete(uid));
+                renderFriendRows();
+            }, error => showToast(error?.message || 'Block list failed.'));
+
         unsubscribeDirectChats = firestoreDb.collection('chatRooms')
             .where('participants', 'array-contains', currentUser.uid)
             .onSnapshot(async snapshot => {
@@ -2276,7 +2315,19 @@
                 const targetIds = [...new Set(rooms.map(room => room.participants.find(uid => uid !== currentUser.uid)).filter(Boolean))];
                 const unreadTotal = rooms.reduce((sum, room) => sum + Math.max(0, Number(room.unreadCount?.[currentUser.uid]) || 0), 0);
                 updatePrivateUnreadBadge(unreadTotal);
-                directChatProfiles = await hydrateProfilesByIds(targetIds);
+                const hydrated = await hydrateProfilesByIds(targetIds);
+                directChatProfiles.clear();
+                rooms.forEach(room => {
+                    const targetUid = room.participants.find(uid => uid !== currentUser.uid);
+                    if (!targetUid || blockedUserIds.has(targetUid)) return;
+                    const profile = hydrated.get(targetUid) || normalizeProfile(targetUid, {});
+                    const previewCleared = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid);
+                    directChatProfiles.set(targetUid, {
+                        ...profile,
+                        lastMessage: previewCleared ? 'No messages yet.' : (room.lastMessage || 'No messages yet.'),
+                        lastMessageAt: previewCleared ? null : (room.updatedAt || null)
+                    });
+                });
                 renderFriendRows();
             }, error => showToast(error?.message || 'Private chat list failed.'));
     }
@@ -2336,7 +2387,7 @@
     }
 
     async function searchProfileByPublicId(query) {
-        if (!currentUser?.uid || currentChatSubView !== 'friends') return;
+        if (!currentUser?.uid || !firestoreDb) return;
         const clean = String(query || '').trim();
         const normalized = clean.toLowerCase();
         if (normalized === lastProfileSearchQuery) return;
@@ -2351,27 +2402,37 @@
             if (/^#?\d+$/.test(clean)) {
                 const publicId = Number(clean.replace('#', ''));
                 if (Number.isInteger(publicId) && publicId > 0) {
-                    const idSnap = await firestoreDb.collection('profiles').where('publicId', '==', publicId).limit(8).get();
+                    const idSnap = await firestoreDb.collection('profiles').where('publicId', '==', publicId).limit(12).get();
                     idSnap.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
                 }
             }
             if (clean.length >= 2) {
-                const nameSnap = await firestoreDb.collection('profiles')
-                    .orderBy('name')
-                    .startAt(clean)
-                    .endAt(clean + '\uf8ff')
-                    .limit(12)
-                    .get();
-                nameSnap.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
-
                 const lowerSnap = await firestoreDb.collection('profiles')
                     .orderBy('searchName')
                     .startAt(normalized)
-                    .endAt(normalized + '\uf8ff')
-                    .limit(12)
+                    .endAt(normalized + '')
+                    .limit(20)
                     .get()
                     .catch(() => null);
                 lowerSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
+
+                const nameSnap = await firestoreDb.collection('profiles')
+                    .orderBy('name')
+                    .startAt(clean)
+                    .endAt(clean + '')
+                    .limit(20)
+                    .get()
+                    .catch(() => null);
+                nameSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
+
+                const fallbackSnap = await firestoreDb.collection('profiles')
+                    .limit(80)
+                    .get()
+                    .catch(() => null);
+                fallbackSnap?.forEach(doc => {
+                    const profile = normalizeProfile(doc.id, doc.data() || {});
+                    if (profileMatchesSearch(profile, normalized)) found.set(doc.id, profile);
+                });
             }
             found.forEach((profile, uid) => {
                 if (uid !== currentUser.uid && !friendProfiles.has(uid)) searchProfiles.set(uid, profile);
@@ -2384,7 +2445,7 @@
 
     function scheduleProfileSearch(query) {
         clearTimeout(profileSearchTimer);
-        profileSearchTimer = setTimeout(() => searchProfileByPublicId(query), 260);
+        profileSearchTimer = setTimeout(() => searchProfileByPublicId(query), 160);
     }
 
     function switchChatSubView(view) {
@@ -2405,10 +2466,10 @@
 
     function filterChatMatrixList(allowSearch = true) {
         const q = (friendSearchField?.value || '').trim().toLowerCase();
-        if (allowSearch && currentChatSubView === 'friends') scheduleProfileSearch(q);
+        if (allowSearch && q) scheduleProfileSearch(q);
         let visible = 0;
         const selector = {
-            chats: '.chat-matrix-node',
+            chats: q ? '.chat-matrix-node, .search-result-node' : '.chat-matrix-node',
             friends: '.friend-list-node, .search-result-node',
             requests: '.request-list-node'
         }[currentChatSubView] || '.chat-matrix-node';
@@ -2433,14 +2494,32 @@
         }
     }
 
-    function openCommunityRoom(roomId) {
-        activeChatRoomId = getGroupRoomId(roomId || 'global');
+    async function openCommunityRoom(roomId) {
+        const normalizedRoomId = roomId || 'global';
+        activeChatRoomId = getGroupRoomId(normalizedRoomId);
         activeChatRoomType = 'group';
         activeChatTargetUid = '';
-        if (chatRoomActiveTitle) chatRoomActiveTitle.textContent = roomTitles[roomId] || 'Chat';
+        if (chatRoomActiveTitle) chatRoomActiveTitle.textContent = roomTitles[normalizedRoomId] || 'Chat';
         if (chatInputBar) chatInputBar.classList.toggle('read-only', !currentUser?.uid);
         if (chatOverlayRoom) chatOverlayRoom.style.display = 'flex';
         listenToActiveRoomMessages();
+        ensureGroupRoomHistoryVisible(normalizedRoomId);
+    }
+
+    async function ensureGroupRoomHistoryVisible(roomId) {
+        if (!firestoreDb || !activeChatRoomId) return;
+        try {
+            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
+            await roomRef.set({
+                type: 'group',
+                roomKey: roomId || 'global',
+                historyVisible: true,
+                participants: [],
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch (error) {
+            console.warn('Group room history metadata skipped:', error);
+        }
     }
 
     async function openDirectRoom(targetUid) {
@@ -2452,34 +2531,38 @@
             showToast('Cannot open this chat.');
             return;
         }
+        const roomId = getDirectRoomId(currentUser.uid, targetUid);
+        const profile = friendProfiles.get(targetUid) || directChatProfiles.get(targetUid) || searchProfiles.get(targetUid) || normalizeProfile(targetUid, {});
+        activeChatRoomId = roomId;
+        activeChatRoomType = 'dm';
+        activeChatTargetUid = targetUid;
+        if (chatRoomActiveTitle) chatRoomActiveTitle.textContent = profile.name || 'Private Chat';
+        if (chatInputBar) chatInputBar.classList.remove('read-only');
+        if (chatOverlayRoom) chatOverlayRoom.style.display = 'flex';
+        if (chatMessagesScrollArea) chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Opening chat...</div>`;
+        closeFriendProfileModal();
         try {
             if (await hasBlockBetween(currentUser.uid, targetUid)) {
+                closeChatOverlayRoom();
                 showToast('Private chat is blocked.');
                 return;
             }
             const friendRef = firestoreDb.collection('friendships').doc(buildPairId(currentUser.uid, targetUid));
             const friendSnap = await friendRef.get();
             if (!friendSnap.exists || friendSnap.data()?.status !== 'accepted') {
+                closeChatOverlayRoom();
                 showToast('Add this user as friend first.');
                 return;
             }
-            const roomId = getDirectRoomId(currentUser.uid, targetUid);
-            const profile = friendProfiles.get(targetUid) || directChatProfiles.get(targetUid) || normalizeProfile(targetUid, {});
             await firestoreDb.collection('chatRooms').doc(roomId).set({
                 type: 'dm',
                 participants: [currentUser.uid, targetUid],
                 [`unreadCount.${currentUser.uid}`]: 0,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            activeChatRoomId = roomId;
-            activeChatRoomType = 'dm';
-            activeChatTargetUid = targetUid;
-            if (chatRoomActiveTitle) chatRoomActiveTitle.textContent = profile.name || 'Private Chat';
-            if (chatInputBar) chatInputBar.classList.remove('read-only');
-            if (chatOverlayRoom) chatOverlayRoom.style.display = 'flex';
-            closeFriendProfileModal();
             listenToActiveRoomMessages();
         } catch (error) {
+            closeChatOverlayRoom();
             showToast(error?.message || 'Private chat failed.');
         }
     }
@@ -2489,15 +2572,17 @@
         unsubscribeMessages = null;
         if (!activeChatRoomId) return;
         if (chatMessagesScrollArea) {
-            chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Loading messages...</div>`;
+            chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Opening messages...</div>`;
         }
+        const historyLimit = activeChatRoomType === 'group' ? 180 : 80;
         unsubscribeMessages = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages')
-            .orderBy('createdAt', 'asc')
-            .limit(120)
+            .orderBy('createdAt', 'desc')
+            .limit(historyLimit)
             .onSnapshot(async snapshot => {
                 const messages = snapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(item => !(Array.isArray(item.hiddenFor) && item.hiddenFor.includes(currentUser?.uid)))
+                    .reverse()
+                    .filter(item => !(Array.isArray(item.hiddenFor) && currentUser?.uid && item.hiddenFor.includes(currentUser.uid)))
                     .filter(item => item.deletedForAll !== true);
                 await hydrateMessageProfiles(messages);
                 renderChatMessages(messages);
@@ -2549,6 +2634,8 @@
             chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">No messages yet.</div>`;
             return;
         }
+        activeMessagesCache.clear();
+        messages.forEach(message => activeMessagesCache.set(message.id, message));
         chatMessagesScrollArea.innerHTML = messages.map(message => {
             const mine = message.senderId === currentUser?.uid;
             const rowClass = mine ? 'row-outgoing msg-outgoing' : 'row-incoming msg-incoming';
@@ -2731,7 +2818,7 @@
             const roomUpdate = {
                 type: activeChatRoomType || 'group',
                 participants: activeChatRoomType === 'dm' ? [currentUser.uid, activeChatTargetUid] : [],
-                lastMessage: text || 'Image',
+                lastMessage: text || 'Photo',
                 lastSenderId: currentUser.uid,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -2810,10 +2897,13 @@
     async function beginReplyToMessage(messageId) {
         if (!activeChatRoomId || !messageId) return;
         try {
-            const ref = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId);
-            const snap = await ref.get();
-            if (!snap.exists) return;
-            const data = { id: snap.id, ...snap.data() };
+            let data = activeMessagesCache.get(messageId);
+            if (!data) {
+                const ref = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId);
+                const snap = await ref.get();
+                if (!snap.exists) return;
+                data = { id: snap.id, ...snap.data() };
+            }
             const profile = getMessageSenderProfile(data);
             activeReplyMessage = {
                 id: data.id,
@@ -2876,9 +2966,15 @@
         if (fpDesc) fpDesc.textContent = profile.desc || 'No bio yet.';
         if (fpLikeVal) fpLikeVal.textContent = profile.likes || 0;
         if (fpDislikeVal) fpDislikeVal.textContent = profile.dislikes || 0;
-        if (fpAddFriendBtn) fpAddFriendBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || friendProfiles.has(profile.uid);
-        if (fpOpenChatBtn) fpOpenChatBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || !friendProfiles.has(profile.uid);
-        if (fpBlockUserBtn) fpBlockUserBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid;
+        const isBlocked = blockedUserIds.has(profile.uid);
+        if (fpAddFriendBtn) fpAddFriendBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || friendProfiles.has(profile.uid) || isBlocked;
+        if (fpOpenChatBtn) fpOpenChatBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid || !friendProfiles.has(profile.uid) || isBlocked;
+        if (fpBlockUserBtn) {
+            fpBlockUserBtn.disabled = !currentUser?.uid || profile.uid === currentUser?.uid;
+            fpBlockUserBtn.innerHTML = isBlocked
+                ? '<span class="material-symbols-rounded">lock_open</span><span>Unblock</span>'
+                : '<span class="material-symbols-rounded">block</span><span>Block</span>';
+        }
         loadProfileComments(profile.uid, commentsStreamBoxArea);
         modal.classList.add('active');
     }
@@ -2930,10 +3026,18 @@
             return;
         }
         const targetUid = activeFriendProfileKey;
+        if (blockedUserIds.has(targetUid)) {
+            await unblockUser(targetUid);
+            return;
+        }
         try {
             const batch = firestoreDb.batch();
             const pairId = buildPairId(currentUser.uid, targetUid);
-            batch.delete(firestoreDb.collection('friendships').doc(pairId));
+            batch.set(firestoreDb.collection('friendships').doc(pairId), {
+                users: [currentUser.uid, targetUid],
+                status: 'accepted',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
             const blockId = `${currentUser.uid}_${targetUid}`;
             batch.set(firestoreDb.collection('blocks').doc(blockId), {
                 blockerId: currentUser.uid,
@@ -2942,20 +3046,45 @@
             }, { merge: true });
             const dmId = getDirectRoomId(currentUser.uid, targetUid);
             batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
+                clearedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
                 blockedFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             await batch.commit();
-            friendProfiles.delete(targetUid);
+            blockedUserIds.add(targetUid);
             directChatProfiles.delete(targetUid);
             pendingFriendRequests.forEach((profile, key) => {
                 if (profile.uid === targetUid) pendingFriendRequests.delete(key);
             });
             renderFriendRows();
-            closeFriendProfileModal();
-            showToast('User blocked and removed from friends.');
+            launchFriendProfileModal(targetUid);
+            showToast('User blocked. Friend remains listed.');
         } catch (error) {
             showToast(error?.message || 'Block failed.');
+        }
+    }
+
+    async function unblockUser(targetUid) {
+        if (!currentUser?.uid || !targetUid) {
+            showToast('Sign in to unblock users.');
+            return;
+        }
+        try {
+            const blockId = `${currentUser.uid}_${targetUid}`;
+            const dmId = getDirectRoomId(currentUser.uid, targetUid);
+            const batch = firestoreDb.batch();
+            batch.delete(firestoreDb.collection('blocks').doc(blockId));
+            batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
+                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            await batch.commit();
+            blockedUserIds.delete(targetUid);
+            renderFriendRows();
+            if (activeFriendProfileKey === targetUid) launchFriendProfileModal(targetUid);
+            showToast('User unblocked.');
+        } catch (error) {
+            showToast(error?.message || 'Unblock failed.');
         }
     }
 
