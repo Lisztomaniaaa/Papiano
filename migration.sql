@@ -449,5 +449,45 @@ DO $$ BEGIN
 END $$;
 
 -- =============================================================================
--- DONE. All tables, indexes, RLS policies, and realtime configured.
+-- TRIGGER: Block check before message insert (prevents blocked users from messaging)
+-- =============================================================================
+
+CREATE OR REPLACE FUNCTION public.check_blocked_before_message_insert()
+RETURNS TRIGGER AS $$
+DECLARE
+    room_type TEXT;
+    other_member_id UUID;
+    is_blocked BOOLEAN;
+BEGIN
+    SELECT type INTO room_type FROM public.rooms WHERE id = NEW.room_id;
+    IF room_type != 'direct' THEN
+        RETURN NEW;
+    END IF;
+    SELECT user_id INTO other_member_id
+    FROM public.room_members
+    WHERE room_id = NEW.room_id AND user_id != NEW.sender_id
+    LIMIT 1;
+    IF other_member_id IS NULL THEN
+        RETURN NEW;
+    END IF;
+    SELECT EXISTS(
+        SELECT 1 FROM public.blocked_users
+        WHERE (blocker_id = other_member_id AND blocked_id = NEW.sender_id)
+           OR (blocker_id = NEW.sender_id AND blocked_id = other_member_id)
+    ) INTO is_blocked;
+    IF is_blocked THEN
+        RAISE EXCEPTION 'Cannot send messages: user is blocked';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_check_blocked_before_message ON public.messages;
+CREATE TRIGGER trg_check_blocked_before_message
+    BEFORE INSERT ON public.messages
+    FOR EACH ROW
+    EXECUTE FUNCTION public.check_blocked_before_message_insert();
+
+-- =============================================================================
+-- DONE. All tables, indexes, RLS policies, triggers, and realtime configured.
 -- =============================================================================
