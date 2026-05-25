@@ -2613,6 +2613,7 @@
             applyUserDocumentToAccount(authUser, mergedUserData);
             subscribeCurrentUserSocialData(supabase, authUser.uid);
             subscribeCommunityPreviewRows(supabase);
+            subscribeNotifications(supabase, authUser.uid);
         } catch (error) {
             console.error('Supabase user sync failed:', error);
             currentUserCoreRole = 'verified';
@@ -3507,38 +3508,101 @@
 
     function addPapianoNotification(type, payload = {}) {
         window.PapianoSocial.notifications.push({ type, payload, createdAt: new Date().toISOString() });
+        updateNotificationBadge();
+    }
+
+    function updateNotificationBadge() {
         const badge = document.getElementById('globalNotificationBadge');
+        const total = window.PapianoSocial.notifications.length;
         if (badge) {
-            badge.textContent = String(window.PapianoSocial.notifications.length);
-            badge.style.display = window.PapianoSocial.notifications.length ? 'flex' : 'none';
+            badge.textContent = total > 99 ? '99+' : String(total);
+            badge.style.display = total ? 'flex' : 'none';
         }
     }
 
     function openNotificationCenter() {
-        const total = window.PapianoSocial?.notifications?.length || 0;
-        if (!total) {
+        const notifications = window.PapianoSocial?.notifications || [];
+        if (!notifications.length) {
             showPlannedPopup('No notifications yet.');
             return;
         }
-        showPlannedPopup(`${total} notification${total === 1 ? '' : 's'}.`);
+        const summary = [];
+        const announcements = notifications.filter(n => n.type === 'announcement');
+        const unread = notifications.filter(n => n.type === 'unread_message');
+        const friendReqs = notifications.filter(n => n.type === 'friend_request');
+        if (announcements.length) summary.push(`${announcements.length} announcement${announcements.length > 1 ? 's' : ''}`);
+        if (unread.length) summary.push(`${unread.length} unread message${unread.length > 1 ? 's' : ''}`);
+        if (friendReqs.length) summary.push(`${friendReqs.length} friend request${friendReqs.length > 1 ? 's' : ''}`);
+        showPlannedPopup(summary.join(', ') || `${notifications.length} notifications`);
         window.PapianoSocial.notifications.length = 0;
-        const badge = document.getElementById('globalNotificationBadge');
-        if (badge) badge.style.display = 'none';
+        updateNotificationBadge();
     }
 
-    function clearActiveChatHistory() {
+    function subscribeNotifications(supabase, uid) {
+        if (!supabase || !uid) return;
+        // Listen for new announcements
+        const announcementChannel = supabase.channel('notif_announcements').on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'messages'
+        }, (payload) => {
+            const row = payload.new;
+            if (!row || row.sender_id === uid) return;
+            // Check if this is an announcement room
+            ensureSupabaseRoomId(supabase, 'announcements').then(announcementRoomId => {
+                if (row.room_id === announcementRoomId) {
+                    addPapianoNotification('announcement', { body: row.body || '[Announcement]', roomId: 'announcements' });
+                }
+            }).catch(() => {});
+        }).subscribe();
+
+        // Listen for new direct messages (unread)
+        const dmChannel = supabase.channel('notif_dms').on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'messages'
+        }, (payload) => {
+            const row = payload.new;
+            if (!row || row.sender_id === uid) return;
+            // If the chat room is not currently open, count as unread
+            if (activeChatRoomId && chatOverlayRoom?.style.display === 'flex') return;
+            addPapianoNotification('unread_message', { senderId: row.sender_id, body: row.body || '[Message]', roomId: row.room_id });
+        }).subscribe();
+
+        // Listen for new friend requests
+        const frChannel = supabase.channel('notif_friend_requests').on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'friend_requests', filter: `to_user=eq.${uid}`
+        }, (payload) => {
+            const row = payload.new;
+            if (!row || row.status !== 'pending') return;
+            addPapianoNotification('friend_request', { fromUser: row.from_user });
+        }).subscribe();
+
+        // Store unsubscribes
+        const originalStop = stopUserRealtimeSubscriptions;
+        stopUserRealtimeSubscriptions = function() {
+            originalStop();
+            supabase.removeChannel(announcementChannel);
+            supabase.removeChannel(dmChannel);
+            supabase.removeChannel(frChannel);
+        };
+    }
+
+    async function clearActiveChatHistory() {
         if (!activeChatRoomId || !chatMessagesScrollArea) return;
         if (activeChatRoomId === 'announcements') {
             showPlannedPopup('Announcements history is read-only.');
             return;
         }
-        chatMessagesScrollArea.innerHTML = '<div class="chat-system-note">Chat history cleared on this device.</div>';
+        const activeUser = getActiveSupabaseUser();
+        if (!activeUser?.uid) { showPlannedPopup('Sign in to delete chat history.'); return; }
         try {
-            const activeUser = getActiveSupabaseUser();
-            const key = `papiano_clear_${activeUser?.uid || 'guest'}_${activeChatRoomId}`;
-            localStorage.setItem(key, new Date().toISOString());
-        } catch (_) {}
-        showPlannedPopup('Chat history removed.');
+            const supabase = await initPapianoSupabaseAuth();
+            const dbRoomId = await ensureSupabaseRoomId(supabase, activeChatRoomId);
+            const { error } = await supabase.from('messages').delete().eq('room_id', dbRoomId);
+            if (error) throw error;
+            chatMessagesScrollArea.innerHTML = '<div class="chat-system-note">All messages deleted.</div>';
+            showPlannedPopup('Chat history deleted for everyone.');
+        } catch (error) {
+            console.error('Clear chat failed:', error);
+            showPlannedPopup('Could not delete chat history.');
+        }
     }
 
     async function unblockCurrentProfileUser() {
@@ -3549,10 +3613,18 @@
             const supabase = await initPapianoSupabaseAuth();
             const { error } = await supabase.from('blocked_users').delete().eq('blocker_id', activeUser.uid).eq('blocked_id', currentProfileTargetUid);
             if (error) throw error;
+            // Delete all messages in the direct room permanently (non-restorable)
+            const directRoomId = getDirectRoomIdForUid(currentProfileTargetUid);
+            if (directRoomId) {
+                try {
+                    const dbRoomId = await ensureSupabaseRoomId(supabase, directRoomId);
+                    await supabase.from('messages').delete().eq('room_id', dbRoomId);
+                } catch (_) {}
+            }
             blockedUserKeys.delete(currentProfileTargetUid);
             const data = userFriendsDatabase[currentProfileTargetUid];
             if (data) updateProfileActionButtons(data);
-            showPlannedPopup('User unblocked.');
+            showPlannedPopup('User unblocked. Messages cleared.');
         } catch (error) {
             console.error('Unblock user failed:', error);
             showPlannedPopup('Could not unblock user.');
@@ -3699,14 +3771,21 @@
             document.querySelector(`[data-friend-uid="${targetUid}"]`)?.remove();
             document.querySelector(`[data-request-uid="${targetUid}"]`)?.remove();
             const directRoomId = getDirectRoomIdForUid(targetUid);
+            // Delete all messages in the direct room permanently
+            if (directRoomId) {
+                try {
+                    const dbRoomId = await ensureSupabaseRoomId(supabase, directRoomId);
+                    await supabase.from('messages').delete().eq('room_id', dbRoomId);
+                } catch (_) {}
+            }
             if (activeChatRoomId === directRoomId) {
-                chatMessagesScrollArea.innerHTML = '<div class="chat-system-note">This chat was cleared because the user was blocked.</div>';
+                chatMessagesScrollArea.innerHTML = '<div class="chat-system-note">All messages deleted. User blocked.</div>';
                 setChatInputState(true, 'Blocked user');
             }
             const directUnsub = activeDirectPreviewUnsubscribes.get(targetUid);
             if (typeof directUnsub === 'function') directUnsub();
             activeDirectPreviewUnsubscribes.delete(targetUid);
-            showPlannedPopup('User blocked.');
+            showPlannedPopup('User blocked. Messages deleted.');
             filterChatMatrixList();
         } catch (error) {
             console.error('Block user failed:', error);
