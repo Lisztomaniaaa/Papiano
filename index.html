@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8"/>
   <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+  <!-- TEMP DEBUG: Eruda console — hapus setelah selesai debugging -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
   <title>Papiano — Neo Edition</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -884,7 +887,7 @@
     .badge-rarity-system { background: #1A1A1A; color: #FFFFFF; }
 
     /* --- OVERLAY CHAT ROOM --- */
-    .chat-overlay-room { position: absolute; inset: 0; background: var(--bg-app); z-index: 50; display: none; flex-direction: column; }
+    .chat-overlay-room { position: absolute; inset: 0; background: var(--bg-app); z-index: 70; display: none; flex-direction: column; }
     .chat-room-header { height: 64px; background: var(--surface); display: flex; align-items: center; padding: 0 16px; gap: 12px; border-bottom: var(--brutal-border); }
     .chat-room-title { font-family: var(--font-display); font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: var(--dark-block); flex: 1; text-transform: uppercase; }
     .chat-messages-scroll { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
@@ -930,7 +933,7 @@
 
     /* --- GERBANG SUB-PAGES ARTIKEL REFERENSI --- */
     .sub-page-reference {
-        position: absolute; inset: 0; background: var(--bg-app); z-index: 60;
+        position: absolute; inset: 0; background: var(--bg-app); z-index: 70;
         display: none; flex-direction: column;
     }
     .reference-article-box { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
