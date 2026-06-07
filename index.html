@@ -154,7 +154,7 @@
         animation: papianoRipple 0.6s var(--ease-out-expo) forwards;
         background: rgba(255,255,255,0.30);
     }
-    .m3-filled .btn-ripple, .btn-auth-access .btn-ripple { background: rgba(0,32,48,0.22); }
+    .m3-filled .btn-ripple { background: rgba(0,32,48,0.22); }
 
     * {
         box-sizing: border-box;
@@ -232,29 +232,6 @@
     }
     .screen-login::after { content: none; }
 
-    .login-center {
-        position: relative;
-        z-index: 2;
-        width: 100%;
-        max-width: 360px;
-        text-align: center;
-        background: transparent;
-        border: none;
-        border-radius: 0;
-        padding: 0;
-        box-shadow: none;
-        margin-bottom: 64px;
-    }
-
-    .login-icon-box {
-        width: 180px;
-        height: 180px;
-        margin: 24px auto -8px auto;
-        border: none;
-        animation: papianoFloat 3.6s var(--ease-in-out) infinite;
-    }
-    .login-icon-box img { width: 100%; height: 100%; object-fit: contain; display: block; }
-    .login-icon-box .material-symbols-rounded { font-size: 54px; color: #8ab4f8; }
     .brand-logo-img { width: 30px; height: 30px; object-fit: contain; border-radius: 8px; flex-shrink: 0; }
 
     .screen-login h1 {
@@ -295,137 +272,7 @@
         display: block;
     }
 
-    .login-actions-box {
-        position: relative;
-        z-index: 2;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        width: 100%;
-        max-width: 380px;
-        padding: 0;
-        background: transparent;
-        border: none;
-        border-radius: 0;
-        box-shadow: none;
-    }
-
-    .btn-auth-google {
-        height: 56px; width: 100%;
-        background: #ffffff;
-        border: none;
-        border-radius: 980px;
-        font-size: 15px; font-weight: 600;
-        color: #1a1a1a;
-        cursor: pointer; display: flex;
-        align-items: center; justify-content: center; gap: 12px;
-        box-shadow: 0 6px 18px rgba(0,40,90,0.18);
-        transition: background var(--dur-fast) var(--ease-snappy), transform var(--dur-fast) var(--ease-snappy);
-    }
-    @media (hover: hover) {
-        .btn-auth-google:hover { background: #f0f4f8; }
-        .btn-auth-access:hover { filter: brightness(1.04); }
-    }
-    .btn-auth-google:active { transform: scale(0.98); background: #e8eef5; }
-    .btn-auth-google svg { width: 20px; height: 20px; }
-
-    .login-divider {
-        text-align: center;
-        color: rgba(255,255,255,0.75);
-        font-size: 11px; font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        display: flex; align-items: center; gap: 12px;
-        margin: 2px 0;
-    }
-    .login-divider::before, .login-divider::after {
-        content: ''; flex: 1;
-        height: 1px; background: rgba(255,255,255,0.3);
-    }
-
-    .btn-auth-access {
-        width: 100%; padding: 17px;
-        border-radius: 980px;
-        font-size: 15px; font-weight: 700;
-        border: none;
-        cursor: pointer;
-        background: #08233f;
-        color: #ffffff;
-        letter-spacing: 0.01em;
-        box-shadow: 0 6px 18px rgba(0,30,70,0.3);
-        transition: filter var(--dur-fast) var(--ease-snappy), transform var(--dur-fast) var(--ease-snappy);
-    }
-    .btn-auth-access:active { transform: scale(0.98); filter: brightness(1.15); }
-
-    .btn-auth-email {
-        height: 56px; width: 100%;
-        background: #ffffff;
-        border: none;
-        border-radius: 980px;
-        font-size: 15px; font-weight: 600;
-        color: #1a1a1a;
-        cursor: pointer; display: flex;
-        align-items: center; justify-content: center; gap: 12px;
-        position: relative; overflow: hidden;
-        box-shadow: 0 6px 18px rgba(0,40,90,0.18);
-        transition: background var(--dur-fast) var(--ease-snappy), transform var(--dur-fast) var(--ease-snappy);
-    }
-    .btn-auth-email .material-symbols-rounded { font-size: 21px; color: #1b6fd6; }
     .auth-email-icon { width: 21px; height: 21px; display: block; flex: 0 0 21px; }
-    @media (hover: hover) { .btn-auth-email:hover { background: #f0f4f8; } }
-    .btn-auth-email:active { transform: scale(0.98); background: #e8eef5; }
-
-    .email-auth-overlay {
-        position: absolute; inset: 0; z-index: 220;
-        display: flex; align-items: center; justify-content: center;
-        padding: 18px;
-        background: rgba(0,0,0,0.58);
-        opacity: 0; visibility: hidden; pointer-events: none;
-        transition: opacity var(--dur-base) var(--ease-out-expo), visibility 0s linear var(--dur-base);
-    }
-    .email-auth-overlay.active { opacity: 1; visibility: visible; pointer-events: auto; transition: opacity var(--dur-base) var(--ease-out-expo); }
-    .email-auth-panel {
-        width: min(100%, 360px);
-        background: var(--surface-solid);
-        border: 0.5px solid var(--glass-border-col);
-        border-radius: 24px;
-        padding: 18px;
-        display: flex; flex-direction: column; gap: 12px;
-        box-shadow: 0 18px 48px rgba(0,0,0,0.36);
-        transform: translateY(12px) scale(0.98);
-        transition: transform var(--dur-base) var(--ease-out-expo);
-    }
-    .email-auth-overlay.active .email-auth-panel { transform: translateY(0) scale(1); }
-    .email-auth-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-    .email-auth-title { font-family: var(--font-display); font-size: 21px; font-weight: 800; color: var(--text-main); letter-spacing: -0.02em; }
-    .email-auth-subtitle { font-size: 13px; line-height: 1.4; color: var(--text-muted); margin-top: 4px; }
-    .email-auth-close {
-        width: 38px; height: 38px; border-radius: 50%; border: none;
-        background: var(--surface-raised); color: var(--text-main); cursor: pointer;
-        display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
-    }
-    .email-auth-form { display: grid; gap: 10px; }
-    .email-auth-field { display: grid; gap: 6px; }
-    .email-auth-field label { font-size: 11px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
-    .email-auth-input {
-        width: 100%; height: 50px; padding: 0 14px;
-        background: var(--surface-raised); border: 1px solid var(--glass-border-col); border-radius: 14px;
-        color: var(--text-main); font-size: 15px; font-weight: 600; outline: none;
-    }
-    .email-auth-input:focus { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
-    .email-auth-input::placeholder { color: var(--text-faint); }
-    .email-auth-submit {
-        position: relative; overflow: hidden; width: 100%; height: 52px; border: none; border-radius: 980px;
-        background: var(--accent); color: #ffffff; font-size: 15px; font-weight: 800; cursor: pointer;
-    }
-    .email-auth-submit:disabled { opacity: 0.58; cursor: not-allowed; }
-    .email-auth-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .email-auth-link {
-        border: none; background: transparent; color: var(--accent); cursor: pointer;
-        font-size: 13px; font-weight: 800; padding: 4px 0;
-    }
-    .email-auth-switch { color: var(--text-muted); font-size: 13px; font-weight: 600; }
-    .email-auth-handle { width: 38px; height: 5px; border-radius: 3px; background: var(--surface-high); margin: 2px auto 10px; }
 
     .auth-entry-overlay {
         position: absolute;
@@ -979,29 +826,12 @@
         .login-footer { display: none; }
     }
 
-    .screen-login .login-icon-box,
     .screen-login h1,
-    .screen-login p,
-    .login-actions-box > * {
+    .screen-login p {
         animation: papianoLoginIn 0.55s var(--ease-out-expo) backwards;
     }
-    .screen-login .login-icon-box { animation-delay: 0.05s; }
     .screen-login h1 { animation-delay: 0.15s; }
     .screen-login p { animation-delay: 0.25s; }
-    .login-actions-box > *:nth-child(1) { animation-delay: 0.35s; }
-    .login-actions-box > *:nth-child(2) { animation-delay: 0.42s; }
-    .login-actions-box > *:nth-child(3) { animation-delay: 0.49s; }
-    
-    .screen-login .login-icon-box {
-        animation: papianoLoginIn 0.55s var(--ease-out-expo) backwards, papianoFloat 3.6s var(--ease-in-out) 0.6s infinite;
-    }
-
-    .btn-auth-google, .btn-auth-access {
-        position: relative;
-        overflow: hidden;
-    }
-
-    .btn-auth-access::after { content: none; }
 
     .screen-main-app { display: none; flex-direction: column; height: 100%; width: 100%; }
     .screen-main-app.active { display: flex; transition: grid-template-rows 220ms var(--ease-out-expo); }
@@ -2386,7 +2216,6 @@
     .profile-meta-strip .profile-flag-row { margin-top: 0; }
     .profile-settings-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: start; }
     .profile-settings-row .form-item-group { min-width: 0; }
-    .profile-settings-row .badge-picker-trigger { min-height: 52px; }
     .profile-settings-row .form-input-control { min-height: 52px; }
     
     .profile-stats-grid { display: flex; justify-content: space-around; width: 100%; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.18); }
@@ -2415,12 +2244,6 @@
     .account-locked-info span { font-size: 11px; font-weight: 900; text-transform: uppercase; opacity: 0.7; }
     .account-locked-info strong { font-size: 16px; font-weight: 900; color: var(--dark-block); word-break: break-word; }
     .account-locked-info small { font-size: 10px; font-weight: 900; line-height: 1.25; opacity: 0.66; text-transform: uppercase; }
-    .badge-picker-trigger { width: 100%; min-height: 58px; padding: 12px 14px; border: var(--brutal-border); border-radius: 16px; background: var(--bg-app); color: var(--dark-block); display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; text-align: left; cursor: pointer; box-shadow: 0 8px 22px rgba(0,0,0,0.34); }
-    .badge-picker-trigger:active { transform: translate(2px, 2px); box-shadow: 0 8px 22px rgba(0,0,0,0.34); }
-    .badge-picker-current { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; font-weight: 900; text-transform: uppercase; }
-    .badge-picker-meta { display: block; margin-top: 4px; font-size: 10px; font-weight: 900; text-transform: uppercase; opacity: 0.72; }
-    .role-readonly { cursor: default; box-shadow: none; }
-    .role-readonly:active { transform: none; }
     .form-help-text { display: block; margin-top: 6px; font-size: 11px; line-height: 1.35; color: var(--dark-block); font-weight: 900; opacity: 0.75; text-transform: uppercase; }
 
     .btn-submit-config { position: relative; overflow: hidden; background: var(--accent); color: #ffffff; border: none; padding: 17px; border-radius: 999px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: 0.02em; cursor: pointer; width: 100%; text-transform: uppercase; transition: transform var(--dur-fast) var(--ease-snappy), background var(--dur-base) var(--ease-out-expo); }
@@ -2518,11 +2341,6 @@
         .screen-login h1 {
             font-size: clamp(52px, 8vw, 74px);
         }
-        .login-icon-box {
-            width: 210px;
-            height: 210px;
-            margin-bottom: 0;
-        }
 
         .view-router-container {
             padding: 22px;
@@ -2601,35 +2419,9 @@
             padding: 22px 34px;
         }
 
-        .login-center {
-            max-width: 440px;
-            margin: 0;
-            text-align: left;
-        }
-
-        .login-icon-box {
-            width: clamp(136px, 17vw, 190px);
-            height: clamp(136px, 17vw, 190px);
-            border-radius: 28px;
-            margin: 0 0 18px 0;
-        }
-
-        .login-icon-box .material-symbols-rounded { font-size: 72px; }
         .screen-login h1 { font-size: clamp(48px, 7.5vw, 78px); line-height: 0.93; }
         .screen-login h1 span { margin-top: 10px; padding: 5px 16px; font-size: 0.34em; }
         .screen-login p { display: none; }
-        .login-actions-box {
-            max-width: 410px;
-            justify-self: center;
-            gap: 10px;
-            padding: 16px;
-            border-radius: 28px;
-            border: 1px solid rgba(255,255,255,0.10);
-            background: rgba(5,19,46,0.22);
-            box-shadow: 0 18px 42px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05);
-        }
-        .btn-auth-google, .btn-auth-email { height: 52px; border-radius: 980px; font-size: 15px; }
-        .btn-auth-access { padding: 15px; border-radius: 980px; font-size: 15px; }
 
         .screen-main-app.active {
             display: grid !important;
@@ -2840,21 +2632,6 @@
             padding: clamp(52px, 7vh, 70px) clamp(62px, 6.2vw, 86px);
         }
 
-        .login-center {
-            width: min(100%, 520px);
-            max-width: 520px;
-            margin: 0;
-            text-align: left;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-self: start;
-        }
-        .login-icon-box {
-            width: clamp(240px, 21vw, 320px);
-            height: clamp(240px, 21vw, 320px);
-            margin: 0 0 26px 0;
-        }
         .screen-login h1 {
             width: max-content;
             max-width: 100%;
@@ -2869,35 +2646,6 @@
             padding: 7px 24px;
             font-size: 0.27em;
             letter-spacing: 0.17em;
-        }
-        .login-actions-box {
-            width: min(500px, 100%);
-            max-width: 500px;
-            justify-self: end;
-            gap: 18px;
-            padding: 30px;
-            border-radius: 34px;
-            border: 1px solid rgba(255,255,255,0.10);
-            background: rgba(5,19,46,0.24);
-            box-shadow: 0 18px 48px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.05);
-            transform: none;
-        }
-        .btn-auth-google,
-        .btn-auth-email {
-            height: 64px;
-            font-size: 17px;
-            gap: 14px;
-        }
-        .btn-auth-access {
-            min-height: 64px;
-            padding: 18px 22px;
-            font-size: 16px;
-        }
-        .login-divider {
-            margin: 0;
-            gap: 16px;
-            font-size: 12px;
-            letter-spacing: 0.16em;
         }
 
         .screen-main-app.active {
@@ -3546,12 +3294,8 @@
 
   
     .account-form-sheet .form-help-text,
-    .account-locked-info small,
-    #accountRoleMeta {
+    .account-locked-info small {
         display: none !important;
-    }
-    .badge-picker-trigger span {
-        gap: 0;
     }
 
   
@@ -4030,38 +3774,6 @@
     }
 
   
-    .account-role-readonly {
-        width: 100%;
-        min-height: 52px;
-        padding: 12px 14px;
-        border: 1px solid rgba(6,17,31,0.10);
-        border-radius: 16px;
-        background: #F8FAFC;
-        color: #06111f;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: center;
-        gap: 10px;
-        box-shadow: none;
-        cursor: default;
-    }
-    .account-role-readonly .badge-picker-current {
-        font-size: 13px;
-        font-weight: 900;
-        text-transform: uppercase;
-    }
-    .account-role-readonly .material-symbols-rounded {
-        width: 30px;
-        height: 30px;
-        border-radius: 999px;
-        background: #06111f;
-        color: #ffffff;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 18px;
-        font-variation-settings: 'FILL' 1;
-    }
     .msg-bubble.has-reply-action {
         position: relative;
         padding-right: 42px;
@@ -5367,13 +5079,11 @@
         else document.addEventListener('DOMContentLoaded', () => setTimeout(reveal, 300));
     })();
 
-    const loginScreen = document.getElementById('loginScreen');
     const mainAppScreen = document.getElementById('mainAppScreen');
     const appContainer = document.getElementById('appContainer');
     const fsIcon = document.getElementById('fsIcon');
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     const appTopBar = document.getElementById('appTopBar');
-    const navBarStateTitle = document.getElementById('navBarStateTitle');
 
     const displayProfileName = document.getElementById('displayProfileName');
     const displayProfileRole = document.getElementById('displayProfileRole');
@@ -5381,7 +5091,6 @@
     const displayTotalPlayTrack = document.getElementById('displayTotalPlayTrack');
     const displayAuthStatus = document.getElementById('displayAuthStatus');
     const formInputName = document.getElementById('formInputName');
-    const accountRoleMeta = document.getElementById('accountRoleMeta');
     const accountLockedUserId = document.getElementById('accountLockedUserId');
     const accountLockedTotalPlay = document.getElementById('accountLockedTotalPlay');
     const accountDeleteOverlay = document.getElementById('accountDeleteOverlay');
@@ -5396,30 +5105,9 @@
     const chatSelectedImagePreviewText = document.getElementById('chatSelectedImagePreviewText');
     const masterPlaceholderIcon = document.getElementById('masterPlaceholderIcon');
     const masterAvatarImg = document.getElementById('masterAvatarImg');
-    const btnAuthGoogle = document.getElementById('btnAuthGoogle');
-    const btnAuthEmail = document.getElementById('btnAuthEmail');
-    const btnAuthAccess = document.getElementById('btnAuthAccess');
-    const emailAuthOverlay = document.getElementById('emailAuthOverlay');
-    const emailAuthCloseBtn = document.getElementById('emailAuthCloseBtn');
-    const emailAuthForm = document.getElementById('emailAuthForm');
-    const emailAuthEmail = document.getElementById('emailAuthEmail');
-    const emailAuthPassword = document.getElementById('emailAuthPassword');
-    const emailAuthSubmitBtn = document.getElementById('emailAuthSubmitBtn');
-    const emailAuthTitle = document.getElementById('emailAuthTitle');
-    const emailAuthSubtitle = document.getElementById('emailAuthSubtitle');
-    const emailForgotBtn = document.getElementById('emailForgotBtn');
     const authEntryOverlay = document.getElementById('authEntryOverlay');
     const authEntryTitle = document.getElementById('authEntryTitle');
     const authEntrySubtitle = document.getElementById('authEntrySubtitle');
-    const authEntryForm = document.getElementById('authEntryForm');
-    const authSignupName = document.getElementById('authSignupName');
-    const authEntryEmail = document.getElementById('authEntryEmail');
-    const authEntryPassword = document.getElementById('authEntryPassword');
-    const authEntryPassword2 = document.getElementById('authEntryPassword2');
-    const authSignupCountry = document.getElementById('authSignupCountry');
-    const authEntrySubmitBtn = document.getElementById('authEntrySubmitBtn');
-    const emailAuthSwitchText = document.getElementById('emailAuthSwitchText');
-    const emailAuthSwitchBtn = document.getElementById('emailAuthSwitchBtn');
     const soonPopupToast = document.getElementById('soonPopupToast');
     const soonPopupTitle = document.getElementById('soonPopupTitle');
     const soonPopupText = document.getElementById('soonPopupText');
@@ -5454,7 +5142,7 @@
         measurementId: "G-3FVZ17Q69B"
     };
 
-    const firebaseApp = firebase.initializeApp(firebaseConfig);
+    firebase.initializeApp(firebaseConfig);
     const firebaseAuth = firebase.auth();
     const realtimeDb = firebase.database();
     const firestoreDb = firebase.firestore();
@@ -5515,7 +5203,6 @@
     let profileSearchTimer = null;
     let lastProfileSearchQuery = '';
     let toastTimer = null;
-    let featureSoonTimer = null;
     let carouselIndex = 0;
     let carouselTimer = null;
     let carouselAutoPaused = false;
@@ -5627,7 +5314,6 @@
 
     function openMainApp() {
         appContainer.classList.remove('auth-pending');
-        if (loginScreen) loginScreen.style.display = 'none';
         mainAppScreen.classList.add('active');
         updateProfileView(loadProfile());
         startPlayTimeTracker();
@@ -5651,7 +5337,6 @@
         activeChatRoomType = '';
         activeChatTargetUid = '';
         document.getElementById('authGateOverlay')?.style.setProperty('display', 'none');
-        if (!emailAuthBusy) closeEmailAuth();
         openMainApp();
     }
 
@@ -5726,154 +5411,9 @@
         }
     }
 
-    function validateAuthSignupPassword(password, confirmPassword) {
-        if (String(password || '').length < 8) return 'Password must be at least 8 characters.';
-        if (!/^[A-Z]/.test(password)) return 'Password must start with an uppercase letter.';
-        if (!/[^A-Za-z0-9]/.test(password)) return 'Password needs at least 1 symbol.';
-        if (password !== confirmPassword) return 'Re-enter password does not match.';
-        return '';
-    }
-
     async function authEntryWithGoogle() {
         closeAuthEntryPopup();
         await processAppAuth('google');
-    }
-
-    async function submitAuthEntryEmail(event) {
-        event?.preventDefault();
-        if (authEntryBusy) return;
-        const email = String(authEntryEmail?.value || '').trim();
-        const password = String(authEntryPassword?.value || '');
-        const isSignup = authEntryMode === 'signup';
-        const name = String(authSignupName?.value || '').trim().slice(0, 24);
-        const country = String(authSignupCountry?.value || '').toUpperCase();
-        if (!email) { showToast('Enter your email.'); authEntryEmail?.focus(); return; }
-        if (!password) { showToast('Enter your password.'); authEntryPassword?.focus(); return; }
-        if (isSignup) {
-            if (!name) { showToast('Enter your name.'); authSignupName?.focus(); return; }
-            const passwordError = validateAuthSignupPassword(password, String(authEntryPassword2?.value || ''));
-            if (passwordError) { showToast(passwordError); authEntryPassword?.focus(); return; }
-            if (!country) { showToast('Select your country.'); authSignupCountry?.focus(); return; }
-        }
-        try {
-            setAuthEntryBusy(true);
-            appContainer.classList.add('auth-pending');
-            accessSessionActive = false;
-            const result = isSignup
-                ? await firebaseAuth.createUserWithEmailAndPassword(email, password)
-                : await firebaseAuth.signInWithEmailAndPassword(email, password);
-            if (isSignup && result.user) {
-                try { await result.user.updateProfile({ displayName: name }); } catch (_error) {}
-            }
-            const profile = await ensureUserProfile(result.user);
-            if (isSignup && result.user?.uid) {
-                await firestoreDb.collection('profiles').doc(result.user.uid).set({
-                    name,
-                    searchName: name.toLowerCase(),
-                    countryCode: country,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-                currentProfile = normalizeProfile(result.user.uid, { ...profile, name, searchName: name.toLowerCase(), countryCode: country });
-                saveProfile(currentProfile);
-                updateProfileView(currentProfile);
-            }
-            closeAuthEntryPopup();
-        } catch (error) {
-            appContainer.classList.remove('auth-pending');
-            showToast(friendlyError(error, 'Email login did not work. Please try again.'));
-        } finally {
-            setAuthEntryBusy(false);
-        }
-    }
-
-    async function sendAuthPasswordReset() {
-        if (authEntryBusy) return;
-        const email = String(authEntryEmail?.value || '').trim();
-        if (!email) { showToast('Enter your email first.'); authEntryEmail?.focus(); return; }
-        try {
-            setAuthEntryBusy(true);
-            await firebaseAuth.sendPasswordResetEmail(email);
-            showToast('Password reset email sent.');
-        } catch (error) {
-            showToast(friendlyError(error, 'Password reset did not work. Please try again.'));
-        } finally {
-            setAuthEntryBusy(false);
-        }
-    }
-
-    function setEmailAuthMode(mode) {
-        emailAuthMode = mode === 'signup' ? 'signup' : 'signin';
-        const isSignup = emailAuthMode === 'signup';
-        if (emailAuthTitle) emailAuthTitle.textContent = isSignup ? 'Create Email Account' : 'Sign in with Email';
-        if (emailAuthSubtitle) emailAuthSubtitle.textContent = isSignup ? 'Create an account for Papiano online features.' : 'Use your Papiano account to unlock online features.';
-        if (emailAuthSubmitBtn) emailAuthSubmitBtn.textContent = isSignup ? 'Sign Up' : 'Sign In';
-        if (emailAuthSwitchText) emailAuthSwitchText.textContent = isSignup ? 'Already have an account?' : 'No account?';
-        if (emailAuthSwitchBtn) emailAuthSwitchBtn.textContent = isSignup ? 'Sign In' : 'Sign Up';
-        if (emailForgotBtn) emailForgotBtn.style.display = isSignup ? 'none' : '';
-        if (emailAuthPassword) emailAuthPassword.autocomplete = isSignup ? 'new-password' : 'current-password';
-    }
-
-    function openEmailAuth(mode = 'signin') {
-        setEmailAuthMode(mode);
-        emailAuthOverlay?.classList.add('active');
-        emailAuthOverlay?.setAttribute('aria-hidden', 'false');
-        setTimeout(() => emailAuthEmail?.focus(), 80);
-    }
-
-    function closeEmailAuth() {
-        if (emailAuthBusy) return;
-        emailAuthOverlay?.classList.remove('active');
-        emailAuthOverlay?.setAttribute('aria-hidden', 'true');
-        emailAuthPassword && (emailAuthPassword.value = '');
-    }
-
-    function setEmailAuthBusy(isBusy) {
-        emailAuthBusy = !!isBusy;
-        if (emailAuthSubmitBtn) emailAuthSubmitBtn.disabled = emailAuthBusy;
-        if (emailAuthCloseBtn) emailAuthCloseBtn.disabled = emailAuthBusy;
-        if (emailAuthSwitchBtn) emailAuthSwitchBtn.disabled = emailAuthBusy;
-        if (emailForgotBtn) emailForgotBtn.disabled = emailAuthBusy;
-        if (emailAuthSubmitBtn) emailAuthSubmitBtn.textContent = emailAuthBusy ? 'Please wait...' : (emailAuthMode === 'signup' ? 'Sign Up' : 'Sign In');
-    }
-
-    async function submitEmailAuth(event) {
-        event?.preventDefault();
-        if (emailAuthBusy) return;
-        const email = String(emailAuthEmail?.value || '').trim();
-        const password = String(emailAuthPassword?.value || '');
-        if (!email) { showToast('Enter your email.'); emailAuthEmail?.focus(); return; }
-        if (!password) { showToast('Enter your password.'); emailAuthPassword?.focus(); return; }
-
-        try {
-            setEmailAuthBusy(true);
-            appContainer.classList.add('auth-pending');
-            accessSessionActive = false;
-            const result = emailAuthMode === 'signup'
-                ? await firebaseAuth.createUserWithEmailAndPassword(email, password)
-                : await firebaseAuth.signInWithEmailAndPassword(email, password);
-            closeEmailAuth();
-            await ensureUserProfile(result.user);
-        } catch (error) {
-            appContainer.classList.remove('auth-pending');
-            showToast(friendlyError(error, 'Email sign in didn’t work. Please try again.'));
-        } finally {
-            setEmailAuthBusy(false);
-        }
-    }
-
-    async function sendEmailPasswordReset() {
-        if (emailAuthBusy) return;
-        const email = String(emailAuthEmail?.value || '').trim();
-        if (!email) { showToast('Enter your email first.'); emailAuthEmail?.focus(); return; }
-        try {
-            setEmailAuthBusy(true);
-            await firebaseAuth.sendPasswordResetEmail(email);
-            showToast('Password reset email sent.');
-        } catch (error) {
-            showToast(friendlyError(error, 'Password reset didn’t work. Please try again.'));
-        } finally {
-            setEmailAuthBusy(false);
-        }
     }
 
     async function processAppAuth(mode) {
@@ -6803,7 +6343,6 @@
             const navIndex = button.dataset.tabIndex ? Number(button.dataset.tabIndex) : buttonIndex;
             button.classList.toggle('active', navIndex === index);
         });
-        if (navBarStateTitle) navBarStateTitle.textContent = title || appTabHeaderTitles[index] || 'Papiano';
         closeChatOverlayRoom();
         updateHomeTopBarVisibility();
 
@@ -6882,12 +6421,6 @@
         if (currentUser?.uid) return true;
         showAuthGateForFeature(featureName);
         return false;
-    }
-
-    function openProtectedSubPage(id, featureName) {
-        if (!requireSignedInFeature(featureName)) return;
-        launchSubPageReferenceNode(id);
-        if (id === 'subPageLeaderboard') initLeaderboardView();
     }
 
     function launchSubPageReferenceNode(id) {
@@ -7002,10 +6535,6 @@
     function formatDonationAmount(amount) {
         const value = Math.max(0, Number(amount) || 0);
         return `$${value.toLocaleString('en-US', { minimumFractionDigits: value >= 10 ? 0 : 2, maximumFractionDigits: value >= 10 ? 0 : 2 })}`;
-    }
-
-    function executeSoloPianoModule() {
-        launchSubPageReferenceNode('subPageModeSolo');
     }
 
     function buildPairId(uidA, uidB) {
@@ -8724,13 +8253,6 @@
         spawnRipple({ currentTarget: btn, clientX: e.clientX, clientY: e.clientY });
     }, { passive: true });
 
-    btnAuthGoogle?.addEventListener('click', () => processAppAuth('google'));
-    btnAuthAccess?.addEventListener('click', () => processAppAuth('access'));
-    emailAuthCloseBtn?.addEventListener('click', closeEmailAuth);
-    emailAuthOverlay?.addEventListener('click', event => { if (event.target === emailAuthOverlay) closeEmailAuth(); });
-    emailAuthForm?.addEventListener('submit', submitEmailAuth);
-    emailAuthSwitchBtn?.addEventListener('click', () => setEmailAuthMode(emailAuthMode === 'signin' ? 'signup' : 'signin'));
-    emailForgotBtn?.addEventListener('click', sendEmailPasswordReset);
     chatInputFieldMessage?.addEventListener('keydown', event => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -8742,7 +8264,6 @@
     document.addEventListener('keydown', event => {
         if (event.key === 'Escape') {
             if (authEntryOverlay?.classList.contains('active')) closeAuthEntryPopup();
-            if (emailAuthOverlay?.classList.contains('active')) closeEmailAuth();
         }
     });
     authEntryOverlay?.addEventListener('click', event => { if (event.target === authEntryOverlay) closeAuthEntryPopup(); });
