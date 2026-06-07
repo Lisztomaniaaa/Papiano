@@ -1829,8 +1829,16 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
 
     function getRoomUnreadForMe(room) {
         if (!currentUser?.uid || !room) return 0;
-        const explicitUnread = Math.max(0, Number(room.unreadCount?.[currentUser.uid]) || 0);
+        const rawUnread = room.unreadCount?.[currentUser.uid];
+        const explicitUnread = Math.max(0, Number(rawUnread) || 0);
         if (explicitUnread > 0) return explicitUnread;
+        // If unreadCount[uid] is explicitly defined (even as 0), trust it as
+        // ground truth — markActiveRoomRead() writes 0 there. This avoids the
+        // race where lastReadAt's serverTimestamp hasn't resolved yet locally
+        // (shows up as null), making the timestamp fallback below misfire.
+        if (rawUnread !== undefined && rawUnread !== null) return 0;
+        // If the last sender is me, by definition I've read up through it.
+        if (room.lastSenderId && room.lastSenderId === currentUser.uid) return 0;
         const updatedMs = toMillisTimestamp(room.updatedAt);
         const lastReadMs = toMillisTimestamp(room.lastReadAt?.[currentUser.uid]);
         if (updatedMs > lastReadMs && room.lastSenderId && room.lastSenderId !== currentUser.uid) return 1;
