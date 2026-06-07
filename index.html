@@ -1100,8 +1100,8 @@
     .lang-toggle-btn { transition: transform var(--dur-fast) var(--ease-snappy), box-shadow var(--dur-fast) var(--ease-snappy); }
     .lang-toggle-btn:active { transform: scale(0.94); }
 
-    .view-router-container { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
-    .app-tab-page { display: none; flex-direction: column; width: 100%; gap: 16px; }
+    .view-router-container { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; display: flex; flex-direction: column; gap: 16px; }
+    .app-tab-page { display: none; flex-direction: column; width: 100%; min-width: 0; gap: 16px; }
     .app-tab-page.active { display: flex; }
 
     .home-carousel { 
@@ -1418,6 +1418,9 @@
         border: 1px solid #c4d5e5;
         border-radius: 18px;
         box-shadow: 0 8px 18px rgba(6,17,31,0.07);
+        min-width: 0;
+        max-width: 100%;
+        overflow: hidden;
         transition: transform var(--dur-fast) var(--ease-snappy), box-shadow var(--dur-fast) var(--ease-snappy), border-color var(--dur-fast) var(--ease-snappy);
     }
     @media (hover: hover) { .chat-row-item:not([data-empty]):hover { transform: translateY(-1px); border-color: rgba(0,91,255,0.32); box-shadow: 0 12px 22px rgba(6,17,31,0.10); } }
@@ -1431,9 +1434,10 @@
     }
     .avatar-circle img, .friend-avatar-big img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; display: block; }
 
-    .chat-body-content { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
-    .chat-row-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
-    .chat-user-name { font-size: 15px; font-weight: 900; color: var(--dark-block); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .chat-body-content { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
+    .chat-row-header { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; }
+    .chat-user-name { font-size: 15px; font-weight: 900; color: var(--dark-block); display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; flex: 1 1 auto; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .chat-user-name > .badge-role-pill { flex-shrink: 0; }
     .chat-timestamp {
         width: max-content;
         font-size: 10px;
@@ -2153,7 +2157,7 @@
         color: #ffffff;
         border-color: #06111f;
     }
-    .chat-row-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+    .chat-row-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .chat-mini-action { min-height: 34px; padding: 0 12px; border-radius: 12px; border: 1px solid #06111f; background: var(--bg-app); color: var(--dark-block); font-size: 11px; font-weight: 900; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 0 rgba(6,17,31,0.18), 0 6px 14px rgba(6,17,31,0.10); text-transform: uppercase; white-space: nowrap; transition: transform var(--dur-fast) var(--ease-snappy), box-shadow var(--dur-fast) var(--ease-snappy); }
     .chat-mini-action:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 1px 0 rgba(6,17,31,0.18), 0 4px 10px rgba(6,17,31,0.08); }
     .chat-mini-action.accept { background: var(--accent-green); color: #06111f; box-shadow: inset 0 1px 0 rgba(255,255,255,0.36), 0 2px 0 #00a653, 0 6px 14px rgba(0,214,107,0.28); }
@@ -5121,6 +5125,7 @@
     let unsubscribeDirectChats = null;
     let unsubscribeBlocks = null;
     let unsubscribeMessages = null;
+    let unsubscribeSystemRooms = [];
     let privateUnreadTotal = 0;
     let friendRequestUnreadTotal = 0;
 
@@ -6684,6 +6689,8 @@
         if (typeof unsubscribeDirectChats === 'function') unsubscribeDirectChats();
         if (typeof unsubscribeBlocks === 'function') unsubscribeBlocks();
         if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
+        unsubscribeSystemRooms.forEach(fn => { try { fn(); } catch (_e) {} });
+        unsubscribeSystemRooms = [];
         unsubscribeFriends = null;
         unsubscribeRequests = null;
         unsubscribeDirectChats = null;
@@ -6701,12 +6708,43 @@
         renderFriendRows();
     }
 
+    // === System rooms (Announcement / Global / Feedback) last-message preview ===
+    function startSystemRoomListeners() {
+        const map = [
+            { roomKey: 'announcements', stampId: 'announcementStamp', snippetId: 'announcementSnippet', defaultStamp: 'PUBLIC', defaultSnippet: 'Papiano updates.' },
+            { roomKey: 'global',        stampId: 'globalChatStamp',   snippetId: 'globalChatSnippet',   defaultStamp: 'PUBLIC', defaultSnippet: 'Community chat room.' },
+            { roomKey: 'feedback',      stampId: 'feedbackStamp',     snippetId: 'feedbackSnippet',     defaultStamp: 'FEEDBACK', defaultSnippet: 'Feedback panel.' }
+        ];
+        map.forEach(({ roomKey, stampId, snippetId, defaultStamp, defaultSnippet }) => {
+            const docId = getGroupRoomId(roomKey);
+            const unsub = firestoreDb.collection('chatRooms').doc(docId).onSnapshot(snap => {
+                const data = snap.exists ? (snap.data() || {}) : {};
+                const stampNode = document.getElementById(stampId);
+                const snippetNode = document.getElementById(snippetId);
+                if (snippetNode) {
+                    snippetNode.textContent = data.lastMessage ? String(data.lastMessage).slice(0, 120) : defaultSnippet;
+                }
+                if (stampNode) {
+                    const ts = data.updatedAt;
+                    const date = ts?.toDate ? ts.toDate() : null;
+                    stampNode.textContent = date
+                        ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : defaultStamp;
+                }
+            }, _err => {
+                // On error keep defaults silently
+            });
+            unsubscribeSystemRooms.push(unsub);
+        });
+    }
+
     function startCommunityListeners() {
         stopCommunityListeners();
         if (!currentUser?.uid) {
             renderFriendRows();
             return;
         }
+        startSystemRoomListeners();
         unsubscribeFriends = firestoreDb.collection('friendships')
             .where('users', 'array-contains', currentUser.uid)
             .onSnapshot(async snapshot => {
