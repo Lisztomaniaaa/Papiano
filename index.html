@@ -1387,8 +1387,8 @@
             0 8px 14px rgba(0,91,255,0.16);
     }
     .friend-nav-btn { position: relative; }
-    .mini-count-badge { position: absolute; top: -7px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; border: 1px solid var(--glass-border-col); background: #06111f; color: #ffffff; display: none; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; line-height: 1; box-shadow: 0 6px 16px rgba(251,113,133,0.3); }
-    .row-count-badge { background: #06111f; color: #ffffff; font-size: 10px; min-width: 22px; height: 22px; border: 1px solid var(--glass-border-col); border-radius: 999px; display: none; align-items: center; justify-content: center; font-weight: 900; padding: 0 6px; box-shadow: 0 8px 22px rgba(0,0,0,0.34); }
+    .mini-count-badge { position: absolute; top: -7px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; border: 1px solid #06111f; background: #FB3F5C; color: #ffffff; display: none; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; line-height: 1; box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 0 #9f1831, 0 6px 14px rgba(251,63,92,0.32); }
+    .row-count-badge { background: #FB3F5C; color: #ffffff; font-size: 10px; min-width: 22px; height: 22px; border: 1px solid #06111f; border-radius: 999px; display: none; align-items: center; justify-content: center; font-weight: 900; padding: 0 6px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), 0 2px 0 #9f1831, 0 6px 14px rgba(251,63,92,0.30); }
     @media (max-width: 340px) {
         .friends-action-nav-bar { gap: 5px; }
         .friend-nav-btn {
@@ -2445,7 +2445,7 @@
     .auth-gate-home { background: none; border: none; color: var(--text-muted); font-size: 14px; font-weight: 600; cursor: pointer; padding: 12px; align-self: flex-start; }
     .nav-tab-action { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; color: #47586A; width: 64px; background: none; border: none; }
     .nav-pill-wrapper { width: 52px; height: 34px; border-radius: 12px; display: flex; align-items: center; justify-content: center; transition: background var(--dur-base) var(--ease-out-expo), border-color var(--dur-base) var(--ease-out-expo), box-shadow var(--dur-base) var(--ease-out-expo), transform var(--dur-base) var(--ease-out-expo); border: 1px solid rgba(83,101,121,0.18); position: relative; background: #EEF3F7; box-shadow: inset 0 2px 0 rgba(255,255,255,0.92), inset 0 -3px 0 rgba(83,101,121,0.10), 0 4px 0 rgba(83,101,121,0.12); }
-    .nav-unread-badge { position: absolute; top: -10px; right: -10px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--glass-border-col); background: #06111f; color: #ffffff; display: none; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; line-height: 1; box-shadow: 0 6px 16px rgba(251,113,133,0.3); }
+    .nav-unread-badge { position: absolute; top: -10px; right: -10px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; border: 1px solid #06111f; background: #FB3F5C; color: #ffffff; display: none; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; line-height: 1; box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), 0 2px 0 #9f1831, 0 6px 16px rgba(251,63,92,0.36); }
     .nav-tab-action .material-symbols-rounded { font-size: 24px; transition: font-variation-settings var(--dur-base) var(--ease-out-expo); }
     .nav-text-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; opacity: 0.86; transition: opacity var(--dur-base) var(--ease-out-expo); }
 
@@ -6594,6 +6594,31 @@
         }
     }
 
+    // === Unread friend-requests tracking (per-user, persisted in localStorage) ===
+    function getLastViewedRequestsAt(uid) {
+        if (!uid) return 0;
+        const raw = localStorage.getItem(`papiano:lastViewedRequestsAt:${uid}`);
+        const ms = Number(raw) || 0;
+        return ms;
+    }
+    function setLastViewedRequestsAt(uid, ms) {
+        if (!uid) return;
+        localStorage.setItem(`papiano:lastViewedRequestsAt:${uid}`, String(ms));
+    }
+    let cachedRequestDocs = [];
+    function recomputeFriendRequestUnread() {
+        if (!currentUser?.uid) {
+            updateFriendRequestBadge(0);
+            return;
+        }
+        const cutoffMs = getLastViewedRequestsAt(currentUser.uid);
+        const unread = cachedRequestDocs.filter(item => {
+            const createdMs = toMillisTimestamp(item.createdAt);
+            return createdMs > cutoffMs;
+        }).length;
+        updateFriendRequestBadge(unread);
+    }
+
     function updateNotificationBadges() {
         const total = privateUnreadTotal + friendRequestUnreadTotal;
         renderSmallBadge(chatNavUnreadBadge, total);
@@ -6659,6 +6684,7 @@
         blockedUserIds.clear();
         blockedProfiles.clear();
         searchProfiles.clear();
+        cachedRequestDocs = [];
         updatePrivateUnreadBadge(0);
         updateFriendRequestBadge(0);
         renderFriendRows();
@@ -6693,7 +6719,8 @@
                     const profile = profiles.get(item.requesterId) || normalizeProfile(item.requesterId, {});
                     pendingFriendRequests.set(item.id, { ...profile, requestId: item.id });
                 });
-                updateFriendRequestBadge(requestDocs.length);
+                cachedRequestDocs = requestDocs;
+                recomputeFriendRequestUnread();
                 renderFriendRows();
             }, error => showToast('Couldn’t load requests.'));
 
@@ -6873,6 +6900,11 @@
         if (currentChatSubView !== 'friends') {
             searchProfiles.clear();
             lastProfileSearchQuery = '';
+        }
+        // When the user actually opens the Requests tab, mark all current requests as seen.
+        if (currentChatSubView === 'requests' && currentUser?.uid) {
+            setLastViewedRequestsAt(currentUser.uid, Date.now());
+            recomputeFriendRequestUnread();
         }
         document.querySelectorAll('.friend-nav-btn').forEach(button => button.classList.remove('active'));
         const target = {
