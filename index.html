@@ -565,6 +565,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     function showLoginScreen() {
         pausePlayTimeTracker(false);
         stopCommunityListeners();
+        stopRoleRegistryListener();
         stopDeletedAccountWatcher();
         accessSessionActive = true;
         currentUser = null;
@@ -584,6 +585,12 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             if (document.getElementById('brandSheetOverlay')?.classList.contains('active')) populateBrandSheet();
         };
         rolesRef.on('value', rolesHandler);
+    }
+
+    function stopRoleRegistryListener() {
+        if (rolesRef && rolesHandler) rolesRef.off('value', rolesHandler);
+        rolesRef = null;
+        rolesHandler = null;
     }
 
     function stopDeletedAccountWatcher() {
