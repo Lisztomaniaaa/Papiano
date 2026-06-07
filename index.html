@@ -6520,7 +6520,7 @@
             <div class="avatar-circle" style="background:var(--accent-green);" onclick="event.stopPropagation(); launchFriendProfileModal('${escapeHtml(profile.uid || '')}')">${profile.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="">` : escapeHtml(getInitials(profile.name))}</div>
             <div class="chat-body-content">
                 <div class="chat-row-header">
-                    <div class="chat-user-name"><span class="chat-user-name-text">${escapeHtml(profile.name || 'Papiano User')}</span> ${renderBadge(profile.roleId || profile.badgeId || 'common')} ${isBlocked ? '<span class="badge-role-pill badge-rarity-system">Blocked</span>' : ''}</div>
+                    <div class="chat-user-name"><span class="chat-user-name-text">${escapeHtml(profile.name || 'Papiano User')}</span>${isBlocked ? ' <span class="badge-role-pill badge-rarity-system">Blocked</span>' : ''}</div>
                     <div class="chat-timestamp">${stamp}</div>
                 </div>
                 ${secondRow}
