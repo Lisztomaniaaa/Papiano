@@ -12950,7 +12950,9 @@ midiBtn.onclick = (e) => {
         // Multiplayer now lives on its own page (multiplayer.html), so the
         // top "Back" button must return to the main Papiano app instead of
         // just re-rendering the lobby (which left the user stuck on this page).
-        window.location.href = 'index.html';
+        // Use an absolute path so it resolves to the app home no matter how
+        // this page's URL is served (e.g. /multiplayer.html or a clean URL).
+        window.location.assign('/');
     }
 
     function setChatOpen(open){
@@ -14907,7 +14909,7 @@ midiBtn.onclick = (e) => {
             } else {
                 // Already on the multiplayer home: the phone back button should
                 // leave the multiplayer page and return to the main app.
-                window.location.href = 'index.html';
+                window.location.assign('/');
             }
         }
     });
