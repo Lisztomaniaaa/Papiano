@@ -7955,9 +7955,16 @@
             const votedBtn = document.querySelector(type === 'dislike' ? '.vote-btn-panel.v-dislike' : '.vote-btn-panel.v-like');
             if (votedBtn) {
                 votedBtn.classList.remove('just-voted');
-                void votedBtn.offsetWidth;
-                votedBtn.classList.add('just-voted');
-                setTimeout(() => votedBtn.classList.remove('just-voted'), 300);
+                // Use double-rAF instead of forced sync layout (void offsetWidth)
+                // to restart the CSS animation. Avoids the layout thrash flagged
+                // by Lighthouse while still guaranteeing the browser observes the
+                // class removal between frames.
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        votedBtn.classList.add('just-voted');
+                        setTimeout(() => votedBtn.classList.remove('just-voted'), 300);
+                    });
+                });
             }
         } catch (error) {
             showToast('Couldn’t save your reaction.');
