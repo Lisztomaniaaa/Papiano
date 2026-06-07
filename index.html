@@ -209,6 +209,37 @@
         border: 1px solid rgba(0,91,255,0.18);
     }
 
+    /* Tablet & desktop: float the mobile shell as a centered "phone" frame */
+    @media (min-width: 768px) and (min-height: 700px) {
+        body {
+            align-items: center;
+            padding: 24px;
+            background:
+                radial-gradient(1200px 800px at 18% 12%, rgba(0,91,255,0.14), transparent 60%),
+                radial-gradient(1000px 800px at 88% 88%, rgba(0,214,107,0.10), transparent 60%),
+                linear-gradient(160deg, #e7f4ff 0%, #cfeaff 55%, #b8dcff 100%);
+        }
+        .app-container {
+            height: min(100dvh - 48px, 900px);
+            max-width: 420px;
+            border-radius: 40px;
+            border: 1px solid rgba(6,17,31,0.18);
+            box-shadow:
+                0 40px 90px rgba(0,40,90,0.28),
+                0 12px 28px rgba(0,40,90,0.14),
+                inset 0 0 0 1px rgba(255,255,255,0.6);
+        }
+    }
+
+    /* Bigger desktop: slightly larger frame with more breathing room */
+    @media (min-width: 1280px) and (min-height: 800px) {
+        body { padding: 40px; }
+        .app-container {
+            max-width: 440px;
+            height: min(100dvh - 80px, 940px);
+        }
+    }
+
     .screen-login {
         flex: 1;
         display: flex;
