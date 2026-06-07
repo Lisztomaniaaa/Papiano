@@ -3134,18 +3134,10 @@
     .screen-main-app > .top-bar.top-auth-shell.is-scroll-hidden { transform: none; opacity: 1; pointer-events: auto; }
 
     /* Hamburger / user box and action buttons keep their original dark neumorphic
-       look — top bar background is white, but the buttons inside stay as-is. */
-    .screen-main-app > .top-bar.top-auth-shell .top-user-copy { display: flex !important; min-width: 0; }
-    .screen-main-app > .top-bar.top-auth-shell .top-user-kicker {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .screen-main-app > .top-bar.top-auth-shell .top-user-name {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+       look — top bar background is white, but the buttons inside stay as-is.
+       The original rule (.top-user-avatar, .top-user-copy { display: none })
+       must keep applying so the hamburger strips stay centered in the 42x40
+       box; do NOT add display overrides here. */
 
     .top-auth-actions {
         flex: 0 0 auto;
