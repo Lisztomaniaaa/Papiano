@@ -6686,15 +6686,21 @@
                 const rooms = snapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .filter(room => room.type === 'dm' && Array.isArray(room.participants));
-                const targetIds = [...new Set(rooms.map(room => room.participants.find(uid => uid !== currentUser.uid)).filter(Boolean))];
+                const targetIds = [...new Set(rooms.map(room => room.participants.find(uid => uid !== currentUser.uid)).filter(Boolean))]
+                    .filter(uid => !blockedUserIds.has(uid));
                 const hydrated = await hydrateProfilesByIds(targetIds);
                 directChatProfiles.clear();
                 rooms.forEach(room => {
                     const targetUid = room.participants.find(uid => uid !== currentUser.uid);
+                    // Double-check blockedUserIds after async hydration (may have updated during await)
                     if (!targetUid || blockedUserIds.has(targetUid)) return;
                     const folderHidden = Array.isArray(room.hiddenFolderFor) && room.hiddenFolderFor.includes(currentUser.uid);
                     const blockedFolder = Array.isArray(room.blockedFor) && room.blockedFor.includes(currentUser.uid);
                     if (folderHidden || blockedFolder) return;
+                    // Skip rooms with empty lastMessage and cleared state (fully deleted chats)
+                    const isFullyCleared = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid)
+                        && Array.isArray(room.hiddenFolderFor) && room.hiddenFolderFor.includes(currentUser.uid);
+                    if (isFullyCleared) return;
                     const profile = hydrated.get(targetUid) || normalizeProfile(targetUid, {});
                     const previewCleared = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid);
                     const unreadForMe = previewCleared ? 0 : getRoomUnreadForMe(room);
@@ -7006,7 +7012,8 @@
                     .map(doc => ({ id: doc.id, ...doc.data() }))
                     .reverse()
                     .filter(item => !(Array.isArray(item.hiddenFor) && currentUser?.uid && item.hiddenFor.includes(currentUser.uid)))
-                    .filter(item => item.deletedForAll !== true);
+                    .filter(item => item.deletedForAll !== true)
+                    .filter(item => !item.senderId || !blockedUserIds.has(item.senderId));
                 await hydrateMessageProfiles(messages);
                 renderChatMessages(messages);
             }, error => {
@@ -7602,6 +7609,28 @@
             return;
         }
         try {
+            const dmId = getDirectRoomId(currentUser.uid, targetUid);
+            const participants = [currentUser.uid, targetUid];
+
+            // Delete ALL messages in batches (not just 160)
+            const messagesRef = firestoreDb.collection('chatRooms').doc(dmId).collection('messages');
+            let allMsgSnap = await messagesRef.orderBy('createdAt', 'desc').limit(500).get();
+            while (!allMsgSnap.empty) {
+                const deleteBatch = firestoreDb.batch();
+                allMsgSnap.docs.forEach(doc => deleteBatch.set(doc.ref, {
+                    deletedForAll: true,
+                    text: '',
+                    imageURL: '',
+                    imagePath: '',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true }));
+                await deleteBatch.commit();
+                if (allMsgSnap.docs.length < 500) break;
+                const lastDoc = allMsgSnap.docs[allMsgSnap.docs.length - 1];
+                allMsgSnap = await messagesRef.orderBy('createdAt', 'desc').startAfter(lastDoc).limit(500).get();
+            }
+
+            // Commit the block + friendship removal + room cleanup
             const batch = firestoreDb.batch();
             const pairId = buildPairId(currentUser.uid, targetUid);
             batch.delete(firestoreDb.collection('friendships').doc(pairId));
@@ -7611,30 +7640,19 @@
                 blockedId: targetUid,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            const dmId = getDirectRoomId(currentUser.uid, targetUid);
-            const participants = [currentUser.uid, targetUid];
             batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
                 type: 'dm',
                 participants,
                 clearedBy: firebase.firestore.FieldValue.arrayUnion(...participants),
                 blockedFor: firebase.firestore.FieldValue.arrayUnion(...participants),
                 hiddenFolderFor: firebase.firestore.FieldValue.arrayUnion(...participants),
-                lastMessage: 'Chat cleared',
-                lastSenderId: currentUser.uid,
+                lastMessage: '',
+                lastSenderId: '',
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
-            const messagesSnap = await firestoreDb.collection('chatRooms').doc(dmId).collection('messages')
-                .orderBy('createdAt', 'desc')
-                .limit(160)
-                .get();
-            messagesSnap.docs.forEach(doc => batch.set(doc.ref, {
-                deletedForAll: true,
-                text: '',
-                imageURL: '',
-                imagePath: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }));
             await batch.commit();
+
+            // Immediately update local state
             blockedUserIds.add(targetUid);
             blockedProfiles.set(targetUid, friendProfiles.get(targetUid) || searchProfiles.get(targetUid) || directChatProfiles.get(targetUid) || normalizeProfile(targetUid, {}));
             friendProfiles.delete(targetUid);
@@ -7643,12 +7661,19 @@
             pendingFriendRequests.forEach((profile, key) => {
                 if (profile.uid === targetUid) pendingFriendRequests.delete(key);
             });
+
+            // If the active chat is open with this user, close it immediately
+            if (activeChatTargetUid === targetUid) {
+                closeChatOverlayRoom();
+            }
+
             renderFriendRows();
             launchFriendProfileModal(targetUid);
         } catch (error) {
-            showToast(friendlyError(error, 'Couldn’t block this user.'));
+            showToast(friendlyError(error, ‘Couldn’t block this user.’));
         }
     }
+
 
     async function unblockUser(targetUid) {
         if (!currentUser?.uid || !targetUid) {
