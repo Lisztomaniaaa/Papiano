@@ -15160,5 +15160,44 @@ midiBtn.onclick = (e) => {
     initFirebase();
 })();
 </script>
+<script>
+/* Papiano auto-update: silently reloads when a new build is deployed, so users
+   never get stuck on a cached old version. Bump APP_VERSION on every deploy to
+   match version.json. */
+(function(){
+    var APP_VERSION = '2026.06.07-1';
+    var CHECK_MS = 120000;
+    var busy = false;
+    function isTyping(){
+        var el = document.activeElement;
+        if(!el) return false;
+        var tag = (el.tagName || '').toLowerCase();
+        return tag === 'input' || tag === 'textarea' || el.isContentEditable === true;
+    }
+    function applyUpdate(latest){
+        try{
+            if(sessionStorage.getItem('papianoReloadGuard') === latest) return;
+            sessionStorage.setItem('papianoReloadGuard', latest);
+        }catch(e){}
+        location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
+    }
+    async function check(){
+        if(busy || document.hidden) return;
+        busy = true;
+        try{
+            var res = await fetch('/version.json?_=' + Date.now(), { cache:'no-store' });
+            if(res.ok){
+                var data = await res.json();
+                var latest = String((data && data.version) || '');
+                if(latest && latest !== APP_VERSION && !isTyping()) applyUpdate(latest);
+            }
+        }catch(e){}
+        busy = false;
+    }
+    setInterval(check, CHECK_MS);
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden) check(); });
+    setTimeout(check, 8000);
+})();
+</script>
 </body>
 </html>
