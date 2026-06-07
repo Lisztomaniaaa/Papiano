@@ -6697,12 +6697,21 @@
                     const folderHidden = Array.isArray(room.hiddenFolderFor) && room.hiddenFolderFor.includes(currentUser.uid);
                     const blockedFolder = Array.isArray(room.blockedFor) && room.blockedFor.includes(currentUser.uid);
                     if (folderHidden || blockedFolder) return;
-                    // Skip rooms with empty lastMessage and cleared state (fully deleted chats)
-                    const isFullyCleared = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid)
-                        && Array.isArray(room.hiddenFolderFor) && room.hiddenFolderFor.includes(currentUser.uid);
-                    if (isFullyCleared) return;
+
+                    // Robust cleared-state detection (also handles legacy data where
+                    // an old buggy unblock wiped hiddenFolderFor/clearedBy):
+                    // - If I'm in clearedBy AND the other user hasn't sent anything new -> hide.
+                    // - If lastMessage is the legacy sentinel 'Chat cleared' or empty AND
+                    //   no fresh activity from the other user -> hide.
+                    const myInClearedBy = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid);
+                    const noActivityFromOther = !room.lastSenderId || room.lastSenderId === currentUser.uid;
+                    const lastMsgEmpty = !room.lastMessage;
+                    const lastMsgLegacyCleared = room.lastMessage === 'Chat cleared';
+                    if (myInClearedBy && noActivityFromOther) return;
+                    if ((lastMsgEmpty || lastMsgLegacyCleared) && noActivityFromOther) return;
+
                     const profile = hydrated.get(targetUid) || normalizeProfile(targetUid, {});
-                    const previewCleared = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid);
+                    const previewCleared = myInClearedBy;
                     const unreadForMe = previewCleared ? 0 : getRoomUnreadForMe(room);
                     directChatProfiles.set(targetUid, {
                         ...profile,
@@ -6951,12 +6960,14 @@
                 showToast('Add this user as friend first.');
                 return;
             }
+            // Only modify MY own state when opening a chat. Don't wipe the other
+            // user's hiddenFolderFor/clearedBy (that's their decision).
             await firestoreDb.collection('chatRooms').doc(roomId).set({
                 type: 'dm',
                 participants: [currentUser.uid, targetUid],
-                hiddenFolderFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
-                clearedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
-                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
+                hiddenFolderFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
+                clearedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
+                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
                 [`unreadCount.${currentUser.uid}`]: 0,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
@@ -7354,9 +7365,13 @@
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             if (activeChatRoomType === 'dm' && activeChatTargetUid) {
-                roomUpdate.hiddenFolderFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
-                roomUpdate.clearedBy = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
-                roomUpdate.blockedFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
+                // Only un-hide for the sender. The receiver will see this chat reappear
+                // automatically because lastSenderId becomes the sender, which makes
+                // noActivityFromOther = false in the directChats filter (unless they
+                // explicitly hid it themselves - then it stays hidden, by design).
+                roomUpdate.hiddenFolderFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid);
+                roomUpdate.clearedBy = firebase.firestore.FieldValue.arrayRemove(currentUser.uid);
+                roomUpdate.blockedFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid);
                 roomUpdate[`unreadCount.${activeChatTargetUid}`] = firebase.firestore.FieldValue.increment(1);
                 roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
             }
