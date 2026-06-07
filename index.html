@@ -7441,13 +7441,16 @@
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
             if (activeChatRoomType === 'dm' && activeChatTargetUid) {
-                // Only un-hide for the sender. The receiver will see this chat reappear
-                // automatically because lastSenderId becomes the sender, which makes
-                // noActivityFromOther = false in the directChats filter (unless they
-                // explicitly hid it themselves - then it stays hidden, by design).
-                roomUpdate.hiddenFolderFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid);
-                roomUpdate.clearedBy = firebase.firestore.FieldValue.arrayRemove(currentUser.uid);
-                roomUpdate.blockedFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid);
+                // Sending a message revives the chat for BOTH participants:
+                // - sender obviously wants to chat now
+                // - receiver should see the new message in their folder/list
+                // This is gated by hasBlockBetween earlier in this function and the
+                // friendship check in openDirectRoom, so blocked/unfriended pairs
+                // can't reach here. State preservation for unblock case is therefore
+                // safe (they can't open chat to send anything).
+                roomUpdate.hiddenFolderFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
+                roomUpdate.clearedBy = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
+                roomUpdate.blockedFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
                 roomUpdate[`unreadCount.${activeChatTargetUid}`] = firebase.firestore.FieldValue.increment(1);
                 roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
             }
