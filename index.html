@@ -7561,6 +7561,26 @@
         openDirectRoom(activeFriendProfileKey);
     }
 
+    // Helper: delete ALL messages in a DM (paginated). Used by block + unfriend.
+    async function purgeDirectRoomMessages(dmId) {
+        const messagesRef = firestoreDb.collection('chatRooms').doc(dmId).collection('messages');
+        let snap = await messagesRef.orderBy('createdAt', 'desc').limit(500).get();
+        while (!snap.empty) {
+            const deleteBatch = firestoreDb.batch();
+            snap.docs.forEach(doc => deleteBatch.set(doc.ref, {
+                deletedForAll: true,
+                text: '',
+                imageURL: '',
+                imagePath: '',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true }));
+            await deleteBatch.commit();
+            if (snap.docs.length < 500) break;
+            const lastDoc = snap.docs[snap.docs.length - 1];
+            snap = await messagesRef.orderBy('createdAt', 'desc').startAfter(lastDoc).limit(500).get();
+        }
+    }
+
     async function unfriendFromProfile() {
         if (!currentUser?.uid || !activeFriendProfileKey) {
             showToast('No profile selected.');
@@ -7578,14 +7598,24 @@
         try {
             const pairId = buildPairId(currentUser.uid, targetUid);
             const dmId = getDirectRoomId(currentUser.uid, targetUid);
+
+            // Delete ALL messages in the DM (same as block)
+            await purgeDirectRoomMessages(dmId);
+
+            // Remove friendship + hide folder + mark cleared on my side
             const batch = firestoreDb.batch();
             batch.delete(firestoreDb.collection('friendships').doc(pairId));
             batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
+                clearedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
                 hiddenFolderFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
                 [`unreadCount.${currentUser.uid}`]: 0,
+                lastMessage: '',
+                lastSenderId: '',
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             await batch.commit();
+
+            // Local state
             const oldProfile = friendProfiles.get(targetUid) || activeFriendProfileData || normalizeProfile(targetUid, {});
             friendProfiles.delete(targetUid);
             directChatProfiles.delete(targetUid);
@@ -7612,23 +7642,8 @@
             const dmId = getDirectRoomId(currentUser.uid, targetUid);
             const participants = [currentUser.uid, targetUid];
 
-            // Delete ALL messages in batches (not just 160)
-            const messagesRef = firestoreDb.collection('chatRooms').doc(dmId).collection('messages');
-            let allMsgSnap = await messagesRef.orderBy('createdAt', 'desc').limit(500).get();
-            while (!allMsgSnap.empty) {
-                const deleteBatch = firestoreDb.batch();
-                allMsgSnap.docs.forEach(doc => deleteBatch.set(doc.ref, {
-                    deletedForAll: true,
-                    text: '',
-                    imageURL: '',
-                    imagePath: '',
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true }));
-                await deleteBatch.commit();
-                if (allMsgSnap.docs.length < 500) break;
-                const lastDoc = allMsgSnap.docs[allMsgSnap.docs.length - 1];
-                allMsgSnap = await messagesRef.orderBy('createdAt', 'desc').startAfter(lastDoc).limit(500).get();
-            }
+            // Delete ALL messages (paginated helper)
+            await purgeDirectRoomMessages(dmId);
 
             // Commit the block + friendship removal + room cleanup
             const batch = firestoreDb.batch();
@@ -7684,16 +7699,19 @@
             const blockId = `${currentUser.uid}_${targetUid}`;
             const dmId = getDirectRoomId(currentUser.uid, targetUid);
             const batch = firestoreDb.batch();
+            // Only remove the block. Keep hiddenFolderFor & clearedBy intact so the
+            // chat folder stays cleared after unblock (user must add friend / start
+            // a new chat to bring it back).
             batch.delete(firestoreDb.collection('blocks').doc(blockId));
             batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
                 blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
-                hiddenFolderFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
-                clearedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             await batch.commit();
             blockedUserIds.delete(targetUid);
             blockedProfiles.delete(targetUid);
+            // Make sure the DM doesn't reappear in the chat list locally
+            directChatProfiles.delete(targetUid);
             renderFriendRows();
             if (activeFriendProfileKey === targetUid) launchFriendProfileModal(targetUid);
         } catch (error) {
