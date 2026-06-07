@@ -1078,6 +1078,20 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
 
         currentUser = user;
         currentProfile = normalizeProfile(user.uid, profileData);
+        // Reconcile with any locally-cached play time that hasn't reached the
+        // server yet (the remote value only syncs periodically). Without this a
+        // reload would roll the timer back to the last synced value and the user
+        // would lose the minutes accumulated since then.
+        try {
+            const cached = JSON.parse(localStorage.getItem(storageKey) || '{}');
+            if (!cached.uid || cached.uid === user.uid) {
+                const cachedSeconds = parsePlayTimeSeconds(cached);
+                if (cachedSeconds > currentProfile.playTimeSeconds) {
+                    currentProfile.playTimeSeconds = cachedSeconds;
+                    currentProfile.playTime = formatPlayTime(cachedSeconds);
+                }
+            }
+        } catch (_) {}
         saveProfile(currentProfile);
         updateProfileView(currentProfile);
         closeAuthEntryPopup();
@@ -1144,8 +1158,14 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             if (document.getElementById('brandSheetOverlay')?.classList.contains('active')) populateBrandSheet();
         }
 
-        if (!currentUser?.uid || !currentProfile || !shouldSyncPlayTimeToday()) return;
-        if (!syncRemote && now - playTimeRemoteSyncedAt < PLAYTIME_REMOTE_SYNC_MS) return;
+        if (!currentUser?.uid || !currentProfile) return;
+        // Forced syncs (sign-out, tab hidden, page unload) must always write so
+        // the server never trails the local timer. Only the periodic background
+        // sync stays throttled to one write per day to keep Firestore writes low.
+        if (!syncRemote) {
+            if (!shouldSyncPlayTimeToday()) return;
+            if (now - playTimeRemoteSyncedAt < PLAYTIME_REMOTE_SYNC_MS) return;
+        }
 
         playTimeRemoteSyncedAt = now;
         firestoreDb.collection('profiles').doc(currentUser.uid).set({
@@ -3575,7 +3595,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     });
 
     window.addEventListener('beforeunload', () => {
-        persistPlayTime(false);
+        persistPlayTime(true);
     });
 
     function startPapianoAuthBootstrap() {
