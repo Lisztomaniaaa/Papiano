@@ -4698,6 +4698,20 @@ body.mp-chat-dragging{ cursor:grabbing; }
     background:rgba(10,13,17,0.42);
 }
 
+@media (min-width:900px){
+    #app{ --desk-stage-max:1760px; }
+    .stage{ width:100%; max-width:var(--desk-stage-max); margin-inline:auto; }
+    #pianoWrap{ width:100%; max-width:var(--desk-stage-max); margin-inline:auto; }
+    #swipeStrip{ left:50%; transform:translateX(-50%); width:min(100%, var(--desk-stage-max)); }
+    #panel .btn{ height:40px; line-height:40px; font-size:14px; padding:0 20px; }
+    .brand-text{ font-size:15px; }
+}
+@media (hover:hover) and (pointer:fine){
+    #panel .btn:not(.active):hover{ background:#34343f; border-color:rgba(255,255,255,0.14); }
+    #logoToggle:hover{ background:rgba(0,0,0,0.5); }
+    .mp-reply:hover{ filter:brightness(1.18); }
+    .mp-message-text, .mp-message-meta{ -webkit-user-select:text; user-select:text; }
+}
 </style>
 </head>
 <body class="render-fixed">
@@ -8851,6 +8865,15 @@ if(logoToggle){
         lockUiLayout(600);
         document.body.classList.toggle('hide-ui');
     });
+}
+const topPanelScroller = document.getElementById('panel');
+if(topPanelScroller){
+    topPanelScroller.addEventListener('wheel', e => {
+        if(!e.deltaY) return;
+        if(topPanelScroller.scrollWidth <= topPanelScroller.clientWidth) return;
+        topPanelScroller.scrollLeft += e.deltaY;
+        e.preventDefault();
+    }, { passive:false });
 }
 const settingsFullscreenBtn = document.getElementById('settingsFullscreenBtn');
 if(settingsFullscreenBtn) settingsFullscreenBtn.onclick = () => {
