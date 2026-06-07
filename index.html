@@ -3982,6 +3982,75 @@
         display: none !important;
     }
 
+  
+    .account-role-readonly {
+        width: 100%;
+        min-height: 52px;
+        padding: 12px 14px;
+        border: 1px solid rgba(6,17,31,0.10);
+        border-radius: 16px;
+        background: #F8FAFC;
+        color: #06111f;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        box-shadow: none;
+        cursor: default;
+    }
+    .account-role-readonly .badge-picker-current {
+        font-size: 13px;
+        font-weight: 900;
+        text-transform: uppercase;
+    }
+    .account-role-readonly .material-symbols-rounded {
+        width: 30px;
+        height: 30px;
+        border-radius: 999px;
+        background: #06111f;
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-variation-settings: 'FILL' 1;
+    }
+    .msg-bubble.has-reply-action {
+        position: relative;
+        padding-right: 42px;
+    }
+    .msg-reply-icon-btn {
+        position: absolute;
+        top: 7px;
+        right: 7px;
+        width: 27px;
+        height: 27px;
+        border: 1px solid rgba(6,17,31,0.08);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.82);
+        color: #06111f;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 6px 14px rgba(6,17,31,0.10);
+        opacity: 0.92;
+        transition: transform var(--dur-fast) var(--ease-snappy), opacity var(--dur-fast) ease;
+    }
+    .msg-reply-icon-btn:active {
+        transform: scale(0.92);
+        opacity: 1;
+    }
+    .msg-reply-icon-btn .material-symbols-rounded {
+        font-size: 17px;
+        font-variation-settings: 'FILL' 0;
+    }
+    .msg-outgoing .msg-reply-icon-btn {
+        background: rgba(255,255,255,0.16);
+        color: #ffffff;
+        border-color: rgba(255,255,255,0.20);
+    }
+
   </style>
 </head>
 <body>
@@ -4804,14 +4873,11 @@
                         <div class="profile-settings-row">
                             <div class="form-item-group">
                                 <label>Role</label>
-                                <div class="badge-picker-trigger role-readonly" id="accountRoleDisplay">
-                                    <span>
-                                        <span class="badge-picker-current" id="accountRoleCurrent">PLAYER</span>
-                                        
-                                    </span>
-                                    <span class="material-symbols-rounded">verified_user</span>
+                                <div class="account-role-readonly" id="accountRoleDisplay" aria-label="Account role">
+                                    <span class="badge-picker-current" id="accountRoleCurrent">PLAYER</span>
+                                    <span class="material-symbols-rounded" aria-hidden="true">admin_panel_settings</span>
                                 </div>
-                                
+
                             </div>
                             <div class="form-item-group">
                                 <label>Country</label>
@@ -7002,17 +7068,21 @@
             const edited = message.editedAt ? `<span class="msg-edited-label">Edited</span>` : '';
             const status = mine ? (message.createdAt ? 'Sent' : 'Sending') : '';
             const announcementLocked = isAnnouncementRoom() && !isAnnouncementOwner();
+            const replyButton = announcementLocked
+                ? ''
+                : `<button class="msg-reply-icon-btn" type="button" aria-label="Reply" title="Reply" onclick="event.stopPropagation(); beginReplyToMessage('${message.id}')"><span class="material-symbols-rounded">reply</span></button>`;
             const actions = announcementLocked
                 ? ''
                 : mine
-                    ? `<div class="msg-action-strip"><button class="msg-action-btn" type="button" onclick="beginReplyToMessage('${message.id}')">Reply</button><button class="msg-action-btn" type="button" onclick="editOwnMessage('${message.id}')">Edit</button><button class="msg-action-btn danger" type="button" onclick="deleteMessageForAll('${message.id}')">Delete for all</button></div>`
-                    : `<div class="msg-action-strip"><button class="msg-action-btn" type="button" onclick="beginReplyToMessage('${message.id}')">Reply</button><button class="msg-action-btn danger" type="button" onclick="deleteMessageForMe('${message.id}')">Delete for me</button></div>`;
+                    ? `<div class="msg-action-strip"><button class="msg-action-btn" type="button" onclick="editOwnMessage('${message.id}')">Edit</button><button class="msg-action-btn danger" type="button" onclick="deleteMessageForAll('${message.id}')">Delete for all</button></div>`
+                    : `<div class="msg-action-strip"><button class="msg-action-btn danger" type="button" onclick="deleteMessageForMe('${message.id}')">Delete for me</button></div>`;
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
             return `
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
                     <div class="msg-container-with-avatar">
                         ${renderMessageAvatar(profile)}
-                        <div class="msg-bubble"${swipeHandlers}>
+                        <div class="msg-bubble${replyButton ? ' has-reply-action' : ''}"${swipeHandlers}>
+                            ${replyButton}
                             ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
@@ -7887,7 +7957,7 @@
         btn.appendChild(r);
         setTimeout(() => r.remove(), 620);
     }
-    const RIPPLE_SELECTOR = '.btn-auth-google,.btn-auth-email,.btn-auth-access,.auth-entry-google,.auth-entry-close,.auth-entry-submit,.auth-entry-link,.email-auth-submit,.email-auth-close,.email-auth-link,.top-action-btn,.lang-toggle-btn,.btn-send-message,.profile-upload-button,.account-delete-action,.support-link-button,.wallet-copy-btn,.vote-btn-panel,.friend-action-button,.account-lock-login,.btn-submit-config,.friend-nav-btn,.btn-global-rank-trigger,.m3-btn';
+    const RIPPLE_SELECTOR = '.btn-auth-google,.btn-auth-email,.btn-auth-access,.auth-entry-google,.auth-entry-close,.auth-entry-submit,.auth-entry-link,.email-auth-submit,.email-auth-close,.email-auth-link,.top-action-btn,.msg-reply-icon-btn,.lang-toggle-btn,.btn-send-message,.profile-upload-button,.account-delete-action,.support-link-button,.wallet-copy-btn,.vote-btn-panel,.friend-action-button,.account-lock-login,.btn-submit-config,.friend-nav-btn,.btn-global-rank-trigger,.m3-btn';
     document.addEventListener('pointerdown', (e) => {
         const btn = e.target.closest(RIPPLE_SELECTOR);
         if (!btn || btn.disabled) return;
