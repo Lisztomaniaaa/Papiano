@@ -12947,8 +12947,10 @@ midiBtn.onclick = (e) => {
     }
 
     function closeLobbyToSolo(){
-        showLayer('home', { skipHistory:true });
-        replaceMpHistory('multiHome');
+        // Multiplayer now lives on its own page (multiplayer.html), so the
+        // top "Back" button must return to the main Papiano app instead of
+        // just re-rendering the lobby (which left the user stuck on this page).
+        window.location.href = 'index.html';
     }
 
     function setChatOpen(open){
@@ -14898,9 +14900,15 @@ midiBtn.onclick = (e) => {
             openLeaveConfirm('history');
             return;
         }
-        if(document.body.classList.contains('mp-lobby-open') && currentScreen !== 'home'){
-            showLayer('home', { skipHistory:true });
-            replaceMpHistory('multiHome');
+        if(document.body.classList.contains('mp-lobby-open')){
+            if(currentScreen !== 'home'){
+                showLayer('home', { skipHistory:true });
+                replaceMpHistory('multiHome');
+            } else {
+                // Already on the multiplayer home: the phone back button should
+                // leave the multiplayer page and return to the main app.
+                window.location.href = 'index.html';
+            }
         }
     });
 
