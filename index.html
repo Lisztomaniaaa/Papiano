@@ -535,7 +535,13 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
 
     function brandSheetAuthAction() {
         document.getElementById('brandSheetOverlay')?.classList.remove('active');
-        if (currentUser) logoutPapianoAccount();
+        if (currentUser) {
+            logoutPapianoAccount();
+        } else {
+            // Sidebar (desktop) shows this button as Sign in when logged out;
+            // route the click to the same Google sign-in flow used elsewhere.
+            processAppAuth('google');
+        }
     }
 
     async function logoutPapianoAccount() {
