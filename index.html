@@ -4098,6 +4098,318 @@
         border-color: rgba(255,255,255,0.20);
     }
 
+    /* ==========================================================================
+       Themed picker overlay (replaces native <select> Android dropdown).
+       ========================================================================== */
+    .themed-select { position: relative; width: 100%; }
+    .themed-select-source {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+    }
+    .themed-select-trigger {
+        width: 100%;
+        min-height: 52px;
+        padding: 12px 44px 12px 14px;
+        border: 1px solid #06111f;
+        border-radius: 14px;
+        background: var(--surface);
+        color: var(--text-main);
+        font-size: 14px;
+        font-weight: 700;
+        text-align: left;
+        cursor: pointer;
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.85),
+            inset 0 -3px 0 rgba(6,17,31,0.06),
+            0 3px 0 rgba(6,17,31,0.18),
+            0 8px 14px rgba(6,17,31,0.08);
+        transition: transform var(--dur-fast) var(--ease-snappy), box-shadow var(--dur-fast) var(--ease-snappy);
+    }
+    .themed-select-trigger:active {
+        transform: translateY(2px);
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.5),
+            inset 0 -2px 0 rgba(6,17,31,0.06),
+            0 1px 0 rgba(6,17,31,0.18),
+            0 5px 10px rgba(6,17,31,0.06);
+    }
+    .themed-select-trigger .themed-select-current {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+    .themed-select-trigger .themed-select-chevron {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 22px;
+        color: #06111f;
+        pointer-events: none;
+    }
+
+    .themed-picker-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9000;
+        background: rgba(6,17,31,0.55);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity var(--dur-base) var(--ease-out-expo),
+                    visibility 0s linear var(--dur-base);
+    }
+    .themed-picker-overlay.active {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transition: opacity var(--dur-base) var(--ease-out-expo);
+    }
+    .themed-picker-sheet {
+        width: 100%;
+        max-width: 480px;
+        max-height: 75vh;
+        background: #f6fbff;
+        border: 1px solid #06111f;
+        border-bottom: none;
+        border-radius: 24px 24px 0 0;
+        padding: 12px 14px calc(18px + env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow: 0 -18px 50px rgba(6,17,31,0.32);
+        transform: translateY(100%);
+        transition: transform var(--dur-base) var(--ease-out-expo);
+    }
+    .themed-picker-overlay.active .themed-picker-sheet {
+        transform: translateY(0);
+    }
+    .themed-picker-handle {
+        width: 44px;
+        height: 5px;
+        border-radius: 999px;
+        background: #b8c9d9;
+        margin: 2px auto 4px;
+        flex-shrink: 0;
+    }
+    .themed-picker-title {
+        font-family: 'Bricolage Grotesque', var(--font-display);
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+        color: #06111f;
+        text-align: center;
+        text-transform: uppercase;
+    }
+    .themed-picker-search {
+        width: 100%;
+        height: 42px;
+        padding: 0 12px;
+        border: 1px solid #c4d5e5;
+        border-radius: 12px;
+        background: #ffffff;
+        font-size: 13px;
+        font-weight: 700;
+        color: #06111f;
+        outline: none;
+    }
+    .themed-picker-search:focus { border-color: #005BFF; box-shadow: inset 0 0 0 1px #005BFF; }
+    .themed-picker-search::placeholder { color: rgba(6,17,31,0.4); }
+    .themed-picker-list {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 4px 2px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .themed-picker-option {
+        width: 100%;
+        min-height: 44px;
+        padding: 10px 14px;
+        border: 1px solid #c4d5e5;
+        border-radius: 14px;
+        background: #ffffff;
+        color: #06111f;
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        text-align: left;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.9),
+            0 2px 0 rgba(6,17,31,0.10),
+            0 4px 10px rgba(6,17,31,0.06);
+        transition: transform var(--dur-fast) var(--ease-snappy), box-shadow var(--dur-fast) var(--ease-snappy);
+    }
+    .themed-picker-option:active {
+        transform: translateY(2px);
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.7),
+            0 1px 0 rgba(6,17,31,0.10),
+            0 2px 6px rgba(6,17,31,0.06);
+    }
+    .themed-picker-option.is-selected {
+        background: #005BFF;
+        color: #ffffff;
+        border-color: #06111f;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.24),
+            0 2px 0 #00358f,
+            0 6px 14px rgba(0,91,255,0.30);
+    }
+    .themed-picker-option.is-selected .material-symbols-rounded { color: #ffffff; }
+    .themed-picker-option .material-symbols-rounded { font-size: 20px; flex-shrink: 0; }
+    .themed-picker-cancel {
+        margin-top: 4px;
+        width: 100%;
+        min-height: 46px;
+        border-radius: 14px;
+        border: 1px solid #06111f;
+        background: #06111f;
+        color: #ffffff;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.10),
+            0 2px 0 rgba(0,0,0,0.4),
+            0 6px 14px rgba(6,17,31,0.30);
+    }
+    .themed-picker-cancel:active {
+        transform: translateY(2px);
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.06),
+            0 1px 0 rgba(0,0,0,0.4),
+            0 4px 10px rgba(6,17,31,0.22);
+    }
+
+    /* ==========================================================================
+       Themed confirm dialog (replaces native confirm()).
+       ========================================================================== */
+    .themed-confirm-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9100;
+        background: rgba(6,17,31,0.58);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity var(--dur-base) var(--ease-out-expo),
+                    visibility 0s linear var(--dur-base);
+    }
+    .themed-confirm-overlay.active {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transition: opacity var(--dur-base) var(--ease-out-expo);
+    }
+    .themed-confirm-card {
+        width: min(100%, 360px);
+        background: #f6fbff;
+        border: 1px solid #06111f;
+        border-radius: 22px;
+        padding: 18px 18px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.96),
+            0 22px 60px rgba(6,17,31,0.32);
+        transform: translateY(12px) scale(0.97);
+        transition: transform var(--dur-base) var(--ease-out-expo);
+    }
+    .themed-confirm-overlay.active .themed-confirm-card {
+        transform: translateY(0) scale(1);
+    }
+    .themed-confirm-title {
+        font-family: 'Bricolage Grotesque', var(--font-display);
+        font-size: 20px;
+        font-weight: 800;
+        color: #06111f;
+        letter-spacing: -0.025em;
+        text-align: center;
+    }
+    .themed-confirm-message {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(6,17,31,0.74);
+        text-align: center;
+        line-height: 1.4;
+    }
+    .themed-confirm-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-top: 4px;
+    }
+    .themed-confirm-btn {
+        min-height: 46px;
+        border-radius: 14px;
+        border: 1px solid #06111f;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        transition: transform var(--dur-fast) var(--ease-snappy), box-shadow var(--dur-fast) var(--ease-snappy);
+    }
+    .themed-confirm-btn.cancel {
+        background: #ffffff;
+        color: #06111f;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.96),
+            0 2px 0 rgba(6,17,31,0.18),
+            0 6px 14px rgba(6,17,31,0.10);
+    }
+    .themed-confirm-btn.confirm {
+        background: #005BFF;
+        color: #ffffff;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.18),
+            0 2px 0 #00358f,
+            0 6px 14px rgba(0,91,255,0.30);
+    }
+    .themed-confirm-btn.confirm.is-danger {
+        background: #FB3F5C;
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,0.22),
+            0 2px 0 #9f1831,
+            0 6px 14px rgba(251,63,92,0.32);
+    }
+    .themed-confirm-btn:active { transform: translateY(2px); }
+
   </style>
 </head>
 <body>
@@ -4145,6 +4457,29 @@
                 <a class="brand-social-icon-btn brand-social-youtube" href="https://www.youtube.com/@papianofun" target="_blank" rel="noopener noreferrer" aria-label="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.12C19.55 3.6 12 3.6 12 3.6s-7.55 0-9.4.48A3 3 0 0 0 .5 6.2 31.2 31.2 0 0 0 0 12a31.2 31.2 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.12c1.85.48 9.4.48 9.4.48s7.55 0 9.4-.48a3 3 0 0 0 2.1-2.12A31.2 31.2 0 0 0 24 12a31.2 31.2 0 0 0-.5-5.8ZM9.75 15.45v-6.9L15.98 12l-6.23 3.45Z"/></svg></a>
             </div>
             <div class="brand-sheet-credit"><strong>Papiano Beta App</strong><span>© 2026 Papiano / Lisztomania</span></div>
+        </div>
+    </div>
+
+    <!-- Themed picker overlay (replaces native <select> dropdown) -->
+    <div class="themed-picker-overlay" id="themedPickerOverlay" onclick="closeThemedPicker(event)">
+        <div class="themed-picker-sheet" onclick="event.stopPropagation()">
+            <div class="themed-picker-handle"></div>
+            <div class="themed-picker-title" id="themedPickerTitle">Pick</div>
+            <input type="text" class="themed-picker-search" id="themedPickerSearch" placeholder="Search..." style="display:none;" oninput="filterThemedPicker(this.value)">
+            <div class="themed-picker-list" id="themedPickerList"></div>
+            <button class="themed-picker-cancel" type="button" onclick="closeThemedPicker()">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Themed confirm overlay (replaces native confirm()) -->
+    <div class="themed-confirm-overlay" id="themedConfirmOverlay" onclick="cancelThemedConfirm(event)">
+        <div class="themed-confirm-card" onclick="event.stopPropagation()">
+            <div class="themed-confirm-title" id="themedConfirmTitle">Confirm</div>
+            <div class="themed-confirm-message" id="themedConfirmMessage">Are you sure?</div>
+            <div class="themed-confirm-actions">
+                <button class="themed-confirm-btn cancel" id="themedConfirmCancelBtn" type="button">Cancel</button>
+                <button class="themed-confirm-btn confirm" id="themedConfirmOkBtn" type="button">Confirm</button>
+            </div>
         </div>
     </div>
 <div class="screen-main-app active" id="mainAppScreen">
@@ -4724,15 +5059,21 @@
                 </div>
                 <div class="friend-meta-box">
                     <div class="f-row"><span style="color:var(--text-body)">Reason</span></div>
-                    <select id="reportReasonSelect" class="report-reason-select">
-                        <option value="">— Select a reason —</option>
-                        <option value="spam">Spam or fake account</option>
-                        <option value="harassment">Harassment or bullying</option>
-                        <option value="hate">Hate speech or discrimination</option>
-                        <option value="inappropriate">Inappropriate content</option>
-                        <option value="impersonation">Impersonation</option>
-                        <option value="other">Other</option>
-                    </select>
+                    <div class="themed-select" data-picker-title="Report Reason">
+                        <button type="button" class="themed-select-trigger" onclick="openSelectAsPicker(this)" aria-label="Report reason">
+                            <span class="themed-select-current">— Select a reason —</span>
+                            <span class="material-symbols-rounded themed-select-chevron">expand_more</span>
+                        </button>
+                        <select id="reportReasonSelect" class="themed-select-source report-reason-select">
+                            <option value="">— Select a reason —</option>
+                            <option value="spam">Spam or fake account</option>
+                            <option value="harassment">Harassment or bullying</option>
+                            <option value="hate">Hate speech or discrimination</option>
+                            <option value="inappropriate">Inappropriate content</option>
+                            <option value="impersonation">Impersonation</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="profile-action-grid" style="grid-template-columns: 1fr 1fr;">
                     <button class="friend-action-button report-user-action" type="button" onclick="reportUserFromProfile()"><span class="material-symbols-rounded">flag</span><span>Submit</span></button>
@@ -4920,16 +5261,28 @@
                         <div class="profile-settings-row">
                             <div class="form-item-group">
                                 <label>Role</label>
-                                <select class="form-input-control role-select-control" id="accountRoleSelect" name="papiano_role" onchange="handleRoleSelectChange()" aria-label="Account role">
-                                    <option value="common">PLAYER</option>
-                                </select>
+                                <div class="themed-select" data-picker-title="Choose Role">
+                                    <button type="button" class="themed-select-trigger" onclick="openSelectAsPicker(this)" aria-label="Account role">
+                                        <span class="themed-select-current">PLAYER</span>
+                                        <span class="material-symbols-rounded themed-select-chevron">expand_more</span>
+                                    </button>
+                                    <select class="themed-select-source" id="accountRoleSelect" name="papiano_role" onchange="handleRoleSelectChange()" aria-label="Account role">
+                                        <option value="common">PLAYER</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="form-item-group">
                                 <label>Country</label>
-                                <select class="form-input-control" id="formInputCountry" name="papiano_country">
+                                <div class="themed-select" data-picker-title="Choose Country">
+                                    <button type="button" class="themed-select-trigger" onclick="openSelectAsPicker(this)" aria-label="Country">
+                                        <span class="themed-select-current">— Select —</span>
+                                        <span class="material-symbols-rounded themed-select-chevron">expand_more</span>
+                                    </button>
+                                    <select class="themed-select-source" id="formInputCountry" name="papiano_country" onchange="handleCountrySelectChange()">
                                     <option value="">— Select —</option>
                                     <option value="AF">🇦🇫 Afghanistan</option><option value="AL">🇦🇱 Albania</option><option value="DZ">🇩🇿 Algeria</option><option value="AR">🇦🇷 Argentina</option><option value="AU">🇦🇺 Australia</option><option value="AT">🇦🇹 Austria</option><option value="AZ">🇦🇿 Azerbaijan</option><option value="BD">🇧🇩 Bangladesh</option><option value="BE">🇧🇪 Belgium</option><option value="BR">🇧🇷 Brazil</option><option value="BG">🇧🇬 Bulgaria</option><option value="KH">🇰🇭 Cambodia</option><option value="CM">🇨🇲 Cameroon</option><option value="CA">🇨🇦 Canada</option><option value="CL">🇨🇱 Chile</option><option value="CN">🇨🇳 China</option><option value="CO">🇨🇴 Colombia</option><option value="HR">🇭🇷 Croatia</option><option value="CZ">🇨🇿 Czech Republic</option><option value="DK">🇩🇰 Denmark</option><option value="EG">🇪🇬 Egypt</option><option value="ET">🇪🇹 Ethiopia</option><option value="FI">🇫🇮 Finland</option><option value="FR">🇫🇷 France</option><option value="GH">🇬🇭 Ghana</option><option value="DE">🇩🇪 Germany</option><option value="GR">🇬🇷 Greece</option><option value="GT">🇬🇹 Guatemala</option><option value="HK">🇭🇰 Hong Kong</option><option value="HU">🇭🇺 Hungary</option><option value="IN">🇮🇳 India</option><option value="ID">🇮🇩 Indonesia</option><option value="IR">🇮🇷 Iran</option><option value="IQ">🇮🇶 Iraq</option><option value="IE">🇮🇪 Ireland</option><option value="IL">🇮🇱 Israel</option><option value="IT">🇮🇹 Italy</option><option value="JP">🇯🇵 Japan</option><option value="JO">🇯🇴 Jordan</option><option value="KZ">🇰🇿 Kazakhstan</option><option value="KE">🇰🇪 Kenya</option><option value="KR">🇰🇷 South Korea</option><option value="KW">🇰🇼 Kuwait</option><option value="LY">🇱🇾 Libya</option><option value="MY">🇲🇾 Malaysia</option><option value="MX">🇲🇽 Mexico</option><option value="MA">🇲🇦 Morocco</option><option value="MM">🇲🇲 Myanmar</option><option value="NP">🇳🇵 Nepal</option><option value="NL">🇳🇱 Netherlands</option><option value="NZ">🇳🇿 New Zealand</option><option value="NG">🇳🇬 Nigeria</option><option value="NO">🇳🇴 Norway</option><option value="PK">🇵🇰 Pakistan</option><option value="PS">🇵🇸 Palestine</option><option value="PE">🇵🇪 Peru</option><option value="PH">🇵🇭 Philippines</option><option value="PL">🇵🇱 Poland</option><option value="PT">🇵🇹 Portugal</option><option value="QA">🇶🇦 Qatar</option><option value="RO">🇷🇴 Romania</option><option value="RU">🇷🇺 Russia</option><option value="SA">🇸🇦 Saudi Arabia</option><option value="SN">🇸🇳 Senegal</option><option value="RS">🇷🇸 Serbia</option><option value="SG">🇸🇬 Singapore</option><option value="ZA">🇿🇦 South Africa</option><option value="ES">🇪🇸 Spain</option><option value="LK">🇱🇰 Sri Lanka</option><option value="SE">🇸🇪 Sweden</option><option value="CH">🇨🇭 Switzerland</option><option value="TW">🇹🇼 Taiwan</option><option value="TZ">🇹🇿 Tanzania</option><option value="TH">🇹🇭 Thailand</option><option value="TN">🇹🇳 Tunisia</option><option value="TR">🇹🇷 Turkey</option><option value="UA">🇺🇦 Ukraine</option><option value="AE">🇦🇪 UAE</option><option value="GB">🇬🇧 United Kingdom</option><option value="US">🇺🇸 United States</option><option value="UZ">🇺🇿 Uzbekistan</option><option value="VE">🇻🇪 Venezuela</option><option value="VN">🇻🇳 Vietnam</option><option value="YE">🇾🇪 Yemen</option>
                                 </select>
+                                </div>
                                 
                             </div>
                         </div>
@@ -6044,6 +6397,7 @@
             select.appendChild(opt);
         }
         select.value = target;
+        syncThemedSelectDisplay(select);
     }
 
     // Called when user picks a different role in account settings.
@@ -6052,6 +6406,128 @@
         if (!select) return;
         selectedBadgeId = normalizeRoleId(select.value || 'common');
         if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
+        syncThemedSelectDisplay(select);
+    }
+
+    // Country select change - keep flag preview in sync.
+    function handleCountrySelectChange() {
+        const select = document.getElementById('formInputCountry');
+        if (!select) return;
+        syncThemedSelectDisplay(select);
+        renderFlagRow(select.value, document.getElementById('displayProfileFlag'));
+    }
+
+    // ============ Themed picker overlay ============
+    let themedPickerSourceSelect = null;
+    let themedPickerOptionsCache = [];
+
+    function syncThemedSelectDisplay(selectEl) {
+        if (!selectEl) return;
+        const wrapper = selectEl.closest('.themed-select');
+        if (!wrapper) return;
+        const labelNode = wrapper.querySelector('.themed-select-current');
+        if (!labelNode) return;
+        const opt = selectEl.options[selectEl.selectedIndex];
+        labelNode.textContent = opt ? (opt.textContent || opt.value || '') : '— Select —';
+    }
+
+    function openSelectAsPicker(triggerBtn) {
+        if (!triggerBtn) return;
+        const wrapper = triggerBtn.closest('.themed-select');
+        if (!wrapper) return;
+        const select = wrapper.querySelector('select');
+        if (!select) return;
+        themedPickerSourceSelect = select;
+        const title = wrapper.getAttribute('data-picker-title') || 'Select';
+        const opts = Array.from(select.options).map(o => ({ value: o.value, label: o.textContent || o.value, disabled: o.disabled }));
+        themedPickerOptionsCache = opts;
+        renderThemedPickerList(opts, select.value);
+        const titleEl = document.getElementById('themedPickerTitle');
+        if (titleEl) titleEl.textContent = title;
+        const searchEl = document.getElementById('themedPickerSearch');
+        if (searchEl) {
+            // Show search box only for long lists (10+ options)
+            searchEl.style.display = opts.length >= 10 ? '' : 'none';
+            searchEl.value = '';
+        }
+        const overlay = document.getElementById('themedPickerOverlay');
+        if (overlay) overlay.classList.add('active');
+    }
+
+    function renderThemedPickerList(options, currentValue) {
+        const listEl = document.getElementById('themedPickerList');
+        if (!listEl) return;
+        listEl.innerHTML = options.map(opt => {
+            const selected = String(opt.value) === String(currentValue || '') ? 'is-selected' : '';
+            return `<button type="button" class="themed-picker-option ${selected}" data-value="${escapeHtml(String(opt.value))}">
+                <span class="themed-picker-option-text">${escapeHtml(opt.label)}</span>
+                ${selected ? '<span class="material-symbols-rounded">check</span>' : ''}
+            </button>`;
+        }).join('');
+        listEl.querySelectorAll('.themed-picker-option').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (!themedPickerSourceSelect) return;
+                themedPickerSourceSelect.value = btn.getAttribute('data-value') || '';
+                syncThemedSelectDisplay(themedPickerSourceSelect);
+                themedPickerSourceSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                closeThemedPicker();
+            });
+        });
+    }
+
+    function filterThemedPicker(query) {
+        const q = String(query || '').trim().toLowerCase();
+        const filtered = !q
+            ? themedPickerOptionsCache
+            : themedPickerOptionsCache.filter(o => String(o.label).toLowerCase().includes(q) || String(o.value).toLowerCase().includes(q));
+        renderThemedPickerList(filtered, themedPickerSourceSelect?.value);
+    }
+
+    function closeThemedPicker(event) {
+        if (event && event.target !== event.currentTarget) return;
+        const overlay = document.getElementById('themedPickerOverlay');
+        if (overlay) overlay.classList.remove('active');
+        themedPickerSourceSelect = null;
+        themedPickerOptionsCache = [];
+    }
+
+    // ============ Themed confirm dialog ============
+    let themedConfirmResolver = null;
+
+    function openThemedConfirm({ title, message, confirmLabel, cancelLabel, danger } = {}) {
+        return new Promise(resolve => {
+            themedConfirmResolver = resolve;
+            const overlay = document.getElementById('themedConfirmOverlay');
+            const titleEl = document.getElementById('themedConfirmTitle');
+            const msgEl = document.getElementById('themedConfirmMessage');
+            const okBtn = document.getElementById('themedConfirmOkBtn');
+            const cancelBtn = document.getElementById('themedConfirmCancelBtn');
+            if (titleEl) titleEl.textContent = title || 'Confirm';
+            if (msgEl) msgEl.textContent = message || '';
+            if (okBtn) {
+                okBtn.textContent = confirmLabel || 'Confirm';
+                okBtn.classList.toggle('is-danger', !!danger);
+                okBtn.onclick = () => { closeThemedConfirm(); themedConfirmResolver = null; resolve(true); };
+            }
+            if (cancelBtn) {
+                cancelBtn.textContent = cancelLabel || 'Cancel';
+                cancelBtn.onclick = () => { closeThemedConfirm(); themedConfirmResolver = null; resolve(false); };
+            }
+            overlay?.classList.add('active');
+        });
+    }
+
+    function closeThemedConfirm() {
+        document.getElementById('themedConfirmOverlay')?.classList.remove('active');
+    }
+
+    function cancelThemedConfirm(event) {
+        if (event && event.target !== event.currentTarget) return;
+        closeThemedConfirm();
+        if (typeof themedConfirmResolver === 'function') {
+            themedConfirmResolver(false);
+            themedConfirmResolver = null;
+        }
     }
 
     function updateTopBarProfile(profile = {}) {
@@ -6117,6 +6593,7 @@
         const formInputCountry = document.getElementById('formInputCountry');
         if (formInputCountry) formInputCountry.value = profile.countryCode || '';
         renderFlagRow(profile.countryCode, document.getElementById('displayProfileFlag'));
+        syncThemedSelectDisplay(formInputCountry);
         populateAccountRoleSelect(selectedBadgeId);
 
         if (profile.photoURL && isSafeImage(profile.photoURL)) {
@@ -7408,7 +7885,13 @@
             showToast('Only owner can manage announcements.');
             return;
         }
-        if (!confirm('Clear this chat for everyone?')) return;
+        if (!await openThemedConfirm({
+            title: 'Clear Chat',
+            message: 'Clear this chat for everyone? This deletes all messages for both sides.',
+            confirmLabel: 'Clear',
+            cancelLabel: 'Keep',
+            danger: true
+        })) return;
         try {
             const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
             const roomSnap = await roomRef.get().catch(() => null);
