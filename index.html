@@ -4910,11 +4910,9 @@
                         <div class="profile-settings-row">
                             <div class="form-item-group">
                                 <label>Role</label>
-                                <div class="account-role-readonly" id="accountRoleDisplay" aria-label="Account role">
-                                    <span class="badge-picker-current" id="accountRoleCurrent">PLAYER</span>
-                                    <span class="material-symbols-rounded" aria-hidden="true">admin_panel_settings</span>
-                                </div>
-
+                                <select class="form-input-control" id="accountRoleSelect" name="papiano_role" onchange="handleRoleSelectChange()" aria-label="Account role">
+                                    <option value="common">PLAYER</option>
+                                </select>
                             </div>
                             <div class="form-item-group">
                                 <label>Country</label>
@@ -5998,6 +5996,42 @@
         return `<span class="badge-role-pill ${badge.className}">${escapeHtml(badge.label)}</span>`;
     }
 
+    // Populate the Role <select> in account settings from roleRegistry.
+    function populateAccountRoleSelect(currentRoleId) {
+        const select = document.getElementById('accountRoleSelect');
+        if (!select) return;
+        const target = normalizeRoleId(currentRoleId || selectedBadgeId || 'common');
+        const entries = Object.entries(roleRegistry || { common: { label: 'PLAYER' } });
+        // Sort: 'common' first, then by label asc
+        entries.sort(([aId, a], [bId, b]) => {
+            if (aId === 'common') return -1;
+            if (bId === 'common') return 1;
+            return String(a?.label || aId).localeCompare(String(b?.label || bId));
+        });
+        select.innerHTML = entries.map(([id, role]) => {
+            const label = String(role?.label || id || '').trim() || id.toUpperCase();
+            const safeId = escapeHtml(id);
+            const safeLabel = escapeHtml(label);
+            return `<option value="${safeId}">${safeLabel}</option>`;
+        }).join('');
+        // Ensure an option exists for the current role even if not in registry
+        if (!Array.from(select.options).some(opt => opt.value === target)) {
+            const opt = document.createElement('option');
+            opt.value = target;
+            opt.textContent = target.toUpperCase();
+            select.appendChild(opt);
+        }
+        select.value = target;
+    }
+
+    // Called when user picks a different role in account settings.
+    function handleRoleSelectChange() {
+        const select = document.getElementById('accountRoleSelect');
+        if (!select) return;
+        selectedBadgeId = normalizeRoleId(select.value || 'common');
+        if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
+    }
+
     function updateTopBarProfile(profile = {}) {
         const box = document.getElementById('topUserBox');
         const avatarImg = document.getElementById('topUserAvatarImg');
@@ -6061,7 +6095,7 @@
         const formInputCountry = document.getElementById('formInputCountry');
         if (formInputCountry) formInputCountry.value = profile.countryCode || '';
         renderFlagRow(profile.countryCode, document.getElementById('displayProfileFlag'));
-        if (accountRoleCurrent) accountRoleCurrent.innerHTML = renderBadge(selectedBadgeId);
+        populateAccountRoleSelect(selectedBadgeId);
 
         if (profile.photoURL && isSafeImage(profile.photoURL)) {
             masterAvatarImg.src = profile.photoURL;
@@ -6136,6 +6170,7 @@
             name: cleanName,
             searchName: cleanName.toLowerCase(),
             desc: cleanDesc,
+            roleId: selectedBadgeId,
             badgeId: selectedBadgeId,
             photoURL: formInputPhotoUrl?.value || '',
             countryCode: cleanCountry,
