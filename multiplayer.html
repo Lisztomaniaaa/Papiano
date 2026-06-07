@@ -11865,6 +11865,13 @@ midiBtn.onclick = (e) => {
     let friendsUnsubscribe = null;
     let roomsUnsubscribe = null;
     let usersUnsubscribe = null;
+    const MP_PLAYTIME_LOCAL_MS = 30000;
+    const MP_PLAYTIME_REMOTE_MS = 24 * 60 * 60 * 1000;
+    let mpPlayTimeStartedAt = 0;
+    let mpPlayTimePending = 0;
+    let mpPlayTimeBaseSeconds = 0;
+    let mpPlayTimeRemoteSyncedAt = 0;
+    let mpPlayTimeTimer = null;
     let renderRoomsTimer = 0;
     let chatUnsubscribe = null;
     let roomPlayerDisconnect = null;
@@ -12501,6 +12508,90 @@ midiBtn.onclick = (e) => {
                 });
             }, () => {});
         }catch(e){ return null; }
+    }
+
+    function mpPlayTimeDateKey(ms = Date.now()){
+        return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Jakarta', year:'numeric', month:'2-digit', day:'2-digit' }).format(new Date(ms));
+    }
+    function mpPlayTimeSyncKey(){
+        return (mpSelfId && !isLocalGuestPlayerId(mpSelfId)) ? `papianoPlayTimeRemoteDay:${mpSelfId}` : '';
+    }
+    function mpShouldSyncPlayTimeToday(){
+        const key = mpPlayTimeSyncKey();
+        if(!key) return false;
+        try{ return localStorage.getItem(key) !== mpPlayTimeDateKey(); }catch(e){ return true; }
+    }
+    function mpMarkPlayTimeSyncedToday(){
+        const key = mpPlayTimeSyncKey();
+        if(key){ try{ localStorage.setItem(key, mpPlayTimeDateKey()); }catch(e){} }
+    }
+    function mpFormatPlayTime(seconds){
+        const total = Math.max(0, Math.floor(Number(seconds) || 0));
+        if(total < 60) return '<1 Min';
+        const minutes = Math.floor(total / 60);
+        if(minutes < 60) return `${minutes} Min`;
+        const hours = Math.floor(minutes / 60);
+        const rest = minutes % 60;
+        return rest ? `${hours}h ${rest}m` : `${hours}h`;
+    }
+    function mpAccumulatePlayTime(){
+        if(!mpPlayTimeStartedAt || document.hidden) return false;
+        const now = Date.now();
+        const elapsed = Math.max(0, Math.floor((now - mpPlayTimeStartedAt) / 1000));
+        mpPlayTimeStartedAt = now;
+        if(!elapsed) return false;
+        mpPlayTimePending += elapsed;
+        return true;
+    }
+    // Multiplayer is a separate page from index.html, so the main-app tracker is
+    // not running here. Accumulate time spent in multiplayer and add it to the
+    // same profiles/{uid}.playTimeSeconds field. We use an atomic increment for
+    // the delta since the last flush so there is no read-modify-write race with
+    // the main app and no risk of rolling the total backwards.
+    function mpPersistPlayTime(syncRemote = false){
+        mpAccumulatePlayTime();
+        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return;
+        if(mpPlayTimePending <= 0) return;
+        const now = Date.now();
+        // Forced flushes (tab hidden, sign-out, page unload) always write so the
+        // session is not lost. Background flushes are throttled to one write per
+        // day (shared with the main app) to keep Firestore writes low.
+        if(!syncRemote){
+            if(!mpShouldSyncPlayTimeToday()) return;
+            if(now - mpPlayTimeRemoteSyncedAt < MP_PLAYTIME_REMOTE_MS) return;
+        }
+        const deltaSeconds = mpPlayTimePending;
+        mpPlayTimePending = 0;
+        mpPlayTimeRemoteSyncedAt = now;
+        mpPlayTimeBaseSeconds += deltaSeconds;
+        try{
+            const ref = fsApi.doc(fsDb, 'profiles', mpSelfId);
+            fsApi.setDoc(ref, {
+                playTimeSeconds: fsApi.increment(deltaSeconds),
+                playTime: mpFormatPlayTime(mpPlayTimeBaseSeconds),
+                playTimeLeaderboardUpdatedAt: fsApi.serverTimestamp(),
+                updatedAt: fsApi.serverTimestamp()
+            }, { merge:true }).then(mpMarkPlayTimeSyncedToday).catch(() => {
+                // Write failed: put the delta back so it retries on the next flush.
+                mpPlayTimePending += deltaSeconds;
+                mpPlayTimeBaseSeconds -= deltaSeconds;
+            });
+        }catch(e){
+            mpPlayTimePending += deltaSeconds;
+            mpPlayTimeBaseSeconds -= deltaSeconds;
+        }
+    }
+    function startMpPlayTimeTracker(){
+        if(!mpSelfId || isLocalGuestPlayerId(mpSelfId)) return;
+        if(!mpPlayTimeStartedAt) mpPlayTimeStartedAt = Date.now();
+        clearInterval(mpPlayTimeTimer);
+        mpPlayTimeTimer = setInterval(() => mpPersistPlayTime(false), MP_PLAYTIME_LOCAL_MS);
+    }
+    function pauseMpPlayTimeTracker(syncRemote = false){
+        mpPersistPlayTime(syncRemote);
+        mpPlayTimeStartedAt = 0;
+        clearInterval(mpPlayTimeTimer);
+        mpPlayTimeTimer = null;
     }
 
     function syncAuthUi(){
@@ -14682,11 +14773,18 @@ midiBtn.onclick = (e) => {
         syncAuthUi();
         attachRoomsListener();
         attachUsersListener();
+        mpPlayTimeBaseSeconds = Math.max(0, Number(homeProfile.playTimeSeconds) || 0);
+        mpPlayTimePending = 0;
+        mpPlayTimeRemoteSyncedAt = 0;
+        startMpPlayTimeTracker();
         refreshAll();
         return self;
     }
 
     function resetAuthenticatedUser(){
+        pauseMpPlayTimeTracker(true);
+        mpPlayTimeBaseSeconds = 0;
+        mpPlayTimePending = 0;
         currentAuthUser = null;
         mpSelfId = 'local_self';
         try{ friendsUnsubscribe?.(); }catch(e){}
@@ -15048,7 +15146,13 @@ midiBtn.onclick = (e) => {
     });
 
     window.addEventListener('beforeunload', () => {
+        try{ mpPersistPlayTime(true); }catch(e){}
         try{ writeSelfUser({ online:false, room:null }); }catch(e){}
+    });
+
+    document.addEventListener('visibilitychange', () => {
+        if(document.hidden) pauseMpPlayTimeTracker(true);
+        else if(isSignedIn()) startMpPlayTimeTracker();
     });
 
     replaceMpHistory('multiHome');
