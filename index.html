@@ -4911,11 +4911,59 @@
         <div><strong id="soonPopupTitle">Info</strong><span id="soonPopupText">Action status.</span></div>
     </div>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- SDK loader: defer Firebase + Supabase to idle time after first paint.
+     Saves ~2-4s of render-blocking on slow mobile per PSI audit. -->
+<script>
+(function () {
+    var SDK_URLS = [
+        'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
+        'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
+        'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
+        'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js',
+        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+    ];
+    function loadScript(src) {
+        return new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = src;
+            s.async = false; // preserve order across the SDK chain
+            s.onload = resolve;
+            s.onerror = function () { reject(new Error('Failed to load ' + src)); };
+            document.head.appendChild(s);
+        });
+    }
+    function loadAll() {
+        // Firebase compat scripts must run in order; chain them sequentially.
+        // Supabase is independent and can run last.
+        SDK_URLS.reduce(function (chain, url) {
+            return chain.then(function () { return loadScript(url); });
+        }, Promise.resolve())
+        .then(function () {
+            window.__papianoSDKsReady = true;
+            window.dispatchEvent(new Event('papiano-sdks-ready'));
+        })
+        .catch(function (err) {
+            console.error('[papiano] SDK load failed:', err);
+            // Surface to user via the existing toast if available.
+            if (typeof window.showToast === 'function') {
+                window.showToast('Network busy. Refresh to retry.', 'Offline');
+            }
+        });
+    }
+    function schedule() {
+        if ('requestIdleCallback' in window) {
+            requestIdleCallback(loadAll, { timeout: 1500 });
+        } else {
+            setTimeout(loadAll, 0);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', schedule, { once: true });
+    } else {
+        schedule();
+    }
+})();
+</script>
 
 <script>
     (function ensureIconsReady() {
@@ -4995,16 +5043,45 @@
         measurementId: "G-3FVZ17Q69B"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const firebaseAuth = firebase.auth();
-    const realtimeDb = firebase.database();
-    const firestoreDb = firebase.firestore();
+    // === SDK BOOTSTRAP =========================================================
+    // Firebase + Supabase are loaded asynchronously by the SDK loader at the
+    // top of <body>. Until they finish, these globals are null. Any function
+    // that needs them must guard on currentUser / firebaseAuth being truthy
+    // (the existing guards already do this in practice, since flows depend
+    // on user state).
+    let firebaseAuth = null;
+    let realtimeDb = null;
+    let firestoreDb = null;
+    let supabaseStorageClient = null;
+
+    function initPapianoSDKs() {
+        if (firebaseAuth) return; // already initialised
+        firebase.initializeApp(firebaseConfig);
+        firebaseAuth = firebase.auth();
+        realtimeDb = firebase.database();
+        firestoreDb = firebase.firestore();
+        supabaseStorageClient = window.supabase.createClient(
+            supabaseStorageConfig.url,
+            supabaseStorageConfig.key
+        );
+        // Hand off to the auth-state bootstrap. Defined later in this script.
+        if (typeof startPapianoAuthBootstrap === 'function') {
+            startPapianoAuthBootstrap();
+        }
+    }
+
+    if (window.__papianoSDKsReady) {
+        // SDKs already loaded (e.g. fast cache hit before this script ran).
+        initPapianoSDKs();
+    } else {
+        window.addEventListener('papiano-sdks-ready', initPapianoSDKs, { once: true });
+    }
 
     const supabaseStorageConfig = {
         url: "https://yddzwxmzxdagiltrjmgc.supabase.co",
         key: "sb_publishable_OzcmvT0haHr9JrFhP9bHiA_EQpY86Ka"
     };
-    const supabaseStorageClient = window.supabase.createClient(supabaseStorageConfig.url, supabaseStorageConfig.key);
+    // supabaseStorageClient is declared above (let), initialised by initPapianoSDKs()
 
     let currentUser = null;
     let currentProfile = null;
@@ -5271,6 +5348,13 @@
 
     async function processAppAuth(mode) {
         if (mode === 'google') {
+            // Guard against the user clicking before lazy-loaded SDKs are ready.
+            if (!firebaseAuth || typeof firebase === 'undefined') {
+                showToast('Hold on, signing-in service is still loading…', 'Please wait');
+                // Retry once SDKs are ready.
+                window.addEventListener('papiano-sdks-ready', () => processAppAuth('google'), { once: true });
+                return;
+            }
             accessSessionActive = false;
             try {
                 appContainer.classList.add('auth-pending');
@@ -8116,27 +8200,29 @@
         persistPlayTime(false);
     });
 
-    firebaseAuth.onAuthStateChanged(async user => {
-        authStateResolved = true;
-        if (user?.uid) {
-            try {
-                localStorage.removeItem('papiano_access_session');
-                await ensureUserProfile(user);
-                startRoleRegistryListener();
-                startDeletedAccountWatcher(user.uid);
-                openMainApp();
-                navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
-            } catch (error) {
-                showToast('Couldn’t load your profile.');
+    function startPapianoAuthBootstrap() {
+        firebaseAuth.onAuthStateChanged(async user => {
+            authStateResolved = true;
+            if (user?.uid) {
+                try {
+                    localStorage.removeItem('papiano_access_session');
+                    await ensureUserProfile(user);
+                    startRoleRegistryListener();
+                    startDeletedAccountWatcher(user.uid);
+                    openMainApp();
+                    navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
+                } catch (error) {
+                    showToast('Couldn’t load your profile.');
+                }
+                return;
             }
-            return;
-        }
 
-        accessSessionActive = true;
-        currentUser = null;
-        currentProfile = loadProfile();
-        openMainApp();
-    });
+            accessSessionActive = true;
+            currentUser = null;
+            currentProfile = loadProfile();
+            openMainApp();
+        });
+    }
 
     window.addEventListener('DOMContentLoaded', () => {
         updateProfileView(loadProfile());
