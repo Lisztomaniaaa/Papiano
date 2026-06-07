@@ -5496,18 +5496,12 @@
     let activeChatTargetUid = '';
     let currentChatSubView = 'chats';
     let selectedBadgeId = 'common';
-    // Default fallback list - guarantees the role <select> has options even if
-    // roleRegistry from Realtime DB isn't loaded yet or read permission fails.
-    const FALLBACK_ROLES = {
-        common:    { label: 'PLAYER',    rarity: 'common',    permissions: [] },
-        vip:       { label: 'VIP',       rarity: 'rare',      permissions: [] },
-        creator:   { label: 'CREATOR',   rarity: 'epic',      permissions: [] },
-        veteran:   { label: 'VETERAN',   rarity: 'epic',      permissions: [] },
-        moderator: { label: 'MODERATOR', rarity: 'legendary', permissions: [] },
-        admin:     { label: 'ADMIN',     rarity: 'system',    permissions: [] },
-        developer: { label: 'DEVELOPER', rarity: 'system',    permissions: [] }
+    // Master role registry (loaded from Realtime DB at /roles, admin-managed).
+    // Always includes 'common' (PLAYER) as the universal baseline.
+    const BASE_ROLE_REGISTRY = {
+        common: { label: 'PLAYER', rarity: 'common', permissions: [] }
     };
-    let roleRegistry = { ...FALLBACK_ROLES };
+    let roleRegistry = { ...BASE_ROLE_REGISTRY };
     let rolesRef = null;
     let rolesHandler = null;
     let deletedAccountRef = null;
@@ -5553,9 +5547,9 @@
     }
 
     function normalizeRoleRegistry(data = {}) {
-        // Merge user-provided roles with the fallback set so the picker always
-        // shows at least the standard options even if RTDB returns nothing.
-        const next = { ...FALLBACK_ROLES };
+        // Admin-defined roles in /roles RTDB get merged on top of the base
+        // (PLAYER). If RTDB has nothing, the picker still has PLAYER.
+        const next = { ...BASE_ROLE_REGISTRY };
         Object.entries(data || {}).forEach(([id, role]) => {
             const roleId = normalizeRoleId(id);
             const label = String(role?.label || role?.name || roleId).trim().slice(0, 28);
@@ -6177,12 +6171,26 @@
         const publicId = Number(data.publicId || 0);
         const playTimeSeconds = parsePlayTimeSeconds(data);
         const roleId = normalizeRoleId(data.roleId || data.badgeId || data.role || 'common');
+        // ownedRoles = inventory of badges/roles the user has access to.
+        // Default for everyone is just ['common'] (PLAYER). Admin panel can
+        // grant extra roles by pushing more ids into this array on the
+        // user's profile document.
+        const rawOwned = Array.isArray(data.ownedRoles) ? data.ownedRoles : (Array.isArray(data.ownedBadges) ? data.ownedBadges : []);
+        const ownedRolesSet = new Set(['common']);
+        rawOwned.forEach(r => {
+            const id = normalizeRoleId(r);
+            if (id) ownedRolesSet.add(id);
+        });
+        // Sticky: keep the user's currently-active role visible in the picker
+        // even if it hasn't been added to ownedRoles yet (e.g. legacy data).
+        ownedRolesSet.add(roleId);
         return {
             uid,
             name: String(data.name || data.displayName || 'Papiano User').slice(0, 24),
             desc: String(data.desc || data.bio || '').slice(0, 160),
             roleId,
             badgeId: roleId,
+            ownedRoles: [...ownedRolesSet],
             photoURL: String(data.photoURL || data.avatar_url || data.avatarURL || ''),
             playTimeSeconds,
             playTime: formatPlayTime(playTimeSeconds),
@@ -6369,25 +6377,37 @@
         return `<span class="badge-role-pill ${badge.className}">${escapeHtml(badge.label)}</span>`;
     }
 
-    // Populate the Role <select> in account settings from roleRegistry.
+    // Populate the Role <select> in account settings from the user's
+    // ownedRoles (badge inventory). Falls back to PLAYER only if the
+    // user has no extra roles - which is the default for everyone.
     function populateAccountRoleSelect(currentRoleId) {
         const select = document.getElementById('accountRoleSelect');
         if (!select) return;
         const target = normalizeRoleId(currentRoleId || selectedBadgeId || 'common');
-        const entries = Object.entries(roleRegistry || { common: { label: 'PLAYER' } });
-        // Sort: 'common' first, then by label asc
+        // The user's badge inventory. Always includes 'common' + the
+        // currently-active roleId (handled in normalizeProfile).
+        const owned = Array.isArray(currentProfile?.ownedRoles) && currentProfile.ownedRoles.length
+            ? currentProfile.ownedRoles
+            : ['common', target];
+        const ownedSet = new Set(owned.map(normalizeRoleId));
+        ownedSet.add('common');
+        ownedSet.add(target);
+
+        const entries = [...ownedSet].map(id => {
+            const role = roleRegistry[id] || { label: id.toUpperCase() };
+            return [id, role];
+        });
+        // 'common' first, the rest sorted alphabetically by label
         entries.sort(([aId, a], [bId, b]) => {
             if (aId === 'common') return -1;
             if (bId === 'common') return 1;
             return String(a?.label || aId).localeCompare(String(b?.label || bId));
         });
+
         select.innerHTML = entries.map(([id, role]) => {
             const label = String(role?.label || id || '').trim() || id.toUpperCase();
-            const safeId = escapeHtml(id);
-            const safeLabel = escapeHtml(label);
-            return `<option value="${safeId}">${safeLabel}</option>`;
+            return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
         }).join('');
-        // Ensure an option exists for the current role even if not in registry
         if (!Array.from(select.options).some(opt => opt.value === target)) {
             const opt = document.createElement('option');
             opt.value = target;
@@ -6661,22 +6681,40 @@
         const countryEl = document.getElementById('formInputCountry');
         const cleanCountry = String(countryEl?.value || '').toUpperCase().slice(0, 2);
         const profileUid = currentUser?.uid || loadProfile().uid || 'test_user';
+
+        // Validate roleId against the user's badge inventory. If they somehow
+        // submit a roleId they don't own (shouldn't happen via UI), snap back
+        // to PLAYER. ownedRoles itself is admin-controlled and is NEVER
+        // written from the client - we strip it from the Firestore payload.
+        const ownedSet = new Set((Array.isArray(currentProfile?.ownedRoles) ? currentProfile.ownedRoles : ['common']).map(normalizeRoleId));
+        ownedSet.add('common');
+        const safeRoleId = ownedSet.has(selectedBadgeId) ? selectedBadgeId : 'common';
+        if (safeRoleId !== selectedBadgeId) {
+            selectedBadgeId = 'common';
+            populateAccountRoleSelect('common');
+        }
+
+        const cached = loadProfile();
+        const remoteSafe = { ...cached };
+        delete remoteSafe.ownedRoles; // never overwrite admin-managed inventory
         const profile = {
-            ...loadProfile(),
+            ...remoteSafe,
             uid: profileUid,
             name: cleanName,
             searchName: cleanName.toLowerCase(),
             desc: cleanDesc,
-            roleId: selectedBadgeId,
-            badgeId: selectedBadgeId,
+            roleId: safeRoleId,
+            badgeId: safeRoleId,
             photoURL: formInputPhotoUrl?.value || '',
             countryCode: cleanCountry,
-            playTimeSeconds: parsePlayTimeSeconds(loadProfile()),
+            playTimeSeconds: parsePlayTimeSeconds(cached),
             updatedAt: currentUser?.uid ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
         };
         try {
             if (currentUser?.uid) await firestoreDb.collection('profiles').doc(currentUser.uid).set(profile, { merge: true });
-            currentProfile = normalizeProfile(profileUid, profile);
+            // Re-attach the cached ownedRoles locally so updateProfileView still
+            // shows the right options after save (until next snapshot).
+            currentProfile = normalizeProfile(profileUid, { ...profile, ownedRoles: cached.ownedRoles });
             saveProfile(currentProfile);
             updateProfileView(currentProfile);
         } catch (error) {
