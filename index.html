@@ -3111,86 +3111,136 @@
     }
 
   
-    .view-router-container > .top-bar {
-        --top-bar-height: auto;
-        height: 48px;
-        min-height: 48px;
+    /* ===========================================================
+       TOP BAR (real top bar — sibling of <main>, not nested inside)
+       =========================================================== */
+    .screen-main-app > .top-bar.top-auth-shell {
         flex: 0 0 auto;
-        padding: 0;
-        margin: 0 0 4px 0;
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        position: relative;
-        z-index: 30;
-    }
-
-    .view-router-container > .top-bar .top-user-box,
-    .view-router-container > .top-bar .top-action-btn {
-        background: rgba(6,17,31,0.94);
-        border: 1px solid rgba(255,255,255,0.14);
-        color: #ffffff;
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        height: 56px;
+        min-height: 56px;
+        padding: 0 14px;
+        gap: 10px;
+        background: var(--shell-bar);
+        border: none;
+        border-bottom: 2px solid rgba(6,17,31,0.22);
         box-shadow:
-            inset 0 1.5px 0 rgba(255,255,255,0.12),
-            inset 0 -4px 0 rgba(0,0,0,0.34),
-            0 3px 0 rgba(2,8,18,0.92),
-            0 12px 22px rgba(6,17,31,0.18);
+            inset 0 1px 0 rgba(255,255,255,0.78),
+            inset 0 -2px 0 rgba(6,17,31,0.06),
+            0 4px 14px rgba(6,17,31,0.08);
+        position: relative;
+        z-index: 60;
     }
+    .screen-main-app > .top-bar.top-auth-shell.is-tab-hidden { display: none; }
+    /* legacy auto-hide class kept harmless */
+    .screen-main-app > .top-bar.top-auth-shell.is-scroll-hidden { transform: none; opacity: 1; pointer-events: auto; }
 
-    .view-router-container > .top-bar .top-user-box {
-        width: 44px;
-        height: 42px;
-        min-width: 44px;
-        max-width: 44px;
-        flex-basis: 44px;
+    .screen-main-app > .top-bar.top-auth-shell .top-user-box {
+        height: 40px;
+        min-width: 0;
+        max-width: min(56vw, 260px);
+        flex: 0 1 auto;
+        flex-basis: auto;
+        padding: 0 10px;
+        gap: 9px;
+        justify-content: flex-start;
+        background: rgba(6,17,31,0.06);
+        border: 1px solid rgba(6,17,31,0.10);
         border-radius: 14px;
+        color: #06111f;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+    .screen-main-app > .top-bar.top-auth-shell .top-user-box:active {
+        background: rgba(6,17,31,0.10);
+        transform: scale(0.98);
+    }
+    .screen-main-app > .top-bar.top-auth-shell .top-menu-strips span { background: #06111f; }
+    .screen-main-app > .top-bar.top-auth-shell .top-user-copy { display: flex !important; min-width: 0; }
+    .screen-main-app > .top-bar.top-auth-shell .top-user-kicker {
+        color: #06111f;
+        font-size: 13.5px;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .screen-main-app > .top-bar.top-auth-shell .top-user-name {
+        color: rgba(6,17,31,0.6);
+        font-size: 11px;
+        font-weight: 800;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    .view-router-container > .top-bar .top-action-btn {
-        width: 44px;
-        min-width: 44px;
-        height: 42px;
-        border-radius: 14px;
+    .screen-main-app > .top-bar.top-auth-shell .top-action-btn {
+        width: 40px;
+        min-width: 40px;
+        height: 40px;
+        border-radius: 13px;
+        background: rgba(6,17,31,0.06);
+        border: 1px solid rgba(6,17,31,0.10);
+        color: #06111f;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+    .screen-main-app > .top-bar.top-auth-shell .top-action-btn:active {
+        background: rgba(6,17,31,0.12);
     }
 
-    .view-router-container > .top-bar + .app-tab-page.active {
-        margin-top: 0;
+    .top-auth-actions {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .top-auth-btn {
+        height: 38px;
+        border-radius: 999px;
+        padding: 0 14px;
+        border: 1px solid rgba(6,17,31,0.12);
+        font-family: var(--font-display);
+        font-size: 12px;
+        font-weight: 900;
+        letter-spacing: -0.01em;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        transition: transform var(--dur-fast) var(--ease-snappy), filter var(--dur-fast) ease;
+    }
+    .top-auth-btn:active { transform: scale(0.96); }
+    .top-login-btn {
+        background: #005BFF;
+        color: #ffffff;
+        border-color: #005BFF;
+        box-shadow: 0 4px 0 #00358f, 0 8px 16px rgba(0,91,255,0.20);
     }
 
     @media (max-width: 380px) and (orientation: portrait) {
-        .view-router-container > .top-bar {
-            height: 46px;
-            min-height: 46px;
-            padding: 0;
+        .screen-main-app > .top-bar.top-auth-shell {
+            height: 52px;
+            min-height: 52px;
+            padding: 0 10px;
+            gap: 6px;
         }
-        .view-router-container > .top-bar .top-user-box,
-        .view-router-container > .top-bar .top-action-btn {
-            width: 42px;
-            min-width: 42px;
-            height: 40px;
-            border-radius: 13px;
+        .screen-main-app > .top-bar.top-auth-shell .top-action-btn {
+            width: 36px;
+            min-width: 36px;
+            height: 36px;
         }
+        .screen-main-app > .top-bar.top-auth-shell .top-user-box {
+            height: 36px;
+            max-width: 42vw;
+        }
+        .top-auth-actions { gap: 5px; }
+        .top-auth-btn { height: 36px; padding: 0 10px; font-size: 11.5px; }
     }
-
-    @media (hover: hover) and (pointer: fine) {
-        .screen-main-app.active {
-            grid-template-rows: minmax(0, 1fr) !important;
-        }
-        .view-router-container {
-            grid-row: 1 !important;
-        }
-        .bottom-nav-bar {
-            grid-row: 1 !important;
-        }
-        .view-router-container > .top-bar {
-            grid-column: auto !important;
-            grid-row: auto !important;
-            height: 48px !important;
-            padding: 0 !important;
-        }
-    }
+    /* end top bar block */
 
   
     .info-detail-list {
@@ -3429,157 +3479,6 @@
     }
 
   
-    .view-router-container > .top-bar.top-auth-shell {
-        position: sticky !important;
-        top: max(10px, env(safe-area-inset-top));
-        z-index: 70 !important;
-        min-height: 54px !important;
-        height: 54px !important;
-        margin: 0 0 10px 0 !important;
-        padding: 6px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        gap: 10px !important;
-        background: rgba(255,255,255,0.94) !important;
-        border: 1px solid rgba(6,17,31,0.10) !important;
-        border-radius: 22px !important;
-        box-shadow:
-            0 12px 28px rgba(6,17,31,0.12),
-            inset 0 1px 0 rgba(255,255,255,0.72) !important;
-        backdrop-filter: blur(14px);
-        -webkit-backdrop-filter: blur(14px);
-        transform: translateY(0);
-        opacity: 1;
-        transition:
-            transform 0.34s cubic-bezier(0.16, 1, 0.3, 1),
-            opacity 0.24s ease,
-            box-shadow 0.24s ease;
-        will-change: transform, opacity;
-    }
-    .view-router-container > .top-bar.top-auth-shell.is-scroll-hidden {
-        transform: translateY(calc(-100% - 18px));
-        opacity: 0;
-        pointer-events: none;
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-user-box,
-    .view-router-container > .top-bar.top-auth-shell .top-action-btn {
-        background: transparent !important;
-        border: none !important;
-        color: #06111f !important;
-        box-shadow: none !important;
-        backdrop-filter: none !important;
-        -webkit-backdrop-filter: none !important;
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-user-box {
-        width: auto !important;
-        min-width: 0 !important;
-        max-width: min(46vw, 230px) !important;
-        flex: 1 1 auto !important;
-        flex-basis: auto !important;
-        height: 42px !important;
-        padding: 0 8px !important;
-        border-radius: 16px !important;
-        justify-content: flex-start !important;
-        gap: 9px !important;
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-user-box:active {
-        background: rgba(6,17,31,0.06) !important;
-        transform: scale(0.98);
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-menu-strips span {
-        background: #06111f !important;
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-user-copy {
-        display: flex !important;
-        min-width: 0;
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-user-kicker {
-        color: #06111f !important;
-        font-size: 14px !important;
-        font-weight: 900 !important;
-        letter-spacing: -0.02em !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-user-name {
-        color: rgba(6,17,31,0.64) !important;
-        font-size: 11px !important;
-        font-weight: 800 !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .top-auth-actions {
-        flex: 0 0 auto;
-        display: inline-flex !important;
-        align-items: center;
-        gap: 7px;
-    }
-    .top-auth-btn {
-        height: 38px;
-        border-radius: 999px;
-        padding: 0 14px;
-        border: 1px solid rgba(6,17,31,0.12);
-        font-family: var(--font-display);
-        font-size: 12px;
-        font-weight: 900;
-        letter-spacing: -0.01em;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        white-space: nowrap;
-        transition: transform var(--dur-fast) var(--ease-snappy), filter var(--dur-fast) ease;
-    }
-    .top-auth-btn:active {
-        transform: scale(0.96);
-    }
-    .top-login-btn {
-        background: #005BFF;
-        color: #ffffff;
-        border-color: #005BFF;
-        box-shadow: 0 5px 0 #00358f, 0 10px 18px rgba(0,91,255,0.20);
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-action-btn {
-        width: 38px !important;
-        min-width: 38px !important;
-        height: 38px !important;
-        border-radius: 14px !important;
-        background: rgba(6,17,31,0.06) !important;
-    }
-    .view-router-container > .top-bar.top-auth-shell .top-action-btn:active {
-        background: rgba(6,17,31,0.10) !important;
-    }
-    @media (max-width: 380px) and (orientation: portrait) {
-        .view-router-container > .top-bar.top-auth-shell {
-            height: 50px !important;
-            min-height: 50px !important;
-            border-radius: 20px !important;
-            padding: 5px !important;
-            gap: 6px !important;
-        }
-        .top-auth-actions {
-            gap: 5px;
-        }
-        .top-auth-btn {
-            height: 36px;
-            padding: 0 10px;
-            font-size: 11.5px;
-        }
-        .view-router-container > .top-bar.top-auth-shell .top-action-btn {
-            width: 36px !important;
-            min-width: 36px !important;
-            height: 36px !important;
-        }
-        .view-router-container > .top-bar.top-auth-shell .top-user-box {
-            height: 38px !important;
-            max-width: 38vw !important;
-        }
-    }
-
-  
     #friendProfileModal {
         background:
             radial-gradient(circle at 50% 18%, rgba(0,91,255,0.20), transparent 32%),
@@ -3770,11 +3669,6 @@
             width: 64px !important;
             height: 64px !important;
         }
-    }
-
-  
-    .view-router-container > .top-bar.top-auth-shell.is-tab-hidden {
-        display: none !important;
     }
 
   
@@ -4836,8 +4730,7 @@
                 <button class="btn-submit-config" style="background:#06111f;color:#ffffff;" type="button" onclick="closeChatToolsMenu()">Close</button>
             </div>
         </div>
-        <main class="view-router-container">
-<header class="top-bar top-auth-shell" id="appTopBar">
+        <header class="top-bar top-auth-shell" id="appTopBar">
             <button class="top-user-box is-open-access" id="topUserBox" type="button" onclick="openBrandSheet()" aria-label="Open Papiano menu">
                 <span class="top-menu-strips" aria-hidden="true"><span></span><span></span><span></span></span>
                 <span class="top-user-avatar" id="topUserAvatar" aria-hidden="true"><img id="topUserAvatarImg" alt=""><span class="material-symbols-rounded" id="topUserAvatarIcon">person</span></span>
@@ -4848,6 +4741,7 @@
                 <button class="top-action-btn" id="fullscreenBtn" type="button" onclick="toggleScreenWindow()" aria-label="Fullscreen"><span class="material-symbols-rounded" id="fsIcon">fullscreen</span></button>
             </div>
         </header>
+        <main class="view-router-container">
             
             <div class="app-tab-page active" id="pageHome">
                 <div class="home-carousel">
@@ -8196,27 +8090,10 @@
     let topBarScrollQueued = false;
 
     function setupTopBarAutoHide() {
-        const scroller = document.querySelector('.view-router-container');
+        // No-op: top bar is a real top bar now (sibling of <main>),
+        // so we don't auto-hide it on scroll anymore.
         const bar = document.getElementById('appTopBar');
-        if (!scroller || !bar || topBarAutoHideBound) return;
-        topBarAutoHideBound = true;
-        topBarLastScrollY = scroller.scrollTop || 0;
-        const apply = () => {
-            topBarScrollQueued = false;
-            const y = scroller.scrollTop || 0;
-            const delta = y - topBarLastScrollY;
-            if (y <= 8 || delta < -8) {
-                bar.classList.remove('is-scroll-hidden');
-            } else if (delta > 12 && y > 24) {
-                bar.classList.add('is-scroll-hidden');
-            }
-            topBarLastScrollY = y;
-        };
-        scroller.addEventListener('scroll', () => {
-            if (topBarScrollQueued) return;
-            topBarScrollQueued = true;
-            requestAnimationFrame(apply);
-        }, { passive: true });
+        if (bar) bar.classList.remove('is-scroll-hidden');
     }
 
     function startCarousel() {
