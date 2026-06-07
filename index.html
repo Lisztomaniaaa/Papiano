@@ -2154,10 +2154,12 @@
         border-color: #06111f;
     }
     .chat-row-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-    .chat-mini-action { min-height: 34px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--glass-border-col); background: var(--bg-app); color: var(--dark-block); font-size: 11px; font-weight: 900; cursor: pointer; box-shadow: 0 8px 22px rgba(0,0,0,0.34); text-transform: uppercase; white-space: nowrap; }
-    .chat-mini-action:active { transform: translate(1px, 1px); box-shadow: 0 8px 22px rgba(0,0,0,0.34); }
-    .chat-mini-action.accept { background: var(--accent-green); }
-    .chat-mini-action.decline { background: #06111f; }
+    .chat-mini-action { min-height: 34px; padding: 0 12px; border-radius: 12px; border: 1px solid #06111f; background: var(--bg-app); color: var(--dark-block); font-size: 11px; font-weight: 900; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 2px 0 rgba(6,17,31,0.18), 0 6px 14px rgba(6,17,31,0.10); text-transform: uppercase; white-space: nowrap; transition: transform var(--dur-fast) var(--ease-snappy), box-shadow var(--dur-fast) var(--ease-snappy); }
+    .chat-mini-action:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.32), 0 1px 0 rgba(6,17,31,0.18), 0 4px 10px rgba(6,17,31,0.08); }
+    .chat-mini-action.accept { background: var(--accent-green); color: #06111f; box-shadow: inset 0 1px 0 rgba(255,255,255,0.36), 0 2px 0 #00a653, 0 6px 14px rgba(0,214,107,0.28); }
+    .chat-mini-action.accept:active { box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 1px 0 #00a653, 0 4px 10px rgba(0,214,107,0.22); }
+    .chat-mini-action.decline { background: #FB3F5C; color: #ffffff; box-shadow: inset 0 1px 0 rgba(255,255,255,0.24), 0 2px 0 #9f1831, 0 6px 14px rgba(251,63,92,0.30); }
+    .chat-mini-action.decline:active { box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 1px 0 #9f1831, 0 4px 10px rgba(251,63,92,0.22); }
     .msg-bubble b.msg-sender-name { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 900; text-transform: uppercase; opacity: 0.82; }
     .chat-system-note { background: var(--surface); border: var(--brutal-border); border-radius: 16px; padding: 14px; box-shadow: var(--brutal-shadow); font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: none; text-align: center; }
     .skeleton-line { height: 14px; border-radius: 7px; background: rgba(255,255,255,0.08); animation: none; }
@@ -6476,11 +6478,16 @@
         };
         const isBlocked = type === 'blocked' || blockedUserIds.has(profile.uid);
         const stamp = type === 'blocked' ? 'Blocked' : isBlocked && type === 'friend' ? 'Blocked' : type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? formatMessageTime(profile.lastMessageAt) : 'Friend';
+        // Bio/description is shown ONLY in the profile modal (tap the row).
+        // Inline rows show a snippet only for DM (last message), search hint, or blocked notice.
+        // Friend and request rows stay clean - no bio in the list.
         const snippet = isBlocked
             ? 'Blocked user. Unblock to chat.'
             : type === 'dm'
                 ? (profile.lastMessage || 'No messages yet.')
-                : (profile.desc || (type === 'search' ? 'Tap profile or add friend.' : 'No bio yet.'));
+                : type === 'search'
+                    ? 'Tap profile or add friend.'
+                    : '';
         const actions = type === 'request'
             ? `<div class="chat-row-actions"><button class="chat-mini-action accept" type="button" onclick="event.stopPropagation(); respondFriendRequest('${profile.requestId}', true)">Accept</button><button class="chat-mini-action decline" type="button" onclick="event.stopPropagation(); respondFriendRequest('${profile.requestId}', false)">Decline</button></div>`
             : type === 'search'
@@ -6492,6 +6499,10 @@
                     : type === 'blocked'
                         ? `<div class="chat-row-actions"><button class="chat-mini-action accept" type="button" onclick="event.stopPropagation(); unblockUser('${profile.uid}')">Unblock</button></div>`
                         : '';
+        const showSecondRow = !!snippet || (type === 'dm' && Number(profile.unreadForMe || 0) > 0);
+        const secondRow = showSecondRow
+            ? `<div class="chat-row-header">${snippet ? `<div class="chat-snippet">${escapeHtml(snippet)}</div>` : '<div class="chat-snippet"></div>'}${type === 'dm' && Number(profile.unreadForMe || 0) > 0 ? `<span class="row-count-badge" style="display:flex;">${profile.unreadForMe > 99 ? '99+' : escapeHtml(profile.unreadForMe)}</span>` : ''}</div>`
+            : '';
         row.innerHTML = `
             <div class="avatar-circle" style="background:var(--accent-green);" onclick="event.stopPropagation(); launchFriendProfileModal('${escapeHtml(profile.uid || '')}')">${profile.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="">` : escapeHtml(getInitials(profile.name))}</div>
             <div class="chat-body-content">
@@ -6499,7 +6510,7 @@
                     <div class="chat-user-name">${escapeHtml(profile.name || 'Papiano User')} ${renderBadge(profile.roleId || profile.badgeId || 'common')} ${isBlocked ? '<span class="badge-role-pill badge-rarity-system">Blocked</span>' : ''}</div>
                     <div class="chat-timestamp">${stamp}</div>
                 </div>
-                <div class="chat-row-header"><div class="chat-snippet">${escapeHtml(snippet)}</div>${type === 'dm' && Number(profile.unreadForMe || 0) > 0 ? `<span class="row-count-badge" style="display:flex;">${profile.unreadForMe > 99 ? '99+' : escapeHtml(profile.unreadForMe)}</span>` : ''}</div>
+                ${secondRow}
             </div>
             ${actions}
         `;
