@@ -12456,6 +12456,53 @@ midiBtn.onclick = (e) => {
         });
     }
 
+    function mpBuildPairId(uidA, uidB){
+        return [uidA, uidB].filter(Boolean).map(String).sort().join('_');
+    }
+
+    // Friends are owned by the main app's Firestore "friendships" collection
+    // (doc per pair, status 'accepted'). Multiplayer used to read a separate,
+    // empty Realtime DB node, so the Friends tab never detected real friends.
+    // Subscribe to the same Firestore source so both apps stay in sync, then
+    // resolve each friend's live online status from the realtime users node.
+    function attachFirestoreFriends(){
+        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return null;
+        try{
+            const col = fsApi.collection(fsDb, 'friendships');
+            const friendsQuery = fsApi.query(col, fsApi.where('users', 'array-contains', mpSelfId));
+            return fsApi.onSnapshot(friendsQuery, snap => {
+                const nextIds = new Set();
+                snap.forEach(docSnap => {
+                    const data = (docSnap.data && docSnap.data()) || {};
+                    if(data.status !== 'accepted' || !Array.isArray(data.users)) return;
+                    const other = data.users.find(uid => uid && String(uid) !== mpSelfId);
+                    if(other) nextIds.add(String(other));
+                });
+                const freshIds = [];
+                nextIds.forEach(id => { if(!friendProfiles.has(id)) freshIds.push(id); });
+                Array.from(friendProfiles.keys()).forEach(id => { if(!nextIds.has(id)) friendProfiles.delete(id); });
+                friendIds.clear();
+                nextIds.forEach(id => {
+                    friendIds.add(id);
+                    if(!friendProfiles.has(id)) friendProfiles.set(id, normalizePlayer(id, { id, name:'Player', online:false }));
+                });
+                syncFriendUserSubscriptions();
+                renderRoomChrome();
+                renderSearch();
+                if(selectedPlayer && profile.classList.contains('show')) renderProfile(selectedPlayer);
+                // Pull name / photo / country for newly added friends so offline
+                // friends still show real details instead of a "Player" placeholder.
+                freshIds.forEach(id => {
+                    const seed = players.find(item => item.id === id) || friendProfiles.get(id) || { id, name:'Player', online:false };
+                    hydratePlayerProfile(seed, { force:false }).then(updated => {
+                        if(updated) friendProfiles.set(id, players.find(item => item.id === id) || updated);
+                        renderSearch();
+                    }).catch(() => {});
+                });
+            }, () => {});
+        }catch(e){ return null; }
+    }
+
     function syncAuthUi(){
         const signedIn = isSignedIn();
         document.body.classList.toggle('mp-auth-signed-in', signedIn);
@@ -13232,20 +13279,31 @@ midiBtn.onclick = (e) => {
     async function toggleFriend(player){
         if(!canOfferFriend(player)) return;
         const id = String(player.id);
+        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
+            showToast('Friends are not available right now.', { type:'error', title:'Friends' });
+            return;
+        }
         try{
-            await dbApi.set(dbRef(`friends/${mpSelfId}/${id}`), {
-                id,
-                name:player.name,
-                addedAt:Date.now()
+            const pairId = mpBuildPairId(mpSelfId, id);
+            const ref = fsApi.doc(fsDb, 'friendships', pairId);
+            const snap = await fsApi.getDoc(ref);
+            if(snap && (typeof snap.exists === 'function' ? snap.exists() : snap.exists)){
+                const status = (snap.data && snap.data() || {}).status;
+                showToast(status === 'accepted' ? 'Already friends.' : 'Request already sent.', { type:'info', title:'Friends' });
+                return;
+            }
+            await fsApi.setDoc(ref, {
+                users:[mpSelfId, id],
+                requesterId:mpSelfId,
+                receiverId:id,
+                status:'pending',
+                createdAt:fsApi.serverTimestamp(),
+                updatedAt:fsApi.serverTimestamp()
             });
-            friendIds.add(id);
-            friendProfiles.set(id, { ...player, online:player.online === true });
-            syncFriendUserSubscriptions();
+            showToast('Friend request sent.', { type:'success', title:'Friends' });
             syncFriendAction(player);
-            renderRoomChrome();
-            renderSearch();
         }catch(e){
-            showToast('Couldn’t update friend status. Try again.', { type:'error', title:'Profile' });
+            showToast('Couldn’t send friend request. Try again.', { type:'error', title:'Friends' });
         }
     }
 
@@ -14618,22 +14676,9 @@ midiBtn.onclick = (e) => {
         }catch(e){}
         try{ friendsUnsubscribe?.(); }catch(e){}
         clearFriendUserSubscriptions();
-        friendsUnsubscribe = dbApi.onValue(dbRef(`friends/${mpSelfId}`), snap => {
-            friendIds.clear();
-            friendProfiles.clear();
-            const data = snap.val() || {};
-            Object.entries(data).forEach(([id, value]) => {
-                const friendId = String(id || '');
-                if(isLocalGuestPlayerId(friendId) || friendId === mpSelfId) return;
-                friendIds.add(friendId);
-                const raw = value && typeof value === 'object' ? value : {};
-                friendProfiles.set(friendId, normalizePlayer(friendId, { ...raw, id:friendId, online:false }));
-            });
-            syncFriendUserSubscriptions();
-            renderRoomChrome();
-            renderSearch();
-            if(selectedPlayer && profile.classList.contains('show')) renderProfile(selectedPlayer);
-        });
+        friendIds.clear();
+        friendProfiles.clear();
+        friendsUnsubscribe = attachFirestoreFriends();
         syncAuthUi();
         attachRoomsListener();
         attachUsersListener();
