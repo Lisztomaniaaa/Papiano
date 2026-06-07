@@ -2661,6 +2661,9 @@
             grid-row: 1;
             height: var(--top-bar-height);
             padding: 0 clamp(22px, 3vw, 40px);
+            border-bottom: 1px solid rgba(6,17,31,0.12);
+            box-shadow: 0 2px 6px rgba(6,17,31,0.05);
+            z-index: 10;
         }
 
         .view-router-container {
@@ -2688,11 +2691,8 @@
             padding: 18px 12px;
             background: var(--shell-bar-strong);
             border-top: none;
-            border-right: 2px solid rgba(6,17,31,0.24);
-            box-shadow:
-                inset -2px 0 0 rgba(255,255,255,0.42),
-                inset 1px 0 0 rgba(255,255,255,0.50),
-                10px 0 24px rgba(6,17,31,0.08);
+            border-right: 1px solid rgba(6,17,31,0.12);
+            box-shadow: none;
         }
 
         .nav-tab-action {
@@ -3133,61 +3133,18 @@
     /* legacy auto-hide class kept harmless */
     .screen-main-app > .top-bar.top-auth-shell.is-scroll-hidden { transform: none; opacity: 1; pointer-events: auto; }
 
-    .screen-main-app > .top-bar.top-auth-shell .top-user-box {
-        height: 40px;
-        min-width: 0;
-        max-width: min(56vw, 260px);
-        flex: 0 1 auto;
-        flex-basis: auto;
-        padding: 0 10px;
-        gap: 9px;
-        justify-content: flex-start;
-        background: rgba(6,17,31,0.06);
-        border: 1px solid rgba(6,17,31,0.10);
-        border-radius: 14px;
-        color: #06111f;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-    }
-    .screen-main-app > .top-bar.top-auth-shell .top-user-box:active {
-        background: rgba(6,17,31,0.10);
-        transform: scale(0.98);
-    }
-    .screen-main-app > .top-bar.top-auth-shell .top-menu-strips span { background: #06111f; }
+    /* Hamburger / user box and action buttons keep their original dark neumorphic
+       look — top bar background is white, but the buttons inside stay as-is. */
     .screen-main-app > .top-bar.top-auth-shell .top-user-copy { display: flex !important; min-width: 0; }
     .screen-main-app > .top-bar.top-auth-shell .top-user-kicker {
-        color: #06111f;
-        font-size: 13.5px;
-        font-weight: 900;
-        letter-spacing: -0.02em;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     .screen-main-app > .top-bar.top-auth-shell .top-user-name {
-        color: rgba(6,17,31,0.6);
-        font-size: 11px;
-        font-weight: 800;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-    }
-
-    .screen-main-app > .top-bar.top-auth-shell .top-action-btn {
-        width: 40px;
-        min-width: 40px;
-        height: 40px;
-        border-radius: 13px;
-        background: rgba(6,17,31,0.06);
-        border: 1px solid rgba(6,17,31,0.10);
-        color: #06111f;
-        box-shadow: inset 0 1px 0 rgba(255,255,255,0.6);
-        backdrop-filter: none;
-        -webkit-backdrop-filter: none;
-    }
-    .screen-main-app > .top-bar.top-auth-shell .top-action-btn:active {
-        background: rgba(6,17,31,0.12);
     }
 
     .top-auth-actions {
