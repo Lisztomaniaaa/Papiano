@@ -4907,7 +4907,7 @@ body.mp-chat-dragging{ cursor:grabbing; }
         <div class="mp-profile-row"><span>User ID</span><b id="mpProfileId"></b></div>
         <div class="mp-profile-row"><span>Main Instrument</span><b id="mpProfileInstrument"></b></div>
         <div class="mp-profile-row"><span>Layer Instrument</span><b id="mpProfileLayerInstrument"></b></div>
-        <div class="mp-profile-row"><span>Status</span><b id="mpProfileStatus"></b></div>
+        <div class="mp-profile-row"><span>Country</span><b id="mpProfileCountry"></b></div>
         <div id="mpProfileVolumeRow" class="mp-profile-row mp-profile-volume-row">
             <div class="mp-profile-volume-head"><span>Player Volume</span><b id="mpProfileVolumeValue">100%</b></div>
             <div class="mp-profile-volume-control"><input id="mpProfileVolume" type="range" min="0" max="100" value="100"><button id="mpProfilePersonalMute" type="button">Mute</button></div>
@@ -11802,7 +11802,7 @@ midiBtn.onclick = (e) => {
     const profileId = document.getElementById('mpProfileId');
     const profileInstrument = document.getElementById('mpProfileInstrument');
     const profileLayerInstrument = document.getElementById('mpProfileLayerInstrument');
-    const profileStatus = document.getElementById('mpProfileStatus');
+    const profileCountry = document.getElementById('mpProfileCountry');
     const friendAction = document.getElementById('mpFriendAction');
     const profileBio = document.getElementById('mpProfileBio');
     const profileLikes = document.getElementById('mpProfileLikes');
@@ -12237,6 +12237,7 @@ midiBtn.onclick = (e) => {
             bio:profile.desc,
             likes:profile.likes,
             dislikes:profile.dislikes,
+            countryCode:profile.countryCode,
             online:data.online !== false,
             room:data.room || null,
             seat:Number(data.seat || 0),
@@ -12261,6 +12262,7 @@ midiBtn.onclick = (e) => {
         player.bio = profile.desc;
         player.likes = profile.likes;
         player.dislikes = profile.dislikes;
+        player.countryCode = profile.countryCode;
         return player;
     }
 
@@ -13254,7 +13256,7 @@ midiBtn.onclick = (e) => {
             pill.setAttribute('aria-label', player.name);
         }
         if(selectedPlayer && selectedPlayer.id === String(id) && profile.classList.contains('show')){
-            profileStatus.textContent = profileStatusText(selectedPlayer);
+            if(profileCountry) profileCountry.textContent = profileCountryText(selectedPlayer);
             syncFriendAction(selectedPlayer);
         }
     }
@@ -13286,10 +13288,30 @@ midiBtn.onclick = (e) => {
         }
     }
 
-    function profileStatusText(player){
-        const s = getState(player.id);
-        if(s.banned) return 'Banned from room';
-        return relationshipText(player);
+    function countryFlagEmoji(code){
+        const cc = String(code || '').trim().toUpperCase();
+        if(!/^[A-Z]{2}$/.test(cc)) return '';
+        return String.fromCodePoint(...[...cc].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65));
+    }
+
+    let countryNameLookup;
+    function countryDisplayName(code){
+        const cc = String(code || '').trim().toUpperCase();
+        if(!/^[A-Z]{2}$/.test(cc)) return '';
+        try{
+            if(countryNameLookup === undefined){
+                countryNameLookup = typeof Intl !== 'undefined' && Intl.DisplayNames ? new Intl.DisplayNames(['en'], { type:'region' }) : null;
+            }
+            return (countryNameLookup && countryNameLookup.of(cc)) || cc;
+        }catch(e){ return cc; }
+    }
+
+    function profileCountryText(player){
+        const cc = String(player?.countryCode || '').trim().toUpperCase();
+        if(!cc) return 'Not set';
+        const flag = countryFlagEmoji(cc);
+        const name = countryDisplayName(cc);
+        return (flag ? flag + ' ' : '') + name;
     }
 
     function updateProfileVoteButtons(player, voteType = ''){
@@ -13399,7 +13421,7 @@ midiBtn.onclick = (e) => {
         }
         if(profileLikes) profileLikes.textContent = Number(player.likes || 0);
         if(profileDislikes) profileDislikes.textContent = Number(player.dislikes || 0);
-        profileStatus.textContent = profileStatusText(player);
+        if(profileCountry) profileCountry.textContent = profileCountryText(player);
         syncFriendAction(player);
         const s = getState(player.id);
         const canModerate = canModeratePlayer(player);
@@ -14560,6 +14582,7 @@ midiBtn.onclick = (e) => {
             bio:homeProfile.desc,
             likes:homeProfile.likes,
             dislikes:homeProfile.dislikes,
+            countryCode:homeProfile.countryCode,
             online:true,
             room:null
         });
@@ -14580,6 +14603,7 @@ midiBtn.onclick = (e) => {
                 desc:self.bio,
                 likes:self.likes || 0,
                 dislikes:self.dislikes || 0,
+                countryCode:self.countryCode || '',
                 online:true,
                 room:self.room || null,
                 lastSeen:Date.now(),
