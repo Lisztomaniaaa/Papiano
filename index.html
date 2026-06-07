@@ -6486,7 +6486,11 @@
             else launchFriendProfileModal(profile.uid || profile.requestId);
         };
         const isBlocked = type === 'blocked' || blockedUserIds.has(profile.uid);
-        const stamp = type === 'blocked' ? 'Blocked' : isBlocked && type === 'friend' ? 'Blocked' : type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? formatMessageTime(profile.lastMessageAt) : 'Friend';
+        // Only ONE "Blocked" indicator: the black inline pill next to the name.
+        // The right-side stamp is suppressed for blocked rows to avoid duplication.
+        const stamp = isBlocked
+            ? ''
+            : type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? formatMessageTime(profile.lastMessageAt) : 'Friend';
         // Bio/description is shown ONLY in the profile modal (tap the row).
         // Inline rows show a snippet only for DM (last message), search hint, or blocked notice.
         // Friend and request rows stay clean - no bio in the list.
