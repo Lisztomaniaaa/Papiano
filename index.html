@@ -6777,7 +6777,10 @@
 
                     const profile = hydrated.get(targetUid) || normalizeProfile(targetUid, {});
                     const previewCleared = myInClearedBy;
-                    const unreadForMe = previewCleared ? 0 : getRoomUnreadForMe(room);
+                    // If this DM is currently being viewed, treat as read (covers race
+                    // conditions where the snapshot fires before serverTimestamp resolves).
+                    const isCurrentlyViewing = activeChatRoomType === 'dm' && activeChatTargetUid === targetUid;
+                    const unreadForMe = (previewCleared || isCurrentlyViewing) ? 0 : getRoomUnreadForMe(room);
                     directChatProfiles.set(targetUid, {
                         ...profile,
                         lastMessage: previewCleared ? 'No messages yet.' : (room.lastMessage || 'No messages yet.'),
@@ -7097,6 +7100,9 @@
                     .filter(item => !item.senderId || !blockedUserIds.has(item.senderId));
                 await hydrateMessageProfiles(messages);
                 renderChatMessages(messages);
+                // Auto mark-read whenever the listener fires while the chat is open,
+                // so incoming messages don't leave a lingering unread badge.
+                markActiveRoomRead();
             }, error => {
                 if (chatMessagesScrollArea) chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Couldn’t load messages.</div>`;
             });
