@@ -11864,6 +11864,7 @@ midiBtn.onclick = (e) => {
     let roomModerationUnsubscribe = null;
     let friendsUnsubscribe = null;
     let roomsUnsubscribe = null;
+    let usersUnsubscribe = null;
     let renderRoomsTimer = 0;
     let chatUnsubscribe = null;
     let roomPlayerDisconnect = null;
@@ -12934,6 +12935,7 @@ midiBtn.onclick = (e) => {
         currentScreen = screen;
         document.body.classList.add('mp-lobby-open');
         attachRoomsListener();
+        attachUsersListener();
         document.body.classList.remove('mp-chat-open','mp-profile-open');
         if(profile) profile.classList.remove('show');
         document.querySelectorAll('[data-mp-screen]').forEach(item => item.classList.toggle('active', item.dataset.mpScreen === screen));
@@ -14610,6 +14612,7 @@ midiBtn.onclick = (e) => {
         });
         syncAuthUi();
         attachRoomsListener();
+        attachUsersListener();
         refreshAll();
         return self;
     }
@@ -14620,10 +14623,47 @@ midiBtn.onclick = (e) => {
         try{ friendsUnsubscribe?.(); }catch(e){}
         friendsUnsubscribe = null;
         clearFriendUserSubscriptions();
+        detachUsersListener();
         friendIds.clear();
         ensureLocalSelf();
         syncAuthUi();
         refreshAll();
+    }
+
+    function attachUsersListener(){
+        if(!firebaseReady || !dbApi || usersUnsubscribe) return;
+        usersUnsubscribe = dbApi.onValue(dbRef('users'), snap => {
+            const data = snap.val() || {};
+            const seen = new Set();
+            Object.entries(data).forEach(([id, value]) => {
+                const userId = String(id || '');
+                if(!userId || userId === mpSelfId || isLocalGuestPlayerId(userId)) return;
+                const raw = value && typeof value === 'object' ? value : {};
+                const player = normalizePlayer(userId, { ...raw, id:userId, online:raw.online === true });
+                if(!isAuthenticatedDisplayPlayer(player)) return;
+                seen.add(userId);
+                upsertPlayer(player);
+            });
+            // Any player we previously cached but is no longer present in the
+            // global users node is treated as offline so the Online list does
+            // not keep showing stale entries. Friends and current-room members
+            // keep their own presence sources, so leave those untouched.
+            players.forEach(player => {
+                if(player.id === mpSelfId || seen.has(player.id)) return;
+                if(friendIds.has(player.id)) return;
+                if(currentRoom && roomPlayersByRoom[currentRoom.id]?.[player.id]) return;
+                player.online = false;
+            });
+            renderSearch();
+        }, () => {
+            try{ usersUnsubscribe?.(); }catch(e){}
+            usersUnsubscribe = null;
+        });
+    }
+
+    function detachUsersListener(){
+        try{ usersUnsubscribe?.(); }catch(e){}
+        usersUnsubscribe = null;
     }
 
     function attachRoomsListener(){
@@ -14781,6 +14821,7 @@ midiBtn.onclick = (e) => {
                 });
                 syncAuthUi();
                 attachRoomsListener();
+                attachUsersListener();
                 showToast('Online mode connected.', { type:'success', title:'Papiano' });
             }catch(e){
                 firebaseReady = false;
