@@ -22,6 +22,13 @@
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Pre-warm the connections to the lazy-loaded SDK origins so the TLS
+       handshake is already done by the time the loader fires after first paint. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="dns-prefetch" href="https://yddzwxmzxdagiltrjmgc.supabase.co">
+  <link rel="dns-prefetch" href="https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app">
+  <link rel="dns-prefetch" href="https://firestore.googleapis.com">
   <!-- Non-blocking Google Fonts: load via media=print + onload swap so the
        stylesheet doesn't block first paint. Falls back to <noscript> for
        browsers without JS. -->
