@@ -11866,7 +11866,7 @@ midiBtn.onclick = (e) => {
     let roomsUnsubscribe = null;
     let usersUnsubscribe = null;
     const MP_PLAYTIME_LOCAL_MS = 10000;
-    const MP_PLAYTIME_REMOTE_MS = 30000;
+    const MP_PLAYTIME_REMOTE_MS = 60000;
     let mpPlayTimeStartedAt = 0;
     let mpPlayTimePending = 0;
     let mpPlayTimeBaseSeconds = 0;
@@ -12527,13 +12527,9 @@ midiBtn.onclick = (e) => {
     }
     function mpFormatPlayTime(seconds){
         const total = Math.max(0, Math.floor(Number(seconds) || 0));
-        if(total < 60) return `0:${String(total).padStart(2, '0')}`;
-        const minutes = Math.floor(total / 60);
-        const secs = total % 60;
-        if(minutes < 60) return `${minutes}:${String(secs).padStart(2, '0')}`;
-        const hours = Math.floor(minutes / 60);
-        const rest = minutes % 60;
-        return `${hours}:${String(rest).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        return `${hours}h ${String(minutes).padStart(2, '0')}m`;
     }
     function mpAccumulatePlayTime(){
         if(!mpPlayTimeStartedAt || document.hidden) return false;
