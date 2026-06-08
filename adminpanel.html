@@ -1108,6 +1108,25 @@
       'utamairfan44@gmail.com'
     ];
     const ownerEmails = new Set(adminEmails);
+
+    // ─── Server Admin API helper ───
+    // Calls /api/admin for operations that require Firebase Admin SDK
+    // (disable/enable auth, delete auth account, set custom claims)
+    const ADMIN_SECRET = localStorage.getItem('papiano_admin_secret') || '';
+    async function serverAdmin(action, params = {}) {
+      const secret = ADMIN_SECRET || prompt('Enter admin secret (stored locally):');
+      if (!secret) throw new Error('Admin secret required');
+      if (!ADMIN_SECRET) localStorage.setItem('papiano_admin_secret', secret);
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret, action, ...params })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+      return data;
+    }
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
@@ -2095,19 +2114,39 @@
       const user = await requireSelectedUser();
       if (!user) return;
       const reason = els.banReasonInput.value.trim() || 'No reason';
-      await updateProfile(selectedUid, { isBanned: true, banned: true, status: 'banned', banReason: reason, bannedAt: fsServerTimestamp(), bannedAtLocal: Date.now(), bannedBy: currentAdmin.uid });
-      await set(dbRef(`${paths.bans}/${selectedUid}`), { uid: selectedUid, reason, bannedAt: serverTimestamp(), bannedAtLocal: Date.now(), bannedBy: currentAdmin.uid, bannedByEmail: currentAdmin.email });
-      await logAction('ban_player', { uid: selectedUid, reason });
-      toast('Player banned.');
+      els.banBtn.disabled = true;
+      try {
+        // Server-side: disable Firebase Auth account
+        await serverAdmin('ban-user', { uid: selectedUid, reason });
+        // Client-side: flag profile + log
+        await updateProfile(selectedUid, { isBanned: true, banned: true, status: 'banned', banReason: reason, bannedAt: fsServerTimestamp(), bannedAtLocal: Date.now(), bannedBy: currentAdmin.uid });
+        await set(dbRef(`${paths.bans}/${selectedUid}`), { uid: selectedUid, reason, bannedAt: serverTimestamp(), bannedAtLocal: Date.now(), bannedBy: currentAdmin.uid, bannedByEmail: currentAdmin.email });
+        await logAction('ban_player', { uid: selectedUid, reason });
+        toast('Player banned (auth disabled).');
+      } catch (error) {
+        toast(error.message || 'Ban failed.');
+      } finally {
+        els.banBtn.disabled = false;
+      }
     }
 
     async function unbanSelectedUser() {
       const user = await requireSelectedUser();
       if (!user) return;
-      await updateProfile(selectedUid, { isBanned: false, banned: false, status: 'active', banReason: null, unbannedAt: fsServerTimestamp(), unbannedAtLocal: Date.now(), unbannedBy: currentAdmin.uid });
-      await remove(dbRef(`${paths.bans}/${selectedUid}`));
-      await logAction('unban_player', { uid: selectedUid });
-      toast('Player unbanned.');
+      els.unbanBtn.disabled = true;
+      try {
+        // Server-side: re-enable Firebase Auth account
+        await serverAdmin('unban-user', { uid: selectedUid });
+        // Client-side: remove ban flags + log
+        await updateProfile(selectedUid, { isBanned: false, banned: false, status: 'active', banReason: null, unbannedAt: fsServerTimestamp(), unbannedAtLocal: Date.now(), unbannedBy: currentAdmin.uid });
+        await remove(dbRef(`${paths.bans}/${selectedUid}`));
+        await logAction('unban_player', { uid: selectedUid });
+        toast('Player unbanned (auth re-enabled).');
+      } catch (error) {
+        toast(error.message || 'Unban failed.');
+      } finally {
+        els.unbanBtn.disabled = false;
+      }
     }
 
     async function muteSelectedUser() {
@@ -2146,6 +2185,9 @@
 
       els.deleteUserBtn.disabled = true;
       try {
+        // Server-side: delete Firebase Auth account + server cleanup
+        await serverAdmin('delete-user', { uid: selectedUid });
+        // Client-side: mark deleted + cleanup remaining data
         await markDeletedAccount(selectedUid, reason);
 
         const friendshipSnap = await getDocs(fsQuery(fsCollection('friendships'), where('users', 'array-contains', selectedUid)));
