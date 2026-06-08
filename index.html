@@ -364,6 +364,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     let directChatProfiles = new Map();
     let searchProfiles = new Map();
     let messageProfiles = new Map();
+    let leaderboardProfiles = new Map();
     let activeMessagesCache = new Map();
     let blockedUserIds = new Set();
     let blockedProfiles = new Map();
@@ -1802,14 +1803,16 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             target.innerHTML = `<div class="leaderboard-empty">${type === 'donation' ? 'No donation records yet.' : 'No play time records yet.'}</div>`;
             return;
         }
+        rows.forEach(item => { if (item.uid) leaderboardProfiles.set(item.uid, item); });
         target.innerHTML = rows.map((item, index) => {
             const avatar = item.photoURL ? `<img src="${escapeHtml(item.photoURL)}" alt="">` : escapeHtml(getInitials(item.name));
             const idLabel = item.userId || (item.publicId ? formatPublicUserId(item.publicId) : 'Papiano Player');
             const score = type === 'donation'
                 ? formatDonationAmount(item.amount, item.currency)
                 : formatPlayTime(item.playTimeSeconds);
+            const clickAttr = item.uid ? `onclick="launchFriendProfileModal('${escapeHtml(item.uid)}')"` : '';
             return `
-                <div class="leaderboard-row">
+                <div class="leaderboard-row" ${clickAttr} style="cursor:pointer">
                     <div class="leaderboard-rank">#${index + 1}</div>
                     <div class="leaderboard-avatar">${avatar}</div>
                     <div class="leaderboard-name"><strong>${escapeHtml(item.name || 'Papiano User')}</strong><span>${escapeHtml(idLabel)}</span></div>
@@ -1869,13 +1872,16 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         rows.sort((a, b) => b.playTimeSeconds - a.playTimeSeconds);
         rows = rows.slice(0, LEADERBOARD_VISIBLE_LIMIT);
 
+        rows.forEach(item => { if (item.uid) leaderboardProfiles.set(item.uid, item); });
+
         target.innerHTML = rows.map((item, index) => {
             const avatar = item.photoURL ? `<img src="${escapeHtml(item.photoURL)}" alt="">` : escapeHtml(getInitials(item.name));
             const idLabel = item.userId || (item.publicId ? formatPublicUserId(item.publicId) : 'Papiano Player');
             const score = formatPlayTime(item.playTimeSeconds);
             const isMe = currentUser?.uid && item.uid === currentUser.uid;
+            const clickAttr = item.uid ? `onclick="launchFriendProfileModal('${escapeHtml(item.uid)}')"` : '';
             return `
-                <div class="leaderboard-row${isMe ? ' leaderboard-row-me' : ''}">
+                <div class="leaderboard-row${isMe ? ' leaderboard-row-me' : ''}" ${clickAttr} style="cursor:pointer">
                     <div class="leaderboard-rank">#${index + 1}</div>
                     <div class="leaderboard-avatar">${avatar}</div>
                     <div class="leaderboard-name"><strong>${escapeHtml(item.name || 'Papiano User')}</strong><span>${escapeHtml(idLabel)}</span></div>
@@ -3092,7 +3098,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     let activeFriendProfileData = null;
 
     function launchFriendProfileModal(profileKey) {
-        const profile = friendProfiles.get(profileKey) || pendingFriendRequests.get(profileKey) || searchProfiles.get(profileKey) || directChatProfiles.get(profileKey) || messageProfiles.get(profileKey);
+        const profile = friendProfiles.get(profileKey) || pendingFriendRequests.get(profileKey) || searchProfiles.get(profileKey) || directChatProfiles.get(profileKey) || messageProfiles.get(profileKey) || leaderboardProfiles.get(profileKey);
         const modal = document.getElementById('friendProfileModal');
         if (!profile || !modal) {
             showToast('No profile selected.');
