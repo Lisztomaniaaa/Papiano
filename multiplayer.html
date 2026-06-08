@@ -11866,7 +11866,7 @@ midiBtn.onclick = (e) => {
     let roomsUnsubscribe = null;
     let usersUnsubscribe = null;
     const MP_PLAYTIME_LOCAL_MS = 30000;
-    const MP_PLAYTIME_REMOTE_MS = 24 * 60 * 60 * 1000;
+    const MP_PLAYTIME_REMOTE_MS = 5 * 60 * 1000;
     let mpPlayTimeStartedAt = 0;
     let mpPlayTimePending = 0;
     let mpPlayTimeBaseSeconds = 0;
@@ -12527,12 +12527,13 @@ midiBtn.onclick = (e) => {
     }
     function mpFormatPlayTime(seconds){
         const total = Math.max(0, Math.floor(Number(seconds) || 0));
-        if(total < 60) return '<1 Min';
+        if(total < 60) return `0:${String(total).padStart(2, '0')}`;
         const minutes = Math.floor(total / 60);
-        if(minutes < 60) return `${minutes} Min`;
+        const secs = total % 60;
+        if(minutes < 60) return `${minutes}:${String(secs).padStart(2, '0')}`;
         const hours = Math.floor(minutes / 60);
         const rest = minutes % 60;
-        return rest ? `${hours}h ${rest}m` : `${hours}h`;
+        return `${hours}:${String(rest).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
     function mpAccumulatePlayTime(){
         if(!mpPlayTimeStartedAt || document.hidden) return false;
@@ -12554,10 +12555,8 @@ midiBtn.onclick = (e) => {
         if(mpPlayTimePending <= 0) return;
         const now = Date.now();
         // Forced flushes (tab hidden, sign-out, page unload) always write so the
-        // session is not lost. Background flushes are throttled to one write per
-        // day (shared with the main app) to keep Firestore writes low.
+        // session is not lost. Background flushes are throttled to every 5 minutes.
         if(!syncRemote){
-            if(!mpShouldSyncPlayTimeToday()) return;
             if(now - mpPlayTimeRemoteSyncedAt < MP_PLAYTIME_REMOTE_MS) return;
         }
         const deltaSeconds = mpPlayTimePending;
