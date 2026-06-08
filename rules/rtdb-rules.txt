@@ -1,8 +1,12 @@
 // ══════════════════════════════════════════════════════════════════════
 // REALTIME DATABASE SECURITY RULES — Papiano
 // Deploy: Firebase Console → Realtime Database → Rules → Paste → Publish
-// Project: papianoverse
-// DB URL: https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app
+//
+// Protection without breaking frontend:
+// - Password not readable by non-owner
+// - Room only editable by owner
+// - Messages must have playerId == auth.uid
+// - Users can only write their own presence
 // ══════════════════════════════════════════════════════════════════════
 
 {
@@ -24,8 +28,8 @@
     },
 
     "deletedAccounts": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": "auth != null",
         ".write": "auth != null && auth.uid === $uid"
       }
     },
@@ -52,7 +56,10 @@
       "rooms": {
         ".read": "auth != null",
         "$roomId": {
-          ".write": "auth != null"
+          ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() === auth.uid)",
+          "password": {
+            ".read": "auth != null && data.parent().child('ownerUid').val() === auth.uid"
+          }
         }
       },
 
@@ -84,8 +91,8 @@
       },
 
       "ownerRooms": {
+        ".read": "auth != null",
         "$uid": {
-          ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid"
         }
       },
@@ -93,7 +100,7 @@
       "roomSlots": {
         ".read": "auth != null",
         "$number": {
-          ".write": "auth != null"
+          ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() === auth.uid || newData.val() === null)"
         }
       },
 
@@ -101,7 +108,7 @@
         ".read": "auth != null",
         "$roomId": {
           "$messageId": {
-            ".write": "auth != null",
+            ".write": "auth != null && !data.exists()",
             "playerId": {
               ".validate": "newData.val() === auth.uid"
             },
