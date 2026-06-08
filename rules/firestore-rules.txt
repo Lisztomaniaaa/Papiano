@@ -1,10 +1,9 @@
 // ══════════════════════════════════════════════════════════════════════
-// FIRESTORE SECURITY RULES — Papiano (Locked: server-first approach)
+// FIRESTORE SECURITY RULES — Papiano (Hybrid: client + server)
 // Deploy: Firebase Console → Firestore → Rules → Paste → Publish
 //
-// PHILOSOPHY: Client can READ. All WRITES go through server API
-// (Vercel Functions with Firebase Admin SDK bypass these rules).
-// Only minimal client writes are kept for UX (reactions, read markers).
+// Client CAN write (with validation). Server API also works (bypasses rules).
+// Migration to server-only will be done per-feature over time.
 // ══════════════════════════════════════════════════════════════════════
 
 rules_version = '2';
@@ -18,30 +17,26 @@ service cloud.firestore {
     function isOwner(uid) {
       return isAuth() && request.auth.uid == uid;
     }
+    function noSpam(seconds) {
+      return !exists(resource) || resource.data.updatedAt == null
+        || request.time > resource.data.updatedAt + duration.value(seconds, 's');
+    }
 
     // ─── PROFILES ───
     match /profiles/{uid} {
-      // Anyone authenticated can read profiles
       allow read: if isAuth();
 
-      // Client can ONLY create their own profile on first sign-in
-      // (ensureUserProfile in app). All updates go through /api/profile.
       allow create: if isOwner(uid)
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 24;
 
-      // Client can update ONLY safe display fields (no ownedRoles, no playTimeSeconds, no banned)
-      // Full updates go through /api/profile server endpoint.
       allow update: if isOwner(uid)
         && (!('ownedRoles' in request.resource.data) || request.resource.data.ownedRoles == resource.data.ownedRoles)
-        && (!('playTimeSeconds' in request.resource.data) || request.resource.data.playTimeSeconds == resource.data.playTimeSeconds)
         && (!('banned' in request.resource.data) || request.resource.data.banned == resource.data.banned)
         && (!('isBanned' in request.resource.data) || request.resource.data.isBanned == resource.data.isBanned);
 
-      // Owner can delete their own profile
       allow delete: if isOwner(uid);
 
-      // Reactions sub-collection (likes/dislikes) — keep client-writable for UX
       match /reactions/{voterId} {
         allow read: if isAuth();
         allow write: if isAuth() && request.auth.uid == voterId;
@@ -49,7 +44,7 @@ service cloud.firestore {
       }
     }
 
-    // ─── COUNTERS (auto-increment publicId) ───
+    // ─── COUNTERS ───
     match /counters/{counterId} {
       allow read: if isAuth();
       allow write: if isAuth()
@@ -57,72 +52,89 @@ service cloud.firestore {
         && request.resource.data.next > 0;
     }
 
-    // ─── DONATIONS (server-only write) ───
+    // ─── DONATIONS (server-only) ───
     match /donations/{donationId} {
       allow read: if isAuth();
-      allow write: if false; // Admin SDK only via /api/admin
+      allow write: if false;
     }
 
-    // ─── FRIENDSHIPS (server-only write via /api/friends) ───
+    // ─── FRIENDSHIPS ───
     match /friendships/{pairId} {
-      // Both users can read
       allow read: if isAuth()
         && (request.auth.uid in resource.data.users
             || request.auth.uid == resource.data.receiverId
             || request.auth.uid == resource.data.requesterId);
 
-      // ALL writes go through /api/friends
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.requesterId
+        && request.auth.uid in request.resource.data.users
+        && request.resource.data.status == 'pending'
+        && request.resource.data.users.size() == 2;
+
+      allow update: if isAuth()
+        && request.auth.uid in resource.data.users;
+
+      allow delete: if isAuth()
+        && request.auth.uid in resource.data.users;
     }
 
-    // ─── BLOCKS (server-only write via /api/moderate) ───
+    // ─── BLOCKS ───
     match /blocks/{blockId} {
       allow read: if isAuth()
         && (request.auth.uid == resource.data.blockerId || request.auth.uid == resource.data.blockedId);
 
-      // ALL writes go through /api/moderate
-      allow create: if false;
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.blockerId
+        && request.resource.data.blockedId is string;
+
+      allow delete: if isAuth()
+        && request.auth.uid == resource.data.blockerId;
+
       allow update: if false;
-      allow delete: if false;
     }
 
     // ─── CHAT ROOMS ───
     match /chatRooms/{roomId} {
-      // Participants can read
       allow read: if isAuth()
         && (resource.data.type == 'group'
             || request.auth.uid in resource.data.participants);
 
-      // Room metadata updates (read markers, unread count) — keep client-writable
       allow create: if isAuth();
       allow update: if isAuth()
         && (resource.data.type == 'group'
             || request.auth.uid in resource.data.participants);
 
-      // Messages sub-collection — server-only write via /api/chat
       match /messages/{messageId} {
         allow read: if isAuth();
 
-        // ALL message writes go through /api/chat
-        allow create: if false;
-        allow update: if false;
+        allow create: if isAuth()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 500
+          && noSpam(1);
+
+        allow update: if isAuth()
+          && (resource.data.senderId == request.auth.uid
+              || request.auth.uid in request.resource.data.hiddenFor);
+
         allow delete: if false;
       }
     }
 
-    // ─── REPORTS (server-only write via /api/moderate) ───
+    // ─── REPORTS ───
     match /reports/{reportId} {
       allow read: if isAuth() && request.auth.uid == resource.data.reporterId;
 
-      // ALL writes go through /api/moderate
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow create: if isAuth()
+        && request.auth.uid == request.resource.data.reporterId
+        && request.resource.data.targetId is string
+        && request.resource.data.reason is string
+        && request.resource.data.reason.size() <= 500;
+
+      allow update, delete: if false;
     }
 
-    // ─── CATCH-ALL: deny everything else ───
+    // ─── CATCH-ALL ───
     match /{document=**} {
       allow read, write: if false;
     }
