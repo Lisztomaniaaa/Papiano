@@ -1,134 +1,113 @@
--- ══════════════════════════════════════════════════════════════════════
--- SUPABASE STORAGE RLS POLICIES — Papiano
--- Deploy: Supabase Dashboard → SQL Editor → New Query → Paste → Run
--- Project: yddzwxmzxdagiltrjmgc
--- ══════════════════════════════════════════════════════════════════════
+══════════════════════════════════════════════════════════════════════
+SUPABASE STORAGE RLS POLICIES — Papiano
+══════════════════════════════════════════════════════════════════════
 
--- Enable RLS on storage.objects (biasanya sudah enabled)
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+DEPLOY METHOD: Supabase Dashboard → Storage → Bucket → Policies tab
+(SQL Editor TIDAK BISA karena error 42501: must be owner of table objects)
 
--- ═══════════════════════════════════════════
--- AVATARS BUCKET
--- ═══════════════════════════════════════════
+Project: yddzwxmzxdagiltrjmgc
 
--- Siapa aja bisa LIHAT avatar (public read untuk display di app)
-CREATE POLICY "Avatar public read"
-ON storage.objects FOR SELECT
-USING (bucket_id = 'avatars');
+══════════════════════════════════════════════════════════════════════
+CARA SETUP (via Dashboard UI)
+══════════════════════════════════════════════════════════════════════
 
--- Hanya authenticated user bisa UPLOAD ke folder profile/{uid}/*
-CREATE POLICY "Avatar upload own folder"
-ON storage.objects FOR INSERT
-WITH CHECK (
-  bucket_id = 'avatars'
-  AND auth.uid() IS NOT NULL
-  AND (storage.foldername(name))[1] = 'profile'
-  AND (storage.foldername(name))[2] = auth.uid()::text
-);
+1. Buka: supabase.com → Project → Storage (sidebar kiri)
+2. Klik bucket → Tab "Policies" → "New Policy" → "For full customization"
+3. Buat policy satu-satu sesuai tabel di bawah
 
--- Hanya owner bisa UPDATE/REPLACE file di folder mereka
-CREATE POLICY "Avatar update own"
-ON storage.objects FOR UPDATE
-USING (
-  bucket_id = 'avatars'
-  AND auth.uid() IS NOT NULL
-  AND (storage.foldername(name))[2] = auth.uid()::text
-);
+══════════════════════════════════════════════════════════════════════
+BUCKET: avatars
+══════════════════════════════════════════════════════════════════════
 
--- Hanya owner bisa DELETE file di folder mereka
-CREATE POLICY "Avatar delete own"
-ON storage.objects FOR DELETE
-USING (
-  bucket_id = 'avatars'
-  AND auth.uid() IS NOT NULL
-  AND (storage.foldername(name))[2] = auth.uid()::text
-);
+POLICY 1: Avatar public read
+  - Allowed operation: SELECT
+  - Target roles: public
+  - USING expression:
+    true
 
--- ═══════════════════════════════════════════
--- CHAT IMAGES BUCKET
--- ═══════════════════════════════════════════
+POLICY 2: Avatar upload own folder
+  - Allowed operation: INSERT
+  - Target roles: authenticated
+  - WITH CHECK expression:
+    (storage.foldername(name))[1] = 'profile'
 
--- Authenticated user bisa LIHAT chat images
-CREATE POLICY "Chat images auth read"
-ON storage.objects FOR SELECT
-USING (
-  bucket_id = 'chat-images'
-  AND auth.uid() IS NOT NULL
-);
+POLICY 3: Avatar update own
+  - Allowed operation: UPDATE
+  - Target roles: authenticated
+  - USING expression:
+    (storage.foldername(name))[1] = 'profile'
 
--- Authenticated user bisa UPLOAD ke folder chat/{uid}/*
-CREATE POLICY "Chat images upload own folder"
-ON storage.objects FOR INSERT
-WITH CHECK (
-  bucket_id = 'chat-images'
-  AND auth.uid() IS NOT NULL
-  AND (storage.foldername(name))[1] = 'chat'
-  AND (storage.foldername(name))[2] = auth.uid()::text
-);
+POLICY 4: Avatar delete own
+  - Allowed operation: DELETE
+  - Target roles: authenticated
+  - USING expression:
+    (storage.foldername(name))[1] = 'profile'
 
--- Owner bisa UPDATE file sendiri
-CREATE POLICY "Chat images update own"
-ON storage.objects FOR UPDATE
-USING (
-  bucket_id = 'chat-images'
-  AND auth.uid() IS NOT NULL
-  AND (storage.foldername(name))[2] = auth.uid()::text
-);
+BUCKET SETTINGS (Dashboard → Storage → avatars → Settings):
+  - Public bucket: ON (agar bisa diakses via URL tanpa auth)
+  - Max file size: 2MB (2097152 bytes)
+  - Allowed MIME types: image/jpeg, image/png, image/webp
 
--- Owner bisa DELETE file sendiri
-CREATE POLICY "Chat images delete own"
-ON storage.objects FOR DELETE
-USING (
-  bucket_id = 'chat-images'
-  AND auth.uid() IS NOT NULL
-  AND (storage.foldername(name))[2] = auth.uid()::text
-);
+══════════════════════════════════════════════════════════════════════
+BUCKET: chat-images
+══════════════════════════════════════════════════════════════════════
 
--- ═══════════════════════════════════════════
--- BUCKET SETTINGS (set manually in Dashboard)
--- ═══════════════════════════════════════════
---
--- Dashboard → Storage → Buckets → Click bucket → Settings:
---
--- avatars:
---   Max file size: 2MB (2097152 bytes)
---   Allowed MIME types: image/jpeg, image/png, image/webp
---
--- chat-images:
---   Max file size: 5MB (5242880 bytes)
---   Allowed MIME types: image/jpeg, image/png, image/webp, image/gif
---
--- ═══════════════════════════════════════════
--- NOTES
--- ═══════════════════════════════════════════
---
--- 1. auth.uid() di Supabase RLS merujuk ke Firebase Auth UID
---    HANYA jika lu pakai custom JWT / auth integration.
---    Kalau Supabase Storage client lu pakai anon key tanpa JWT,
---    auth.uid() akan NULL dan semua policy BLOCK.
---
--- 2. Pastikan client lu pass Firebase token ke Supabase:
---    const { data } = await supabase.storage
---      .from('avatars')
---      .upload(`profile/${uid}/avatar.jpg`, file);
---
--- 3. Folder structure harus match:
---    avatars:     profile/{uid}/filename.ext
---    chat-images: chat/{uid}/filename.ext
---
--- 4. Kalau lu TIDAK pakai Supabase Auth (hanya pakai anon key),
---    maka RLS policies di atas TIDAK akan work karena auth.uid() = NULL.
---    Dalam kasus itu, lu perlu salah satu:
---    a) Setup Supabase Auth ↔ Firebase Auth bridge (custom JWT)
---    b) Atau buat policies berdasarkan path pattern saja:
---
---       CREATE POLICY "Authenticated upload by path"
---       ON storage.objects FOR INSERT
---       WITH CHECK (
---         bucket_id = 'avatars'
---         AND (storage.foldername(name))[1] = 'profile'
---         AND length((storage.foldername(name))[2]) > 0
---       );
---
---    Tapi ini kurang secure (user bisa upload ke folder orang lain).
---    Rekomendasi: setup JWT integration atau pindah ke Firebase Storage.
+POLICY 1: Chat images auth read
+  - Allowed operation: SELECT
+  - Target roles: authenticated
+  - USING expression:
+    true
+
+POLICY 2: Chat images upload
+  - Allowed operation: INSERT
+  - Target roles: authenticated
+  - WITH CHECK expression:
+    (storage.foldername(name))[1] = 'chat'
+
+POLICY 3: Chat images delete own
+  - Allowed operation: DELETE
+  - Target roles: authenticated
+  - USING expression:
+    (storage.foldername(name))[1] = 'chat'
+
+BUCKET SETTINGS (Dashboard → Storage → chat-images → Settings):
+  - Public bucket: OFF
+  - Max file size: 5MB (5242880 bytes)
+  - Allowed MIME types: image/jpeg, image/png, image/webp, image/gif
+
+══════════════════════════════════════════════════════════════════════
+PENTING: AUTH INTEGRATION
+══════════════════════════════════════════════════════════════════════
+
+Papiano pakai Firebase Auth + Supabase Storage dengan anon key.
+Karena TIDAK pakai Supabase Auth, auth.uid() = NULL di RLS.
+
+Artinya:
+- "authenticated" role di policies artinya user punya valid anon/service key
+- Policies di atas restrict berdasarkan FOLDER PATTERN, bukan per-user UID
+- Ini sudah cukup untuk prevent:
+  ✓ Upload tanpa auth key (blocked)
+  ✓ Upload ke root / folder random (harus ke profile/ atau chat/)
+  ✓ File type abuse (MIME restriction)
+  ✓ File size abuse (size limit)
+
+Yang TIDAK bisa di-enforce tanpa JWT bridge:
+  ✗ User A upload ke folder User B (karena auth.uid() = null)
+  ✗ Per-user storage quota
+
+Untuk full per-user isolation, opsi:
+  a) Setup Custom JWT: Firebase token → Supabase auth.uid()
+     Docs: https://supabase.com/docs/guides/auth/custom-claims-and-role-based-access-control
+  b) Pindah ke Firebase Storage (native auth integration)
+  c) Terima path-based restriction saja (current setup)
+
+══════════════════════════════════════════════════════════════════════
+FOLDER STRUCTURE YANG HARUS DIIKUTI CLIENT
+══════════════════════════════════════════════════════════════════════
+
+avatars:     profile/{uid}/filename.ext
+chat-images: chat/{uid}/filename.ext
+
+Contoh upload di client:
+  supabase.storage.from('avatars').upload(`profile/${uid}/avatar_${Date.now()}.jpg`, file)
+  supabase.storage.from('chat-images').upload(`chat/${uid}/msg_${Date.now()}.jpg`, file)
