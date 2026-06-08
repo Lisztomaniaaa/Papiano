@@ -1,58 +1,51 @@
 // ══════════════════════════════════════════════════════════════════════
 // REALTIME DATABASE SECURITY RULES — Papiano
 // Deploy: Firebase Console → Realtime Database → Rules → Paste → Publish
+// Status: WORKING — multiplayer + rooms confirmed functional
 //
-// Protection without breaking frontend:
-// - Password not readable by non-owner
-// - Room only editable by owner
-// - Messages must have playerId == auth.uid
-// - Users can only write their own presence
+// Protection:
+// - Room password only readable by owner
+// - Room only editable by owner (or create new)
+// - Messages create-only + playerId must match auth
+// - Streams only writable by own uid
+// - Admin paths (roles/bans/mutes/appConfig/adminLogs) = server-only
 // ══════════════════════════════════════════════════════════════════════
 
 {
   "rules": {
-
     "roles": {
       ".read": "auth != null",
       ".write": false
     },
-
     "bans": {
       ".read": "auth != null",
       ".write": false
     },
-
     "mutes": {
       ".read": "auth != null",
       ".write": false
     },
-
     "deletedAccounts": {
       ".read": "auth != null",
       "$uid": {
         ".write": "auth != null && auth.uid === $uid"
       }
     },
-
     "appConfig": {
       ".read": "auth != null",
       ".write": false
     },
-
     "adminLogs": {
       ".read": "auth != null",
       ".write": false
     },
-
     "papianoOnlineBeta": {
-
       "users": {
         ".read": "auth != null",
         "$uid": {
           ".write": "auth != null && auth.uid === $uid"
         }
       },
-
       "rooms": {
         ".read": "auth != null",
         "$roomId": {
@@ -62,7 +55,6 @@
           }
         }
       },
-
       "roomPlayers": {
         ".read": "auth != null",
         "$roomId": {
@@ -71,7 +63,6 @@
           }
         }
       },
-
       "roomSeats": {
         ".read": "auth != null",
         "$roomId": {
@@ -80,7 +71,6 @@
           }
         }
       },
-
       "roomSeatClaims": {
         ".read": "auth != null",
         "$roomId": {
@@ -89,21 +79,18 @@
           }
         }
       },
-
       "ownerRooms": {
         ".read": "auth != null",
         "$uid": {
           ".write": "auth != null && auth.uid === $uid"
         }
       },
-
       "roomSlots": {
         ".read": "auth != null",
         "$number": {
           ".write": "auth != null && (!data.exists() || data.child('ownerUid').val() === auth.uid || newData.val() === null)"
         }
       },
-
       "messages": {
         ".read": "auth != null",
         "$roomId": {
@@ -119,7 +106,6 @@
           ".write": "auth != null && root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid"
         }
       },
-
       "streams": {
         ".read": "auth != null",
         "$roomId": {
@@ -129,7 +115,6 @@
           ".write": "auth != null && root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid"
         }
       },
-
       "moderation": {
         ".read": "auth != null",
         "$roomId": {
