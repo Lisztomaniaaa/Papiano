@@ -437,6 +437,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     let playTimeLocalSyncedAt = 0;
     let playTimeRemoteSyncedAt = 0;
     let playTimeTimer = null;
+    let playTimeDisplayTicker = null;
     let activeLeaderboardBoard = 'playtime';
     let unsubscribeLeaderboardPlayTime = null;
     let unsubscribeLeaderboardDonation = null;
@@ -1168,6 +1169,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         if (!playTimeStartedAt) playTimeStartedAt = Date.now();
         clearInterval(playTimeTimer);
         playTimeTimer = setInterval(() => persistPlayTime(false), PLAYTIME_LOCAL_SYNC_MS);
+        startPlayTimeDisplayTicker();
     }
 
     function pausePlayTimeTracker(syncRemote = false) {
@@ -1175,6 +1177,28 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         playTimeStartedAt = 0;
         clearInterval(playTimeTimer);
         playTimeTimer = null;
+        stopPlayTimeDisplayTicker();
+    }
+
+    function startPlayTimeDisplayTicker() {
+        stopPlayTimeDisplayTicker();
+        updatePlayTimeDisplay();
+        playTimeDisplayTicker = setInterval(updatePlayTimeDisplay, 1000);
+    }
+
+    function stopPlayTimeDisplayTicker() {
+        clearInterval(playTimeDisplayTicker);
+        playTimeDisplayTicker = null;
+    }
+
+    function updatePlayTimeDisplay() {
+        if (!playTimeStartedAt || document.hidden) return;
+        const baseSeconds = Math.max(0, Number(currentProfile?.playTimeSeconds) || 0);
+        const liveElapsed = Math.max(0, Math.floor((Date.now() - playTimeStartedAt) / 1000));
+        const totalSeconds = baseSeconds + liveElapsed;
+        const label = formatPlayTime(totalSeconds);
+        if (displayTotalPlayTrack) displayTotalPlayTrack.textContent = label;
+        if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = label;
     }
 
     function getBadge(id) {
