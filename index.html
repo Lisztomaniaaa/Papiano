@@ -937,9 +937,21 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         const seconds = Number(data.playTimeSeconds);
         if (Number.isFinite(seconds) && seconds > 0) return Math.floor(seconds);
 
-        const label = String(data.playTime || '').toLowerCase();
+        const label = String(data.playTime || '').trim().toLowerCase();
         if (!label) return 0;
 
+        // New format: H:MM:SS
+        const colonLong = label.match(/^(\d+):(\d{1,2}):(\d{2})$/);
+        if (colonLong) {
+            return (Number(colonLong[1]) * 3600) + (Number(colonLong[2]) * 60) + Number(colonLong[3]);
+        }
+        // New format: M:SS
+        const colonShort = label.match(/^(\d+):(\d{2})$/);
+        if (colonShort) {
+            return (Number(colonShort[1]) * 60) + Number(colonShort[2]);
+        }
+
+        // Legacy format: "Xh Ym" or "X Min"
         const hourMatch = label.match(/(\d+)\s*h/);
         const minuteMatch = label.match(/(\d+)\s*(m|min)/);
         if (hourMatch || minuteMatch) {
@@ -1129,7 +1141,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         playTimeStartedAt = now;
         if (!elapsed) return false;
 
-        currentProfile = normalizeProfile(currentUser?.uid || loadProfile().uid || '', currentProfile || loadProfile());
+        if (!currentProfile) currentProfile = normalizeProfile(currentUser?.uid || loadProfile().uid || '', loadProfile());
         currentProfile.playTimeSeconds = Math.max(0, Number(currentProfile.playTimeSeconds) || 0) + elapsed;
         currentProfile.playTime = formatPlayTime(currentProfile.playTimeSeconds);
         return true;
