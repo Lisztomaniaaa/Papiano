@@ -753,15 +753,17 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         try {
             await firebaseAuth.signOut();
         } catch (_error) {}
-        // Clear all local state so UI resets to default
+        // Clear profile cache so UI resets to default (no stale name/avatar)
         localStorage.removeItem(storageKey);
-        localStorage.removeItem(LOCAL_READ_STORE_KEY);
-        locallyReadRooms.clear();
+        // Reset in-memory state
         privateUnreadTotal = 0;
         friendRequestUnreadTotal = 0;
         currentProfile = null;
         serverBaseSeconds = 0;
         updateNotificationBadges();
+        // NOTE: Do NOT clear locallyReadRooms / LOCAL_READ_STORE_KEY here.
+        // These room-read markers remain valid after re-login (same user)
+        // and prevent the unread badge from flashing on re-authentication.
         showLoginScreen();
     }
 
