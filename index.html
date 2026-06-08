@@ -753,7 +753,15 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         try {
             await firebaseAuth.signOut();
         } catch (_error) {}
+        // Clear all local state so UI resets to default
+        localStorage.removeItem(storageKey);
+        localStorage.removeItem(LOCAL_READ_STORE_KEY);
+        locallyReadRooms.clear();
+        privateUnreadTotal = 0;
+        friendRequestUnreadTotal = 0;
         currentProfile = null;
+        serverBaseSeconds = 0;
+        updateNotificationBadges();
         showLoginScreen();
     }
 
@@ -2152,6 +2160,11 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         if (room.lastSenderId && room.lastSenderId === currentUser.uid) return 0;
         const updatedMs = toMillisTimestamp(room.updatedAt);
         const lastReadMs = toMillisTimestamp(room.lastReadAt?.[currentUser.uid]);
+        // If lastReadAt field exists for this user but resolved to 0/null,
+        // it means a serverTimestamp write is pending — assume read to avoid
+        // false badge flash on re-login.
+        const lastReadRaw = room.lastReadAt?.[currentUser.uid];
+        if (lastReadRaw !== undefined && !lastReadMs) return 0;
         // Local read marker also covers the case where unreadCount[uid] was
         // never written yet (legacy DM / first inbound message).
         const localReadMs = locallyReadRooms.get(room.id) || 0;
