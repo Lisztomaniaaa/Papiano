@@ -86,8 +86,11 @@ service cloud.firestore {
 
     // ─── FRIENDSHIPS ───
     match /friendships/{pairId} {
-      // Both users in the friendship can read
-      allow read: if isAuth() && request.auth.uid in resource.data.users;
+      // Both users in the friendship can read (via users array, receiverId, or requesterId)
+      allow read: if isAuth()
+        && (request.auth.uid in resource.data.users
+            || request.auth.uid == resource.data.receiverId
+            || request.auth.uid == resource.data.requesterId);
 
       // Requester can create a pending friendship
       allow create: if isAuth()
