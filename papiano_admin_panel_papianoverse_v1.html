@@ -1,0 +1,2648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Papiano Admin Panel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800;900&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,0,0&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f8ff;
+      --panel: #ffffff;
+      --panel-2: #eef6ff;
+      --panel-3: #e3efff;
+      --text: #0b1f3a;
+      --muted: #60738e;
+      --faint: #91a4bd;
+      --blue: #176bff;
+      --blue-2: #0d56d9;
+      --red: #e3344f;
+      --green: #0e9f6e;
+      --yellow: #b7791f;
+      --purple: #7c3aed;
+      --border: #d5e4f5;
+      --shadow: 0 18px 48px rgba(20, 70, 140, 0.12);
+      --radius: 22px;
+      --radius-sm: 15px;
+      --font: 'Inter', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-weight: 500;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, textarea, select {
+      font: inherit;
+    }
+
+    button {
+      border: none;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .app {
+      width: min(100%, 1320px);
+      margin: 0 auto;
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .topbar {
+      min-height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(16px);
+      position: sticky;
+      top: 12px;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .logo {
+      width: 46px;
+      height: 46px;
+      border-radius: 16px;
+      background: linear-gradient(145deg, #ffffff, #dcecff);
+      border: 1px solid var(--border);
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.9);
+    }
+
+    .logo svg {
+      width: 34px;
+      height: 34px;
+    }
+
+    .brand h1 {
+      font-size: clamp(18px, 3vw, 25px);
+      line-height: 1;
+      letter-spacing: -0.04em;
+      font-weight: 900;
+    }
+
+    .brand p {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 430px;
+    }
+
+    .top-actions, .row, .segmented, .chip-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .top-actions {
+      justify-content: flex-end;
+    }
+
+    .btn {
+      min-height: 42px;
+      border-radius: 999px;
+      padding: 0 16px;
+      font-weight: 800;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--text);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      transition: transform 120ms ease, background 160ms ease, border-color 160ms ease;
+      white-space: nowrap;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #ffffff;
+    }
+
+    .btn.danger {
+      background: var(--red);
+      border-color: var(--red);
+      color: #ffffff;
+    }
+
+    .btn.warn {
+      background: #fff6df;
+      border-color: #f4d38f;
+      color: var(--yellow);
+    }
+
+    .btn.ghost {
+      background: transparent;
+    }
+
+    .btn.small {
+      min-height: 36px;
+      padding: 0 13px;
+      font-size: 12px;
+    }
+
+    .material-symbols-rounded {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .gate {
+      min-height: calc(100vh - 44px);
+      display: grid;
+      place-items: center;
+    }
+
+    .gate-card {
+      width: min(100%, 430px);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 16px;
+      text-align: center;
+    }
+
+    .gate-card h2 {
+      font-size: 28px;
+      line-height: 1.05;
+      letter-spacing: -0.05em;
+      font-weight: 900;
+    }
+
+    .gate-card p, .meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 104px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 8px;
+    }
+
+    .nav-btn {
+      min-height: 46px;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 850;
+      text-align: left;
+    }
+
+    .nav-btn.active {
+      background: var(--blue);
+      color: #ffffff;
+    }
+
+    .content {
+      min-width: 0;
+    }
+
+    .page {
+      display: none;
+      gap: 18px;
+    }
+
+    .page.active {
+      display: grid;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .grid.cols-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      min-width: 0;
+    }
+
+    .card.compact {
+      box-shadow: none;
+      background: var(--panel-2);
+      padding: 14px;
+      border-radius: 16px;
+    }
+
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+    }
+
+    .card-sub {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      margin-top: 3px;
+    }
+
+    .stat-card {
+      min-height: 120px;
+      display: grid;
+      align-content: space-between;
+    }
+
+    .value {
+      font-size: clamp(30px, 5vw, 48px);
+      letter-spacing: -0.06em;
+      font-weight: 950;
+      line-height: 0.95;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field label {
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .input, .select, .textarea {
+      width: 100%;
+      min-height: 46px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+      color: var(--text);
+      border-radius: 14px;
+      padding: 0 13px;
+      outline: none;
+      font-size: 14px;
+      font-weight: 650;
+    }
+    .static-field {
+      display: flex;
+      align-items: center;
+      color: var(--muted);
+      font-weight: 850;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .textarea {
+      min-height: 128px;
+      padding: 13px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    .input:focus, .select:focus, .textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(23, 107, 255, 0.12);
+    }
+
+    .list {
+      display: grid;
+      gap: 9px;
+      max-height: 620px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .player-list {
+      max-height: calc(100vh - 340px);
+      min-height: 360px;
+    }
+
+    .user-row, .message-row, .log-row, .role-row, .room-row, .member-row {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .user-row, .role-row, .member-row {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      cursor: pointer;
+    }
+
+    .user-row.active, .role-row.active {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(23, 107, 255, 0.12);
+      background: #ffffff;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: var(--blue);
+      color: #ffffff;
+      font-weight: 950;
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .media-preview {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 16px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+    }
+
+    .media-preview.active {
+      display: flex;
+    }
+
+    .media-preview img {
+      width: 72px;
+      height: 72px;
+      border-radius: 14px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      background: #ffffff;
+    }
+
+    .message-image {
+      display: block;
+      width: min(100%, 260px);
+      max-height: 190px;
+      object-fit: cover;
+      border-radius: 14px;
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      background: #ffffff;
+    }
+    .message-link {
+      color: var(--blue);
+      font-weight: 900;
+      text-decoration: underline;
+      text-decoration-thickness: 1.5px;
+      text-underline-offset: 2px;
+      overflow-wrap: anywhere;
+    }
+
+    .name {
+      font-weight: 900;
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pill {
+      min-height: 26px;
+      border-radius: 999px;
+      padding: 0 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--muted);
+      background: #ffffff;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    .pill.blue {
+      background: #e8f1ff;
+      color: var(--blue);
+      border-color: #cfe0ff;
+    }
+
+    .pill.green {
+      background: #e8fff5;
+      color: var(--green);
+      border-color: #b9efd9;
+    }
+
+    .pill.red {
+      background: #fff0f3;
+      color: var(--red);
+      border-color: #ffd0d9;
+    }
+
+    .pill.warn {
+      background: #fff7e5;
+      color: var(--yellow);
+      border-color: #f2db9e;
+    }
+
+    .pill.purple {
+      background: #f2edff;
+      color: var(--purple);
+      border-color: #ddceff;
+    }
+
+    .end {
+      justify-content: flex-end;
+    }
+
+    .selected-user {
+      display: grid;
+      gap: 14px;
+    }
+
+    .selected-head {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .selected-head .avatar {
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+    }
+
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 4px 0;
+    }
+
+    .danger-zone {
+      display: grid;
+      gap: 10px;
+      border: 1px solid #ffd1d1;
+      background: #fff5f5;
+      border-radius: 18px;
+      padding: 12px;
+    }
+
+    .actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .toggle {
+      border-radius: 16px;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      text-align: left;
+    }
+
+    .toggle.active {
+      background: #e8fff5;
+      border-color: #a7eed2;
+    }
+
+    .toggle strong {
+      font-size: 14px;
+    }
+
+    .switch-dot {
+      width: 42px;
+      height: 24px;
+      border-radius: 999px;
+      background: #c7d7e8;
+      position: relative;
+      flex: 0 0 auto;
+    }
+
+    .switch-dot::after {
+      content: '';
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      position: absolute;
+      left: 3px;
+      top: 3px;
+      transition: transform 160ms ease;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+    }
+
+    .toggle.active .switch-dot {
+      background: var(--green);
+    }
+
+    .toggle.active .switch-dot::after {
+      transform: translateX(18px);
+    }
+
+    .permission-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .check-tile {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 0 11px;
+      background: var(--panel-2);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 850;
+      color: var(--text);
+    }
+
+    .check-tile input {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--blue);
+    }
+
+    .hint {
+      background: #fff9e8;
+      border: 1px solid #efd991;
+      color: #7a5410;
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 12px;
+      line-height: 1.5;
+      font-weight: 700;
+    }
+
+    .role-detail-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+      gap: 16px;
+    }
+
+    .path-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%) translateY(20px);
+      opacity: 0;
+      pointer-events: none;
+      background: var(--text);
+      color: #ffffff;
+      border-radius: 999px;
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 16px 34px rgba(0,0,0,0.24);
+      transition: opacity 160ms ease, transform 160ms ease;
+      z-index: 100;
+      max-width: min(92vw, 620px);
+      text-align: center;
+    }
+
+    .toast.active {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 980px) {
+      .layout, .grid.cols-2, .grid.cols-3, .grid.cols-4, .role-detail-grid, .path-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .topbar {
+        position: static;
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .top-actions {
+        width: 100%;
+        justify-content: stretch;
+      }
+
+      .top-actions .btn {
+        flex: 1;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .app {
+        padding: 12px;
+      }
+
+      .sidebar {
+        grid-template-columns: 1fr;
+      }
+
+      .user-row, .role-row, .member-row {
+        grid-template-columns: auto minmax(0, 1fr);
+      }
+
+      .user-row .end, .role-row .end, .member-row .end {
+        grid-column: 1 / -1;
+        justify-content: flex-start;
+      }
+
+      .actions-grid, .permission-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="gate" class="gate">
+    <div class="gate-card">
+      <div class="logo" style="margin:0 auto">
+        <svg viewBox="0 0 64 64" aria-hidden="true">
+          <rect x="7" y="10" width="50" height="44" rx="12" fill="#ffffff" stroke="#176bff" stroke-width="3"/>
+          <path d="M14 18h36" stroke="#176bff" stroke-width="4" stroke-linecap="round"/>
+          <path d="M17 25v20M27 25v20M37 25v20M47 25v20" stroke="#9abaf0" stroke-width="2"/>
+          <rect x="22" y="24" width="7" height="18" rx="2" fill="#0b1f3a"/>
+          <rect x="32" y="24" width="7" height="18" rx="2" fill="#0b1f3a"/>
+          <rect x="42" y="24" width="7" height="18" rx="2" fill="#0b1f3a"/>
+        </svg>
+      </div>
+      <h2>Papiano Admin</h2>
+      <p id="gateNote">Authorized Google admin accounts only.</p>
+      <button id="loginBtn" class="btn primary"><span class="material-symbols-rounded">login</span>Sign in with Google</button>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="7" y="10" width="50" height="44" rx="12" fill="#ffffff" stroke="#176bff" stroke-width="3"/>
+            <path d="M14 18h36" stroke="#176bff" stroke-width="4" stroke-linecap="round"/>
+            <path d="M17 25v20M27 25v20M37 25v20M47 25v20" stroke="#9abaf0" stroke-width="2"/>
+            <rect x="22" y="24" width="7" height="18" rx="2" fill="#0b1f3a"/>
+            <rect x="32" y="24" width="7" height="18" rx="2" fill="#0b1f3a"/>
+            <rect x="42" y="24" width="7" height="18" rx="2" fill="#0b1f3a"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Admin Control</h1>
+          <p id="adminIdentity">Admin Access Active</p>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button id="maintenanceBtn" class="btn warn"><span class="material-symbols-rounded">construction</span>Maintenance</button>
+        <button id="refreshBtn" class="btn"><span class="material-symbols-rounded">sync</span>Refresh</button>
+        <button id="logoutBtn" class="btn ghost"><span class="material-symbols-rounded">logout</span>Logout</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside id="sidebar" class="sidebar">
+        <button class="nav-btn active" data-page="dashboard"><span class="material-symbols-rounded">dashboard</span>Dashboard</button>
+        <button class="nav-btn" data-page="players"><span class="material-symbols-rounded">groups</span>Players</button>
+        <button class="nav-btn" data-page="roles"><span class="material-symbols-rounded">military_tech</span>Roles</button>
+        <button class="nav-btn" data-page="donations"><span class="material-symbols-rounded">volunteer_activism</span>Donations</button>
+        <button class="nav-btn" data-page="announcements"><span class="material-symbols-rounded">campaign</span>Announcement</button>
+        <button class="nav-btn" data-page="rooms"><span class="material-symbols-rounded">meeting_room</span>Rooms</button>
+        <button class="nav-btn" data-page="settings"><span class="material-symbols-rounded">tune</span>Settings</button>
+      </aside>
+
+      <main class="content">
+        <section id="dashboard" class="page active">
+          <div class="grid cols-4">
+            <article class="card stat-card"><div><div class="card-sub">Total Players</div><div id="statUsers" class="value">0</div></div><span class="pill blue">Realtime</span></article>
+            <article class="card stat-card"><div><div class="card-sub">Active Today</div><div id="statActiveToday" class="value">0</div></div><span class="pill green">UTC+7</span></article>
+            <article class="card stat-card"><div><div class="card-sub">Online Now</div><div id="statOnlineNow" class="value">0</div></div><span class="pill blue">5 min</span></article>
+            <article class="card stat-card"><div><div class="card-sub">Banned / Muted</div><div id="statModerated" class="value">0</div></div><span class="pill red">Moderation</span></article>
+          </div>
+          <div class="grid cols-2">
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Today Data</div><div class="card-sub">Realtime user and message signal.</div></div></div>
+              <div class="grid cols-3">
+                <div class="card compact"><div class="meta">New Today</div><div id="statNewToday" class="value" style="font-size:30px">0</div></div>
+                <div class="card compact"><div class="meta">Global Messages</div><div id="statMessagesToday" class="value" style="font-size:30px">0</div></div>
+                <div class="card compact"><div class="meta">Roles</div><div id="statRoles" class="value" style="font-size:30px">0</div></div>
+              </div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Recent Admin Log</div><div class="card-sub">Last moderation and control actions.</div></div></div>
+              <div id="recentLogs" class="list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="players" class="page">
+          <div class="grid cols-2">
+            <article class="card">
+              <div class="card-head">
+                <div><div class="card-title">All Players</div><div class="card-sub">Realtime list with search, role, status, region, and UID matching.</div></div>
+                <span id="playerCount" class="pill blue">0 / 0</span>
+              </div>
+              <div class="grid">
+                <div class="field"><label for="playerSearch">Search player</label><input id="playerSearch" class="input" placeholder="Name, email, UID, region, role..."></div>
+                <div class="grid cols-3">
+                  <div class="field"><label for="playerRoleFilter">Role</label><select id="playerRoleFilter" class="select"><option value="all">All roles</option></select></div>
+                  <div class="field"><label for="playerStatusFilter">Status</label><select id="playerStatusFilter" class="select"><option value="all">All</option><option value="online">Online</option><option value="activeToday">Active today</option><option value="banned">Banned</option><option value="muted">Muted</option><option value="clean">Clean</option></select></div>
+                  <div class="field"><label for="playerSortSelect">Sort</label><select id="playerSortSelect" class="select"><option value="lastSeen">Last seen</option><option value="createdAt">Newest</option><option value="name">Name</option><option value="role">Role</option></select></div>
+                </div>
+              </div>
+              <div id="playerList" class="list player-list" style="margin-top:14px"></div>
+            </article>
+
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Player Control</div><div class="card-sub">Ban, mute, gift role, inspect profile, and copy UID.</div></div></div>
+              <div id="selectedUserEmpty" class="meta">Select a player first.</div>
+              <div id="selectedUserPanel" class="selected-user hidden">
+                <div class="selected-head">
+                  <div id="selectedAvatar" class="avatar"></div>
+                  <div style="min-width:0">
+                    <div id="selectedName" class="name"></div>
+                    <div id="selectedMeta" class="meta"></div>
+                    <div id="selectedBadges" class="chip-row" style="margin-top:7px"></div>
+                  </div>
+                </div>
+                <div class="grid cols-2">
+                  <div class="card compact"><strong>Total Main</strong><div id="selectedPlayTime" class="meta">0 Min</div></div>
+                  <div class="card compact"><strong>Last Seen</strong><div id="selectedLastSeen" class="meta">unknown</div></div>
+                </div>
+                <div class="grid cols-2">
+                  <div class="field"><label for="giftRoleSelect">Gift Role</label><select id="giftRoleSelect" class="select"></select></div>
+                  <div class="field"><label for="roleExpireInput">Role Expiration</label><input id="roleExpireInput" class="input" type="datetime-local"></div>
+                </div>
+                <div class="actions-grid">
+                  <button id="giftRoleBtn" class="btn primary"><span class="material-symbols-rounded">redeem</span>Apply Role</button>
+                  <button id="copyUidBtn" class="btn"><span class="material-symbols-rounded">content_copy</span>Copy UID</button>
+                </div>
+                <div class="divider"></div>
+                <div class="field"><label for="banReasonInput">Moderation Reason</label><input id="banReasonInput" class="input" placeholder="Reason shown in admin logs"></div>
+                <div class="actions-grid">
+                  <button id="banBtn" class="btn danger"><span class="material-symbols-rounded">block</span>Ban Player</button>
+                  <button id="unbanBtn" class="btn"><span class="material-symbols-rounded">check_circle</span>Unban</button>
+                  <button id="muteBtn" class="btn warn"><span class="material-symbols-rounded">voice_over_off</span>Shadow Mute</button>
+                  <button id="unmuteBtn" class="btn"><span class="material-symbols-rounded">record_voice_over</span>Unmute</button>
+                </div>
+                <div class="divider"></div>
+                <div class="danger-zone">
+                  <div class="field"><label for="deleteReasonInput">Delete Reason</label><input id="deleteReasonInput" class="input" placeholder="Cheating, spam, duplicate account..."></div>
+                  <div class="field"><label for="deleteConfirmInput">Confirm Delete</label><input id="deleteConfirmInput" class="input" placeholder="Type DELETE USER"></div>
+                  <button id="deleteUserBtn" class="btn danger"><span class="material-symbols-rounded">delete_forever</span>Delete Account Data</button>
+                  <div class="meta">Deletes public player data and blocks profile recreation through the app.</div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="roles" class="page">
+          <div class="grid cols-2">
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Create / Update Role</div><div class="card-sub">Role ID is generated from the display name. Role permissions stay limited and safe.</div></div></div>
+              <div class="hint">Safe role permissions only: ban player, write announcement, and delete other people's messages. Owner power is locked to the admin account, not gifted as a role.</div>
+              <div class="grid" style="margin-top:14px">
+                <div class="grid cols-2">
+                  <div class="field"><label for="roleLabelInput">Display Name</label><input id="roleLabelInput" class="input" placeholder="VIP, Moderator, Pianist"></div>
+                  <div class="field"><label for="roleIdInput">Auto Role ID</label><input id="roleIdInput" class="input" placeholder="auto from display name" readonly></div>
+                </div>
+                <div class="grid cols-2">
+                  <div class="field"><label for="roleRaritySelect">Rarity</label><select id="roleRaritySelect" class="select"><option value="common">Common</option><option value="uncommon">Uncommon</option><option value="rare">Rare</option><option value="epic">Epic</option><option value="legendary">Legendary</option><option value="mythic">Mythic</option><option value="system">System</option></select></div>
+                  <div class="field"><label for="roleColorInput">Color</label><input id="roleColorInput" class="input" type="color" value="#176bff"></div>
+                </div>
+                <div class="field">
+                  <label>Permission Preset</label>
+                  <div class="segmented">
+                    <button class="btn small" data-permission-preset="moderator">Moderator</button>
+                    <button class="btn small" data-permission-preset="announcement">Announcement</button>
+                    <button class="btn small" data-permission-preset="clear">No Permission</button>
+                  </div>
+                </div>
+                <div class="field"><label>Permissions</label><div id="permissionGrid" class="permission-grid"></div></div>
+                <div class="actions-grid">
+                  <button id="createRoleBtn" class="btn primary"><span class="material-symbols-rounded">add_moderator</span>Save Role</button>
+                  <button id="deleteRoleBtn" class="btn danger"><span class="material-symbols-rounded">delete</span>Delete Role</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Role List</div><div class="card-sub">Click a role to inspect holders, add user, or revoke.</div></div><span id="roleCount" class="pill blue">0 roles</span></div>
+              <div id="roleList" class="list"></div>
+            </article>
+          </div>
+
+          <div id="roleDetailPanel" class="card hidden">
+            <div class="card-head">
+              <div><div id="roleDetailTitle" class="card-title">Role Detail</div><div id="roleDetailMeta" class="card-sub"></div></div>
+              <span id="roleHolderCount" class="pill blue">0 holders</span>
+            </div>
+            <div class="role-detail-grid">
+              <div class="grid">
+                <div class="field"><label for="roleUserSearch">Add user to selected role</label><input id="roleUserSearch" class="input" placeholder="Search user by name, email, UID..."></div>
+                <div id="roleSearchResults" class="list"></div>
+              </div>
+              <div class="grid">
+                <div class="row" style="justify-content:space-between"><strong>Current Holders</strong><button id="refreshRoleMembersBtn" class="btn small"><span class="material-symbols-rounded">sync</span>Refresh</button></div>
+                <div id="roleMemberList" class="list"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="donations" class="page">
+          <div class="grid cols-2">
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Donation Control</div><div class="card-sub">Pick a player, set donation amount, and update the public leaderboard.</div></div></div>
+              <div class="grid">
+                <div class="field"><label for="donationUserSearch">Search player</label><input id="donationUserSearch" class="input" placeholder="Name, email, UID, public ID..."></div>
+                <div id="donationUserResults" class="list"></div>
+                <div id="donationSelectedPanel" class="selected-user hidden">
+                  <div class="selected-head">
+                    <div id="donationSelectedAvatar" class="avatar"></div>
+                    <div style="min-width:0">
+                      <div id="donationSelectedName" class="name"></div>
+                      <div id="donationSelectedMeta" class="meta"></div>
+                      <div id="donationSelectedRole" class="chip-row" style="margin-top:7px"></div>
+                    </div>
+                  </div>
+                  <div class="grid cols-2">
+                    <div class="field"><label for="donationAmountInput">Amount (USD)</label><input id="donationAmountInput" class="input" type="number" min="0" step="0.01" placeholder="0.00"></div>
+                    <div class="field"><label>Currency</label><div class="input static-field">USD only</div></div>
+                  </div>
+                  <div class="actions-grid">
+                    <button id="saveDonationBtn" class="btn primary"><span class="material-symbols-rounded">save</span>Save Donation</button>
+                    <button id="deleteDonationBtn" class="btn danger"><span class="material-symbols-rounded">delete</span>Remove Donation</button>
+                  </div>
+                </div>
+              </div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Donation Leaderboard</div><div class="card-sub">Realtime entries controlled from this panel.</div></div><span id="donationCount" class="pill blue">0 donors</span></div>
+              <div id="donationList" class="list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="announcements" class="page">
+          <div class="grid cols-2">
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Write Announcement</div><div class="card-sub">Owner writes to announcement room using the same message structure as chat.</div></div></div>
+              <div class="field"><label for="announcementText">Message</label><textarea id="announcementText" class="textarea" placeholder="Write official Papiano announcement..."></textarea></div>
+              <div class="field" style="margin-top:12px"><label for="announcementImageInput">Image</label><input id="announcementImageInput" class="input" type="file" accept="image/*"></div>
+              <div id="announcementImagePreview" class="media-preview" style="margin-top:10px"><img id="announcementPreviewImage" alt=""><div class="meta" id="announcementPreviewName"></div><button id="removeAnnouncementImageBtn" class="btn small" type="button"><span class="material-symbols-rounded">close</span>Remove</button></div>
+              <div class="row end" style="margin-top:12px"><button id="sendAnnouncementBtn" class="btn primary"><span class="material-symbols-rounded">send</span>Send Announcement</button></div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Announcement Preview</div><div class="card-sub">Latest messages from announcement room.</div></div><button id="clearAnnouncementBtn" class="btn danger small"><span class="material-symbols-rounded">delete_sweep</span>Clear</button></div>
+              <div id="announcementPreview" class="list"></div>
+            </article>
+          </div>
+        </section>
+
+        <section id="rooms" class="page">
+          <div class="grid cols-2">
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Global Chat Control</div><div class="card-sub">Global Chat is the public chat folder, not a multiplayer room.</div></div></div>
+              <div class="grid">
+                <div class="hint">Target: Firestore chatRooms/group_global/messages</div>
+                <div class="field"><label for="globalReasonInput">Reason</label><input id="globalReasonInput" class="input" placeholder="Maintenance, spam, abuse..."></div>
+                <div class="actions-grid"><button id="disableGlobalChatBtn" class="btn danger"><span class="material-symbols-rounded">lock</span>Disable Global</button><button id="enableGlobalChatBtn" class="btn"><span class="material-symbols-rounded">lock_open</span>Enable Global</button></div>
+              </div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Multiplayer Room Control</div><div class="card-sub">Use the actual multiplayer room ID. This is separated from Global Chat.</div></div></div>
+              <div class="grid">
+                <div class="field"><label for="roomIdInput">Multiplayer Room ID</label><input id="roomIdInput" class="input" placeholder="room_abc123, lobby_1, match-id"></div>
+                <div class="field"><label for="roomReasonInput">Reason</label><input id="roomReasonInput" class="input" placeholder="Maintenance, spam, abuse..."></div>
+                <div class="actions-grid"><button id="disableRoomBtn" class="btn danger"><span class="material-symbols-rounded">lock</span>Disable Room</button><button id="enableRoomBtn" class="btn"><span class="material-symbols-rounded">lock_open</span>Enable Room</button></div>
+              </div>
+            </article>
+          </div>
+          <div class="grid cols-2">
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Clear Global Chat</div><div class="card-sub">Clear only the public Global Chat room.</div></div></div>
+              <div class="grid">
+                <div class="hint">Target: Firestore chatRooms/group_global/messages</div>
+                <div class="field"><label for="clearGlobalConfirmInput">Confirm</label><input id="clearGlobalConfirmInput" class="input" placeholder="Type CLEAR GLOBAL"></div>
+                <button id="clearGlobalChatBtn" class="btn danger"><span class="material-symbols-rounded">delete_forever</span>Clear Global Chat</button>
+              </div>
+            </article>
+            <article class="card">
+              <div class="card-head"><div><div class="card-title">Clear Multiplayer Room</div><div class="card-sub">Clear only the selected multiplayer room messages.</div></div></div>
+              <div class="grid">
+                <div class="field"><label for="clearRoomIdInput">Multiplayer Room ID</label><input id="clearRoomIdInput" class="input" placeholder="room_abc123, lobby_1, match-id"></div>
+                <div class="hint" id="clearPathPreview">Target: Firestore multiplayerRooms/{roomId}/messages</div>
+                <div class="field"><label for="clearConfirmInput">Confirm</label><input id="clearConfirmInput" class="input" placeholder="Type CLEAR ROOM"></div>
+                <button id="clearChatBtn" class="btn danger"><span class="material-symbols-rounded">delete_forever</span>Clear Multiplayer Room</button>
+              </div>
+            </article>
+          </div>
+          <article class="card">
+            <div class="card-head">
+              <div><div class="card-title">Chat Message Control</div><div class="card-sub">Load recent messages from Global Chat, a chat room, or a multiplayer room, then delete only the selected message.</div></div>
+              <button id="loadChatMessagesBtn" class="btn primary small"><span class="material-symbols-rounded">search</span>Load</button>
+            </div>
+            <div class="grid cols-3">
+              <div class="field"><label for="chatMessageSource">Source</label><select id="chatMessageSource" class="select"><option value="global">Global Chat</option><option value="chatRoom">Chat Room</option><option value="multiplayerRoom">Multiplayer Room</option></select></div>
+              <div class="field"><label for="chatMessageRoomId">Room ID</label><input id="chatMessageRoomId" class="input" value="group_global" placeholder="group_global, room ID, DM room ID"></div>
+              <div class="field"><label>Target</label><div id="chatMessageTargetPreview" class="input static-field">chatRooms/group_global/messages</div></div>
+            </div>
+            <div id="chatMessageList" class="list" style="margin-top:14px"></div>
+          </article>
+
+          <div class="grid cols-2">
+            <article class="card"><div class="card-head"><div><div class="card-title">Disabled Rooms</div><div class="card-sub">Current disabled room map.</div></div></div><div id="disabledRoomList" class="list"></div></article>
+            <article class="card"><div class="card-head"><div><div class="card-title">Global Controls</div><div class="card-sub">Production switches stored in appConfig.</div></div></div><div class="grid"><button id="maintenanceToggle" class="toggle"><span><strong>Maintenance Mode</strong><span class="meta">Block public access during repairs.</span></span><span class="switch-dot"></span></button><button id="globalFreezeToggle" class="toggle"><span><strong>Freeze Global Chat</strong><span class="meta">Keep room visible but stop new messages.</span></span><span class="switch-dot"></span></button><button id="newAccountToggle" class="toggle"><span><strong>Disable New Accounts</strong><span class="meta">Emergency anti-spam switch.</span></span><span class="switch-dot"></span></button></div></article>
+          </div>
+        </section>
+
+        <section id="settings" class="page">
+          <article class="card">
+            <div class="card-head"><div><div class="card-title">Data Sources</div><div class="card-sub">Profiles and chat rooms use Firestore. Roles, settings, and logs use RTDB.</div></div><button id="savePathsBtn" class="btn primary small"><span class="material-symbols-rounded">save</span>Save Paths</button></div>
+            <div id="pathFields" class="path-grid"></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><div><div class="card-title">Authorized Admin Emails</div><div class="card-sub">Only these Google accounts can open this panel UI.</div></div></div>
+            <div id="adminEmailList" class="chip-row"></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><div><div class="card-title">Admin Rules Reminder</div><div class="card-sub">The panel is UI. Real permission must be enforced in Firebase Rules or custom claims.</div></div></div>
+            <div class="grid cols-3">
+              <div class="card compact"><strong>Owner UID lock</strong><div class="meta">Rules should allow writes only for the authorized admin email map.</div></div>
+              <div class="card compact"><strong>Audit log</strong><div class="meta">Every ban, role gift, room lock, and clear action is logged.</div></div>
+              <div class="card compact"><strong>Role holders</strong><div class="meta">Role page can add and revoke user roles without manual UID typing.</div></div>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+    import { getDatabase, ref, set, update, remove, push, onValue, serverTimestamp, query, limitToLast } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js';
+    import { getFirestore, collection, collectionGroup, doc, addDoc, getDocs, setDoc, deleteDoc, writeBatch, onSnapshot, query as fsQuery, orderBy, limit as fsLimit, where, serverTimestamp as fsServerTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const firebaseConfig = {
+      apiKey: 'AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY',
+      authDomain: 'papianoverse.firebaseapp.com',
+      databaseURL: 'https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app',
+      projectId: 'papianoverse',
+      messagingSenderId: '240332627380',
+      appId: '1:240332627380:web:c80d08fa1f89b1acdb26e1',
+      measurementId: 'G-3FVZ17Q69B'
+    };
+
+    const supabaseStorageConfig = {
+      url: 'https://yddzwxmzxdagiltrjmgc.supabase.co',
+      key: 'sb_publishable_OzcmvT0haHr9JrFhP9bHiA_EQpY86Ka'
+    };
+
+    const adminEmails = [
+      'utamairfan44@gmail.com'
+    ];
+    const ownerEmails = new Set(adminEmails);
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+    const fs = getFirestore(app);
+    const supabaseStorage = createClient(supabaseStorageConfig.url, supabaseStorageConfig.key);
+
+    const defaultPaths = {
+      users: 'profiles',
+      chatRooms: 'chatRooms',
+      multiplayerRooms: 'multiplayerRooms',
+      roles: 'roles',
+      donations: 'donations',
+      bans: 'bans',
+      mutes: 'mutes',
+      rooms: 'rooms',
+      disabledRooms: 'appConfig/disabledRooms',
+      appConfig: 'appConfig',
+      adminLogs: 'adminLogs',
+      deletedAccounts: 'deletedAccounts'
+    };
+
+    const permissionCatalog = [
+      ['player.ban', 'Ban player'],
+      ['announcement.write', 'Write announcement'],
+      ['message.deleteOthers', 'Delete other messages']
+    ];
+
+    const permissionPresets = {
+      moderator: ['player.ban', 'announcement.write', 'message.deleteOthers'],
+      announcement: ['announcement.write'],
+      clear: []
+    };
+
+    const savedPaths = readJson('papianoAdminPaths', {});
+    if (!savedPaths.users || savedPaths.users === 'users') savedPaths.users = defaultPaths.users;
+    if (!savedPaths.chatRooms) savedPaths.chatRooms = defaultPaths.chatRooms;
+    if (!savedPaths.multiplayerRooms) savedPaths.multiplayerRooms = defaultPaths.multiplayerRooms;
+    let paths = { ...defaultPaths, ...savedPaths };
+    let currentAdmin = null;
+    let users = {};
+    let roles = {};
+    let appConfig = {};
+    let donations = {};
+    let selectedUid = '';
+    let selectedDonationUid = '';
+    let selectedRoleId = 'common';
+    let latestAdminLogs = {};
+    let latestAnnouncements = {};
+    let latestGlobalMessages = {};
+    let latestMessageControlMessages = {};
+    let activeMessageControlUnsubscribe = null;
+    let selectedAnnouncementImage = null;
+    let selectedAnnouncementPreviewUrl = '';
+    let unsubscribers = [];
+    let toastTimer = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    const els = {
+      gate: $('gate'),
+      app: $('app'),
+      loginBtn: $('loginBtn'),
+      gateNote: $('gateNote'),
+      logoutBtn: $('logoutBtn'),
+      refreshBtn: $('refreshBtn'),
+      maintenanceBtn: $('maintenanceBtn'),
+      maintenanceToggle: $('maintenanceToggle'),
+      globalFreezeToggle: $('globalFreezeToggle'),
+      newAccountToggle: $('newAccountToggle'),
+      sidebar: $('sidebar'),
+      adminIdentity: $('adminIdentity'),
+      statUsers: $('statUsers'),
+      statActiveToday: $('statActiveToday'),
+      statOnlineNow: $('statOnlineNow'),
+      statModerated: $('statModerated'),
+      statNewToday: $('statNewToday'),
+      statMessagesToday: $('statMessagesToday'),
+      statRoles: $('statRoles'),
+      recentLogs: $('recentLogs'),
+      playerSearch: $('playerSearch'),
+      playerRoleFilter: $('playerRoleFilter'),
+      playerStatusFilter: $('playerStatusFilter'),
+      playerSortSelect: $('playerSortSelect'),
+      playerList: $('playerList'),
+      playerCount: $('playerCount'),
+      selectedUserEmpty: $('selectedUserEmpty'),
+      selectedUserPanel: $('selectedUserPanel'),
+      selectedAvatar: $('selectedAvatar'),
+      selectedName: $('selectedName'),
+      selectedMeta: $('selectedMeta'),
+      selectedBadges: $('selectedBadges'),
+      selectedPlayTime: $('selectedPlayTime'),
+      selectedLastSeen: $('selectedLastSeen'),
+      giftRoleSelect: $('giftRoleSelect'),
+      roleExpireInput: $('roleExpireInput'),
+      giftRoleBtn: $('giftRoleBtn'),
+      copyUidBtn: $('copyUidBtn'),
+      banReasonInput: $('banReasonInput'),
+      banBtn: $('banBtn'),
+      unbanBtn: $('unbanBtn'),
+      muteBtn: $('muteBtn'),
+      unmuteBtn: $('unmuteBtn'),
+      deleteReasonInput: $('deleteReasonInput'),
+      deleteConfirmInput: $('deleteConfirmInput'),
+      deleteUserBtn: $('deleteUserBtn'),
+      roleIdInput: $('roleIdInput'),
+      roleLabelInput: $('roleLabelInput'),
+      roleRaritySelect: $('roleRaritySelect'),
+      roleColorInput: $('roleColorInput'),
+      permissionGrid: $('permissionGrid'),
+      createRoleBtn: $('createRoleBtn'),
+      deleteRoleBtn: $('deleteRoleBtn'),
+      roleList: $('roleList'),
+      roleCount: $('roleCount'),
+      roleDetailPanel: $('roleDetailPanel'),
+      roleDetailTitle: $('roleDetailTitle'),
+      roleDetailMeta: $('roleDetailMeta'),
+      roleHolderCount: $('roleHolderCount'),
+      roleUserSearch: $('roleUserSearch'),
+      roleSearchResults: $('roleSearchResults'),
+      roleMemberList: $('roleMemberList'),
+      refreshRoleMembersBtn: $('refreshRoleMembersBtn'),
+      donationUserSearch: $('donationUserSearch'),
+      donationUserResults: $('donationUserResults'),
+      donationSelectedPanel: $('donationSelectedPanel'),
+      donationSelectedAvatar: $('donationSelectedAvatar'),
+      donationSelectedName: $('donationSelectedName'),
+      donationSelectedMeta: $('donationSelectedMeta'),
+      donationSelectedRole: $('donationSelectedRole'),
+      donationAmountInput: $('donationAmountInput'),
+      saveDonationBtn: $('saveDonationBtn'),
+      deleteDonationBtn: $('deleteDonationBtn'),
+      donationCount: $('donationCount'),
+      donationList: $('donationList'),
+      announcementText: $('announcementText'),
+      announcementImageInput: $('announcementImageInput'),
+      announcementImagePreview: $('announcementImagePreview'),
+      announcementPreviewImage: $('announcementPreviewImage'),
+      announcementPreviewName: $('announcementPreviewName'),
+      removeAnnouncementImageBtn: $('removeAnnouncementImageBtn'),
+      sendAnnouncementBtn: $('sendAnnouncementBtn'),
+      clearAnnouncementBtn: $('clearAnnouncementBtn'),
+      announcementPreview: $('announcementPreview'),
+      globalReasonInput: $('globalReasonInput'),
+      disableGlobalChatBtn: $('disableGlobalChatBtn'),
+      enableGlobalChatBtn: $('enableGlobalChatBtn'),
+      clearGlobalConfirmInput: $('clearGlobalConfirmInput'),
+      clearGlobalChatBtn: $('clearGlobalChatBtn'),
+      roomIdInput: $('roomIdInput'),
+      roomReasonInput: $('roomReasonInput'),
+      disableRoomBtn: $('disableRoomBtn'),
+      enableRoomBtn: $('enableRoomBtn'),
+      disabledRoomList: $('disabledRoomList'),
+      clearRoomIdInput: $('clearRoomIdInput'),
+      clearPathPreview: $('clearPathPreview'),
+      clearConfirmInput: $('clearConfirmInput'),
+      clearChatBtn: $('clearChatBtn'),
+      chatMessageSource: $('chatMessageSource'),
+      chatMessageRoomId: $('chatMessageRoomId'),
+      chatMessageTargetPreview: $('chatMessageTargetPreview'),
+      loadChatMessagesBtn: $('loadChatMessagesBtn'),
+      chatMessageList: $('chatMessageList'),
+      pathFields: $('pathFields'),
+      savePathsBtn: $('savePathsBtn'),
+      adminEmailList: $('adminEmailList'),
+      toast: $('toast')
+    };
+
+    function readJson(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function toast(message) {
+      clearTimeout(toastTimer);
+      els.toast.textContent = message;
+      els.toast.classList.add('active');
+      toastTimer = setTimeout(() => els.toast.classList.remove('active'), 2300);
+    }
+
+    function isOwner(user) {
+      return Boolean(user && user.email && ownerEmails.has(user.email.toLowerCase()));
+    }
+
+    function renderAdminEmailList() {
+      els.adminEmailList.innerHTML = adminEmails.map((email) => `<span class="pill blue">${escapeHtml(email)}</span>`).join('');
+    }
+
+    function normalizePath(path) {
+      return String(path || '').replace(/^\/+|\/+$/g, '');
+    }
+
+    function dbRef(path) {
+      return ref(db, normalizePath(path));
+    }
+
+    function fsCollection(...segments) {
+      return collection(fs, ...segments.map((segment) => normalizePath(segment)).filter(Boolean));
+    }
+
+    function fsDoc(...segments) {
+      return doc(fs, ...segments.map((segment) => normalizePath(segment)).filter(Boolean));
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>'"]/g, (char) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        "'": '&#39;',
+        '"': '&quot;'
+      }[char]));
+    }
+
+    function escapeAttr(value) {
+      return escapeHtml(value).replace(/`/g, '&#96;');
+    }
+
+    function linkifyText(value) {
+      const raw = String(value || '');
+      const pattern = /\b((?:https?:\/\/|www\.)[^\s<>'"]+)/gi;
+      let html = '';
+      let index = 0;
+      let match;
+      while ((match = pattern.exec(raw)) !== null) {
+        html += escapeHtml(raw.slice(index, match.index));
+        let label = match[0];
+        let suffix = '';
+        while (/[.,!?;:)\]]$/.test(label)) {
+          suffix = label.slice(-1) + suffix;
+          label = label.slice(0, -1);
+        }
+        if (label) {
+          const href = /^https?:\/\//i.test(label) ? label : `https://${label}`;
+          html += `<a class="message-link" href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>${escapeHtml(suffix)}`;
+        } else {
+          html += escapeHtml(match[0]);
+        }
+        index = pattern.lastIndex;
+      }
+      html += escapeHtml(raw.slice(index));
+      return html;
+    }
+
+    function toMillis(value) {
+      if (!value) return 0;
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string') {
+        const parsed = Date.parse(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      if (typeof value === 'object' && typeof value.seconds === 'number') return value.seconds * 1000;
+      return 0;
+    }
+
+    function dateKey(ms) {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+    }
+
+    function isToday(value) {
+      const ms = toMillis(value);
+      return Boolean(ms && dateKey(ms) === dateKey(Date.now()));
+    }
+
+    function formatTime(value) {
+      const ms = toMillis(value);
+      if (!ms) return 'unknown';
+      return new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(new Date(ms));
+    }
+
+    function formatDuration(seconds) {
+      const total = Math.max(0, Number(seconds || 0));
+      if (total < 60) return '<1 Min';
+      const minutes = Math.floor(total / 60);
+      if (minutes < 60) return `${minutes} Min`;
+      return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+    }
+
+    function slugifyRole(value) {
+      return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+    }
+
+    function userName(user, uid = '') {
+      return user?.displayName || user?.name || user?.username || user?.profile?.displayName || user?.email || uid.slice(0, 8) || 'Unknown';
+    }
+
+    function userEmail(user) {
+      return user?.email || user?.providerEmail || user?.authEmail || user?.profile?.email || 'no email';
+    }
+
+    function userRole(user) {
+      const roleId = user?.roleId || user?.badgeId || user?.role || user?.profile?.roleId || 'common';
+      return roles[roleId] ? roleId : 'common';
+    }
+
+    function userRegion(user) {
+      return user?.region || user?.country || user?.flagName || user?.profile?.region || 'Unknown region';
+    }
+
+    function userAvatar(user, name) {
+      const url = userPhotoUrl(user);
+      if (url) return `<img src="${escapeAttr(url)}" alt="">`;
+      return escapeHtml(String(name || '?').trim().slice(0, 1).toUpperCase() || '?');
+    }
+
+    function userPhotoUrl(user) {
+      return user?.photoURL || user?.avatarUrl || user?.avatar || user?.profile?.photoURL || '';
+    }
+
+    function userPublicLabel(user, uid = '') {
+      return user?.userId || user?.publicId || user?.profile?.userId || user?.profile?.publicId || uid.slice(0, 10) || 'Papiano Player';
+    }
+
+    function userCreatedAt(user) {
+      return user?.createdAtLocal || user?.createdAt || user?.joinedAt || user?.joinedAtLocal;
+    }
+
+    function userLastSeen(user) {
+      return user?.lastSeenLocal || user?.lastSeen || user?.lastActiveAt || user?.updatedAtLocal || user?.updatedAt;
+    }
+
+    function isUserOnline(user) {
+      const ms = toMillis(userLastSeen(user));
+      return Boolean(ms && Date.now() - ms < 5 * 60 * 1000);
+    }
+
+    function isUserBanned(uid, user) {
+      return Boolean(user?.isBanned || user?.banned || user?.status === 'banned' || user?.moderation?.banned);
+    }
+
+    function isUserMuted(user) {
+      return Boolean(user?.isMuted || user?.shadowMuted || user?.moderation?.shadowMuted);
+    }
+
+    function roleLabel(roleId) {
+      return roles[roleId]?.label || roles[roleId]?.name || roleId || 'common';
+    }
+
+    function rolePermissions(role) {
+      if (!role) return [];
+      if (Array.isArray(role.permissions)) return role.permissions;
+      if (typeof role.permissions === 'string') return role.permissions.split(',').map((item) => item.trim()).filter(Boolean);
+      if (role.permissions && typeof role.permissions === 'object') return Object.keys(role.permissions).filter((key) => role.permissions[key]);
+      return [];
+    }
+
+    function normalizeRoles(data) {
+      const base = {
+        common: { label: 'PLAYER', rarity: 'common', color: '#60738e', permissions: [] }
+      };
+      return { ...base, ...(data || {}) };
+    }
+
+    function setGate(note = '') {
+      els.app.classList.add('hidden');
+      els.gate.classList.remove('hidden');
+      els.gateNote.textContent = note || 'Authorized Google admin accounts only.';
+    }
+
+    function setApp() {
+      els.gate.classList.add('hidden');
+      els.app.classList.remove('hidden');
+      els.adminIdentity.textContent = 'Admin Access Active';
+    }
+
+    function subscribe(target, callback) {
+      const source = typeof target === 'string' ? dbRef(target) : target;
+      const unsubscribe = onValue(source, (snapshot) => callback(snapshot.val() || {}), (error) => toast(error.message));
+      unsubscribers.push(unsubscribe);
+    }
+
+    function subscribeProfiles() {
+      const unsubscribe = onSnapshot(fsCollection(paths.users), (snapshot) => {
+        const nextUsers = {};
+        snapshot.forEach((item) => {
+          nextUsers[item.id] = { uid: item.id, ...item.data() };
+        });
+        users = nextUsers;
+        renderAll();
+      }, (error) => {
+        users = {};
+        renderAll();
+        toast(`Profiles unavailable: ${error.message}`);
+      });
+      unsubscribers.push(unsubscribe);
+    }
+
+    function subscribeRoomMessages(roomId, max, callback) {
+      const roomMessages = fsCollection(paths.chatRooms, roomId, 'messages');
+      const source = fsQuery(roomMessages, orderBy('createdAt', 'desc'), fsLimit(max));
+      const unsubscribe = onSnapshot(source, (snapshot) => {
+        const messages = {};
+        snapshot.forEach((item) => {
+          messages[item.id] = { id: item.id, ...item.data() };
+        });
+        callback(messages);
+      }, (error) => toast(error.message));
+      unsubscribers.push(unsubscribe);
+    }
+
+    function subscribeDonations() {
+      const unsubscribe = onSnapshot(fsCollection(paths.donations), (snapshot) => {
+        const next = {};
+        snapshot.forEach((item) => {
+          next[item.id] = { id: item.id, ...item.data() };
+        });
+        donations = next;
+        renderDonations();
+      }, (error) => toast(`Donations unavailable: ${error.message}`));
+      unsubscribers.push(unsubscribe);
+    }
+
+    async function updateProfile(uid, data) {
+      await setDoc(fsDoc(paths.users, uid), data, { merge: true });
+    }
+
+    function resetSubscriptions() {
+      unsubscribers.forEach((unsubscribe) => unsubscribe());
+      unsubscribers = [];
+      if (activeMessageControlUnsubscribe) {
+        activeMessageControlUnsubscribe();
+        activeMessageControlUnsubscribe = null;
+      }
+      latestMessageControlMessages = {};
+    }
+
+    async function logAction(action, payload = {}) {
+      if (!currentAdmin) return;
+      await push(dbRef(paths.adminLogs), {
+        action,
+        payload,
+        adminUid: currentAdmin.uid,
+        adminEmail: currentAdmin.email,
+        createdAt: serverTimestamp(),
+        createdAtLocal: Date.now()
+      });
+    }
+
+    async function loadInitialData() {
+      resetSubscriptions();
+      subscribeProfiles();
+      subscribe(paths.roles, (data) => {
+        roles = normalizeRoles(data || {});
+        renderAll();
+      });
+      subscribeDonations();
+      subscribe(paths.appConfig, (data) => {
+        appConfig = data || {};
+        renderConfigSwitches();
+        renderDisabledRooms();
+      });
+      subscribeRoomMessages('group_global', 1000, (data) => {
+        latestGlobalMessages = data || {};
+        renderDashboard();
+      });
+      subscribeRoomMessages('group_announcements', 80, (data) => {
+        latestAnnouncements = data || {};
+        renderAnnouncements();
+      });
+      subscribe(query(dbRef(paths.adminLogs), limitToLast(80)), (data) => {
+        latestAdminLogs = data || {};
+        renderLogs();
+      });
+      renderPathFields();
+      renderAdminEmailList();
+      renderPermissionGrid();
+      renderClearPathPreview();
+      renderMessageTargetPreview();
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderPlayers();
+      renderPlayerRoleFilter();
+      renderSelectedUser();
+      renderRoleSelect();
+      renderRoles();
+      renderRoleDetail();
+      renderDonations();
+    }
+
+    function renderDashboard() {
+      const entries = Object.entries(users || {});
+      const banned = entries.filter(([uid, user]) => isUserBanned(uid, user)).length;
+      const muted = entries.filter(([, user]) => isUserMuted(user)).length;
+      const activeToday = entries.filter(([, user]) => isToday(userLastSeen(user))).length;
+      const newToday = entries.filter(([, user]) => isToday(userCreatedAt(user))).length;
+      const onlineNow = entries.filter(([, user]) => isUserOnline(user)).length;
+      const messagesToday = Object.values(latestGlobalMessages || {}).filter((message) => isToday(message.createdAtLocal || message.createdAt || message.timestamp || message.time)).length;
+      els.statUsers.textContent = entries.length;
+      els.statActiveToday.textContent = activeToday;
+      els.statOnlineNow.textContent = onlineNow;
+      els.statModerated.textContent = banned + muted;
+      els.statNewToday.textContent = newToday;
+      els.statMessagesToday.textContent = messagesToday;
+      els.statRoles.textContent = Object.keys(roles || {}).length;
+    }
+
+    function renderLogs() {
+      const list = Object.entries(latestAdminLogs || {})
+        .map(([id, log]) => ({ id, ...log }))
+        .sort((a, b) => toMillis(b.createdAtLocal || b.createdAt) - toMillis(a.createdAtLocal || a.createdAt))
+        .slice(0, 14);
+      els.recentLogs.innerHTML = list.length ? list.map((log) => `
+        <div class="log-row">
+          <div class="row" style="justify-content:space-between"><strong>${escapeHtml(log.action || 'Action')}</strong><span class="pill">${escapeHtml(formatTime(log.createdAtLocal || log.createdAt))}</span></div>
+          <div class="meta">${escapeHtml(formatTime(log.createdAtLocal || log.createdAt))}</div>
+        </div>
+      `).join('') : '<div class="meta">No admin log yet.</div>';
+    }
+
+    function getFilteredPlayers(searchSource = els.playerSearch.value) {
+      const queryText = String(searchSource || '').trim().toLowerCase();
+      const roleFilter = els.playerRoleFilter.value || 'all';
+      const statusFilter = els.playerStatusFilter.value || 'all';
+      const sortMode = els.playerSortSelect.value || 'lastSeen';
+      const entries = Object.entries(users || {}).filter(([uid, user]) => {
+        const role = userRole(user);
+        if (roleFilter !== 'all' && role !== roleFilter) return false;
+        if (statusFilter === 'online' && !isUserOnline(user)) return false;
+        if (statusFilter === 'activeToday' && !isToday(userLastSeen(user))) return false;
+        if (statusFilter === 'banned' && !isUserBanned(uid, user)) return false;
+        if (statusFilter === 'muted' && !isUserMuted(user)) return false;
+        if (statusFilter === 'clean' && (isUserBanned(uid, user) || isUserMuted(user))) return false;
+        if (!queryText) return true;
+        const haystack = [uid, userName(user, uid), userEmail(user), role, roleLabel(role), userRegion(user), user?.bio || '', user?.profile?.bio || ''].join(' ').toLowerCase();
+        return haystack.includes(queryText);
+      });
+      return entries.sort(([uidA, a], [uidB, b]) => {
+        if (sortMode === 'name') return userName(a, uidA).localeCompare(userName(b, uidB));
+        if (sortMode === 'role') return roleLabel(userRole(a)).localeCompare(roleLabel(userRole(b)));
+        if (sortMode === 'createdAt') return toMillis(userCreatedAt(b)) - toMillis(userCreatedAt(a));
+        return toMillis(userLastSeen(b)) - toMillis(userLastSeen(a));
+      });
+    }
+
+    function renderPlayerRoleFilter() {
+      const current = els.playerRoleFilter.value || 'all';
+      els.playerRoleFilter.innerHTML = '<option value="all">All roles</option>' + Object.entries(roles || {}).map(([id, role]) => `<option value="${escapeAttr(id)}">${escapeHtml(role.label || id)}</option>`).join('');
+      els.playerRoleFilter.value = roles[current] ? current : 'all';
+    }
+
+    function renderPlayers() {
+      const entries = getFilteredPlayers();
+      const total = Object.keys(users || {}).length;
+      els.playerCount.textContent = `${entries.length} / ${total}`;
+      els.playerList.innerHTML = entries.length ? entries.map(([uid, user]) => {
+        const name = userName(user, uid);
+        const role = userRole(user);
+        return `
+          <div class="user-row ${uid === selectedUid ? 'active' : ''}" data-uid="${escapeAttr(uid)}">
+            <div class="avatar">${userAvatar(user, name)}</div>
+            <div style="min-width:0">
+              <div class="name">${escapeHtml(name)}</div>
+              <div class="meta">${escapeHtml(userEmail(user))}</div>
+              <div class="meta">${escapeHtml(uid)}</div>
+            </div>
+            <div class="row end">
+              <span class="pill blue">${escapeHtml(roleLabel(role))}</span>
+              <span class="pill">${escapeHtml(userRegion(user))}</span>
+              ${isUserOnline(user) ? '<span class="pill green">Online</span>' : ''}
+              ${isUserBanned(uid, user) ? '<span class="pill red">Banned</span>' : ''}
+              ${isUserMuted(user) ? '<span class="pill warn">Muted</span>' : ''}
+            </div>
+          </div>
+        `;
+      }).join('') : '<div class="meta">No players found.</div>';
+      els.playerList.querySelectorAll('.user-row[data-uid]').forEach((row) => row.addEventListener('click', () => selectUser(row.dataset.uid)));
+    }
+
+    function selectUser(uid) {
+      selectedUid = uid;
+      renderPlayers();
+      renderSelectedUser();
+    }
+
+    function renderSelectedUser() {
+      const user = users[selectedUid];
+      if (!selectedUid || !user) {
+        els.selectedUserEmpty.classList.remove('hidden');
+        els.selectedUserPanel.classList.add('hidden');
+        return;
+      }
+      const name = userName(user, selectedUid);
+      const role = userRole(user);
+      els.selectedUserEmpty.classList.add('hidden');
+      els.selectedUserPanel.classList.remove('hidden');
+      els.selectedAvatar.innerHTML = userAvatar(user, name);
+      els.selectedName.textContent = name;
+      els.selectedMeta.textContent = `${userEmail(user)} · ${selectedUid}`;
+      els.selectedBadges.innerHTML = `
+        <span class="pill blue">${escapeHtml(roleLabel(role))}</span>
+        <span class="pill">${escapeHtml(userRegion(user))}</span>
+        ${isUserBanned(selectedUid, user) ? '<span class="pill red">Banned</span>' : '<span class="pill green">Active</span>'}
+        ${isUserMuted(user) ? '<span class="pill warn">Shadow muted</span>' : ''}
+        ${user.roleExpiresAt ? `<span class="pill warn">Expires ${escapeHtml(formatTime(user.roleExpiresAt))}</span>` : ''}
+      `;
+      els.selectedPlayTime.textContent = formatDuration(user.playTimeSeconds || user.totalMainSeconds || user.playTime || 0);
+      els.selectedLastSeen.textContent = formatTime(userLastSeen(user));
+      els.giftRoleSelect.value = roles[role] ? role : 'common';
+    }
+
+    function assignableRoleEntries() {
+      return Object.entries(roles || {}).filter(([id]) => id !== 'owner').sort(([a], [b]) => a.localeCompare(b));
+    }
+
+    function renderRoleSelect() {
+      const options = assignableRoleEntries().map(([id, role]) => `<option value="${escapeAttr(id)}">${escapeHtml(role.label || id)}</option>`).join('');
+      els.giftRoleSelect.innerHTML = options;
+    }
+
+    function renderPermissionGrid() {
+      const current = getCheckedPermissions();
+      els.permissionGrid.innerHTML = permissionCatalog.map(([id, label]) => `
+        <label class="check-tile"><input type="checkbox" value="${escapeAttr(id)}" ${current.includes(id) ? 'checked' : ''}>${escapeHtml(label)}</label>
+      `).join('');
+    }
+
+    function getCheckedPermissions() {
+      return Array.from(els.permissionGrid?.querySelectorAll('input[type="checkbox"]:checked') || []).map((input) => input.value);
+    }
+
+    function setCheckedPermissions(list) {
+      const selected = new Set(list || []);
+      els.permissionGrid.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+        input.checked = selected.has(input.value);
+      });
+    }
+
+    function renderRoles() {
+      const entries = Object.entries(roles || {}).sort(([a], [b]) => a.localeCompare(b));
+      els.roleCount.textContent = `${entries.length} roles`;
+      els.roleList.innerHTML = entries.length ? entries.map(([id, role]) => {
+        const holders = Object.values(users || {}).filter((user) => userRole(user) === id).length;
+        const permissions = rolePermissions(role);
+        return `
+          <div class="role-row ${id === selectedRoleId ? 'active' : ''}" data-role-id="${escapeAttr(id)}">
+            <div class="avatar" style="background:${escapeAttr(role.color || '#176bff')}">${escapeHtml(String(role.label || id).slice(0, 1).toUpperCase())}</div>
+            <div style="min-width:0">
+              <div class="name">${escapeHtml(role.label || id)}</div>
+              <div class="meta">ID: ${escapeHtml(id)}</div>
+              <div class="meta">${escapeHtml(permissions.join(', ') || 'No permissions')}</div>
+            </div>
+            <div class="row end"><span class="pill blue">${escapeHtml(role.rarity || 'common')}</span><span class="pill purple">${holders} users</span></div>
+          </div>
+        `;
+      }).join('') : '<div class="meta">No roles yet.</div>';
+      els.roleList.querySelectorAll('.role-row[data-role-id]').forEach((row) => row.addEventListener('click', () => selectRole(row.dataset.roleId)));
+    }
+
+    function selectRole(roleId) {
+      selectedRoleId = roleId;
+      const role = roles[roleId];
+      if (role) {
+        els.roleLabelInput.value = role.label || roleId;
+        els.roleIdInput.value = roleId;
+        els.roleRaritySelect.value = role.rarity || 'common';
+        els.roleColorInput.value = role.color || '#176bff';
+        setCheckedPermissions(rolePermissions(role));
+      }
+      renderRoles();
+      renderRoleDetail();
+    }
+
+    function renderRoleDetail() {
+      const role = roles[selectedRoleId];
+      if (!selectedRoleId || !role) {
+        els.roleDetailPanel.classList.add('hidden');
+        return;
+      }
+      const holders = Object.entries(users || {}).filter(([, user]) => userRole(user) === selectedRoleId).sort(([uidA, a], [uidB, b]) => userName(a, uidA).localeCompare(userName(b, uidB)));
+      els.roleDetailPanel.classList.remove('hidden');
+      els.roleDetailTitle.textContent = `${role.label || selectedRoleId} Holders`;
+      els.roleDetailMeta.textContent = `Role ID: ${selectedRoleId} · ${rolePermissions(role).join(', ') || 'No permissions'}`;
+      els.roleHolderCount.textContent = `${holders.length} holders`;
+      els.roleMemberList.innerHTML = holders.length ? holders.map(([uid, user]) => {
+        const name = userName(user, uid);
+        return `
+          <div class="member-row" data-member-uid="${escapeAttr(uid)}">
+            <div class="avatar">${userAvatar(user, name)}</div>
+            <div style="min-width:0"><div class="name">${escapeHtml(name)}</div><div class="meta">${escapeHtml(userEmail(user))}</div><div class="meta">${escapeHtml(uid)}</div></div>
+            <div class="row end"><button class="btn small" data-select-user="${escapeAttr(uid)}">Open</button><button class="btn danger small" data-revoke-role="${escapeAttr(uid)}">Revoke</button></div>
+          </div>
+        `;
+      }).join('') : '<div class="meta">No user has this role.</div>';
+      renderRoleSearchResults();
+      bindRoleDetailButtons();
+    }
+
+    function renderRoleSearchResults() {
+      const queryText = els.roleUserSearch.value.trim().toLowerCase();
+      const entries = Object.entries(users || {}).filter(([uid, user]) => {
+        if (userRole(user) === selectedRoleId) return false;
+        if (!queryText) return false;
+        const haystack = [uid, userName(user, uid), userEmail(user), userRegion(user), roleLabel(userRole(user))].join(' ').toLowerCase();
+        return haystack.includes(queryText);
+      }).slice(0, 20);
+      els.roleSearchResults.innerHTML = entries.length ? entries.map(([uid, user]) => {
+        const name = userName(user, uid);
+        return `
+          <div class="member-row" data-result-uid="${escapeAttr(uid)}">
+            <div class="avatar">${userAvatar(user, name)}</div>
+            <div style="min-width:0"><div class="name">${escapeHtml(name)}</div><div class="meta">${escapeHtml(userEmail(user))}</div><div class="meta">Current: ${escapeHtml(roleLabel(userRole(user)))}</div></div>
+            <div class="row end"><button class="btn primary small" data-add-role="${escapeAttr(uid)}">Add</button></div>
+          </div>
+        `;
+      }).join('') : `<div class="meta">${queryText ? 'No matching user.' : 'Type to search users.'}</div>`;
+      bindRoleDetailButtons();
+    }
+
+    function bindRoleDetailButtons() {
+      els.roleDetailPanel.querySelectorAll('[data-add-role]').forEach((button) => button.addEventListener('click', () => applyRoleToUser(button.dataset.addRole, selectedRoleId)));
+      els.roleDetailPanel.querySelectorAll('[data-revoke-role]').forEach((button) => button.addEventListener('click', () => applyRoleToUser(button.dataset.revokeRole, 'common')));
+      els.roleDetailPanel.querySelectorAll('[data-select-user]').forEach((button) => button.addEventListener('click', () => selectUser(button.dataset.selectUser)));
+    }
+
+
+    function normalizeDonationEntry(id, data = {}) {
+      const rawCurrency = String(data.currency || 'USD').toUpperCase();
+      const amount = Number(data.amountUSD ?? data.amountUsd ?? data.usd ?? (rawCurrency === 'USD' ? data.amount : 0) ?? 0);
+      return {
+        id,
+        uid: String(data.uid || id || ''),
+        name: String(data.name || data.displayName || data.senderName || 'Supporter'),
+        userId: String(data.userId || data.publicId || ''),
+        photoURL: String(data.photoURL || data.avatarURL || data.avatar_url || ''),
+        amount: Number.isFinite(amount) ? amount : 0,
+        currency: 'USD',
+        updatedAt: data.updatedAtLocal || data.updatedAt || data.createdAtLocal || data.createdAt
+      };
+    }
+
+    function formatDonationAmount(amount) {
+      const value = Math.max(0, Number(amount) || 0);
+      return `$${value.toLocaleString('en-US', { minimumFractionDigits: value >= 10 ? 0 : 2, maximumFractionDigits: value >= 10 ? 0 : 2 })}`;
+    }
+
+    function donationUserMatches(uid, user, queryText) {
+      if (!queryText) return false;
+      const role = userRole(user);
+      const haystack = [uid, userName(user, uid), userEmail(user), userPublicLabel(user, uid), role, roleLabel(role), userRegion(user)].join(' ').toLowerCase();
+      return haystack.includes(queryText);
+    }
+
+    function renderDonationUserResults() {
+      const queryText = els.donationUserSearch.value.trim().toLowerCase();
+      const entries = Object.entries(users || {}).filter(([uid, user]) => donationUserMatches(uid, user, queryText)).slice(0, 18);
+      els.donationUserResults.innerHTML = entries.length ? entries.map(([uid, user]) => {
+        const name = userName(user, uid);
+        const donation = normalizeDonationEntry(uid, donations[uid] || {});
+        return `
+          <div class="user-row ${uid === selectedDonationUid ? 'active' : ''}" data-donation-uid="${escapeAttr(uid)}">
+            <div class="avatar">${userAvatar(user, name)}</div>
+            <div style="min-width:0">
+              <div class="name">${escapeHtml(name)}</div>
+              <div class="meta">${escapeHtml(userEmail(user))}</div>
+              <div class="meta">${escapeHtml(uid)}</div>
+            </div>
+            <div class="row end"><span class="pill blue">${escapeHtml(roleLabel(userRole(user)))}</span>${donation.amount > 0 ? `<span class="pill green">${escapeHtml(formatDonationAmount(donation.amount, donation.currency))}</span>` : ''}</div>
+          </div>
+        `;
+      }).join('') : `<div class="meta">${queryText ? 'No matching player.' : 'Type to search players.'}</div>`;
+      els.donationUserResults.querySelectorAll('[data-donation-uid]').forEach((row) => row.addEventListener('click', () => selectDonationUser(row.dataset.donationUid)));
+    }
+
+    function selectDonationUser(uid) {
+      selectedDonationUid = uid;
+      renderDonationUserResults();
+      renderSelectedDonationUser();
+    }
+
+    function renderSelectedDonationUser() {
+      const user = users[selectedDonationUid];
+      if (!selectedDonationUid || !user) {
+        els.donationSelectedPanel.classList.add('hidden');
+        return;
+      }
+      const name = userName(user, selectedDonationUid);
+      const donation = normalizeDonationEntry(selectedDonationUid, donations[selectedDonationUid] || {});
+      els.donationSelectedPanel.classList.remove('hidden');
+      els.donationSelectedAvatar.innerHTML = userAvatar(user, name);
+      els.donationSelectedName.textContent = name;
+      els.donationSelectedMeta.textContent = `${userPublicLabel(user, selectedDonationUid)} · ${selectedDonationUid}`;
+      els.donationSelectedRole.innerHTML = `<span class="pill blue">${escapeHtml(roleLabel(userRole(user)))}</span><span class="pill">${escapeHtml(userRegion(user))}</span>`;
+      els.donationAmountInput.value = donation.amount > 0 ? String(donation.amount) : '';
+    }
+
+    function renderDonations() {
+      if (!els.donationList) return;
+      renderDonationUserResults();
+      renderSelectedDonationUser();
+      const list = Object.entries(donations || {})
+        .map(([id, data]) => normalizeDonationEntry(id, data))
+        .filter((item) => item.amount > 0)
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 50);
+      els.donationCount.textContent = `${list.length} donor${list.length === 1 ? '' : 's'}`;
+      els.donationList.innerHTML = list.length ? list.map((item, index) => {
+        const user = users[item.uid] || {};
+        const name = item.name || userName(user, item.uid);
+        const avatar = item.photoURL ? `<img src="${escapeAttr(item.photoURL)}" alt="">` : userAvatar(user, name);
+        return `
+          <div class="user-row" data-donation-open="${escapeAttr(item.uid)}">
+            <div class="avatar">${avatar}</div>
+            <div style="min-width:0">
+              <div class="name">#${index + 1} ${escapeHtml(name)}</div>
+              <div class="meta">${escapeHtml(item.userId || userPublicLabel(user, item.uid))}</div>
+              <div class="meta">${escapeHtml(item.uid)}</div>
+            </div>
+            <div class="row end"><span class="pill green">${escapeHtml(formatDonationAmount(item.amount, item.currency))}</span></div>
+          </div>
+        `;
+      }).join('') : '<div class="meta">No donation records yet.</div>';
+      els.donationList.querySelectorAll('[data-donation-open]').forEach((row) => row.addEventListener('click', () => selectDonationUser(row.dataset.donationOpen)));
+    }
+
+    async function saveDonation() {
+      const user = users[selectedDonationUid];
+      if (!selectedDonationUid || !user) {
+        toast('Select a player first.');
+        return;
+      }
+      const amount = Math.max(0, Number(els.donationAmountInput.value || 0));
+      if (!Number.isFinite(amount) || amount <= 0) {
+        toast('Donation amount must be greater than 0.');
+        return;
+      }
+      const currency = 'USD';
+      const name = userName(user, selectedDonationUid);
+      const payload = {
+        uid: selectedDonationUid,
+        name,
+        displayName: name,
+        userId: userPublicLabel(user, selectedDonationUid),
+        photoURL: userPhotoUrl(user),
+        amount,
+        amountUsd: amount,
+        amountUSD: amount,
+        currency,
+        updatedAt: fsServerTimestamp(),
+        updatedAtLocal: Date.now(),
+        updatedBy: currentAdmin.uid
+      };
+      await setDoc(fsDoc(paths.donations, selectedDonationUid), payload, { merge: true });
+      await logAction('save_donation', { uid: selectedDonationUid, amount, currency });
+      toast('Donation saved.');
+    }
+
+    async function deleteDonation() {
+      if (!selectedDonationUid) {
+        toast('Select a donation entry first.');
+        return;
+      }
+      const user = users[selectedDonationUid];
+      const name = userName(user, selectedDonationUid);
+      if (!confirm(`Remove donation entry for ${name}?`)) return;
+      await deleteDoc(fsDoc(paths.donations, selectedDonationUid));
+      await logAction('delete_donation', { uid: selectedDonationUid });
+      toast('Donation removed.');
+    }
+
+    function renderAnnouncements() {
+      const list = Object.entries(latestAnnouncements || {})
+        .map(([id, message]) => ({ id, ...message }))
+        .sort((a, b) => toMillis(b.createdAtLocal || b.createdAt || b.timestamp) - toMillis(a.createdAtLocal || a.createdAt || a.timestamp))
+        .slice(0, 40);
+      els.announcementPreview.innerHTML = list.length ? list.map((message) => `
+        <div class="message-row">
+          <div class="row" style="justify-content:space-between"><strong>${escapeHtml(message.senderName || 'Papiano')}</strong><span class="pill blue">${escapeHtml(formatTime(message.createdAtLocal || message.createdAt || message.timestamp))}</span></div>
+          <div class="meta">${escapeHtml(message.senderUid || 'system')}</div>
+          ${message.text || message.body ? `<div style="margin-top:8px;line-height:1.5">${linkifyText(message.text || message.body || '')}</div>` : ''}
+          ${message.imageURL ? `<img class="message-image" src="${escapeAttr(message.imageURL)}" alt="Announcement image">` : ''}
+        </div>
+      `).join('') : '<div class="meta">No announcement yet.</div>';
+    }
+
+    function renderConfigSwitches() {
+      setToggle(els.maintenanceToggle, Boolean(appConfig.maintenanceMode));
+      setToggle(els.globalFreezeToggle, Boolean(appConfig.globalChatFrozen));
+      setToggle(els.newAccountToggle, Boolean(appConfig.disableNewAccounts));
+      els.maintenanceBtn.classList.toggle('danger', Boolean(appConfig.maintenanceMode));
+    }
+
+    function renderDisabledRooms() {
+      const roomData = appConfig.disabledRooms || {};
+      const entries = Object.entries(roomData).filter(([, data]) => Boolean(data));
+      els.disabledRoomList.innerHTML = entries.length ? entries.map(([roomId, data]) => `
+        <div class="room-row">
+          <div class="row" style="justify-content:space-between"><strong>${escapeHtml(roomId)}</strong><span class="pill red">Disabled</span></div>
+          <div class="meta">${escapeHtml(data.reason || 'No reason')}</div>
+          <div class="meta">${escapeHtml(formatTime(data.updatedAtLocal || data.updatedAt))}</div>
+        </div>
+      `).join('') : '<div class="meta">No disabled rooms.</div>';
+    }
+
+    function setToggle(button, active) {
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+
+    function renderPathFields() {
+      els.pathFields.innerHTML = Object.entries(paths).map(([key, value]) => `
+        <div class="field"><label for="path_${escapeAttr(key)}">${escapeHtml(key)}</label><input id="path_${escapeAttr(key)}" class="input" data-path-key="${escapeAttr(key)}" value="${escapeAttr(value)}"></div>
+      `).join('');
+    }
+
+    function getMultiplayerRoomId() {
+      return normalizePath(els.clearRoomIdInput.value.trim());
+    }
+
+    function renderClearPathPreview() {
+      const roomId = getMultiplayerRoomId();
+      els.clearPathPreview.textContent = `Target: ${roomId ? `${paths.multiplayerRooms}/${roomId}/messages` : `${paths.multiplayerRooms}/{roomId}/messages`}`;
+    }
+
+    async function deleteQuerySnapshot(snapshot) {
+      let batch = writeBatch(fs);
+      let pending = 0;
+      let deleted = 0;
+      const commits = [];
+      snapshot.forEach((item) => {
+        batch.delete(item.ref);
+        pending += 1;
+        deleted += 1;
+        if (pending >= 450) {
+          commits.push(batch.commit());
+          batch = writeBatch(fs);
+          pending = 0;
+        }
+      });
+      if (pending) commits.push(batch.commit());
+      await Promise.all(commits);
+      return deleted;
+    }
+
+    async function markDeletedAccount(uid, reason) {
+      await set(dbRef(`${paths.deletedAccounts}/${uid}`), {
+        uid,
+        deleted: true,
+        reason,
+        deletedBy: currentAdmin.uid,
+        deletedByEmail: currentAdmin.email,
+        deletedAt: serverTimestamp(),
+        deletedAtLocal: Date.now()
+      });
+    }
+
+    async function requireSelectedUser() {
+      if (!selectedUid || !users[selectedUid]) {
+        toast('Select a player first.');
+        return null;
+      }
+      return users[selectedUid];
+    }
+
+    async function applyRoleToUser(uid, roleId) {
+      if (!uid || !users[uid] || !roles[roleId]) {
+        toast('Invalid user or role.');
+        return;
+      }
+      const expiration = uid === selectedUid && els.roleExpireInput.value ? new Date(els.roleExpireInput.value).getTime() : null;
+      await updateProfile(uid, {
+        roleId,
+        badgeId: roleId,
+        roleExpiresAt: expiration,
+        roleGiftedAt: fsServerTimestamp(),
+        roleGiftedAtLocal: Date.now(),
+        roleGiftedBy: currentAdmin.uid
+      });
+      await logAction(roleId === 'common' ? 'revoke_role' : 'gift_role', { uid, roleId, expiration });
+      toast(roleId === 'common' ? 'Role revoked.' : 'Role applied.');
+    }
+
+    async function giftRole() {
+      const user = await requireSelectedUser();
+      if (!user) return;
+      await applyRoleToUser(selectedUid, els.giftRoleSelect.value);
+    }
+
+    async function banSelectedUser() {
+      const user = await requireSelectedUser();
+      if (!user) return;
+      const reason = els.banReasonInput.value.trim() || 'No reason';
+      await updateProfile(selectedUid, { isBanned: true, banned: true, status: 'banned', banReason: reason, bannedAt: fsServerTimestamp(), bannedAtLocal: Date.now(), bannedBy: currentAdmin.uid });
+      await set(dbRef(`${paths.bans}/${selectedUid}`), { uid: selectedUid, reason, bannedAt: serverTimestamp(), bannedAtLocal: Date.now(), bannedBy: currentAdmin.uid, bannedByEmail: currentAdmin.email });
+      await logAction('ban_player', { uid: selectedUid, reason });
+      toast('Player banned.');
+    }
+
+    async function unbanSelectedUser() {
+      const user = await requireSelectedUser();
+      if (!user) return;
+      await updateProfile(selectedUid, { isBanned: false, banned: false, status: 'active', banReason: null, unbannedAt: fsServerTimestamp(), unbannedAtLocal: Date.now(), unbannedBy: currentAdmin.uid });
+      await remove(dbRef(`${paths.bans}/${selectedUid}`));
+      await logAction('unban_player', { uid: selectedUid });
+      toast('Player unbanned.');
+    }
+
+    async function muteSelectedUser() {
+      const user = await requireSelectedUser();
+      if (!user) return;
+      const reason = els.banReasonInput.value.trim() || 'No reason';
+      await updateProfile(selectedUid, { shadowMuted: true, isMuted: true, muteReason: reason, mutedAt: fsServerTimestamp(), mutedAtLocal: Date.now(), mutedBy: currentAdmin.uid });
+      await set(dbRef(`${paths.mutes}/${selectedUid}`), { uid: selectedUid, reason, mutedAt: serverTimestamp(), mutedAtLocal: Date.now(), mutedBy: currentAdmin.uid, mutedByEmail: currentAdmin.email });
+      await logAction('shadow_mute', { uid: selectedUid, reason });
+      toast('Player shadow muted.');
+    }
+
+    async function unmuteSelectedUser() {
+      const user = await requireSelectedUser();
+      if (!user) return;
+      await updateProfile(selectedUid, { shadowMuted: false, isMuted: false, muteReason: null, unmutedAt: fsServerTimestamp(), unmutedAtLocal: Date.now(), unmutedBy: currentAdmin.uid });
+      await remove(dbRef(`${paths.mutes}/${selectedUid}`));
+      await logAction('unmute_player', { uid: selectedUid });
+      toast('Player unmuted.');
+    }
+
+    async function deleteSelectedUserData() {
+      const user = await requireSelectedUser();
+      if (!user) return;
+      if (selectedUid === currentAdmin.uid) {
+        toast('You cannot delete your own admin account data.');
+        return;
+      }
+      if (els.deleteConfirmInput.value.trim() !== 'DELETE USER') {
+        toast('Type DELETE USER to confirm.');
+        return;
+      }
+      const reason = els.deleteReasonInput.value.trim() || 'No reason';
+      const name = userName(user, selectedUid);
+      if (!confirm(`Delete account data for ${name}? This cannot be undone from the panel.`)) return;
+
+      els.deleteUserBtn.disabled = true;
+      try {
+        await markDeletedAccount(selectedUid, reason);
+
+        const friendshipSnap = await getDocs(fsQuery(fsCollection('friendships'), where('users', 'array-contains', selectedUid)));
+        const blockAsOwnerSnap = await getDocs(fsQuery(fsCollection('blocks'), where('blockerId', '==', selectedUid)));
+        const blockAsTargetSnap = await getDocs(fsQuery(fsCollection('blocks'), where('blockedId', '==', selectedUid)));
+        const messageSnap = await getDocs(fsQuery(collectionGroup(fs, 'messages'), where('senderId', '==', selectedUid)));
+
+        const deletedFriendships = await deleteQuerySnapshot(friendshipSnap);
+        const deletedBlocksOwner = await deleteQuerySnapshot(blockAsOwnerSnap);
+        const deletedBlocksTarget = await deleteQuerySnapshot(blockAsTargetSnap);
+        const deletedMessages = await deleteQuerySnapshot(messageSnap);
+
+        const batch = writeBatch(fs);
+        batch.delete(fsDoc(paths.users, selectedUid));
+        batch.delete(fsDoc(paths.donations, selectedUid));
+        await batch.commit();
+
+        await Promise.all([
+          remove(dbRef(`${paths.bans}/${selectedUid}`)),
+          remove(dbRef(`${paths.mutes}/${selectedUid}`))
+        ]);
+
+        await logAction('delete_player_data', {
+          uid: selectedUid,
+          reason,
+          deletedFriendships,
+          deletedBlocks: deletedBlocksOwner + deletedBlocksTarget,
+          deletedMessages
+        });
+
+        selectedUid = '';
+        els.deleteConfirmInput.value = '';
+        els.deleteReasonInput.value = '';
+        renderAll();
+        toast('Player data deleted.');
+      } catch (error) {
+        toast(error.message || 'Delete failed.');
+      } finally {
+        els.deleteUserBtn.disabled = false;
+      }
+    }
+
+    async function createRole() {
+      const label = els.roleLabelInput.value.trim();
+      const id = slugifyRole(els.roleIdInput.value || label);
+      if (!id || !label) {
+        toast('Role ID and display name required.');
+        return;
+      }
+      const permissions = getCheckedPermissions();
+      await set(dbRef(`${paths.roles}/${id}`), { label, rarity: els.roleRaritySelect.value, color: els.roleColorInput.value, permissions, createdAt: serverTimestamp(), createdAtLocal: Date.now(), updatedBy: currentAdmin.uid });
+      selectedRoleId = id;
+      await logAction('save_role', { id, label, permissions });
+      toast('Role saved.');
+    }
+
+
+    async function deleteSelectedRole() {
+      const roleId = selectedRoleId || slugifyRole(els.roleIdInput.value);
+      if (!roleId || !roles[roleId]) {
+        toast('Select a role first.');
+        return;
+      }
+      if (roleId === 'common') {
+        toast('Default role cannot be deleted.');
+        return;
+      }
+      const role = roles[roleId];
+      const holders = Object.entries(users || {}).filter(([, user]) => userRole(user) === roleId);
+      const ok = confirm(`Delete role "${role.label || roleId}"? ${holders.length} holder(s) will be reset to PLAYER.`);
+      if (!ok) return;
+      await Promise.all(holders.map(([uid]) => updateProfile(uid, {
+        roleId: 'common',
+        badgeId: 'common',
+        roleExpiresAt: null,
+        roleRevokedAt: fsServerTimestamp(),
+        roleRevokedAtLocal: Date.now(),
+        roleRevokedBy: currentAdmin.uid
+      })));
+      await remove(dbRef(`${paths.roles}/${roleId}`));
+      selectedRoleId = 'common';
+      els.roleLabelInput.value = '';
+      els.roleIdInput.value = '';
+      setCheckedPermissions(permissionPresets.clear);
+      await logAction('delete_role', { roleId, holders: holders.length });
+      toast('Role deleted.');
+    }
+
+    function resetAnnouncementImage() {
+      selectedAnnouncementImage = null;
+      if (selectedAnnouncementPreviewUrl) URL.revokeObjectURL(selectedAnnouncementPreviewUrl);
+      selectedAnnouncementPreviewUrl = '';
+      els.announcementImageInput.value = '';
+      els.announcementImagePreview.classList.remove('active');
+      els.announcementPreviewImage.removeAttribute('src');
+      els.announcementPreviewName.textContent = '';
+    }
+
+    function handleAnnouncementImageChange() {
+      const file = els.announcementImageInput.files?.[0] || null;
+      if (!file) {
+        resetAnnouncementImage();
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        toast('Announcement image must be an image file.');
+        resetAnnouncementImage();
+        return;
+      }
+      if (file.size > 4 * 1024 * 1024) {
+        toast('Image max size is 4 MB.');
+        resetAnnouncementImage();
+        return;
+      }
+      if (selectedAnnouncementPreviewUrl) URL.revokeObjectURL(selectedAnnouncementPreviewUrl);
+      selectedAnnouncementImage = file;
+      selectedAnnouncementPreviewUrl = URL.createObjectURL(file);
+      els.announcementPreviewImage.src = selectedAnnouncementPreviewUrl;
+      els.announcementPreviewName.textContent = `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+      els.announcementImagePreview.classList.add('active');
+    }
+
+    function safeStorageSegment(value, fallback = 'image') {
+      const clean = String(value || fallback).trim().toLowerCase().replace(/[^a-z0-9_.-]+/g, '_').replace(/_+/g, '_').slice(-90);
+      return clean || fallback;
+    }
+
+    function getImageExtension(file) {
+      const typeExt = String(file?.type || '').split('/')[1] || '';
+      return typeExt.replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '').toLowerCase() || 'jpg';
+    }
+
+    async function uploadAnnouncementImage(file) {
+      if (!file) return { imageURL: '', imagePath: '', imageBucket: '' };
+      if (!/^image\//i.test(file.type || '')) throw new Error('Announcement image must be an image file.');
+      const bucket = 'chat-images';
+      const ext = getImageExtension(file);
+      const safeName = safeStorageSegment(file.name || `announcement.${ext}`);
+      const safeAdmin = safeStorageSegment(currentAdmin?.uid || 'admin');
+      const imagePath = `${safeAdmin}/announcements/announcement_${Date.now()}_${safeName}`;
+      const { error } = await supabaseStorage.storage.from(bucket).upload(imagePath, file, {
+        cacheControl: '3600',
+        contentType: file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
+        upsert: false
+      });
+      if (error) throw error;
+      const { data } = supabaseStorage.storage.from(bucket).getPublicUrl(imagePath);
+      if (!data?.publicUrl) throw new Error('Announcement image upload failed.');
+      return { imageURL: data.publicUrl, imagePath, imageBucket: bucket };
+    }
+
+    async function sendAnnouncement() {
+      const text = els.announcementText.value.trim();
+      const file = selectedAnnouncementImage;
+      if (!text && !file) {
+        toast('Announcement needs text or image.');
+        return;
+      }
+      els.sendAnnouncementBtn.disabled = true;
+      try {
+        const roomId = 'group_announcements';
+        const uploaded = await uploadAnnouncementImage(file);
+        const lastMessage = text || (uploaded.imageURL ? 'Photo announcement' : '');
+        await setDoc(fsDoc(paths.chatRooms, roomId), {
+          type: 'group',
+          roomKey: 'announcements',
+          historyVisible: true,
+          lastMessage,
+          lastSenderId: currentAdmin.uid,
+          updatedAt: fsServerTimestamp()
+        }, { merge: true });
+        await addDoc(fsCollection(paths.chatRooms, roomId, 'messages'), {
+          senderId: currentAdmin.uid,
+          senderName: currentAdmin.displayName || 'Papiano Owner',
+          senderUserId: 'OWNER',
+          senderPhotoURL: currentAdmin.photoURL || '',
+          senderBadgeId: 'moderator',
+          text,
+          imageURL: uploaded.imageURL,
+          imagePath: uploaded.imagePath,
+          imageBucket: uploaded.imageBucket,
+          replyTo: null,
+          hiddenFor: [],
+          createdAt: fsServerTimestamp(),
+          createdAtLocal: Date.now(),
+          updatedAt: fsServerTimestamp()
+        });
+        els.announcementText.value = '';
+        resetAnnouncementImage();
+        await logAction('send_announcement', { length: text.length, hasImage: Boolean(uploaded.imageURL), imageBucket: uploaded.imageBucket || '' });
+        toast('Announcement sent.');
+      } finally {
+        els.sendAnnouncementBtn.disabled = false;
+      }
+    }
+
+    async function clearAnnouncements() {
+      if (!confirm('Clear all announcements?')) return;
+      const deleted = await deleteRoomMessages(paths.chatRooms, 'group_announcements');
+      await logAction('clear_announcements', { deleted });
+      toast(`Announcements cleared: ${deleted}`);
+    }
+
+    async function setGlobalChatDisabled(disabled) {
+      const roomId = 'group_global';
+      const reason = els.globalReasonInput.value.trim() || 'No reason';
+      if (disabled) {
+        await set(dbRef(`${paths.disabledRooms}/${roomId}`), { disabled: true, type: 'globalChat', reason, updatedAt: serverTimestamp(), updatedAtLocal: Date.now(), updatedBy: currentAdmin.uid });
+        await setDoc(fsDoc(paths.chatRooms, roomId), { disabled: true, disabledReason: reason, disabledAt: fsServerTimestamp(), disabledBy: currentAdmin.uid, updatedAt: fsServerTimestamp() }, { merge: true });
+        await logAction('disable_global_chat', { roomId, reason });
+        toast('Global Chat disabled.');
+        return;
+      }
+      await remove(dbRef(`${paths.disabledRooms}/${roomId}`));
+      await setDoc(fsDoc(paths.chatRooms, roomId), { disabled: false, disabledReason: null, enabledAt: fsServerTimestamp(), enabledBy: currentAdmin.uid, updatedAt: fsServerTimestamp() }, { merge: true });
+      await logAction('enable_global_chat', { roomId });
+      toast('Global Chat enabled.');
+    }
+
+    async function setRoomDisabled(disabled) {
+      const roomId = els.roomIdInput.value.trim();
+      if (!roomId) {
+        toast('Room ID required.');
+        return;
+      }
+      const reason = els.roomReasonInput.value.trim() || 'No reason';
+      if (disabled) {
+        await set(dbRef(`${paths.disabledRooms}/${roomId}`), { disabled: true, reason, updatedAt: serverTimestamp(), updatedAtLocal: Date.now(), updatedBy: currentAdmin.uid });
+        await update(dbRef(`${paths.rooms}/${roomId}`), { disabled: true, disabledReason: reason, disabledAt: serverTimestamp(), disabledAtLocal: Date.now(), disabledBy: currentAdmin.uid });
+        await setDoc(fsDoc(paths.multiplayerRooms, roomId), { disabled: true, disabledReason: reason, disabledAt: fsServerTimestamp(), disabledBy: currentAdmin.uid, updatedAt: fsServerTimestamp() }, { merge: true });
+        await logAction('disable_multiplayer_room', { roomId, reason });
+        toast('Room disabled.');
+        return;
+      }
+      await remove(dbRef(`${paths.disabledRooms}/${roomId}`));
+      await update(dbRef(`${paths.rooms}/${roomId}`), { disabled: false, disabledReason: null, enabledAt: serverTimestamp(), enabledAtLocal: Date.now(), enabledBy: currentAdmin.uid });
+      await setDoc(fsDoc(paths.multiplayerRooms, roomId), { disabled: false, disabledReason: null, enabledAt: fsServerTimestamp(), enabledBy: currentAdmin.uid, updatedAt: fsServerTimestamp() }, { merge: true });
+      await logAction('enable_multiplayer_room', { roomId });
+      toast('Room enabled.');
+    }
+
+    async function deleteRoomMessages(collectionRoot, roomId) {
+      const snapshot = await getDocs(fsCollection(collectionRoot, roomId, 'messages'));
+      let batch = writeBatch(fs);
+      let pending = 0;
+      let deleted = 0;
+      const commits = [];
+      snapshot.forEach((item) => {
+        batch.delete(item.ref);
+        pending += 1;
+        deleted += 1;
+        if (pending >= 450) {
+          commits.push(batch.commit());
+          batch = writeBatch(fs);
+          pending = 0;
+        }
+      });
+      if (pending) commits.push(batch.commit());
+      await Promise.all(commits);
+      await setDoc(fsDoc(collectionRoot, roomId), {
+        lastMessage: '',
+        clearedAt: fsServerTimestamp(),
+        clearedBy: currentAdmin.uid,
+        updatedAt: fsServerTimestamp()
+      }, { merge: true });
+      return deleted;
+    }
+
+    async function clearGlobalChat() {
+      if (els.clearGlobalConfirmInput.value.trim() !== 'CLEAR GLOBAL') {
+        toast('Type CLEAR GLOBAL to confirm.');
+        return;
+      }
+      const deleted = await deleteRoomMessages(paths.chatRooms, 'group_global');
+      await logAction('clear_global_chat', { roomId: 'group_global', deleted });
+      els.clearGlobalConfirmInput.value = '';
+      toast(`Global Chat cleared: ${deleted} messages`);
+    }
+
+    async function clearChat() {
+      const roomId = getMultiplayerRoomId();
+      if (!roomId) {
+        toast('Multiplayer Room ID required.');
+        return;
+      }
+      if (els.clearConfirmInput.value.trim() !== 'CLEAR ROOM') {
+        toast('Type CLEAR ROOM to confirm.');
+        return;
+      }
+      const deleted = await deleteRoomMessages(paths.multiplayerRooms, roomId);
+      await logAction('clear_multiplayer_room', { roomId, deleted });
+      els.clearConfirmInput.value = '';
+      toast(`Multiplayer room cleared: ${deleted} messages`);
+    }
+
+    function getMessageControlTarget() {
+      const source = els.chatMessageSource.value;
+      const rawRoomId = normalizePath(els.chatMessageRoomId.value.trim());
+      if (source === 'global') return { source, collectionRoot: paths.chatRooms, roomId: 'group_global' };
+      if (source === 'multiplayerRoom') return { source, collectionRoot: paths.multiplayerRooms, roomId: rawRoomId };
+      return { source, collectionRoot: paths.chatRooms, roomId: rawRoomId };
+    }
+
+    function renderMessageTargetPreview() {
+      if (els.chatMessageSource.value === 'global') {
+        els.chatMessageRoomId.value = 'group_global';
+      }
+      const target = getMessageControlTarget();
+      els.chatMessageTargetPreview.textContent = target.roomId ? `${target.collectionRoot}/${target.roomId}/messages` : `${target.collectionRoot}/{roomId}/messages`;
+    }
+
+    function renderMessageControlList(target = getMessageControlTarget()) {
+      const list = Object.entries(latestMessageControlMessages || {})
+        .map(([id, message]) => ({ id, ...message }))
+        .sort((a, b) => toMillis(b.createdAtLocal || b.createdAt || b.timestamp) - toMillis(a.createdAtLocal || a.createdAt || a.timestamp))
+        .slice(0, 80);
+      els.chatMessageList.innerHTML = list.length ? list.map((message) => {
+        const sender = message.senderName || message.displayName || message.name || message.senderId || 'Unknown';
+        const body = message.text || message.body || message.message || '';
+        return `
+          <div class="message-row">
+            <div class="row" style="justify-content:space-between">
+              <strong>${escapeHtml(sender)}</strong>
+              <span class="pill blue">${escapeHtml(formatTime(message.createdAtLocal || message.createdAt || message.timestamp))}</span>
+            </div>
+            <div class="meta">${escapeHtml(message.senderId || message.senderUid || 'system')} · ${escapeHtml(message.id)}</div>
+            ${body ? `<div style="margin-top:8px;line-height:1.5">${linkifyText(body)}</div>` : ''}
+            ${message.imageURL ? `<img class="message-image" src="${escapeAttr(message.imageURL)}" alt="Message image">` : ''}
+            <div class="row end" style="margin-top:10px">
+              <button class="btn danger small" data-delete-message="${escapeAttr(message.id)}" data-root="${escapeAttr(target.collectionRoot)}" data-room="${escapeAttr(target.roomId)}"><span class="material-symbols-rounded">delete</span>Delete Message</button>
+            </div>
+          </div>
+        `;
+      }).join('') : '<div class="meta">Load a room to inspect recent messages.</div>';
+    }
+
+    function loadChatMessages() {
+      const target = getMessageControlTarget();
+      if (!target.roomId) {
+        toast('Room ID required.');
+        return;
+      }
+      if (activeMessageControlUnsubscribe) {
+        activeMessageControlUnsubscribe();
+        activeMessageControlUnsubscribe = null;
+      }
+      const source = fsQuery(fsCollection(target.collectionRoot, target.roomId, 'messages'), orderBy('createdAt', 'desc'), fsLimit(80));
+      activeMessageControlUnsubscribe = onSnapshot(source, (snapshot) => {
+        const messages = {};
+        snapshot.forEach((item) => {
+          messages[item.id] = { id: item.id, ...item.data() };
+        });
+        latestMessageControlMessages = messages;
+        renderMessageControlList(target);
+      }, (error) => toast(error.message));
+      toast('Message control loaded.');
+    }
+
+    async function deleteControlledMessage(button) {
+      const messageId = button.dataset.deleteMessage;
+      const collectionRoot = button.dataset.root;
+      const roomId = button.dataset.room;
+      if (!messageId || !collectionRoot || !roomId) {
+        toast('Message target is invalid.');
+        return;
+      }
+      if (!confirm('Delete this message?')) return;
+      button.disabled = true;
+      try {
+        await deleteDoc(fsDoc(collectionRoot, roomId, 'messages', messageId));
+        await logAction('delete_chat_message', { collectionRoot, roomId, messageId });
+        toast('Message deleted.');
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function toggleConfig(key, value) {
+      await update(dbRef(paths.appConfig), { [key]: value, updatedAt: serverTimestamp(), updatedAtLocal: Date.now(), updatedBy: currentAdmin.uid });
+      await logAction('toggle_config', { key, value });
+    }
+
+    function savePaths() {
+      const next = { ...paths };
+      els.pathFields.querySelectorAll('[data-path-key]').forEach((input) => {
+        next[input.dataset.pathKey] = normalizePath(input.value || defaultPaths[input.dataset.pathKey] || input.dataset.pathKey);
+      });
+      paths = next;
+      localStorage.setItem('papianoAdminPaths', JSON.stringify(paths));
+      toast('Paths saved.');
+      loadInitialData();
+    }
+
+    async function login() {
+      try {
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        toast(error.message);
+      }
+    }
+
+    async function refreshAll() {
+      await loadInitialData();
+      toast('Panel refreshed.');
+    }
+
+    function bindEvents() {
+      els.loginBtn.addEventListener('click', login);
+      els.logoutBtn.addEventListener('click', () => signOut(auth));
+      els.refreshBtn.addEventListener('click', refreshAll);
+      els.maintenanceBtn.addEventListener('click', () => toggleConfig('maintenanceMode', !Boolean(appConfig.maintenanceMode)));
+      els.maintenanceToggle.addEventListener('click', () => toggleConfig('maintenanceMode', !Boolean(appConfig.maintenanceMode)));
+      els.globalFreezeToggle.addEventListener('click', () => toggleConfig('globalChatFrozen', !Boolean(appConfig.globalChatFrozen)));
+      els.newAccountToggle.addEventListener('click', () => toggleConfig('disableNewAccounts', !Boolean(appConfig.disableNewAccounts)));
+      els.playerSearch.addEventListener('input', renderPlayers);
+      els.playerRoleFilter.addEventListener('change', renderPlayers);
+      els.playerStatusFilter.addEventListener('change', renderPlayers);
+      els.playerSortSelect.addEventListener('change', renderPlayers);
+      els.giftRoleBtn.addEventListener('click', giftRole);
+      els.copyUidBtn.addEventListener('click', async () => {
+        if (!selectedUid) return;
+        await navigator.clipboard.writeText(selectedUid);
+        toast('UID copied.');
+      });
+      els.banBtn.addEventListener('click', banSelectedUser);
+      els.unbanBtn.addEventListener('click', unbanSelectedUser);
+      els.muteBtn.addEventListener('click', muteSelectedUser);
+      els.unmuteBtn.addEventListener('click', unmuteSelectedUser);
+      els.deleteUserBtn.addEventListener('click', deleteSelectedUserData);
+      els.roleLabelInput.addEventListener('input', () => {
+        if (!els.roleIdInput.value.trim()) els.roleIdInput.value = slugifyRole(els.roleLabelInput.value);
+      });
+      document.querySelectorAll('[data-permission-preset]').forEach((button) => {
+        button.addEventListener('click', () => setCheckedPermissions(permissionPresets[button.dataset.permissionPreset] || []));
+      });
+      els.createRoleBtn.addEventListener('click', createRole);
+      els.deleteRoleBtn.addEventListener('click', deleteSelectedRole);
+      els.roleUserSearch.addEventListener('input', renderRoleSearchResults);
+      els.refreshRoleMembersBtn.addEventListener('click', renderRoleDetail);
+      els.donationUserSearch.addEventListener('input', renderDonationUserResults);
+      els.saveDonationBtn.addEventListener('click', saveDonation);
+      els.deleteDonationBtn.addEventListener('click', deleteDonation);
+      els.announcementImageInput.addEventListener('change', handleAnnouncementImageChange);
+      els.removeAnnouncementImageBtn.addEventListener('click', resetAnnouncementImage);
+      els.sendAnnouncementBtn.addEventListener('click', sendAnnouncement);
+      els.clearAnnouncementBtn.addEventListener('click', clearAnnouncements);
+      els.disableGlobalChatBtn.addEventListener('click', () => setGlobalChatDisabled(true));
+      els.enableGlobalChatBtn.addEventListener('click', () => setGlobalChatDisabled(false));
+      els.clearGlobalChatBtn.addEventListener('click', clearGlobalChat);
+      els.disableRoomBtn.addEventListener('click', () => setRoomDisabled(true));
+      els.enableRoomBtn.addEventListener('click', () => setRoomDisabled(false));
+      els.clearRoomIdInput.addEventListener('input', renderClearPathPreview);
+      els.clearChatBtn.addEventListener('click', clearChat);
+      els.chatMessageSource.addEventListener('change', renderMessageTargetPreview);
+      els.chatMessageRoomId.addEventListener('input', renderMessageTargetPreview);
+      els.loadChatMessagesBtn.addEventListener('click', loadChatMessages);
+      els.chatMessageList.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-delete-message]');
+        if (button) deleteControlledMessage(button);
+      });
+      els.savePathsBtn.addEventListener('click', savePaths);
+      els.sidebar.addEventListener('click', (event) => {
+        const button = event.target.closest('.nav-btn');
+        if (!button) return;
+        document.querySelectorAll('.nav-btn').forEach((item) => item.classList.remove('active'));
+        document.querySelectorAll('.page').forEach((page) => page.classList.remove('active'));
+        button.classList.add('active');
+        $(button.dataset.page).classList.add('active');
+      });
+    }
+
+    bindEvents();
+    renderPathFields();
+    renderAdminEmailList();
+    renderPermissionGrid();
+    setCheckedPermissions(permissionPresets.clear);
+    renderClearPathPreview();
+    renderMessageTargetPreview();
+
+    onAuthStateChanged(auth, async (user) => {
+      resetSubscriptions();
+      currentAdmin = null;
+      if (!user) {
+        setGate();
+        return;
+      }
+      if (!isOwner(user)) {
+        await signOut(auth);
+        setGate('Access denied.');
+        return;
+      }
+      currentAdmin = user;
+      setApp(user);
+      await loadInitialData();
+      await logAction('admin_login');
+    });
+  </script>
+</body>
+</html>
