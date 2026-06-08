@@ -1,6 +1,7 @@
 # Papiano
 
-Online piano for phone touch, MIDI controller, and QWERTY keyboard. Built with SoundFont instruments, falling notes, chord detection, profiles, chat, and multiplayer.
+Online piano for phone touch, MIDI controller, and QWERTY keyboard.
+Built with SoundFont instruments, falling notes, chord detection, profiles, chat, and multiplayer.
 
 **Live:** https://papiano.fun
 
@@ -10,19 +11,27 @@ Online piano for phone touch, MIDI controller, and QWERTY keyboard. Built with S
 
 ```
 Papiano/
-├── index.html              # Main app (Solo Piano, Chat, Account)
-├── multiplayer.html        # Multiplayer mode (rooms, live play)
-├── adminpanel.html         # Admin panel (moderation, roles, donations)
+│
+├── index.html                  ← Main app (Solo Piano, Chat, Account)
+├── multiplayer.html            ← Multiplayer mode (rooms, live play)
+├── adminpanel.html             ← Admin panel (moderation, roles, donations)
+│
 ├── api/
-│   └── admin.js            # Vercel serverless function (Firebase Admin SDK)
-├── vercel.json             # Vercel deployment config
-├── package.json            # Dependencies (firebase-admin)
-├── stamp-version.js        # Build script — writes version.json
-├── version.json            # Auto-generated build version
-├── firestore-rules.txt     # Firestore security rules (paste in Firebase Console)
-├── rtdb-rules.txt          # Realtime Database rules (paste in Firebase Console)
-└── supabase-storage-rules.txt  # Supabase Storage policies
+│   ├── admin.js                ← Vercel serverless function (Firebase Admin SDK)
+│   └── README.md               ← API documentation
+│
+├── rules/
+│   ├── firestore-rules.txt     ← Firestore security rules
+│   ├── rtdb-rules.txt          ← Realtime Database rules
+│   └── supabase-storage-rules.txt  ← Supabase Storage policies
+│
+├── vercel.json                 ← Vercel deployment config
+├── package.json                ← Dependencies (firebase-admin)
+├── stamp-version.js            ← Build script (writes version.json)
+└── version.json                ← Auto-generated build version
 ```
+
+---
 
 ## Tech Stack
 
@@ -34,35 +43,56 @@ Papiano/
 | Storage | Supabase Storage |
 | Server Functions | Vercel Serverless (Node.js) |
 | Icons | Material Symbols Rounded (Google Fonts CDN) |
-| Fonts | Inter, Plus Jakarta Sans, Space Grotesk, Bricolage Grotesque, Anybody |
 
-## Admin API
+---
 
-Server endpoint at `/api/admin` for operations requiring Firebase Admin SDK:
+## Pages
 
-- **assign-role** — set user roles
-- **ban-user** — disable auth + flag profile
-- **unban-user** — re-enable auth
-- **delete-user** — full data removal
-- **approve-donation** — write verified donation
-- **set-claim** — set Firebase Auth custom claims
+| File | URL | Description |
+|---|---|---|
+| `index.html` | `/` | Main app — piano, chat, account |
+| `multiplayer.html` | `/multiplayer` | Multiplayer rooms |
+| `adminpanel.html` | `/adminpanel` | Admin moderation panel |
 
-See [`api/README.md`](api/README.md) for full docs.
+---
 
-## Environment Variables (Vercel)
+## Admin API (`/api/admin`)
+
+Server endpoint for operations requiring Firebase Admin SDK (bypasses rules):
+
+| Action | Description |
+|---|---|
+| `assign-role` | Set user roles |
+| `ban-user` | Disable auth + flag profile |
+| `unban-user` | Re-enable auth |
+| `delete-user` | Full data removal |
+| `approve-donation` | Write verified donation |
+| `set-claim` | Set Firebase Auth custom claims |
+
+See [`api/README.md`](api/README.md) for usage.
+
+---
+
+## Environment Variables (Vercel Dashboard)
 
 | Variable | Description |
 |---|---|
 | `FIREBASE_SERVICE_ACCOUNT` | Firebase service account JSON |
 | `PAPIANO_ADMIN_SECRET` | Secret token for admin API auth |
 
+---
+
 ## Security Rules
 
-Rules files are reference copies — deploy by pasting into respective consoles:
+Reference files in `rules/` folder — deploy by copy-pasting into respective consoles:
 
-- `firestore-rules.txt` → Firebase Console → Firestore → Rules
-- `rtdb-rules.txt` → Firebase Console → Realtime Database → Rules
-- `supabase-storage-rules.txt` → Supabase Dashboard → Storage → Policies
+| File | Deploy to |
+|---|---|
+| `rules/firestore-rules.txt` | Firebase Console → Firestore → Rules |
+| `rules/rtdb-rules.txt` | Firebase Console → Realtime Database → Rules |
+| `rules/supabase-storage-rules.txt` | Supabase Dashboard → Storage → Policies |
+
+---
 
 ## License
 
