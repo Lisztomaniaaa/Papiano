@@ -1,58 +1,44 @@
 // ══════════════════════════════════════════════════════════════════════
-// FIRESTORE SECURITY RULES — Papiano (Hybrid: client + server)
+// FIRESTORE SECURITY RULES — Papiano
 // Deploy: Firebase Console → Firestore → Rules → Paste → Publish
 //
-// Client CAN write (with validation). Server API also works (bypasses rules).
-// Migration to server-only will be done per-feature over time.
+// Safe but not restrictive. Require auth for all operations.
+// Protect admin-only fields (ownedRoles, banned). Everything else open.
 // ══════════════════════════════════════════════════════════════════════
 
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── HELPER FUNCTIONS ───
     function isAuth() {
       return request.auth != null;
     }
     function isOwner(uid) {
       return isAuth() && request.auth.uid == uid;
     }
-    function noSpam(seconds) {
-      return !exists(resource) || resource.data.updatedAt == null
-        || request.time > resource.data.updatedAt + duration.value(seconds, 's');
-    }
 
     // ─── PROFILES ───
     match /profiles/{uid} {
       allow read: if isAuth();
-
-      allow create: if isOwner(uid)
-        && request.resource.data.name is string
-        && request.resource.data.name.size() <= 24;
-
+      allow create: if isOwner(uid);
       allow update: if isOwner(uid)
         && (!('ownedRoles' in request.resource.data) || request.resource.data.ownedRoles == resource.data.ownedRoles)
         && (!('banned' in request.resource.data) || request.resource.data.banned == resource.data.banned)
         && (!('isBanned' in request.resource.data) || request.resource.data.isBanned == resource.data.isBanned);
-
       allow delete: if isOwner(uid);
 
       match /reactions/{voterId} {
         allow read: if isAuth();
-        allow write: if isAuth() && request.auth.uid == voterId;
-        allow delete: if isAuth() && request.auth.uid == voterId;
+        allow write, delete: if isAuth() && request.auth.uid == voterId;
       }
     }
 
     // ─── COUNTERS ───
     match /counters/{counterId} {
-      allow read: if isAuth();
-      allow write: if isAuth()
-        && request.resource.data.next is number
-        && request.resource.data.next > 0;
+      allow read, write: if isAuth();
     }
 
-    // ─── DONATIONS (server-only) ───
+    // ─── DONATIONS (server-only write) ───
     match /donations/{donationId} {
       allow read: if isAuth();
       allow write: if false;
@@ -60,80 +46,43 @@ service cloud.firestore {
 
     // ─── FRIENDSHIPS ───
     match /friendships/{pairId} {
-      allow read: if isAuth()
-        && (request.auth.uid in resource.data.users
-            || request.auth.uid == resource.data.receiverId
-            || request.auth.uid == resource.data.requesterId);
-
-      allow create: if isAuth()
-        && request.auth.uid == request.resource.data.requesterId
-        && request.auth.uid in request.resource.data.users
-        && request.resource.data.status == 'pending'
-        && request.resource.data.users.size() == 2;
-
-      allow update: if isAuth()
-        && request.auth.uid in resource.data.users;
-
-      allow delete: if isAuth()
-        && request.auth.uid in resource.data.users;
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
     }
 
     // ─── BLOCKS ───
     match /blocks/{blockId} {
-      allow read: if isAuth()
-        && (request.auth.uid == resource.data.blockerId || request.auth.uid == resource.data.blockedId);
-
-      allow create: if isAuth()
-        && request.auth.uid == request.resource.data.blockerId
-        && request.resource.data.blockedId is string;
-
-      allow delete: if isAuth()
-        && request.auth.uid == resource.data.blockerId;
-
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow delete: if isAuth();
       allow update: if false;
     }
 
     // ─── CHAT ROOMS ───
     match /chatRooms/{roomId} {
-      allow read: if isAuth()
-        && (resource.data.type == 'group'
-            || request.auth.uid in resource.data.participants);
-
+      allow read: if isAuth();
       allow create: if isAuth();
-      allow update: if isAuth()
-        && (resource.data.type == 'group'
-            || request.auth.uid in resource.data.participants);
+      allow update: if isAuth();
 
       match /messages/{messageId} {
         allow read: if isAuth();
-
         allow create: if isAuth()
-          && request.resource.data.senderId == request.auth.uid
-          && request.resource.data.text is string
-          && request.resource.data.text.size() <= 500;
-
-        allow update: if isAuth()
-          && (resource.data.senderId == request.auth.uid
-              || request.auth.uid in request.resource.data.hiddenFor);
-
+          && request.resource.data.senderId == request.auth.uid;
+        allow update: if isAuth();
         allow delete: if false;
       }
     }
 
     // ─── REPORTS ───
     match /reports/{reportId} {
-      allow read: if isAuth() && request.auth.uid == resource.data.reporterId;
-
-      allow create: if isAuth()
-        && request.auth.uid == request.resource.data.reporterId
-        && request.resource.data.targetId is string
-        && request.resource.data.reason is string
-        && request.resource.data.reason.size() <= 500;
-
+      allow read: if isAuth();
+      allow create: if isAuth();
       allow update, delete: if false;
     }
 
-    // ─── CATCH-ALL ───
+    // ─── CATCH-ALL: deny unauthenticated ───
     match /{document=**} {
       allow read, write: if false;
     }
