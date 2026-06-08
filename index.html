@@ -1160,25 +1160,25 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         }
 
         if (!currentUser?.uid || !currentProfile) return;
-        // Forced syncs (sign-out, tab hidden, page unload) always write.
-        // Periodic background syncs are throttled to every 30 seconds.
-        if (!syncRemote) {
-            if (now - playTimeRemoteSyncedAt < PLAYTIME_REMOTE_SYNC_MS) return;
-        }
+        // Always sync to remote every interval — no daily gate, no excessive throttle
+        if (!syncRemote && now - playTimeRemoteSyncedAt < PLAYTIME_REMOTE_SYNC_MS) return;
 
+        const seconds = Math.max(0, Math.floor(Number(currentProfile.playTimeSeconds) || 0));
         playTimeRemoteSyncedAt = now;
         firestoreDb.collection('profiles').doc(currentUser.uid).set({
-            playTimeSeconds: Math.max(0, Math.floor(Number(currentProfile.playTimeSeconds) || 0)),
-            playTime: formatPlayTime(currentProfile.playTimeSeconds),
+            playTimeSeconds: seconds,
+            playTime: formatPlayTime(seconds),
             playTimeLeaderboardUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true }).then(markPlayTimeSyncedToday).catch(() => {});
+        }, { merge: true }).catch(() => {});
     }
 
     function startPlayTimeTracker() {
         currentProfile = normalizeProfile(currentUser?.uid || loadProfile().uid || '', currentProfile || loadProfile());
         if (!playTimeStartedAt) playTimeStartedAt = Date.now();
         clearInterval(playTimeTimer);
+        // Immediate remote sync on start so Firestore is never behind
+        persistPlayTime(true);
         playTimeTimer = setInterval(() => persistPlayTime(false), PLAYTIME_LOCAL_SYNC_MS);
         startPlayTimeDisplayTicker();
     }
@@ -1874,24 +1874,28 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     function renderLiveLeaderboard() {
         const target = document.getElementById('leaderboardPlayTimeList');
         if (!target || target.style.display === 'none') return;
-        if (!leaderboardRemoteRows.length && !currentUser?.uid) {
-            target.innerHTML = '<div class="leaderboard-empty">No play time records yet.</div>';
-            return;
-        }
 
         const liveSeconds = getLivePlayTimeSeconds();
-        // Merge: replace current user's remote row with live data, or inject if not present
+
+        // Start from remote snapshot, always merge current user's live time
         let rows = leaderboardRemoteRows.map(row => {
             if (currentUser?.uid && row.uid === currentUser.uid) {
-                return { ...row, playTimeSeconds: liveSeconds };
+                return { ...row, playTimeSeconds: Math.max(row.playTimeSeconds, liveSeconds) };
             }
             return row;
         });
 
-        // If current user is not in top list, inject them
-        const userInList = rows.some(r => r.uid === currentUser?.uid);
-        if (currentUser?.uid && !userInList && currentProfile) {
-            rows.push({ ...currentProfile, playTimeSeconds: liveSeconds });
+        // If current user is not in remote list at all, inject them
+        if (currentUser?.uid && currentProfile) {
+            const userInList = rows.some(r => r.uid === currentUser.uid);
+            if (!userInList) {
+                rows.push({ ...currentProfile, playTimeSeconds: liveSeconds });
+            }
+        }
+
+        if (!rows.length) {
+            target.innerHTML = '<div class="leaderboard-empty">No play time records yet.</div>';
+            return;
         }
 
         // Re-sort by playTimeSeconds descending, take top limit
