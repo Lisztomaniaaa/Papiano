@@ -129,7 +129,7 @@ function containsProfanity(text) {
  * Params: { roomId, text, replyTo? }
  * Server-validated, rate-limited message send.
  */
-async function sendMessage(user, { roomId, text, replyTo }, res) {
+async function sendMessage(user, { roomId, text, replyTo, imageURL }, res) {
   if (!roomId || !text) return res.status(400).json({ error: 'Missing roomId or text' });
   if (typeof text !== 'string' || text.length > 500) return res.status(400).json({ error: 'Text too long (max 500)' });
   if (text.trim().length === 0) return res.status(400).json({ error: 'Empty message' });
@@ -159,16 +159,34 @@ async function sendMessage(user, { roomId, text, replyTo }, res) {
     return res.status(400).json({ error: 'Message contains inappropriate content.' });
   }
 
+  // Get sender profile for message metadata
+  const senderProfile = profileSnap.exists ? profileSnap.data() : {};
+
   // Write message
   const message = {
     senderId: user.uid,
+    senderName: senderProfile.name || 'Papiano User',
+    senderUserId: senderProfile.userId || '',
+    senderPhotoURL: senderProfile.photoURL || '',
+    senderBadgeId: senderProfile.roleId || senderProfile.badgeId || 'common',
     text: text.trim(),
+    imageURL: imageURL || '',
+    hiddenFor: [],
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    createdAtLocal: Date.now()
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
   };
   if (replyTo) message.replyTo = replyTo;
 
   const ref = await firestore.collection('chatRooms').doc(roomId).collection('messages').add(message);
+
+  // Update room metadata (last message, unread counts)
+  const roomUpdate = {
+    lastMessage: text.trim() || 'Photo',
+    lastSenderId: user.uid,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+  await firestore.collection('chatRooms').doc(roomId).set(roomUpdate, { merge: true });
+
   return res.json({ success: true, messageId: ref.id });
 }
 

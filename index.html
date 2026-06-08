@@ -310,6 +310,23 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     const tabPages = ['pageHome', 'pageChat', 'pageAccount'];
     let currentActiveTabIndex = 0;
     let nativeBackGuardReady = false;
+    // ─── SERVER API HELPER ───
+    // All write operations go through backend for security
+    async function apiCall(endpoint, action, params = {}) {
+        const token = currentUser ? await firebaseAuth.currentUser.getIdToken() : null;
+        const res = await fetch(`/api/${endpoint}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ action, ...params })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
+        return data;
+    }
+
     const storageKey = 'papiano_profile_cache_v2';
     const firebaseConfig = {
         apiKey: "AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY",
@@ -1153,12 +1170,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             currentProfile.playTime = formatPlayTime(seconds);
         }
         saveProfile(currentProfile);
-        firestoreDb.collection('profiles').doc(currentUser.uid).set({
-            playTimeSeconds: seconds,
-            playTime: formatPlayTime(seconds),
-            playTimeLeaderboardUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true }).catch(() => {});
+        apiCall('playtime', 'update', { seconds }).catch(() => {});
     }
 
     function startPlayTimeTracker() {
@@ -1552,7 +1564,13 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             updatedAt: currentUser?.uid ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
         };
         try {
-            if (currentUser?.uid) await firestoreDb.collection('profiles').doc(currentUser.uid).set(profile, { merge: true });
+            if (currentUser?.uid) await apiCall('profile', 'update', {
+                name: cleanName,
+                desc: cleanDesc,
+                roleId: safeRoleId,
+                photoURL: formInputPhotoUrl?.value || '',
+                countryCode: cleanCountry
+            });
             // Re-attach the cached ownedRoles locally so updateProfileView still
             // shows the right options after save (until next snapshot).
             currentProfile = normalizeProfile(profileUid, { ...profile, ownedRoles: cached.ownedRoles });
@@ -2393,14 +2411,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
                 showToast(status === 'accepted' ? 'Already friends.' : 'Request already sent.');
                 return;
             }
-            await ref.set({
-                users: [currentUser.uid, targetUid],
-                requesterId: currentUser.uid,
-                receiverId: targetUid,
-                status: 'pending',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            await apiCall('friends', 'send-request', { targetId: targetUid });
             searchProfiles.delete(targetUid);
             renderFriendRows();
         } catch (error) {
@@ -2994,54 +3005,17 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
                 showToast('Private chat is blocked.');
                 return;
             }
-            const profile = loadProfile();
-            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
-            const messageRef = roomRef.collection('messages').doc();
-            await messageRef.set({
-                senderId: currentUser.uid,
-                senderName: profile.name || 'Papiano User',
-                senderUserId: profile.userId || '',
-                senderPhotoURL: profile.photoURL || '',
-                senderBadgeId: profile.roleId || profile.badgeId || 'common',
+            await apiCall('chat', 'send-message', {
+                roomId: activeChatRoomId,
                 text,
                 imageURL: pendingChatImageData || '',
-                imagePath: pendingChatImagePath || '',
                 replyTo: activeReplyMessage ? {
                     messageId: activeReplyMessage.id || '',
                     senderId: activeReplyMessage.senderId || '',
                     senderName: activeReplyMessage.senderName || 'User',
-                    text: activeReplyMessage.text || '',
-                    imageURL: activeReplyMessage.imageURL || ''
-                } : null,
-                hiddenFor: [],
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    text: activeReplyMessage.text || ''
+                } : null
             });
-            const roomUpdate = {
-                type: activeChatRoomType || 'group',
-                participants: activeChatRoomType === 'dm' ? [currentUser.uid, activeChatTargetUid] : [],
-                lastMessage: text || 'Photo',
-                lastSenderId: currentUser.uid,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            if (activeChatRoomType === 'dm' && activeChatTargetUid) {
-                // Sending a message revives the chat for BOTH participants:
-                // - sender obviously wants to chat now
-                // - receiver should see the new message in their folder/list
-                // This is gated by hasBlockBetween earlier in this function and the
-                // friendship check in openDirectRoom, so blocked/unfriended pairs
-                // can't reach here. State preservation for unblock case is therefore
-                // safe (they can't open chat to send anything).
-                roomUpdate.hiddenFolderFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
-                roomUpdate.clearedBy = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
-                roomUpdate.blockedFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
-                roomUpdate[`unreadCount.${activeChatTargetUid}`] = firebase.firestore.FieldValue.increment(1);
-                roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
-            }
-            if (activeChatRoomType === 'group') {
-                roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
-            }
-            await roomRef.set(roomUpdate, { merge: true });
             if (chatInputFieldMessage) { chatInputFieldMessage.value = ''; autoGrowChatInput(chatInputFieldMessage); }
             cancelActiveReplyState();
             clearPendingChatImage();
@@ -3280,18 +3254,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             // Delete ALL messages in the DM (same as block)
             await purgeDirectRoomMessages(dmId);
 
-            // Remove friendship + hide folder + mark cleared on my side
-            const batch = firestoreDb.batch();
-            batch.delete(firestoreDb.collection('friendships').doc(pairId));
-            batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
-                clearedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                hiddenFolderFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                [`unreadCount.${currentUser.uid}`]: 0,
-                lastMessage: '',
-                lastSenderId: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            await batch.commit();
+            await apiCall('friends', 'unfriend', { targetId: targetUid });
 
             // Local state
             const oldProfile = friendProfiles.get(targetUid) || activeFriendProfileData || normalizeProfile(targetUid, {});
@@ -3324,26 +3287,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             await purgeDirectRoomMessages(dmId);
 
             // Commit the block + friendship removal + room cleanup
-            const batch = firestoreDb.batch();
-            const pairId = buildPairId(currentUser.uid, targetUid);
-            batch.delete(firestoreDb.collection('friendships').doc(pairId));
-            const blockId = `${currentUser.uid}_${targetUid}`;
-            batch.set(firestoreDb.collection('blocks').doc(blockId), {
-                blockerId: currentUser.uid,
-                blockedId: targetUid,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
-                type: 'dm',
-                participants,
-                clearedBy: firebase.firestore.FieldValue.arrayUnion(...participants),
-                blockedFor: firebase.firestore.FieldValue.arrayUnion(...participants),
-                hiddenFolderFor: firebase.firestore.FieldValue.arrayUnion(...participants),
-                lastMessage: '',
-                lastSenderId: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            await batch.commit();
+            await apiCall('moderate', 'block-user', { targetId: targetUid });
 
             // Immediately update local state
             blockedUserIds.add(targetUid);
@@ -3376,16 +3320,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         try {
             const blockId = `${currentUser.uid}_${targetUid}`;
             const dmId = getDirectRoomId(currentUser.uid, targetUid);
-            const batch = firestoreDb.batch();
-            // Only remove the block. Keep hiddenFolderFor & clearedBy intact so the
-            // chat folder stays cleared after unblock (user must add friend / start
-            // a new chat to bring it back).
-            batch.delete(firestoreDb.collection('blocks').doc(blockId));
-            batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
-                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            await batch.commit();
+            await apiCall('moderate', 'unblock-user', { targetId: targetUid });
             blockedUserIds.delete(targetUid);
             blockedProfiles.delete(targetUid);
             // Make sure the DM doesn't reappear in the chat list locally
@@ -3491,12 +3426,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
                 closeReportModal();
                 return;
             }
-            await reportRef.set({
-                reporterId: currentUser.uid,
-                targetId: activeFriendProfileKey,
-                reason,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            await apiCall('moderate', 'report-user', { targetId: activeFriendProfileKey, reason });
             showToast('Report submitted. Thank you.');
             closeReportModal();
         } catch (error) {

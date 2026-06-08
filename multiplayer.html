@@ -11837,6 +11837,22 @@ midiBtn.onclick = (e) => {
     const ROOM_PLAYER_STALE_MS = 90000;
     const ROOM_HEARTBEAT_MS = 20000;
     const FIREBASE_ROOT = 'papianoOnlineBeta';
+
+    // Server API helper for secure operations
+    async function mpApiCall(endpoint, action, params = {}) {
+        const token = mpFirebaseAuth ? await mpFirebaseAuth.currentUser?.getIdToken() : null;
+        const res = await fetch('/api/' + endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
+            body: JSON.stringify({ action, ...params })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Server error ' + res.status);
+        return data;
+    }
     let mpHistoryArmed = false;
     let leaveConfirmSource = null;
     let firebaseReady = false;
@@ -13378,14 +13394,7 @@ midiBtn.onclick = (e) => {
                 showToast(status === 'accepted' ? 'Already friends.' : 'Request already sent.', { type:'info', title:'Friends' });
                 return;
             }
-            await fsApi.setDoc(ref, {
-                users:[mpSelfId, id],
-                requesterId:mpSelfId,
-                receiverId:id,
-                status:'pending',
-                createdAt:fsApi.serverTimestamp(),
-                updatedAt:fsApi.serverTimestamp()
-            });
+            await mpApiCall('friends', 'send-request', { targetId: id });
             showToast('Friend request sent.', { type:'success', title:'Friends' });
             syncFriendAction(player);
         }catch(e){
