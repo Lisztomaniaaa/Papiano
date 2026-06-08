@@ -1,0 +1,134 @@
+-- ══════════════════════════════════════════════════════════════════════
+-- SUPABASE STORAGE RLS POLICIES — Papiano
+-- Deploy: Supabase Dashboard → SQL Editor → New Query → Paste → Run
+-- Project: yddzwxmzxdagiltrjmgc
+-- ══════════════════════════════════════════════════════════════════════
+
+-- Enable RLS on storage.objects (biasanya sudah enabled)
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- ═══════════════════════════════════════════
+-- AVATARS BUCKET
+-- ═══════════════════════════════════════════
+
+-- Siapa aja bisa LIHAT avatar (public read untuk display di app)
+CREATE POLICY "Avatar public read"
+ON storage.objects FOR SELECT
+USING (bucket_id = 'avatars');
+
+-- Hanya authenticated user bisa UPLOAD ke folder profile/{uid}/*
+CREATE POLICY "Avatar upload own folder"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'avatars'
+  AND auth.uid() IS NOT NULL
+  AND (storage.foldername(name))[1] = 'profile'
+  AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+-- Hanya owner bisa UPDATE/REPLACE file di folder mereka
+CREATE POLICY "Avatar update own"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'avatars'
+  AND auth.uid() IS NOT NULL
+  AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+-- Hanya owner bisa DELETE file di folder mereka
+CREATE POLICY "Avatar delete own"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'avatars'
+  AND auth.uid() IS NOT NULL
+  AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+-- ═══════════════════════════════════════════
+-- CHAT IMAGES BUCKET
+-- ═══════════════════════════════════════════
+
+-- Authenticated user bisa LIHAT chat images
+CREATE POLICY "Chat images auth read"
+ON storage.objects FOR SELECT
+USING (
+  bucket_id = 'chat-images'
+  AND auth.uid() IS NOT NULL
+);
+
+-- Authenticated user bisa UPLOAD ke folder chat/{uid}/*
+CREATE POLICY "Chat images upload own folder"
+ON storage.objects FOR INSERT
+WITH CHECK (
+  bucket_id = 'chat-images'
+  AND auth.uid() IS NOT NULL
+  AND (storage.foldername(name))[1] = 'chat'
+  AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+-- Owner bisa UPDATE file sendiri
+CREATE POLICY "Chat images update own"
+ON storage.objects FOR UPDATE
+USING (
+  bucket_id = 'chat-images'
+  AND auth.uid() IS NOT NULL
+  AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+-- Owner bisa DELETE file sendiri
+CREATE POLICY "Chat images delete own"
+ON storage.objects FOR DELETE
+USING (
+  bucket_id = 'chat-images'
+  AND auth.uid() IS NOT NULL
+  AND (storage.foldername(name))[2] = auth.uid()::text
+);
+
+-- ═══════════════════════════════════════════
+-- BUCKET SETTINGS (set manually in Dashboard)
+-- ═══════════════════════════════════════════
+--
+-- Dashboard → Storage → Buckets → Click bucket → Settings:
+--
+-- avatars:
+--   Max file size: 2MB (2097152 bytes)
+--   Allowed MIME types: image/jpeg, image/png, image/webp
+--
+-- chat-images:
+--   Max file size: 5MB (5242880 bytes)
+--   Allowed MIME types: image/jpeg, image/png, image/webp, image/gif
+--
+-- ═══════════════════════════════════════════
+-- NOTES
+-- ═══════════════════════════════════════════
+--
+-- 1. auth.uid() di Supabase RLS merujuk ke Firebase Auth UID
+--    HANYA jika lu pakai custom JWT / auth integration.
+--    Kalau Supabase Storage client lu pakai anon key tanpa JWT,
+--    auth.uid() akan NULL dan semua policy BLOCK.
+--
+-- 2. Pastikan client lu pass Firebase token ke Supabase:
+--    const { data } = await supabase.storage
+--      .from('avatars')
+--      .upload(`profile/${uid}/avatar.jpg`, file);
+--
+-- 3. Folder structure harus match:
+--    avatars:     profile/{uid}/filename.ext
+--    chat-images: chat/{uid}/filename.ext
+--
+-- 4. Kalau lu TIDAK pakai Supabase Auth (hanya pakai anon key),
+--    maka RLS policies di atas TIDAK akan work karena auth.uid() = NULL.
+--    Dalam kasus itu, lu perlu salah satu:
+--    a) Setup Supabase Auth ↔ Firebase Auth bridge (custom JWT)
+--    b) Atau buat policies berdasarkan path pattern saja:
+--
+--       CREATE POLICY "Authenticated upload by path"
+--       ON storage.objects FOR INSERT
+--       WITH CHECK (
+--         bucket_id = 'avatars'
+--         AND (storage.foldername(name))[1] = 'profile'
+--         AND length((storage.foldername(name))[2]) > 0
+--       );
+--
+--    Tapi ini kurang secure (user bisa upload ke folder orang lain).
+--    Rekomendasi: setup JWT integration atau pindah ke Firebase Storage.
