@@ -11865,8 +11865,8 @@ midiBtn.onclick = (e) => {
     let friendsUnsubscribe = null;
     let roomsUnsubscribe = null;
     let usersUnsubscribe = null;
-    const MP_PLAYTIME_LOCAL_MS = 30000;
-    const MP_PLAYTIME_REMOTE_MS = 5 * 60 * 1000;
+    const MP_PLAYTIME_LOCAL_MS = 10000;
+    const MP_PLAYTIME_REMOTE_MS = 30000;
     let mpPlayTimeStartedAt = 0;
     let mpPlayTimePending = 0;
     let mpPlayTimeBaseSeconds = 0;
@@ -12554,8 +12554,8 @@ midiBtn.onclick = (e) => {
         if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return;
         if(mpPlayTimePending <= 0) return;
         const now = Date.now();
-        // Forced flushes (tab hidden, sign-out, page unload) always write so the
-        // session is not lost. Background flushes are throttled to every 5 minutes.
+        // Forced flushes (tab hidden, sign-out, page unload) always write.
+        // Background flushes are throttled to every 30 seconds.
         if(!syncRemote){
             if(now - mpPlayTimeRemoteSyncedAt < MP_PLAYTIME_REMOTE_MS) return;
         }

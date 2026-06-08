@@ -443,8 +443,8 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     let unsubscribeLeaderboardDonation = null;
     const MESSAGE_COOLDOWN_MS = 800;
     const LEADERBOARD_VISIBLE_LIMIT = 10;
-    const PLAYTIME_LOCAL_SYNC_MS = 30000;
-    const PLAYTIME_REMOTE_SYNC_MS = 5 * 60 * 1000;
+    const PLAYTIME_LOCAL_SYNC_MS = 10000;
+    const PLAYTIME_REMOTE_SYNC_MS = 30000;
     const AUTH_TEST_UNLOCK = false;
     const ANNOUNCEMENT_OWNER_EMAILS = new Set(['akunpolos0444000@gmail.com', 'papianobase@gmail.com']);
 
@@ -1149,7 +1149,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
 
         if (!currentUser?.uid || !currentProfile) return;
         // Forced syncs (sign-out, tab hidden, page unload) always write.
-        // Periodic background syncs are throttled to every 5 minutes.
+        // Periodic background syncs are throttled to every 30 seconds.
         if (!syncRemote) {
             if (now - playTimeRemoteSyncedAt < PLAYTIME_REMOTE_SYNC_MS) return;
         }
@@ -1778,12 +1778,12 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             .orderBy('playTimeSeconds', 'desc')
             .limit(LEADERBOARD_VISIBLE_LIMIT)
             .onSnapshot(snapshot => {
-                const rows = snapshot.docs.map(doc => normalizeProfile(doc.id, doc.data() || {}));
-                renderLeaderboardRows('leaderboardPlayTimeList', rows, 'playtime');
-                startLeaderboardLiveTicker(rows);
+                leaderboardRemoteRows = snapshot.docs.map(doc => normalizeProfile(doc.id, doc.data() || {}));
+                renderLiveLeaderboard();
             }, error => {
                 renderLeaderboardError('leaderboardPlayTimeList', 'Play time leaderboard is unavailable right now.');
             });
+        startLeaderboardLiveTicker();
     }
 
     function subscribeDonationLeaderboard() {
@@ -1846,36 +1846,60 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     }
 
     let leaderboardLiveTicker = null;
-    let leaderboardCachedRows = [];
+    let leaderboardRemoteRows = [];
 
-    function startLeaderboardLiveTicker(rows) {
-        leaderboardCachedRows = rows;
+    function startLeaderboardLiveTicker() {
         clearInterval(leaderboardLiveTicker);
-        leaderboardLiveTicker = setInterval(updateLeaderboardLiveRow, 1000);
+        leaderboardLiveTicker = setInterval(renderLiveLeaderboard, 1000);
     }
 
     function stopLeaderboardLiveTicker() {
         clearInterval(leaderboardLiveTicker);
         leaderboardLiveTicker = null;
-        leaderboardCachedRows = [];
     }
 
-    function updateLeaderboardLiveRow() {
-        if (!currentUser?.uid || !playTimeStartedAt || document.hidden) return;
+    // Renders leaderboard with current user's live time merged in, re-sorted
+    function renderLiveLeaderboard() {
         const target = document.getElementById('leaderboardPlayTimeList');
         if (!target || target.style.display === 'none') return;
-        const liveSeconds = getLivePlayTimeSeconds();
-        const scoreEls = target.querySelectorAll('.leaderboard-row');
-        // Find current user's row and update its score in place
-        let found = false;
-        for (let i = 0; i < leaderboardCachedRows.length && i < scoreEls.length; i++) {
-            if (leaderboardCachedRows[i].uid === currentUser.uid) {
-                const scoreEl = scoreEls[i]?.querySelector('.leaderboard-score');
-                if (scoreEl) scoreEl.textContent = formatPlayTime(liveSeconds);
-                found = true;
-                break;
-            }
+        if (!leaderboardRemoteRows.length && !currentUser?.uid) {
+            target.innerHTML = '<div class="leaderboard-empty">No play time records yet.</div>';
+            return;
         }
+
+        const liveSeconds = getLivePlayTimeSeconds();
+        // Merge: replace current user's remote row with live data, or inject if not present
+        let rows = leaderboardRemoteRows.map(row => {
+            if (currentUser?.uid && row.uid === currentUser.uid) {
+                return { ...row, playTimeSeconds: liveSeconds };
+            }
+            return row;
+        });
+
+        // If current user is not in top list, inject them
+        const userInList = rows.some(r => r.uid === currentUser?.uid);
+        if (currentUser?.uid && !userInList && currentProfile) {
+            rows.push({ ...currentProfile, playTimeSeconds: liveSeconds });
+        }
+
+        // Re-sort by playTimeSeconds descending, take top limit
+        rows.sort((a, b) => b.playTimeSeconds - a.playTimeSeconds);
+        rows = rows.slice(0, LEADERBOARD_VISIBLE_LIMIT);
+
+        target.innerHTML = rows.map((item, index) => {
+            const avatar = item.photoURL ? `<img src="${escapeHtml(item.photoURL)}" alt="">` : escapeHtml(getInitials(item.name));
+            const idLabel = item.userId || (item.publicId ? formatPublicUserId(item.publicId) : 'Papiano Player');
+            const score = formatPlayTime(item.playTimeSeconds);
+            const isMe = currentUser?.uid && item.uid === currentUser.uid;
+            return `
+                <div class="leaderboard-row${isMe ? ' leaderboard-row-me' : ''}">
+                    <div class="leaderboard-rank">#${index + 1}</div>
+                    <div class="leaderboard-avatar">${avatar}</div>
+                    <div class="leaderboard-name"><strong>${escapeHtml(item.name || 'Papiano User')}</strong><span>${escapeHtml(idLabel)}</span></div>
+                    <div class="leaderboard-score">${escapeHtml(score)}</div>
+                </div>
+            `;
+        }).join('');
     }
 
     function getLivePlayTimeSeconds() {
@@ -2163,6 +2187,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         unsubscribeLeaderboardPlayTime = null;
         unsubscribeLeaderboardDonation = null;
         stopLeaderboardLiveTicker();
+        leaderboardRemoteRows = [];
     }
 
     function stopCommunityListeners() {
