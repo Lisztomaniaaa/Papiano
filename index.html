@@ -382,21 +382,28 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     // Persisted to localStorage so a read room's badge does NOT reappear after
     // a page refresh (the previous in-memory-only version lost this on reload,
     // which is why the unread badge kept coming back).
-    const LOCAL_READ_STORE_KEY = 'papiano_locally_read_rooms_v1';
+    const LOCAL_READ_STORE_KEY_PREFIX = 'papiano_locally_read_rooms_';
+    function getLocalReadStoreKey() {
+        const uid = currentUser?.uid || '';
+        return uid ? `${LOCAL_READ_STORE_KEY_PREFIX}${uid}` : 'papiano_locally_read_rooms_v1';
+    }
     function loadLocallyReadRooms() {
         try {
-            const raw = localStorage.getItem(LOCAL_READ_STORE_KEY);
+            const raw = localStorage.getItem(getLocalReadStoreKey());
             const obj = raw ? JSON.parse(raw) : {};
             return new Map(Object.entries(obj).map(([k, v]) => [k, Number(v) || 0]));
         } catch (e) { return new Map(); }
     }
-    const locallyReadRooms = loadLocallyReadRooms();
+    let locallyReadRooms = loadLocallyReadRooms();
     function persistLocallyReadRooms() {
         try {
             const obj = {};
             locallyReadRooms.forEach((v, k) => { obj[k] = v; });
-            localStorage.setItem(LOCAL_READ_STORE_KEY, JSON.stringify(obj));
+            localStorage.setItem(getLocalReadStoreKey(), JSON.stringify(obj));
         } catch (e) {}
+    }
+    function reloadLocallyReadRooms() {
+        locallyReadRooms = loadLocallyReadRooms();
     }
     function markRoomLocallyRead(roomId) {
         if (!roomId) return;
@@ -539,15 +546,17 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         appContainer.classList.remove('auth-pending');
         mainAppScreen.classList.add('active');
         updateProfileView(loadProfile());
-        startPlayTimeTracker();
-        startCarousel();
-        setupTopBarAutoHide();
-        updateHomeTopBarVisibility();
-        if (currentUser?.uid) startCommunityListeners();
-        else {
+        if (currentUser?.uid) {
+            startPlayTimeTracker();
+            startCommunityListeners();
+        } else {
+            pausePlayTimeTracker(false);
             stopCommunityListeners();
             stopLeaderboardListeners();
         }
+        startCarousel();
+        setupTopBarAutoHide();
+        updateHomeTopBarVisibility();
     }
 
     function showLoginScreen() {
@@ -1088,10 +1097,11 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         // Firestore is the source of truth for play time.
         // Set serverBaseSeconds from the authoritative Firestore value.
         serverBaseSeconds = Math.max(0, Number(currentProfile.playTimeSeconds) || 0);
+        // Reload per-user read markers so badge logic uses correct data
+        reloadLocallyReadRooms();
         saveProfile(currentProfile);
         updateProfileView(currentProfile);
         closeAuthEntryPopup();
-        openMainApp();
         detectAndSaveCountry(user.uid); // fire-and-forget, silent fail
         return currentProfile;
     }
@@ -2187,6 +2197,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         unsubscribeLeaderboardDonation = null;
         stopLeaderboardLiveTicker();
         leaderboardRemoteRows = [];
+        leaderboardProfiles.clear();
     }
 
     function stopCommunityListeners() {
@@ -2208,6 +2219,9 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         blockedUserIds.clear();
         blockedProfiles.clear();
         searchProfiles.clear();
+        messageProfiles.clear();
+        activeMessagesCache.clear();
+        leaderboardProfiles.clear();
         cachedRequestDocs = [];
         updatePrivateUnreadBadge(0);
         updateFriendRequestBadge(0);
@@ -3682,17 +3696,17 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
                     await ensureUserProfile(user);
                     startRoleRegistryListener();
                     startDeletedAccountWatcher(user.uid);
-                    openMainApp();
-                    navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
                 } catch (error) {
-                    showToast('Couldn’t load your profile.');
+                    showToast('Could not load your profile. Please refresh.');
                 }
+                openMainApp();
+                navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
                 return;
             }
 
             accessSessionActive = true;
             currentUser = null;
-            currentProfile = loadProfile();
+            currentProfile = null;
             openMainApp();
         });
     }
