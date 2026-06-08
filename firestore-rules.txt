@@ -1,0 +1,181 @@
+// ══════════════════════════════════════════════════════════════════════
+// FIRESTORE SECURITY RULES — Papiano
+// Deploy: Firebase Console → Firestore → Rules → Paste → Publish
+// ══════════════════════════════════════════════════════════════════════
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── HELPER FUNCTIONS ───
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+    function isAnnouncementOwner() {
+      return isAuth() && request.auth.token.email in ['akunpolos0444000@gmail.com', 'papianobase@gmail.com'];
+    }
+    function incomingData() {
+      return request.resource.data;
+    }
+    function existingData() {
+      return resource.data;
+    }
+    // Rate limit: max 1 write per N seconds (uses write time)
+    function noSpam(seconds) {
+      return !exists(resource) || resource.data.updatedAt == null
+        || request.time > resource.data.updatedAt + duration.value(seconds, 's');
+    }
+
+    // ─── PROFILES ───
+    match /profiles/{uid} {
+      // Anyone authenticated can read profiles (search, leaderboard, hydrate)
+      allow read: if isAuth();
+
+      // Owner can create their own profile
+      allow create: if isOwner(uid)
+        && incomingData().name is string
+        && incomingData().name.size() <= 24
+        && incomingData().searchName is string
+        && incomingData().searchName.size() <= 24
+        && (!('desc' in incomingData()) || incomingData().desc.size() <= 160)
+        && (!('photoURL' in incomingData()) || incomingData().photoURL.size() <= 512)
+        && (!('countryCode' in incomingData()) || incomingData().countryCode.size() <= 2);
+
+      // Owner can update their own profile, but CANNOT modify ownedRoles
+      allow update: if isOwner(uid)
+        && (!('ownedRoles' in request.resource.data) || request.resource.data.ownedRoles == resource.data.ownedRoles)
+        && incomingData().name is string
+        && incomingData().name.size() <= 24
+        && (!('desc' in incomingData()) || incomingData().desc.size() <= 160)
+        && (!('photoURL' in incomingData()) || incomingData().photoURL.size() <= 512)
+        && (!('countryCode' in incomingData()) || incomingData().countryCode.size() <= 2)
+        && (!('playTimeSeconds' in incomingData()) || incomingData().playTimeSeconds is number);
+
+      // Owner can delete their own profile
+      allow delete: if isOwner(uid);
+
+      // Reactions sub-collection (likes/dislikes)
+      match /reactions/{voterId} {
+        allow read: if isAuth();
+        // Voter can only write/delete their own reaction doc
+        allow write: if isAuth() && request.auth.uid == voterId
+          && (!('type' in incomingData()) || incomingData().type in ['like', 'dislike'])
+          && noSpam(2);
+        allow delete: if isAuth() && request.auth.uid == voterId;
+      }
+    }
+
+    // ─── COUNTERS (auto-increment publicId) ───
+    match /counters/{counterId} {
+      // Only authenticated users can read/write during profile creation transaction
+      allow read: if isAuth();
+      // Only allow incrementing `next` field
+      allow write: if isAuth()
+        && incomingData().next is number
+        && incomingData().next > 0;
+    }
+
+    // ─── DONATIONS (read-only for clients) ───
+    match /donations/{donationId} {
+      allow read: if isAuth();
+      allow write: if false; // Admin/server only
+    }
+
+    // ─── FRIENDSHIPS ───
+    match /friendships/{pairId} {
+      // Both users in the friendship can read
+      allow read: if isAuth() && request.auth.uid in resource.data.users;
+
+      // Requester can create a pending friendship
+      allow create: if isAuth()
+        && request.auth.uid == incomingData().requesterId
+        && request.auth.uid in incomingData().users
+        && incomingData().status == 'pending'
+        && incomingData().users.size() == 2
+        && incomingData().createdAt == request.time;
+
+      // Receiver can accept (update status to 'accepted')
+      allow update: if isAuth()
+        && request.auth.uid == existingData().receiverId
+        && incomingData().status == 'accepted';
+
+      // Either participant can delete (unfriend/reject)
+      allow delete: if isAuth() && request.auth.uid in resource.data.users;
+    }
+
+    // ─── BLOCKS ───
+    match /blocks/{blockId} {
+      // Blocker or blocked user can read (to check block status)
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.blockerId || request.auth.uid == resource.data.blockedId);
+
+      // Only the blocker can create
+      allow create: if isAuth()
+        && request.auth.uid == incomingData().blockerId
+        && incomingData().blockedId is string
+        && incomingData().blockedId.size() > 0;
+
+      // Only the blocker can delete (unblock)
+      allow delete: if isAuth() && request.auth.uid == resource.data.blockerId;
+
+      allow update: if false;
+    }
+
+    // ─── CHAT ROOMS ───
+    match /chatRooms/{roomId} {
+      // Participants can read
+      allow read: if isAuth()
+        && (resource.data.type == 'group'
+            || request.auth.uid in resource.data.participants);
+
+      // Authenticated users can create/update rooms they participate in
+      allow create: if isAuth();
+      allow update: if isAuth()
+        && (resource.data.type == 'group'
+            || request.auth.uid in resource.data.participants);
+
+      // Messages sub-collection
+      match /messages/{messageId} {
+        // Participants can read messages
+        allow read: if isAuth();
+
+        // Authenticated users can create messages (rate limited)
+        allow create: if isAuth()
+          && incomingData().senderId == request.auth.uid
+          && incomingData().text is string
+          && incomingData().text.size() <= 500
+          && noSpam(1);
+
+        // Sender can edit/hide their own messages
+        allow update: if isAuth()
+          && (resource.data.senderId == request.auth.uid
+              || request.auth.uid in incomingData().hiddenFor);
+
+        allow delete: if false; // Use soft-delete (deletedForAll)
+      }
+    }
+
+    // ─── REPORTS ───
+    match /reports/{reportId} {
+      // Reporter can read their own report
+      allow read: if isAuth() && request.auth.uid == resource.data.reporterId;
+
+      // Anyone authenticated can create (one per target)
+      allow create: if isAuth()
+        && request.auth.uid == incomingData().reporterId
+        && incomingData().targetId is string
+        && incomingData().reason is string
+        && incomingData().reason.size() <= 500;
+
+      allow update, delete: if false;
+    }
+
+    // ─── CATCH-ALL: deny everything else ───
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

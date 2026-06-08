@@ -1,0 +1,164 @@
+// ══════════════════════════════════════════════════════════════════════
+// REALTIME DATABASE SECURITY RULES — Papiano
+// Deploy: Firebase Console → Realtime Database → Rules → Paste → Publish
+// Project: papianoverse
+// DB URL: https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app
+// ══════════════════════════════════════════════════════════════════════
+
+{
+  "rules": {
+
+    // ─── ROLE REGISTRY (admin-managed, read-only for clients) ───
+    "roles": {
+      ".read": "auth != null",
+      ".write": false
+    },
+
+    // ─── DELETED ACCOUNTS ───
+    "deletedAccounts": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('roles').child(auth.uid).exists())",
+        // Owner can self-delete, admin can moderate
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['deleted', 'deletedAt'])"
+      }
+    },
+
+    // ─── MULTIPLAYER ROOT ───
+    "papianoOnlineBeta": {
+
+      // ─── USERS (online presence + profile info) ───
+      "users": {
+        ".read": "auth != null",
+        "$uid": {
+          // Only the user themselves can write their own data
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['id', 'name', 'online'])"
+        }
+      },
+
+      // ─── ROOMS ───
+      "rooms": {
+        ".read": "auth != null",
+        "$roomId": {
+          // Authenticated users can create rooms
+          ".write": "auth != null",
+          ".validate": "newData.hasChildren(['id', 'name', 'ownerUid', 'max', 'createdAt'])",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length <= 32"
+          },
+          "max": {
+            ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 6"
+          },
+          // NOTE: password is readable by all authenticated users.
+          // For true private rooms, move password validation to a Cloud Function.
+          "password": {
+            ".validate": "newData.isString() && newData.val().length <= 64"
+          }
+        }
+      },
+
+      // ─── ROOM PLAYERS ───
+      "roomPlayers": {
+        ".read": "auth != null",
+        "$roomId": {
+          "$playerId": {
+            // Player can write their own entry, room owner can remove (kick)
+            ".write": "auth != null && (auth.uid === $playerId || data.parent().parent().child('rooms').child($roomId).child('ownerUid').val() === auth.uid)",
+            ".validate": "newData.hasChildren(['id', 'name', 'seat', 'lastSeen'])",
+            "seat": {
+              ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 6"
+            }
+          }
+        }
+      },
+
+      // ─── ROOM SEATS (transaction-based claiming) ───
+      "roomSeats": {
+        ".read": "auth != null",
+        "$roomId": {
+          "$seatNumber": {
+            ".write": "auth != null",
+            ".validate": "!data.exists() || data.child('uid').val() === auth.uid || newData.val() === null"
+          }
+        }
+      },
+
+      // ─── ROOM SEAT CLAIMS (per-player) ───
+      "roomSeatClaims": {
+        ".read": "auth != null",
+        "$roomId": {
+          "$playerId": {
+            ".write": "auth != null && auth.uid === $playerId",
+            ".validate": "newData.hasChildren(['uid', 'seat']) || newData.val() === null"
+          }
+        }
+      },
+
+      // ─── OWNER ROOMS (one room per user) ───
+      "ownerRooms": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid",
+          ".validate": "newData.hasChildren(['roomId', 'ownerUid']) || newData.val() === null"
+        }
+      },
+
+      // ─── ROOM SLOTS (room number reservation) ───
+      "roomSlots": {
+        ".read": "auth != null",
+        "$number": {
+          ".write": "auth != null",
+          // Only claim if unclaimed or I own it
+          ".validate": "(!data.exists() || data.child('ownerUid').val() === auth.uid || newData.val() === null)"
+        }
+      },
+
+      // ─── MESSAGES (multiplayer room chat) ───
+      "messages": {
+        ".read": "auth != null",
+        "$roomId": {
+          "$messageId": {
+            ".write": "auth != null",
+            ".validate": "newData.hasChildren(['playerId', 'text', 'createdAt'])",
+            "playerId": {
+              ".validate": "newData.val() === auth.uid"
+            },
+            "text": {
+              ".validate": "newData.isString() && newData.val().length <= 500"
+            }
+          },
+          // Room owner can delete all messages (room cleanup)
+          ".write": "auth != null && (!data.exists() || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid)"
+        }
+      },
+
+      // ─── STREAMS (piano note events) ───
+      "streams": {
+        ".read": "auth != null",
+        "$roomId": {
+          "$playerId": {
+            // Only the player themselves can write their stream
+            ".write": "auth != null && auth.uid === $playerId"
+          },
+          // Room owner can delete all streams (cleanup)
+          ".write": "auth != null && (!data.exists() || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid)"
+        }
+      },
+
+      // ─── MODERATION (ban/mute per room) ───
+      "moderation": {
+        ".read": "auth != null",
+        "$roomId": {
+          "$playerId": {
+            // Only room owner can moderate
+            ".write": "auth != null && root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['banned']) || newData.hasChildren(['muteChat']) || newData.hasChildren(['muteInstrument'])"
+          },
+          // Room owner can delete all moderation (cleanup)
+          ".write": "auth != null && root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid"
+        }
+      }
+    }
+  }
+}
