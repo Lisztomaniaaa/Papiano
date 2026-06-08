@@ -12576,17 +12576,16 @@ midiBtn.onclick = (e) => {
         mpPlayTimeRemoteSyncedAt = now;
         mpPlayTimeBaseSeconds += deltaSeconds;
         try{
-            const ref = fsApi.doc(fsDb, 'profiles', mpSelfId);
-            fsApi.setDoc(ref, {
-                playTimeSeconds: fsApi.increment(deltaSeconds),
-                playTime: mpFormatPlayTime(mpPlayTimeBaseSeconds),
-                playTimeLeaderboardUpdatedAt: fsApi.serverTimestamp(),
-                updatedAt: fsApi.serverTimestamp()
-            }, { merge:true }).then(mpMarkPlayTimeSyncedToday).catch(() => {
-                // Write failed: put the delta back so it retries on the next flush.
-                mpPlayTimePending += deltaSeconds;
-                mpPlayTimeBaseSeconds -= deltaSeconds;
-            });
+            mpApiCall('playtime', 'update', { seconds: deltaSeconds })
+                .then(mpMarkPlayTimeSyncedToday)
+                .catch(() => {
+                    mpPlayTimePending += deltaSeconds;
+                    mpPlayTimeBaseSeconds -= deltaSeconds;
+                });
+        }catch(e){
+            mpPlayTimePending += deltaSeconds;
+            mpPlayTimeBaseSeconds -= deltaSeconds;
+        });
         }catch(e){
             mpPlayTimePending += deltaSeconds;
             mpPlayTimeBaseSeconds -= deltaSeconds;
