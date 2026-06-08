@@ -2164,23 +2164,23 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             return explicitUnread;
         }
         // If unreadCount[uid] is explicitly defined (even as 0), trust it as
-        // ground truth — markActiveRoomRead() writes 0 there. This avoids the
-        // race where lastReadAt's serverTimestamp hasn't resolved yet locally
-        // (shows up as null), making the timestamp fallback below misfire.
+        // ground truth — markActiveRoomRead() writes 0 there.
         if (rawUnread !== undefined && rawUnread !== null) return 0;
+        // Local read marker suppresses badge for rooms we opened before.
+        const localReadMs = locallyReadRooms.get(room.id) || 0;
+        const updatedMs = toMillisTimestamp(room.updatedAt);
+        if (localReadMs && updatedMs <= localReadMs) return 0;
         // If the last sender is me, by definition I've read up through it.
         if (room.lastSenderId && room.lastSenderId === currentUser.uid) return 0;
-        const updatedMs = toMillisTimestamp(room.updatedAt);
-        const lastReadMs = toMillisTimestamp(room.lastReadAt?.[currentUser.uid]);
-        // If lastReadAt field exists for this user but resolved to 0/null,
-        // it means a serverTimestamp write is pending — assume read to avoid
-        // false badge flash on re-login.
-        const lastReadRaw = room.lastReadAt?.[currentUser.uid];
-        if (lastReadRaw !== undefined && !lastReadMs) return 0;
-        // Local read marker also covers the case where unreadCount[uid] was
-        // never written yet (legacy DM / first inbound message).
-        const localReadMs = locallyReadRooms.get(room.id) || 0;
-        if (localReadMs && updatedMs <= localReadMs) return 0;
+        // If lastReadAt for this user doesn't exist at all, this is a legacy
+        // room or one never explicitly marked — don't show phantom unread.
+        const lastReadAt = room.lastReadAt?.[currentUser.uid];
+        if (lastReadAt === undefined) return 0;
+        // If lastReadAt exists but resolves to 0/null (pending serverTimestamp),
+        // assume read to avoid flash on re-login.
+        const lastReadMs = toMillisTimestamp(lastReadAt);
+        if (!lastReadMs) return 0;
+        // Genuine unread: room updated after our last read, by someone else.
         if (updatedMs > lastReadMs && room.lastSenderId && room.lastSenderId !== currentUser.uid) return 1;
         return 0;
     }
