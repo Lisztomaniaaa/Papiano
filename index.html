@@ -2378,14 +2378,13 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     async function respondFriendRequest(requestId, accept) {
         if (!currentUser?.uid || !requestId) return;
         try {
-            const ref = firestoreDb.collection('friendships').doc(requestId);
             if (accept) {
-                await ref.set({ status: 'accepted', acceptedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                await apiCall('friends', 'accept-request', { pairId: requestId });
             } else {
-                await ref.delete();
+                await apiCall('friends', 'reject-request', { pairId: requestId });
             }
         } catch (error) {
-            showToast('Couldn’t update this request.');
+            showToast(error.message || 'Couldn’t update this request.');
         }
     }
 
@@ -3036,11 +3035,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             }
             const nextText = prompt('Edit message', data.text || '');
             if (nextText === null) return;
-            await ref.set({
-                text: String(nextText).trim().slice(0, 500),
-                editedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            await apiCall('chat', 'edit-message', { roomId: activeChatRoomId, messageId, text: String(nextText).trim().slice(0, 500) });
         } catch (error) {
             showToast('Couldn’t edit this message.');
         }
@@ -3199,21 +3194,11 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
 
     // Helper: delete ALL messages in a DM (paginated). Used by block + unfriend.
     async function purgeDirectRoomMessages(dmId) {
-        const messagesRef = firestoreDb.collection('chatRooms').doc(dmId).collection('messages');
-        let snap = await messagesRef.orderBy('createdAt', 'desc').limit(500).get();
-        while (!snap.empty) {
-            const deleteBatch = firestoreDb.batch();
-            snap.docs.forEach(doc => deleteBatch.set(doc.ref, {
-                deletedForAll: true,
-                text: '',
-                imageURL: '',
-                imagePath: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }));
-            await deleteBatch.commit();
-            if (snap.docs.length < 500) break;
-            const lastDoc = snap.docs[snap.docs.length - 1];
-            snap = await messagesRef.orderBy('createdAt', 'desc').startAfter(lastDoc).limit(500).get();
+        // Server handles message deletion via admin API
+        try {
+            await apiCall('chat', 'clear-room-messages', { roomId: dmId });
+        } catch (e) {
+            // Silent fail — DM cleanup is best-effort
         }
     }
 

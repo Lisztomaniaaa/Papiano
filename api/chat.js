@@ -38,6 +38,8 @@ module.exports = async function handler(req, res) {
     switch (action) {
       case 'send-message': return await sendMessage(user, params, res);
       case 'delete-own': return await deleteOwn(user, params, res);
+      case 'edit-message': return await editMessage(user, params, res);
+      case 'clear-room-messages': return await clearRoomMessages(user, params, res);
       default: return res.status(400).json({ error: `Unknown action: ${action}` });
     }
   } catch (err) {
@@ -203,4 +205,61 @@ async function deleteOwn(user, { roomId, messageId }, res) {
   if (snap.data().senderId !== user.uid) return res.status(403).json({ error: 'Not your message' });
   await msgRef.update({ deletedForAll: true, deletedAt: admin.firestore.FieldValue.serverTimestamp() });
   return res.json({ success: true, messageId });
+}
+
+
+/**
+ * edit-message
+ * Params: { roomId, messageId, text }
+ * User can edit their own message text.
+ */
+async function editMessage(user, { roomId, messageId, text }, res) {
+  if (!roomId || !messageId || !text) return res.status(400).json({ error: 'Missing roomId, messageId, or text' });
+  if (typeof text !== 'string' || text.length > 500) return res.status(400).json({ error: 'Text too long (max 500)' });
+
+  const msgRef = firestore.collection('chatRooms').doc(roomId).collection('messages').doc(messageId);
+  const snap = await msgRef.get();
+  if (!snap.exists) return res.status(404).json({ error: 'Message not found' });
+  if (snap.data().senderId !== user.uid) return res.status(403).json({ error: 'Not your message' });
+
+  await msgRef.update({
+    text: text.trim(),
+    editedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+  return res.json({ success: true, messageId });
+}
+
+/**
+ * clear-room-messages
+ * Params: { roomId }
+ * User can soft-delete all messages in a DM they participate in.
+ */
+async function clearRoomMessages(user, { roomId }, res) {
+  if (!roomId) return res.status(400).json({ error: 'Missing roomId' });
+
+  // Verify user is participant
+  const roomSnap = await firestore.collection('chatRooms').doc(roomId).get();
+  if (!roomSnap.exists) return res.json({ success: true, cleared: 0 });
+  const roomData = roomSnap.data();
+  if (roomData.type === 'dm' && !roomData.participants?.includes(user.uid)) {
+    return res.status(403).json({ error: 'Not your chat' });
+  }
+
+  // Soft-delete messages (batch)
+  const messagesRef = firestore.collection('chatRooms').doc(roomId).collection('messages');
+  let cleared = 0;
+  let snap = await messagesRef.limit(500).get();
+  while (!snap.empty) {
+    const batch = firestore.batch();
+    snap.docs.forEach(doc => {
+      batch.update(doc.ref, { deletedForAll: true, text: '', imageURL: '', updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+      cleared++;
+    });
+    await batch.commit();
+    if (cleared >= 5000) break; // Safety cap
+    snap = await messagesRef.where('deletedForAll', '!=', true).limit(500).get();
+  }
+
+  return res.json({ success: true, cleared });
 }
