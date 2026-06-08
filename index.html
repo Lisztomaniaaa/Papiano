@@ -356,8 +356,6 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     let currentProfile = null;
     let authStateResolved = false;
     let accessSessionActive = localStorage.getItem('papiano_access_session') === '1';
-    let emailAuthMode = 'signin';
-    let emailAuthBusy = false;
     let authEntryMode = 'signin';
     let authEntryBusy = false;
     let accountDeleteBusy = false;
@@ -452,7 +450,6 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     const MESSAGE_COOLDOWN_MS = 800;
     const LEADERBOARD_VISIBLE_LIMIT = 10;
     const PLAYTIME_SYNC_MS = 60000;
-    const AUTH_TEST_UNLOCK = false;
     const ANNOUNCEMENT_OWNER_EMAILS = new Set(['akunpolos0444000@gmail.com', 'papianobase@gmail.com']);
 
     const ROLE_PATH = 'roles';
@@ -1140,10 +1137,15 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         playTimeStartedAt = now;
     }
 
+    let lastSyncedSeconds = -1;
+
     function syncPlayTimeToFirestore() {
         if (!currentUser?.uid || !firestoreDb) return;
         flushElapsedToBase();
         const seconds = serverBaseSeconds;
+        // Skip write if nothing changed since last sync
+        if (seconds === lastSyncedSeconds) return;
+        lastSyncedSeconds = seconds;
         // Update currentProfile to reflect latest total
         if (currentProfile) {
             currentProfile.playTimeSeconds = seconds;
@@ -1431,7 +1433,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         const badge = getBadge(selectedBadgeId);
         const playTimeLabel = formatPlayTime(profile.playTimeSeconds);
         updateTopBarProfile(profile);
-        document.querySelector('.account-layout')?.classList.toggle('access-locked', !AUTH_TEST_UNLOCK && !currentUser?.uid);
+        document.querySelector('.account-layout')?.classList.toggle('access-locked', !currentUser?.uid);
 
         if (displayProfileName) displayProfileName.textContent = profile.name || 'Papiano User';
         if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
@@ -1510,7 +1512,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     }
 
     async function applyProfileConfiguration() {
-        if (!currentUser?.uid && !AUTH_TEST_UNLOCK) {
+        if (!currentUser?.uid) {
             showToast('Sign in to save profile.');
             return;
         }
@@ -1561,7 +1563,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     }
 
     function triggerProfilePhotoPicker() {
-        if (!currentUser?.uid && !AUTH_TEST_UNLOCK) {
+        if (!currentUser?.uid) {
             showToast('Sign in to upload photo.');
             return;
         }
@@ -1574,20 +1576,8 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             showToast('Select a valid image file.');
             return;
         }
-        if (!currentUser?.uid && !AUTH_TEST_UNLOCK) {
+        if (!currentUser?.uid) {
             showToast('Sign in to upload photo.');
-            return;
-        }
-        if (!currentUser?.uid && AUTH_TEST_UNLOCK) {
-            const reader = new FileReader();
-            reader.onload = () => {
-                const localUrl = String(reader.result || '');
-                if (formInputPhotoUrl) formInputPhotoUrl.value = localUrl;
-                updateProfileView({ ...loadProfile(), photoURL: localUrl });
-            };
-            reader.onerror = () => showToast('Couldn’t preview this photo.');
-            reader.readAsDataURL(file);
-            if (event?.target) event.target.value = '';
             return;
         }
         try {
@@ -1644,7 +1634,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         closeChatOverlayRoom();
         updateHomeTopBarVisibility();
 
-        const needsAuth = !AUTH_TEST_UNLOCK && !currentUser && GATED_TABS[index];
+        const needsAuth = !currentUser && GATED_TABS[index];
         const gate = document.getElementById('authGateOverlay');
         if (gate) {
             if (needsAuth) {
@@ -1781,6 +1771,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             .limit(LEADERBOARD_VISIBLE_LIMIT)
             .onSnapshot(snapshot => {
                 leaderboardRemoteRows = snapshot.docs.map(doc => normalizeProfile(doc.id, doc.data() || {}));
+                lastLeaderboardMinute = -1; // force re-render on new data
                 renderLiveLeaderboard();
             }, error => {
                 renderLeaderboardError('leaderboardPlayTimeList', 'Play time leaderboard is unavailable right now.');
@@ -1862,12 +1853,18 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         leaderboardLiveTicker = null;
     }
 
+    let lastLeaderboardMinute = -1;
+
     // Renders leaderboard with current user's live time merged in, re-sorted
     function renderLiveLeaderboard() {
         const target = document.getElementById('leaderboardPlayTimeList');
         if (!target || target.style.display === 'none') return;
 
         const liveSeconds = getLivePlayTimeSeconds();
+        // Only re-render when the displayed minute changes (format is Xh YYm)
+        const currentMinute = Math.floor(liveSeconds / 60);
+        if (currentMinute === lastLeaderboardMinute && leaderboardRemoteRows.length) return;
+        lastLeaderboardMinute = currentMinute;
 
         // Start from remote snapshot, always merge current user's live time
         let rows = leaderboardRemoteRows.map(row => {
@@ -2041,7 +2038,12 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         return html;
     }
 
+    let renderFriendRowsRaf = 0;
     function renderFriendRows() {
+        cancelAnimationFrame(renderFriendRowsRaf);
+        renderFriendRowsRaf = requestAnimationFrame(renderFriendRowsImmediate);
+    }
+    function renderFriendRowsImmediate() {
         document.querySelectorAll('.friend-list-node, .request-list-node, .blocked-list-node, .search-result-node, .dm-list-node').forEach(row => row.remove());
         const insertBefore = chatEmptyRow || null;
         [...pendingFriendRequests.values()].forEach(profile => {
@@ -2065,14 +2067,16 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     async function hydrateProfilesByIds(ids) {
         const result = new Map();
         if (!currentUser?.uid) return result;
-        for (const uid of ids.filter(Boolean)) {
+        const validIds = ids.filter(Boolean);
+        if (!validIds.length) return result;
+        await Promise.all(validIds.map(async uid => {
             try {
                 const snap = await firestoreDb.collection('profiles').doc(uid).get();
                 result.set(uid, normalizeProfile(uid, snap.exists ? snap.data() : {}));
             } catch (_error) {
                 result.set(uid, normalizeProfile(uid, {}));
             }
-        }
+        }));
         return result;
     }
 
@@ -2444,14 +2448,16 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
                 nameSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
             }
             if (!found.size || /^#?\d+$/.test(clean)) {
-                const fallbackSnap = await firestoreDb.collection('profiles')
-                    .limit(120)
-                    .get()
-                    .catch(() => null);
-                fallbackSnap?.forEach(doc => {
-                    const profile = normalizeProfile(doc.id, doc.data() || {});
-                    if (profileMatchesSearch(profile, normalized)) found.set(doc.id, profile);
-                });
+                // Targeted search by publicId for numeric queries
+                const numericId = Number(clean.replace(/^#/, ''));
+                if (Number.isInteger(numericId) && numericId > 0) {
+                    const idSnap = await firestoreDb.collection('profiles')
+                        .where('publicId', '==', numericId)
+                        .limit(5)
+                        .get()
+                        .catch(() => null);
+                    idSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
+                }
             }
             found.forEach((profile, uid) => {
                 if (uid !== currentUser.uid && !friendProfiles.has(uid)) searchProfiles.set(uid, profile);
@@ -2610,27 +2616,36 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         }
     }
 
+    let markReadTimer = null;
+    let lastMarkedRoomId = '';
+
     async function markActiveRoomRead() {
         if (!currentUser?.uid || !activeChatRoomId || !firestoreDb) return;
         // Mark locally read immediately (persisted) so the unread badge clears
         // without waiting for serverTimestamp, and stays cleared after refresh.
         markRoomLocallyRead(activeChatRoomId);
-        try {
-            await firestoreDb.collection('chatRooms').doc(activeChatRoomId).set({
-                [`unreadCount.${currentUser.uid}`]: 0,
-                [`lastReadAt.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            if (activeChatRoomType === 'dm' && activeChatTargetUid && directChatProfiles.has(activeChatTargetUid)) {
-                directChatProfiles.set(activeChatTargetUid, { ...directChatProfiles.get(activeChatTargetUid), unreadForMe: 0 });
-                syncDirectUnreadFromProfiles();
-                renderFriendRows();
-            }
-            if (activeChatRoomId === getGroupRoomId('announcements')) {
-                localStorage.setItem(getAnnouncementReadStorageKey(), String(Date.now()));
-                    }
-        } catch (error) {
-            console.warn('Mark read skipped:', error);
+        // Update local UI instantly
+        if (activeChatRoomType === 'dm' && activeChatTargetUid && directChatProfiles.has(activeChatTargetUid)) {
+            directChatProfiles.set(activeChatTargetUid, { ...directChatProfiles.get(activeChatTargetUid), unreadForMe: 0 });
+            syncDirectUnreadFromProfiles();
         }
+        // Debounce Firestore write — only 1 write per room per 5 seconds
+        if (lastMarkedRoomId === activeChatRoomId && markReadTimer) return;
+        lastMarkedRoomId = activeChatRoomId;
+        clearTimeout(markReadTimer);
+        const roomId = activeChatRoomId;
+        markReadTimer = setTimeout(async () => {
+            markReadTimer = null;
+            try {
+                await firestoreDb.collection('chatRooms').doc(roomId).set({
+                    [`unreadCount.${currentUser.uid}`]: 0,
+                    [`lastReadAt.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                if (roomId === getGroupRoomId('announcements')) {
+                    localStorage.setItem(getAnnouncementReadStorageKey(), String(Date.now()));
+                }
+            } catch (_) {}
+        }, 2000);
     }
 
     function listenToActiveRoomMessages() {
