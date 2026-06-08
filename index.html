@@ -434,8 +434,6 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     let carouselDragMoved = false;
     let lastMessageSentAt = 0;
     let playTimeStartedAt = 0;
-    let playTimeLocalSyncedAt = 0;
-    let playTimeRemoteSyncedAt = 0;
     let playTimeTimer = null;
     let playTimeDisplayTicker = null;
     let activeLeaderboardBoard = 'playtime';
@@ -443,8 +441,7 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     let unsubscribeLeaderboardDonation = null;
     const MESSAGE_COOLDOWN_MS = 800;
     const LEADERBOARD_VISIBLE_LIMIT = 10;
-    const PLAYTIME_LOCAL_SYNC_MS = 10000;
-    const PLAYTIME_REMOTE_SYNC_MS = 30000;
+    const PLAYTIME_SYNC_MS = 30000;
     const AUTH_TEST_UNLOCK = false;
     const ANNOUNCEMENT_OWNER_EMAILS = new Set(['akunpolos0444000@gmail.com', 'papianobase@gmail.com']);
 
@@ -1079,20 +1076,9 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
 
         currentUser = user;
         currentProfile = normalizeProfile(user.uid, profileData);
-        // Reconcile with any locally-cached play time that hasn't reached the
-        // server yet (the remote value only syncs periodically). Without this a
-        // reload would roll the timer back to the last synced value and the user
-        // would lose the minutes accumulated since then.
-        try {
-            const cached = JSON.parse(localStorage.getItem(storageKey) || '{}');
-            if (!cached.uid || cached.uid === user.uid) {
-                const cachedSeconds = parsePlayTimeSeconds(cached);
-                if (cachedSeconds > currentProfile.playTimeSeconds) {
-                    currentProfile.playTimeSeconds = cachedSeconds;
-                    currentProfile.playTime = formatPlayTime(cachedSeconds);
-                }
-            }
-        } catch (_) {}
+        // Firestore is the source of truth for play time.
+        // Set serverBaseSeconds from the authoritative Firestore value.
+        serverBaseSeconds = Math.max(0, Number(currentProfile.playTimeSeconds) || 0);
         saveProfile(currentProfile);
         updateProfileView(currentProfile);
         closeAuthEntryPopup();
@@ -1115,56 +1101,36 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
         localStorage.setItem(storageKey, JSON.stringify(data || {}));
     }
 
-    function getJakartaDateKey(ms = Date.now()) {
-        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+    // ─── PLAY TIME ENGINE (Firestore = source of truth) ───
+    // serverBaseSeconds: the last confirmed value from Firestore.
+    // sessionElapsed is tracked via playTimeStartedAt (Date.now snapshot).
+    // Total = serverBaseSeconds + live elapsed. We NEVER derive from localStorage.
+    let serverBaseSeconds = 0;
+
+    function getLivePlayTimeSeconds() {
+        if (!playTimeStartedAt) return serverBaseSeconds;
+        const elapsed = Math.max(0, Math.floor((Date.now() - playTimeStartedAt) / 1000));
+        return serverBaseSeconds + elapsed;
     }
 
-    function getPlayTimeRemoteSyncKey() {
-        return currentUser?.uid ? `papianoPlayTimeRemoteDay:${currentUser.uid}` : '';
-    }
-
-    function shouldSyncPlayTimeToday() {
-        const key = getPlayTimeRemoteSyncKey();
-        if (!key) return false;
-        return localStorage.getItem(key) !== getJakartaDateKey();
-    }
-
-    function markPlayTimeSyncedToday() {
-        const key = getPlayTimeRemoteSyncKey();
-        if (key) localStorage.setItem(key, getJakartaDateKey());
-    }
-
-    function accumulatePlayTime() {
-        if (!playTimeStartedAt || document.hidden) return false;
+    function flushElapsedToBase() {
+        if (!playTimeStartedAt) return;
         const now = Date.now();
         const elapsed = Math.max(0, Math.floor((now - playTimeStartedAt) / 1000));
+        serverBaseSeconds += elapsed;
         playTimeStartedAt = now;
-        if (!elapsed) return false;
-
-        if (!currentProfile) currentProfile = normalizeProfile(currentUser?.uid || loadProfile().uid || '', loadProfile());
-        currentProfile.playTimeSeconds = Math.max(0, Number(currentProfile.playTimeSeconds) || 0) + elapsed;
-        currentProfile.playTime = formatPlayTime(currentProfile.playTimeSeconds);
-        return true;
     }
 
-    function persistPlayTime(syncRemote = false) {
-        const changed = accumulatePlayTime();
-        if (!currentProfile) return;
-        const now = Date.now();
-
-        if (changed || now - playTimeLocalSyncedAt >= PLAYTIME_LOCAL_SYNC_MS) {
-            playTimeLocalSyncedAt = now;
-            saveProfile(currentProfile);
-            updateProfileView(currentProfile);
-            if (document.getElementById('brandSheetOverlay')?.classList.contains('active')) populateBrandSheet();
+    function syncPlayTimeToFirestore() {
+        if (!currentUser?.uid || !firestoreDb) return;
+        flushElapsedToBase();
+        const seconds = serverBaseSeconds;
+        // Update currentProfile to reflect latest total
+        if (currentProfile) {
+            currentProfile.playTimeSeconds = seconds;
+            currentProfile.playTime = formatPlayTime(seconds);
         }
-
-        if (!currentUser?.uid || !currentProfile) return;
-        // Always sync to remote every interval — no daily gate, no excessive throttle
-        if (!syncRemote && now - playTimeRemoteSyncedAt < PLAYTIME_REMOTE_SYNC_MS) return;
-
-        const seconds = Math.max(0, Math.floor(Number(currentProfile.playTimeSeconds) || 0));
-        playTimeRemoteSyncedAt = now;
+        saveProfile(currentProfile);
         firestoreDb.collection('profiles').doc(currentUser.uid).set({
             playTimeSeconds: seconds,
             playTime: formatPlayTime(seconds),
@@ -1174,17 +1140,22 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     }
 
     function startPlayTimeTracker() {
-        currentProfile = normalizeProfile(currentUser?.uid || loadProfile().uid || '', currentProfile || loadProfile());
+        // serverBaseSeconds should already be set from ensureUserProfile (Firestore read)
+        // If not yet set, use currentProfile as fallback
+        if (!serverBaseSeconds && currentProfile) {
+            serverBaseSeconds = Math.max(0, Number(currentProfile.playTimeSeconds) || 0);
+        }
         if (!playTimeStartedAt) playTimeStartedAt = Date.now();
         clearInterval(playTimeTimer);
-        // Immediate remote sync on start so Firestore is never behind
-        persistPlayTime(true);
-        playTimeTimer = setInterval(() => persistPlayTime(false), PLAYTIME_LOCAL_SYNC_MS);
+        // Immediate sync so Firestore has our latest before leaderboard subscribes
+        syncPlayTimeToFirestore();
+        playTimeTimer = setInterval(syncPlayTimeToFirestore, PLAYTIME_SYNC_MS);
         startPlayTimeDisplayTicker();
     }
 
     function pausePlayTimeTracker(syncRemote = false) {
-        persistPlayTime(syncRemote);
+        flushElapsedToBase();
+        if (syncRemote) syncPlayTimeToFirestore();
         playTimeStartedAt = 0;
         clearInterval(playTimeTimer);
         playTimeTimer = null;
@@ -1916,13 +1887,6 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
                 </div>
             `;
         }).join('');
-    }
-
-    function getLivePlayTimeSeconds() {
-        const baseSeconds = Math.max(0, Number(currentProfile?.playTimeSeconds) || 0);
-        if (!playTimeStartedAt) return baseSeconds;
-        const liveElapsed = Math.max(0, Math.floor((Date.now() - playTimeStartedAt) / 1000));
-        return baseSeconds + liveElapsed;
     }
 
     function formatDonationAmount(amount) {
@@ -3686,7 +3650,8 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
     });
 
     window.addEventListener('beforeunload', () => {
-        persistPlayTime(true);
+        flushElapsedToBase();
+        syncPlayTimeToFirestore();
     });
 
     function startPapianoAuthBootstrap() {
