@@ -2282,10 +2282,11 @@ href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,9
             }, error => showToast('Couldn’t load friends.'));
 
         unsubscribeRequests = firestoreDb.collection('friendships')
-            .where('receiverId', '==', currentUser.uid)
-            .where('status', '==', 'pending')
+            .where('users', 'array-contains', currentUser.uid)
             .onSnapshot(async snapshot => {
-                const requestDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                const requestDocs = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() }))
+                    .filter(item => item.status === 'pending' && item.receiverId === currentUser.uid);
                 const senderIds = [...new Set(requestDocs.map(item => item.requesterId).filter(Boolean))];
                 const profiles = await hydrateProfilesByIds(senderIds);
                 pendingFriendRequests.clear();
