@@ -14411,15 +14411,35 @@ midiBtn.onclick = (e) => {
     async function reserveRoomSeat(room, live = {}){
         if(!firebaseReady || !dbApi || !room) return 0;
         const max = Math.min(6, Math.max(2, Number(room.max || 6)));
-        const candidates = [];
+        const now = Date.now();
         const existingSeat = Number(live?.[mpSelfId]?.seat || currentRoomSeat || 0);
-        if(isRoomSeatNumber(room, existingSeat)) candidates.push(existingSeat);
-        for(let seat = 1; seat <= max; seat++){
-            if(!candidates.includes(seat)) candidates.push(seat);
-        }
-        for(const seat of candidates){
-            if(await claimSpecificRoomSeat(room, seat)) return seat;
-        }
+        try{
+            const result = await dbApi.runTransaction(dbRef(`roomSeats/${room.id}`), allSeats => {
+                const seats = allSeats || {};
+                // Check if already has a valid seat
+                if(existingSeat >= 1 && existingSeat <= max){
+                    const existing = seats[existingSeat];
+                    if(existing && existing.uid === mpSelfId) return seats;
+                    if(!existing || isStaleSeatValue(existing, now)){
+                        seats[existingSeat] = { uid:mpSelfId, seat:existingSeat, joinedAt:now, lastSeen:now };
+                        return seats;
+                    }
+                }
+                // Find first available seat
+                for(let s = 1; s <= max; s++){
+                    const entry = seats[s];
+                    if(!entry || entry.uid === mpSelfId || isStaleSeatValue(entry, now)){
+                        seats[s] = { uid:mpSelfId, seat:s, joinedAt:now, lastSeen:now };
+                        return seats;
+                    }
+                }
+                return seats; // All taken
+            });
+            const committed = result?.snapshot?.val?.() || {};
+            for(let s = 1; s <= max; s++){
+                if(committed[s] && committed[s].uid === mpSelfId) return s;
+            }
+        }catch(e){}
         return 0;
     }
 
