@@ -1,4 +1,4 @@
-// Custom edit modal to replace native prompt() for message editing
+// Custom edit modal — replaces native prompt() for message editing
 (function(){
     var overlay = document.createElement('div');
     overlay.id = 'papianoEditOverlay';
@@ -17,8 +17,6 @@
     else document.addEventListener('DOMContentLoaded', inject, {once:true});
 
     window.__papianoEditModal = {
-        pending: false,
-        value: null,
         show: function(defaultValue){
             return new Promise(function(resolve){
                 inject();
@@ -26,7 +24,7 @@
                 var counter = document.getElementById('papianoEditCount');
                 var cancelBtn = document.getElementById('papianoEditCancel');
                 var confirmBtn = document.getElementById('papianoEditConfirm');
-                if(!input || !overlay) { resolve(null); return; }
+                if(!input || !overlay){ resolve(null); return; }
                 input.value = defaultValue || '';
                 counter.textContent = String(input.value.length);
                 overlay.classList.add('show');
@@ -37,6 +35,8 @@
                     input.oninput = null;
                     cancelBtn.onclick = null;
                     confirmBtn.onclick = null;
+                    overlay.onclick = null;
+                    input.onkeydown = null;
                     resolve(val);
                 }
                 cancelBtn.onclick = function(){ close(null); };
@@ -49,41 +49,4 @@
             });
         }
     };
-
-    // Patch editOwnMessage after app.min.js loads
-    var patched = false;
-    function tryPatch(){
-        if(patched) return;
-        if(typeof window.editOwnMessage !== 'function'){
-            setTimeout(tryPatch, 200);
-            return;
-        }
-        patched = true;
-        window.editOwnMessage = async function(msgId){
-            try{
-                if(!window.currentUser || !window.currentUser.uid || !window.activeChatRoomId || !msgId) return;
-                var db = window.firestoreDb;
-                if(!db) return;
-                var ref = db.collection('chatRooms').doc(window.activeChatRoomId).collection('messages').doc(msgId);
-                var snap = await ref.get();
-                var data = snap.data() || {};
-                if(data.senderId !== window.currentUser.uid){
-                    if(typeof showToast==='function') showToast('Only your messages can be edited.');
-                    return;
-                }
-                var result = await window.__papianoEditModal.show(data.text || '');
-                if(result === null) return;
-                var text = String(result).trim().slice(0, 500);
-                if(!text) return;
-                await ref.set({
-                    text: text,
-                    editedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: window.firebase.firestore.FieldValue.serverTimestamp()
-                }, {merge: true});
-            }catch(e){
-                if(typeof showToast==='function') showToast("Couldn't edit this message.");
-            }
-        };
-    }
-    tryPatch();
 })();
