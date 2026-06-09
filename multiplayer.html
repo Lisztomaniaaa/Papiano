@@ -4061,16 +4061,15 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
     overflow-wrap:anywhere;
 }
 .mp-lobby-profile-actions{
-    display:grid !important;
-    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+    display:flex !important;
+    flex-wrap:wrap !important;
     gap:8px;
     width:100%;
 }
-.mp-lobby-profile-actions > *[style*="display: none"],
-.mp-lobby-profile-actions > .mp-lobby-action-btn[style*="none"]{
-    display:none !important;
-}
 .mp-lobby-action-btn{
+    flex:1 1 calc(50% - 4px);
+    max-width:calc(50% - 4px);
+    min-width:calc(50% - 4px);
     border:1px solid rgba(6,17,31,0.08);
     background:#F1F5F9;
     color:#06111f;
@@ -4089,6 +4088,7 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
     gap:8px;
     padding:10px 14px;
     transition:transform .15s, background .2s;
+    box-sizing:border-box;
 }
 .mp-lobby-action-btn:active{ transform:scale(0.95); }
 .mp-lobby-action-btn:disabled{ opacity:0.4; cursor:not-allowed; transform:none; }
