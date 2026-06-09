@@ -5312,7 +5312,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                 <div class="mp-card">
                     <div class="mp-card-title">Host Room</div>
                     <div class="mp-field-grid">
-                        <div class="mp-field"><label for="mpRoomName">Room Name</label><input id="mpRoomName" class="mp-input" type="text" placeholder="Room name" maxlength="32" autocomplete="off" autocorrect="on" autocapitalize="words" spellcheck="true" enterkeyhint="next" data-form-type="other"></div>
+                        <div class="mp-field"><label for="mpRoomName">Room Name</label><input id="mpRoomName" class="mp-input" type="text" placeholder="Room name" maxlength="32" autocomplete="off" autocorrect="on" autocapitalize="words" spellcheck="true" enterkeyhint="next" data-form-type="other" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')"></div>
                         <div class="mp-field">
                             <label for="mpMaxPlayersButton">Capacity</label>
                             <button id="mpMaxPlayersButton" class="mp-max-trigger" type="button" aria-haspopup="dialog">
@@ -5329,7 +5329,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                             </button>
                             <input id="mpRoomMode" type="hidden" value="Public">
                         </div>
-                        <div class="mp-field" id="mpRoomPasswordField" hidden><label for="mpRoomPassword">Password</label><input id="mpRoomPassword" class="mp-input" type="password" placeholder="Enter a private room password" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" data-form-type="other"></div>
+                        <div class="mp-field" id="mpRoomPasswordField" hidden><label for="mpRoomPassword">Password</label><input id="mpRoomPassword" class="mp-input" type="password" placeholder="Enter a private room password" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" data-form-type="other" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')"></div>
                     </div>
                     <div class="mp-actions">
                         <button class="mp-action" type="button" data-mp-go="home">Back</button>
@@ -5387,7 +5387,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                         </div>
                         <button id="mpPasswordClose" class="mp-password-close" type="button" aria-label="Close password dialog"><svg class="mp-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
                     </div>
-                    <input id="mpPasswordInput" class="mp-input" type="password" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" placeholder="Password" data-form-type="other">
+                    <input id="mpPasswordInput" class="mp-input" type="password" autocomplete="new-password" autocorrect="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" placeholder="Password" data-form-type="other" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')">
                     <div id="mpPasswordError" class="mp-password-error"></div>
                     <div class="mp-password-actions">
                         <button id="mpPasswordCancel" class="mp-action" type="button">Cancel</button>
@@ -5417,7 +5417,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
         <div id="mpMessages" class="mp-messages"></div>
         <div id="mpReplyBar" class="mp-reply-bar"><div><b id="mpReplyName"></b><div id="mpReplyText"></div></div><button id="mpReplyClear" class="mp-reply-clear" type="button" aria-label="Cancel reply"><svg class="mp-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
         <form id="mpChatForm" class="mp-chat-form">
-            <input id="mpChatInput" class="mp-chat-input" type="text" maxlength="300" autocomplete="off" inputmode="text" autocorrect="on" autocapitalize="sentences" spellcheck="true" enterkeyhint="send" placeholder="Chat room..." data-form-type="other">
+            <input id="mpChatInput" class="mp-chat-input" type="text" maxlength="300" autocomplete="off" inputmode="text" autocorrect="on" autocapitalize="sentences" spellcheck="true" enterkeyhint="send" placeholder="Chat room..." data-form-type="other" data-lpignore="true" data-1p-ignore="true" readonly onfocus="this.removeAttribute('readonly')">
             <button class="mp-chat-send" type="submit" aria-label="Send message">Send</button>
             <span id="mpChatCounter" class="mp-chat-counter" aria-live="polite">0/300</span>
         </form>
