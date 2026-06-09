@@ -6578,7 +6578,6 @@ let stringBuffers = {};
 let loadedSfKey = null;
 let stringLoadedSfKey = null;
 
-function sustainToTC(pct) { return 0.03 + pct * 2.47; }
 
 function buildReverb() {
     if (reverbNode) return;
@@ -6666,10 +6665,6 @@ function bindStringRangeSliders(){
     const rightInput = document.getElementById('stringRightTutsRange');
     if (leftInput) leftInput.oninput = e => setStringRangeTuts('left', e.target.value);
     if (rightInput) rightInput.oninput = e => setStringRangeTuts('right', e.target.value);
-}
-function confirmStringLayerEnable(){
-    updateStringRangeUI();
-    return true;
 }
 
 const soundfontBufferCache = new Map();
@@ -7200,7 +7195,6 @@ const DT_MAX = 0.042;
 let cachedAnimColor = '#ffffff';
 const _solidRgbCache = new Map();
 let rainbowV2Seq = 0, renderNow = 0;
-let currentGlassColor = '#ffffff';
 let animDoubleLeftColor = '#ffffff';
 let animDoubleRightColor = '#ffffff';
 let animDoubleSplitTuts = 44;
@@ -7528,11 +7522,6 @@ function clearActiveKeyOverlay(midi){
     if(!pieces) return;
     pieces.forEach(piece => piece.remove());
     activeKeyOverlayMap.delete(midi);
-}
-function clearActiveKeyOverlays(){
-    if(activeKeyLayer) activeKeyLayer.textContent = '';
-    activeKeyOverlayMap.clear();
-    activeOverlayNotes.clear();
 }
 function shouldUseLightKeyVisual(){
     const pressure = getPerfPressureLevel();
@@ -7899,9 +7888,6 @@ function getPressureScale(){
     const pressure = getPerfPressureLevel();
     return pressure >= 3 ? 0.34 : pressure === 2 ? 0.56 : pressure === 1 ? 0.78 : 1;
 }
-function getPremiumFxScale(){
-    return getPressureScale();
-}
 const GRAPHIC_PROFILES = {
     low: { dust:0, dustMax:0, fallingMax:260, chordDebounce:140, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
     medium: { dust:0.55, dustMax:92, fallingMax:520, chordDebounce:82, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
@@ -7927,7 +7913,6 @@ function getRemoteVisualLevel(){
 function remoteFallingOwnerId(playerId){ return `remote:${playerId || 'unknown'}`; }
 function getGraphicProfile(){ const q=getEffectiveGraphicQuality(); return GRAPHIC_PROFILES[q] || GRAPHIC_PROFILES.high; }
 function isLowGraphic(){ return getEffectiveGraphicQuality() === 'low'; }
-function isMediumGraphic(){ return getEffectiveGraphicQuality() === 'medium'; }
 function isWideKeyMode(){ return wCount > 12; }
 function isExtremeRenderBurst(){
     return isWideKeyMode() && (frameBurstLevel > 10 || falling.length > 180);
@@ -7966,7 +7951,6 @@ function getBurstLevel(){
     if(now - lastInputBurstAt > 220) inputBurstScore = Math.max(0, inputBurstScore - 2);
     return inputBurstScore;
 }
-function isSevereInputBurst(){ return getBurstLevel() >= 10 || inputBurstFrameCount >= 7; }
 const fallingByMidi = new Map();
 function registerFallingNote(f){
     let list = fallingByMidi.get(f.midi);
@@ -8012,8 +7996,6 @@ function unregisterDeadFalling(){
         if(!w) fallingByMidi.delete(midi);
     });
 }
-let cachedDustWhite = '#70d8ff';
-let cachedDustBlack = '#ff7f66';
 const _smokeSpriteCache = new Map();
 function _parseColorToRgb(color){
     color = (color || '').trim();
@@ -8066,8 +8048,6 @@ function getSmokeSprite(color, shape){
     return cv;
 }
 
-function enforceSolidKeyColors(){
-}
 
 function refreshKeyDustColorCache(){
     const css = getComputedStyle(document.documentElement);
@@ -8161,23 +8141,6 @@ function release(n,k){
     stopNote(n);
     playReleaseVisual(n,k);
     if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOff === 'function') window.PapianoMultiplayer.sendNoteOff(n);
-}
-const MAX_FALLING_NOTES = 1000;
-function getMaxFallingNotes(){
-    const profile = getGraphicProfile();
-    const pressure = getPerfPressureLevel();
-    let cap = isMobileRenderTarget() ? (graphicQuality === 'high' ? 560 : graphicQuality === 'medium' ? 420 : 260) : MAX_FALLING_NOTES;
-    if(pressure === 3) cap = Math.min(cap, isMobileRenderTarget() ? 220 : 460);
-    else if(pressure === 2) cap = Math.min(cap, isMobileRenderTarget() ? 320 : 620);
-    else if(pressure === 1) cap = Math.min(cap, isMobileRenderTarget() ? 440 : 780);
-    return Math.max(120, Math.min(cap, Number(profile.fallingMax) || cap));
-}
-function shouldThinFallingSpawn(){
-    if(!isMobileRenderTarget()) return false;
-    const pressure = getPerfPressureLevel();
-    if(pressure === 0) return false;
-    const limit = pressure >= 3 ? 150 : pressure === 2 ? 220 : 320;
-    return falling.length > limit;
 }
 let keyDustIntensity = 3;
 let cachedStageHeight = 0;
@@ -8472,10 +8435,6 @@ function buildShapePath(shape, x0, y, w, h) {
     ctx2d.rect(x0, y, w, h);
 }
 
-function strokeCurrentShape(shape, x0, y, w, h) {
-    buildShapePath(shape, x0 + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
-    ctx2d.stroke();
-}
 
 const _spriteCache = new Map();
 const _SPRITE_CACHE_MAX = 96;
@@ -8488,30 +8447,6 @@ function _colorBucket(rgb){
 }
 function _isNearWhiteRgb(rgb){
     return !!rgb && rgb[0] >= 235 && rgb[1] >= 235 && rgb[2] >= 235;
-}
-function _mixRgb(a,b,t){
-    t = Math.max(0, Math.min(1, Number(t) || 0));
-    return [
-        _clampRgb(a[0] + (b[0]-a[0]) * t),
-        _clampRgb(a[1] + (b[1]-a[1]) * t),
-        _clampRgb(a[2] + (b[2]-a[2]) * t)
-    ];
-}
-function _blendPartnerRgb(rgb){
-    return [
-        _clampRgb(rgb[2] * 0.58 + rgb[1] * 0.22 + 36),
-        _clampRgb(rgb[0] * 0.22 + rgb[2] * 0.42 + 50),
-        _clampRgb(rgb[1] * 0.48 + rgb[0] * 0.20 + 58)
-    ];
-}
-function _shapePath(ctx, x, y, w, h, r, rounded){
-    ctx.beginPath();
-    if(rounded && r > 0){
-        if(ctx.roundRect) ctx.roundRect(x, y, w, h, r);
-        else ctx.rect(x, y, w, h);
-    } else {
-        ctx.rect(x, y, w, h);
-    }
 }
 function getNoteFxLevels(){
     return {
@@ -8526,7 +8461,6 @@ function getNoteFxLevels(){
 
 let _frameFx = null;
 function refreshFrameFx(){ _frameFx = getNoteFxLevels(); }
-function getFrameFx(){ return _frameFx || (_frameFx = getNoteFxLevels()); }
 function _spriteRoundPath(sctx, w, h, r){
     r = Math.max(0, Math.min(r || 0, w * 0.5, h * 0.5));
     sctx.beginPath();
@@ -8592,16 +8526,7 @@ function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
     _spriteCache.set(key, sprite);
     return sprite;
 }
-function _invalidateEffectSprites(){ _spriteCache.clear(); }
 
-function _safeRgbFromHex(hex, fallback){
-    try { return hexToRgb(hex || fallback || '#78dcff'); }
-    catch(e){ return hexToRgb(fallback || '#78dcff'); }
-}
-function _safeFallingColor(f){
-    return f.base || cachedAnimColor || '#ffffff';
-}
-function clampTone(v, min, max){ return Math.max(min, Math.min(max, Number(v) || 0)); }
 function clampPercentValue(value, fallback=0){
     const raw = Number(value);
     const safe = Number.isFinite(raw) ? raw : fallback;
@@ -8642,21 +8567,6 @@ function tuneRgbForFalling(rgb){
     _tunedRgbScratch[1] = og;
     _tunedRgbScratch[2] = ob;
     return _tunedRgbScratch;
-}
-function drawSoftRoundRect(x, y, w, h, r){
-    r = Math.max(0, Math.min(r || 0, Math.abs(w) * 0.5, Math.abs(h) * 0.5));
-    ctx2d.beginPath();
-    ctx2d.moveTo(x + r, y);
-    ctx2d.lineTo(x + w - r, y);
-    ctx2d.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx2d.lineTo(x + w, y + h - r);
-    ctx2d.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx2d.lineTo(x + r, y + h);
-    ctx2d.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx2d.lineTo(x, y + r);
-    ctx2d.quadraticCurveTo(x, y, x + r, y);
-    ctx2d.closePath();
-    ctx2d.fill();
 }
 function drawFallingNote(f){
     const fastX = noteXFast[f.midi];
@@ -8728,35 +8638,11 @@ function _fnBuildPath(fx, fy, fw, fh, fr, isRounded){
         ctx2d.rect(fx, fy, fw, fh);
     }
 }
-function fillShape(fx, fy, fw, fh, fr, isRounded){
-    if(isRounded && fr > 0){
-        _fnBuildPath(fx, fy, fw, fh, fr, isRounded);
-        ctx2d.fill();
-    } else {
-        ctx2d.fillRect(fx, fy, fw, fh);
-    }
-}
 function safeHex(hex, fallback){
     try { return hexToRgb(hex || fallback); }
     catch(e){ return hexToRgb(fallback); }
 }
-function rgbToCss(rgb){ return `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`; }
 function _clampRgb(v){ v = Number(v) || 0; return v < 0 ? 0 : v > 255 ? 255 : (v + 0.5) | 0; }
-function neonScaleRgb(rgb, factor, floorLift){
-    const r = rgb[0]|0, g = rgb[1]|0, b = rgb[2]|0;
-    const max = Math.max(r, g, b, 1);
-    const lift = Math.max(0, Number(floorLift) || 0);
-    return [
-        _clampRgb(r * factor + lift * (r / max)),
-        _clampRgb(g * factor + lift * (g / max)),
-        _clampRgb(b * factor + lift * (b / max))
-    ];
-}
-function themeBaseColor(hex){
-    const fallback = hex || cachedAnimColor || '#ffffff';
-    const rgb = safeHex(fallback, '#78dcff');
-    return { rgb, hex: fallback };
-}
 
 const LightEngine = (function(){
     const state = {
@@ -8817,87 +8703,8 @@ const LightEngine = (function(){
 window.LightEngine = LightEngine;
 LightEngine.master = 0;
 
-const BloomFX = (function(){
-    let bufA = null, bufB = null;
-    let aCtx = null, bCtx = null;
-    let lastW = 0, lastH = 0;
-    const SCALE = 0.25;
 
-    const params = {
-        threshold: 0.55,
-        intensity: 1.0,
-        scatter:   0.6,
-        passes:    3
-    };
 
-    function ensureBuffers(w, h){
-        const dw = Math.max(1, Math.floor(w * SCALE));
-        const dh = Math.max(1, Math.floor(h * SCALE));
-        if(dw === lastW && dh === lastH && bufA) return;
-        lastW = dw; lastH = dh;
-        bufA = document.createElement('canvas'); bufA.width = dw; bufA.height = dh;
-        bufB = document.createElement('canvas'); bufB.width = dw; bufB.height = dh;
-        aCtx = bufA.getContext('2d'); bCtx = bufB.getContext('2d');
-    }
-
-    function apply(ctx, srcCanvas, w, h){
-        const LE = window.LightEngine;
-        if(!LE || LE.master <= 0.001) return;
-        ensureBuffers(w, h);
-        const dw = lastW, dh = lastH;
-
-        aCtx.globalCompositeOperation = 'source-over';
-        aCtx.clearRect(0, 0, dw, dh);
-        aCtx.globalAlpha = 1;
-        aCtx.drawImage(srcCanvas, 0, 0, w, h, 0, 0, dw, dh);
-        aCtx.globalCompositeOperation = 'multiply';
-        const crush = Math.round(1 + params.threshold * 3);
-        for(let i=0;i<crush;i++) aCtx.drawImage(bufA, 0, 0);
-        aCtx.globalCompositeOperation = 'source-over';
-
-        const spread = (1 + params.scatter * 4);
-        const supportsFilter = ('filter' in aCtx);
-        for(let p=0;p<params.passes;p++){
-            bCtx.clearRect(0,0,dw,dh);
-            bCtx.globalCompositeOperation = 'source-over';
-            if(supportsFilter){
-                bCtx.filter = `blur(${spread}px)`;
-                bCtx.drawImage(bufA, 0, 0);
-                bCtx.filter = 'none';
-            } else {
-                bCtx.globalAlpha = 0.25;
-                bCtx.drawImage(bufA, -spread, 0);
-                bCtx.drawImage(bufA,  spread, 0);
-                bCtx.drawImage(bufA, 0, -spread);
-                bCtx.drawImage(bufA, 0,  spread);
-                bCtx.globalAlpha = 1;
-            }
-            const t = bufA; bufA = bufB; bufB = t;
-            const tc = aCtx; aCtx = bCtx; bCtx = tc;
-        }
-
-        ctx.save();
-        ctx.setTransform(1,0,0,1,0,0);
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = Math.min(1, params.intensity * LE.master);
-        ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(bufA, 0, 0, dw, dh, 0, 0, w, h);
-        ctx.restore();
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = 'source-over';
-    }
-
-    return { apply, params, _state(){ return { lastW, lastH, SCALE }; } };
-})();
-window.BloomFX = BloomFX;
-
-function shouldApplyBloomFX(){
-    return false;
-}
-
-function drawSaberCore(){
-    return;
-}
 
 function saberCoreActive(){
     return false;
@@ -9099,7 +8906,6 @@ function schedulePianoHeightResize(){
 }
 const hRange = document.getElementById('hRange');
 const hVal = document.getElementById('hVal');
-let pendingPianoHeight = hRange ? hRange.value : '50';
 function getPianoMaxHeightPx(){
     const vv = window.visualViewport;
     const vh = Math.max(1, Math.round(vv ? vv.height : window.innerHeight));
@@ -9479,10 +9285,6 @@ function applyVisibleKeyCount(){
     refreshKeyPresetUI();
     setTimeout(() => document.body.classList.remove('layout-changing'), 220);
 }
-function setVisibleKeyCount(count){
-    stageVisibleKeyCount(count);
-    applyVisibleKeyCount();
-}
 document.querySelectorAll('.key-preset-btn').forEach(btn => btn.onclick=()=>stageVisibleKeyCount(btn.dataset.keyCount));
 function stepVisibleKeyCount(delta){
     stageVisibleKeyCount(pendingWCount + delta);
@@ -9609,28 +9411,6 @@ let perfFps = 0;
 let perfFrames = 0;
 let perfLastTs = performance.now();
 let perfRafId = null;
-function getNetworkStatus(){
-    if (!navigator.onLine) return { label:'Offline', cls:'net-offline' };
-    const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    if (!c) return { label:'Online', cls:'net-online' };
-    if (c.saveData) return { label:'Saver', cls:'net-saver' };
-    const type = (c.effectiveType || '').toLowerCase();
-    if (type.includes('2g')) return { label:'Slow', cls:'net-slow' };
-    if (type.includes('3g')) return { label:'Okay', cls:'net-okay' };
-    if (type.includes('4g')) return { label:'Good', cls:'net-good' };
-    return { label:'Online', cls:'net-online' };
-}
-function estimateRenderLoad(){
-    const notes = (typeof activeNotes !== 'undefined' && activeNotes) ? activeNotes.size : 0;
-    const visual = (typeof falling !== 'undefined' && falling) ? falling.length : 0;
-    const dust = 0;
-    const burst = (typeof getBurstLevel === 'function') ? getBurstLevel() : 0;
-    const score = notes * 2.2 + visual * 0.55 + dust * 0.18 + burst * 3.0;
-    if(score > 95) return { text:'Load Extreme', cls:'load-extreme' };
-    if(score > 58) return { text:'Load High', cls:'load-high' };
-    if(score > 28) return { text:'Load Medium', cls:'load-medium' };
-    return { text:'Load Low', cls:'load-low' };
-}
 function updatePerfHudText(){
     const hud = document.getElementById('perfHud');
     if (!hud) return;
@@ -9776,26 +9556,6 @@ function colorPadHslToRgb(hue, saturation, lightness){
     else if(hue < 300){ red = x; blue = c; }
     else{ red = c; blue = x; }
     return [(red + m) * 255, (green + m) * 255, (blue + m) * 255];
-}
-function colorPadRgbToHsl(rgb){
-    const red = rgb[0] / 255;
-    const green = rgb[1] / 255;
-    const blue = rgb[2] / 255;
-    const max = Math.max(red, green, blue);
-    const min = Math.min(red, green, blue);
-    const diff = max - min;
-    let hue = 0;
-    let saturation = 0;
-    const lightness = (max + min) / 2;
-    if(diff !== 0){
-        saturation = diff / (1 - Math.abs(2 * lightness - 1));
-        if(max === red) hue = ((green - blue) / diff) % 6;
-        else if(max === green) hue = (blue - red) / diff + 2;
-        else hue = (red - green) / diff + 4;
-        hue *= 60;
-        if(hue < 0) hue += 360;
-    }
-    return { hue, saturation, lightness };
 }
 function colorPadHsvToRgb(hue, sat, val){
     hue = ((hue % 360) + 360) % 360;
@@ -10290,16 +10050,6 @@ function hexToRgbaString(hex, alpha){
     const a = Math.max(0, Math.min(1, Number(alpha) || 0));
     return `rgba(${r},${g},${b},${a})`;
 }
-function mixHexColor(hex, targetHex, amount){
-    const src=normalizeHexColor(hex) || '#ffffff';
-    const target=normalizeHexColor(targetHex) || '#ffffff';
-    const a=Math.max(0,Math.min(1,amount));
-    const s=parseInt(src.slice(1),16), t=parseInt(target.slice(1),16);
-    const sr=(s>>16)&255, sg=(s>>8)&255, sb=s&255;
-    const tr=(t>>16)&255, tg=(t>>8)&255, tb=t&255;
-    const r=Math.round(sr*(1-a)+tr*a), g=Math.round(sg*(1-a)+tg*a), b=Math.round(sb*(1-a)+tb*a);
-    return '#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
-}
 function applySaberSaturation(hex, percent){
     const c = normalizeHexColor(hex) || '#ffffff';
     const p = Math.max(0, Math.min(100, Number(percent) || 0)) / 100;
@@ -10740,14 +10490,6 @@ document.querySelectorAll('.settings-anim-style').forEach(btn => {
     btn.onclick = () => setAnimModeById(btn.dataset.styleTarget);
 });
 
-function setGlowMasterPercent(v){
-    const value = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
-    if(window.LightEngine) window.LightEngine.master = value / 100;
-    const range = document.getElementById('fixedGlowIntensityRange');
-    const label = document.getElementById('fixedGlowIntensityVal');
-    if(range) range.value = value;
-    if(label) label.textContent = value + '%';
-}
 function setNoteFxSetting(name, value){
     const v = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
     const map = {
@@ -11005,7 +10747,6 @@ let swipePrevX = 0;
 let swipePrevTime = 0;
 let swipeRafId = null;
 let swipeVisualOffset = 0;
-let swipeNoteXUpdateTimer = null;
 let swipeSnapRafId = null;
 
 pianoEl.style.transition = 'none';
@@ -11245,7 +10986,6 @@ CHORD_DB.forEach(cd => {
     cd._level = modeLevel(cd.m);
     cd._pcMask = cd.s.reduce((mask, iv) => mask | (1 << (iv % 12)), 0);
 });
-function toPitchClasses(midiArr){ let pcs=[...new Set(midiArr.map(n=>((n%12)+12)%12))]; pcs.sort((a,b)=>a-b); return pcs; }
 function pitchClassesFromMask(mask){
     const pcs=[];
     for(let i=0;i<12;i++) if(mask & (1 << i)) pcs.push(i);
@@ -11256,7 +10996,6 @@ function rotatePcMask(mask, root){
     for(let i=0;i<12;i++) if(mask & (1 << i)) out |= 1 << ((root + i) % 12);
     return out;
 }
-function chordHasInterval(intervalSet, iv){ return intervalSet.has(iv)||intervalSet.has(iv+12); }
 function chordNoSuffix(suffix, missing){
     if(!missing||missing.length===0) return suffix;
     const clean=[...new Set(missing)].sort((a,b)=>a-b);
@@ -12690,9 +12429,6 @@ midiBtn.onclick = (e) => {
         return stringInstrumentLabel(currentStringInstrumentKey());
     }
 
-    function currentLayerInstrumentName(){
-        return stringEnabled ? currentStringInstrumentName() : 'None';
-    }
 
     function playerMainInstrumentText(player){
         const key = normalizeInstrumentKey(player?.instrumentKey || player?.instrument || 'sf1');
@@ -12705,9 +12441,6 @@ midiBtn.onclick = (e) => {
         return sanitizeText(player?.stringInstrument, stringInstrumentLabel(key));
     }
 
-    function playerInstrumentSummary(player){
-        return `Main: ${playerMainInstrumentText(player)} · Layer: ${playerLayerInstrumentText(player)}`;
-    }
 
     function normalizePlayer(id, data = {}){
         const instrumentKey = normalizeInstrumentKey(data.instrumentKey || data.sfKey || data.instrument);
@@ -12764,76 +12497,7 @@ midiBtn.onclick = (e) => {
         return player;
     }
 
-    function profileMatchesPlayerSearch(player, query){
-        const q = String(query || '').trim().toLowerCase();
-        if(!q) return true;
-        const clean = q.replace(/^#/, '');
-        const publicId = String(player.publicId || '').toLowerCase();
-        const userId = String(player.displayUserId || player.userId || '').toLowerCase().replace(/^#/, '');
-        const uid = String(player.id || player.uid || '').toLowerCase();
-        if(/^\d+$/.test(clean) && (clean === publicId || clean === userId)) return true;
-        return [player.name, player.bio, player.displayUserId, player.userId, player.publicId, player.searchName, uid].some(value => String(value || '').toLowerCase().replace(/#/g, '').includes(clean));
-    }
 
-    async function mergeFirestoreSearchProfiles(queryText){
-        if(!fsApi || !fsDb) return;
-        const raw = String(queryText || '').trim();
-        const clean = raw.toLowerCase().replace(/^#/, '');
-        if(clean.length < 2) return;
-        if(firestoreSearchCache.has(clean)){
-            firestoreSearchCache.get(clean).forEach(profile => {
-                const existing = players.find(player => player.id === profile.uid) || {};
-                upsertPlayer({ ...existing, id:profile.uid, name:profile.name, uid:profile.uid, displayUserId:profile.userId, userId:profile.userId, publicId:profile.publicId, badgeId:profile.badgeId, role:profile.role, photoURL:profile.photoURL, bio:profile.desc, desc:profile.desc, likes:profile.likes, dislikes:profile.dislikes, instrumentKey:existing.instrumentKey || 'sf1', instrument:existing.instrument || instrumentLabel(existing.instrumentKey || 'sf1'), color:existing.color || colorFromId(profile.uid) });
-            });
-            return;
-        }
-        const found = new Map();
-        const addProfile = snap => {
-            if(!snap || !snap.exists || !snap.exists()) return;
-            const profile = normalizeHomeProfile(snap.id, snap.data() || {});
-            found.set(profile.uid, profile);
-        };
-        try{
-            const col = fsApi.collection(fsDb, 'profiles');
-            const jobs = [];
-            if(/^\d+$/.test(clean)){
-                const numberId = Number(clean);
-                jobs.push(fsApi.getDocs(fsApi.query(col, fsApi.where('publicId', '==', numberId), fsApi.limit(12))));
-                jobs.push(fsApi.getDocs(fsApi.query(col, fsApi.where('userId', '==', formatMpSequentialId(numberId)), fsApi.limit(12))));
-            }else{
-                jobs.push(fsApi.getDocs(fsApi.query(col, fsApi.orderBy('searchName'), fsApi.startAt(clean), fsApi.endAt(clean + '\uf8ff'), fsApi.limit(16))));
-                jobs.push(fsApi.getDocs(fsApi.query(col, fsApi.where('name', '==', raw.slice(0, 24)), fsApi.limit(8))));
-            }
-            const snaps = await Promise.all(jobs.map(job => job.catch(() => null)));
-            snaps.forEach(snap => snap && snap.forEach(addProfile));
-        }catch(e){}
-        firestoreSearchCache.set(clean, Array.from(found.values()));
-        found.forEach(profile => {
-            const existing = players.find(player => player.id === profile.uid) || {};
-            upsertPlayer({
-                ...existing,
-                id:profile.uid,
-                name:profile.name,
-                uid:profile.uid,
-                displayUserId:profile.userId,
-                userId:profile.userId,
-                publicId:profile.publicId,
-                badgeId:profile.badgeId,
-                role:profile.role,
-                photoURL:profile.photoURL,
-                bio:profile.desc,
-                desc:profile.desc,
-                likes:profile.likes,
-                dislikes:profile.dislikes,
-                searchName:profile.searchName,
-                online:!!existing.online,
-                room:existing.room || null,
-                instrumentKey:existing.instrumentKey || 'sf1',
-                instrument:existing.instrument || instrumentLabel(existing.instrumentKey || 'sf1'),
-                color:existing.color || colorFromId(profile.uid)
-            });
-        });
-    }
 
     async function hydratePlayerProfile(player, options = {}){
         if(!player || !player.id) return player;
@@ -13006,11 +12670,6 @@ midiBtn.onclick = (e) => {
     }
     function mpPlayTimeSyncKey(){
         return (mpSelfId && !isLocalGuestPlayerId(mpSelfId)) ? `papianoPlayTimeRemoteDay:${mpSelfId}` : '';
-    }
-    function mpShouldSyncPlayTimeToday(){
-        const key = mpPlayTimeSyncKey();
-        if(!key) return false;
-        try{ return localStorage.getItem(key) !== mpPlayTimeDateKey(); }catch(e){ return true; }
     }
     function mpMarkPlayTimeSyncedToday(){
         const key = mpPlayTimeSyncKey();
@@ -13733,14 +13392,6 @@ midiBtn.onclick = (e) => {
         }, 180);
     }
 
-    function detachRoomsListener(){
-        if(roomsUnsubscribe){ try{ roomsUnsubscribe(); }catch(e){} roomsUnsubscribe = null; }
-        lobbyRoomPlayerUnsubscribers.forEach(unsubscribe => { try{ unsubscribe(); }catch(e){} });
-        lobbyRoomPlayerUnsubscribers.clear();
-        emptyRoomTimers.forEach(timer => clearTimeout(timer));
-        emptyRoomTimers.clear();
-        if(renderRoomsTimer){ clearTimeout(renderRoomsTimer); renderRoomsTimer = 0; }
-    }
 
     function closeLobbyToSolo(){
         // Multiplayer now lives on its own page (multiplayer.html), so the
@@ -14102,10 +13753,6 @@ midiBtn.onclick = (e) => {
         return !!id && id !== mpSelfId && friendIds.has(id);
     }
 
-    function relationshipText(player){
-        if(!player || player.id === mpSelfId) return 'You';
-        return isFriend(player.id) ? 'Friends' : 'Not connected';
-    }
 
     function canOfferFriend(player){
         return !!player && isInPianoRoom() && isSignedIn() && firebaseReady && dbApi && isAuthenticatedDisplayPlayer(player) && player.id !== mpSelfId && !isFriend(player.id);
