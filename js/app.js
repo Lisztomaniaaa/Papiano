@@ -3737,6 +3737,23 @@
         syncPlayTimeToFirestore();
     });
 
+    function restoreMultiplayerPresence(uid) {
+        if (!realtimeDb || !uid) return;
+        try {
+            var userRef = realtimeDb.ref('papianoOnlineBeta/users/' + uid);
+            userRef.update({
+                online: true,
+                lastSeen: Date.now(),
+                lastActive: Date.now(),
+                updatedAt: Date.now()
+            });
+            userRef.onDisconnect().update({
+                online: false,
+                updatedAt: Date.now()
+            });
+        } catch (e) {}
+    }
+
     function startPapianoAuthBootstrap() {
         firebaseAuth.onAuthStateChanged(async user => {
             authStateResolved = true;
@@ -3746,6 +3763,7 @@
                     await ensureUserProfile(user);
                     startRoleRegistryListener();
                     startDeletedAccountWatcher(user.uid);
+                    restoreMultiplayerPresence(user.uid);
                 } catch (error) {
                     if (isAccountRestrictionError(error)) {
                         await exitDeletedAccount();
