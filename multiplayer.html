@@ -6848,8 +6848,8 @@ function playSfBuffer(soundMidi, vel, activeKey, layer='piano') {
 let activeVoices = [];
 const MAX_ACTIVE_VOICES = 42;
 const MAX_RELEASE_SECONDS = 18.00;
-const PIANO_MIN_RELEASE_TC = 0.12;
-const PIANO_MIN_RELEASE_DELAY = 0.36;
+const PIANO_MIN_RELEASE_TC = 0.22;
+const PIANO_MIN_RELEASE_DELAY = 0.65;
 
 function cleanupVoiceRef(voice){
     if (!voice) return;
@@ -6921,8 +6921,8 @@ function getReleaseProfile(isFastGliss=false, sustainPct=sustainLevel) {
     const raw = Math.max(0, Math.min(1, sustainPct || 0));
     const pct = Math.pow(raw, 0.78);
     if (pct <= 0.0005) return { tc: PIANO_MIN_RELEASE_TC, delay: PIANO_MIN_RELEASE_DELAY };
-    const tc = Math.min(0.10 + pct * 3.15, 3.25);
-    const delay = Math.min(0.42 + pct * 14.20, 14.60);
+    const tc = Math.min(PIANO_MIN_RELEASE_TC + pct * 3.03, 3.25);
+    const delay = Math.min(PIANO_MIN_RELEASE_DELAY + pct * 13.95, 14.60);
     return { tc, delay };
 }
 function getStringFadeProfile(fadeSec, isFast=false) {
