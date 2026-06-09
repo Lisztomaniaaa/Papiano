@@ -12314,15 +12314,35 @@ midiBtn.onclick = (e) => {
         return String(value ?? '').replace(/[&<>"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]));
     }
 
-    const MP_BADGES = {
-        common:{ id:'common', label:'PLAYER' },
-        uncommon:{ id:'uncommon', label:'SUPPORTER' },
-        rare:{ id:'rare', label:'CREATOR' },
-        epic:{ id:'epic', label:'PAPIONEER' }
+    const MP_BADGES_BASE = {
+        common:{ id:'common', label:'PLAYER', rarity:'common' },
+        uncommon:{ id:'uncommon', label:'SUPPORTER', rarity:'uncommon' },
+        rare:{ id:'rare', label:'CREATOR', rarity:'rare' },
+        epic:{ id:'epic', label:'PAPIONEER', rarity:'epic' }
     };
+    let mpRoleRegistry = { ...MP_BADGES_BASE };
     function getProfileBadge(value){
         const key = String(value || '').trim().toLowerCase();
-        return MP_BADGES[key] || MP_BADGES.common;
+        return mpRoleRegistry[key] || mpRoleRegistry.common || MP_BADGES_BASE.common;
+    }
+    function attachRoleRegistryListener(){
+        if(!firebaseReady || !dbApi || !db) return;
+        try{
+            var rolesRef = dbApi.ref(db, 'roles');
+            dbApi.onValue(rolesRef, snap => {
+                const data = snap.val() || {};
+                mpRoleRegistry = { ...MP_BADGES_BASE };
+                Object.entries(data).forEach(([id, role]) => {
+                    const roleId = String(id || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'common';
+                    const label = String(role?.label || role?.name || roleId).trim().slice(0, 28) || roleId.toUpperCase();
+                    const rarity = String(role?.rarity || 'common').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '') || 'common';
+                    mpRoleRegistry[roleId] = { id:roleId, label, rarity };
+                });
+                renderSearch();
+                renderRoomChrome();
+                if(selectedPlayer && profile.classList.contains('show')) renderProfile(selectedPlayer);
+            }, () => {});
+        }catch(e){}
     }
 
     function formatMpSequentialId(value){
@@ -15667,6 +15687,7 @@ midiBtn.onclick = (e) => {
                 syncAuthUi();
                 attachRoomsListener();
                 attachUsersListener();
+                attachRoleRegistryListener();
                 showToast('Online mode connected.', { type:'success', title:'Papiano' });
             }catch(e){
                 firebaseReady = false;
