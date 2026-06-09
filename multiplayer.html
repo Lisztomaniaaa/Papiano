@@ -15022,10 +15022,7 @@ midiBtn.onclick = (e) => {
         const notes = Array.from(held);
         held.clear();
         const releaseEvent = { ...event, sustainPedalDown:false, sustainEnabled:false };
-        notes.forEach(midi => {
-            releaseRemoteNote(id, midi, false, releaseEvent);
-            if(typeof _remoteNoteOff === 'function') _remoteNoteOff(id, midi);
-        });
+        notes.forEach(midi => releaseRemoteNote(id, midi, false, releaseEvent));
     }
 
     function releaseRemoteLayer(playerId, midi, layer, event = {}, fast = false){
@@ -15152,8 +15149,9 @@ midiBtn.onclick = (e) => {
             if(sustainHeld) holdRemoteNoteOff(player.id, midi);
             else releaseRemoteNote(player.id, midi, !remoteSustainActive(player.id, event), event);
             playRemoteReleaseVisual(midi, el, player.id);
-            // Only remove from chord tracking if not sustained
-            if(!sustainHeld && typeof _remoteNoteOff === 'function') _remoteNoteOff(player.id, midi);
+            // Chord tracking mirrors physical keys (like local pressStartTimes),
+            // so remove on noteOff even while sustain holds the sound
+            if(typeof _remoteNoteOff === 'function') _remoteNoteOff(player.id, midi);
         }
     }
 
@@ -15426,6 +15424,10 @@ midiBtn.onclick = (e) => {
                         secondary: matches.length >= 2 ? formatChord(matches[1]) : '',
                         idleSince: 0
                     });
+                } else {
+                    // Notes no longer form a known chord — let the old text fade
+                    const existing = _remoteChordText.get(pid);
+                    if(existing && !existing.idleSince) existing.idleSince = now;
                 }
             } else {
                 // Notes released — mark idle timestamp so it fades after hold window
