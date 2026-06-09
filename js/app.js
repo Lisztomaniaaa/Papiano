@@ -3737,13 +3737,15 @@
         syncPlayTimeToFirestore();
     });
 
+    var _mpPresenceRef = null;
+
     function restoreMultiplayerPresence(uid) {
         if (!realtimeDb || !uid) return;
         try {
             var profile = currentProfile || {};
             var now = Date.now();
-            var userRef = realtimeDb.ref('papianoOnlineBeta/users/' + uid);
-            userRef.update({
+            _mpPresenceRef = realtimeDb.ref('papianoOnlineBeta/users/' + uid);
+            _mpPresenceRef.update({
                 id: uid,
                 uid: uid,
                 name: profile.name || 'Papiano User',
@@ -3763,12 +3765,32 @@
                 lastActive: now,
                 updatedAt: now
             });
-            userRef.onDisconnect().update({
+            _mpPresenceRef.onDisconnect().update({
                 online: false,
                 updatedAt: Date.now()
             });
         } catch (e) {}
     }
+
+    function touchMultiplayerPresence() {
+        if (!_mpPresenceRef) return;
+        try {
+            _mpPresenceRef.update({
+                online: true,
+                lastSeen: Date.now(),
+                lastActive: Date.now(),
+                updatedAt: Date.now()
+            });
+        } catch (e) {}
+    }
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden && _mpPresenceRef) touchMultiplayerPresence();
+    });
+
+    setInterval(function() {
+        if (!document.hidden && _mpPresenceRef) touchMultiplayerPresence();
+    }, 30000);
 
     function startPapianoAuthBootstrap() {
         firebaseAuth.onAuthStateChanged(async user => {
