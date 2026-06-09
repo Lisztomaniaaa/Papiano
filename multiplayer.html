@@ -15024,7 +15024,6 @@ midiBtn.onclick = (e) => {
         const releaseEvent = { ...event, sustainPedalDown:false, sustainEnabled:false };
         notes.forEach(midi => {
             releaseRemoteNote(id, midi, false, releaseEvent);
-            if(typeof _remoteNoteOff === 'function') _remoteNoteOff(id, midi);
         });
     }
 
@@ -15112,6 +15111,16 @@ midiBtn.onclick = (e) => {
             return;
         }
         if(event.playerId === currentUser().id) return;
+
+        // ═══ CHORD DETECTION: runs BEFORE all audio/mute/volume guards ═══
+        // Chord display must work even if player is muted or volume=0
+        var _chMidi = Number(event.note);
+        if(Number.isFinite(_chMidi) && _chMidi >= 21 && _chMidi <= 108){
+            if(event.type === 'noteOn' && typeof _remoteNoteOn === 'function') _remoteNoteOn(event.playerId, _chMidi);
+            else if(event.type === 'noteOff' && typeof _remoteNoteOff === 'function') _remoteNoteOff(event.playerId, _chMidi);
+        }
+        // ═══ END CHORD DETECTION ═══
+
         const player = getPlayer(event.playerId);
         if(event.type === 'sustain'){
             if(getState(player.id).muteInstrument) return;
@@ -15145,15 +15154,12 @@ midiBtn.onclick = (e) => {
             }
             playRemotePressVisual(midi, el, player.id);
             pulsePlayer(player.id);
-            if(typeof _remoteNoteOn === 'function') _remoteNoteOn(player.id, midi);
         }else if(event.type === 'noteOff'){
             updateRemoteSustainState(player.id, event);
             const sustainHeld = shouldHoldRemoteNoteOff(player.id, event);
             if(sustainHeld) holdRemoteNoteOff(player.id, midi);
             else releaseRemoteNote(player.id, midi, !remoteSustainActive(player.id, event), event);
             playRemoteReleaseVisual(midi, el, player.id);
-            // Only remove from chord tracking if not sustained
-            if(!sustainHeld && typeof _remoteNoteOff === 'function') _remoteNoteOff(player.id, midi);
         }
     }
 
@@ -15442,14 +15448,26 @@ midiBtn.onclick = (e) => {
         _mpChordDecayTimer = setInterval(() => {
             const now = Date.now();
             let changed = false;
+            // Cleanup decayed chord labels
             _remoteChordText.forEach((data, pid) => {
                 if(data.idleSince && now - data.idleSince > _MP_CHORD_HOLD_MS){
                     _remoteChordText.delete(pid);
                     changed = true;
                 }
             });
+            // Stuck note cleanup: remove notes active >30s (missed noteOff)
+            _remoteActiveNotes.forEach((set, pid) => {
+                if(set && set.size > 0){
+                    const existing = _remoteChordText.get(pid);
+                    if(existing && existing.idleSince && now - existing.idleSince > 30000){
+                        set.clear();
+                        _remoteChordText.delete(pid);
+                        changed = true;
+                    }
+                }
+            });
             if(changed) _renderMpChords();
-            if(_remoteChordText.size === 0){
+            if(_remoteChordText.size === 0 && _remoteActiveNotes.size === 0){
                 clearInterval(_mpChordDecayTimer);
                 _mpChordDecayTimer = 0;
             }
