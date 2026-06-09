@@ -1110,3 +1110,24 @@ select.form-input-control::-ms-expand{display:none}
     font-weight:900 !important;
   }
 }
+
+/* Fix: delete button text invisible (dark on dark) */
+.msg-action-btn.danger{
+    background:#06111f;
+    color:#ffffff !important;
+}
+/* Fix: reply quote card white inside blue bubble */
+.msg-bubble .reply-source-card{
+    background:rgba(255,255,255,.12) !important;
+    border-left-color:rgba(255,255,255,.3) !important;
+    color:inherit !important;
+}
+.msg-bubble .reply-source-card span,
+.msg-bubble .reply-source-card strong{
+    color:inherit !important;
+}
+/* Fix: white line at chat input bar */
+.chat-input-bar{
+    border-top:none !important;
+    box-shadow:none !important;
+}
