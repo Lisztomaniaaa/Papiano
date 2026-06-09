@@ -11,3 +11,6 @@
 
 .profile-action-grid{display:grid !important;grid-template-columns:1fr 1fr !important;gap:8px !important}
 .profile-action-grid > *{grid-column:auto !important;min-width:0 !important}
+
+
+.nav-tab-action.active .nav-pill-wrapper{background:#ffffff !important;border-color:rgba(6,17,31,.14) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.95),inset 0 -3px 0 rgba(0,91,255,.14),0 5px 12px rgba(6,17,31,.16) !important}.nav-tab-action.active .nav-pill-wrapper .material-symbols-rounded{color:var(--accent) !important}
