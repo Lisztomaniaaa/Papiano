@@ -1031,3 +1031,8 @@ select.form-input-control::-ms-expand{display:none}
     grid-template-columns:repeat(auto-fit,minmax(min(340px,100%),1fr)) !important;
   }
 }
+
+
+
+#pageChat.active{gap:10px}
+#pageChat .chat-list-group{margin-top:0;padding-top:0}
