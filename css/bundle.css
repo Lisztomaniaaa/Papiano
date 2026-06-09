@@ -1155,3 +1155,14 @@ select.form-input-control::-ms-expand{display:none}
     background:transparent !important;
     width:0 !important;
 }
+
+
+
+.chat-input-field{
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+}
+.chat-input-field::-webkit-scrollbar{
+    display:none !important;
+    width:0 !important;
+}
