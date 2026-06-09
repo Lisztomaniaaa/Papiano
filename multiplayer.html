@@ -4002,6 +4002,29 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
     gap:6px;
     flex-wrap:wrap;
 }
+.mp-lobby-badge-pill{
+    flex-shrink:0;
+    font-size:10px;
+    font-weight:900;
+    padding:2px 8px;
+    border-radius:6px;
+    text-transform:uppercase;
+    border:1.1px solid var(--lbadge-border,rgba(6,17,31,0.20));
+    background:var(--lbadge-bg,#ffffff);
+    color:var(--lbadge-ink,#06111f);
+    box-shadow:1.5px 1.5px 0 var(--lbadge-shadow,rgba(6,17,31,0.26));
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    max-width:100%;
+}
+.mp-lobby-badge-common{ --lbadge-bg:#ffffff; --lbadge-ink:#06111f; --lbadge-border:rgba(6,17,31,0.22); --lbadge-shadow:rgba(6,17,31,0.24); }
+.mp-lobby-badge-uncommon{ --lbadge-bg:#00D66B; --lbadge-ink:#06111f; --lbadge-border:#06111f; --lbadge-shadow:#008844; }
+.mp-lobby-badge-rare{ --lbadge-bg:#005BFF; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#00358f; }
+.mp-lobby-badge-epic{ --lbadge-bg:#7C3AED; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#4C1D95; }
+.mp-lobby-badge-legendary{ --lbadge-bg:#FFB000; --lbadge-ink:#06111f; --lbadge-border:#06111f; --lbadge-shadow:#B36E00; }
+.mp-lobby-badge-mythic{ --lbadge-bg:#FB3F5C; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#9f1831; }
 .mp-lobby-profile-flag{
     font-size:13px;
     font-weight:600;
@@ -5426,14 +5449,14 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
         <div class="mp-lobby-profile-sheet" onclick="event.stopPropagation()">
             <div class="mp-lobby-profile-topline">
                 <span class="mp-lobby-profile-kicker">Profile</span>
-                <button class="mp-lobby-profile-close" type="button" aria-label="Close profile"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>
+                <button class="mp-lobby-profile-close" type="button" aria-label="Close profile" onclick="window.PapianoMultiplayer.closeLobbyProfile()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>
             </div>
             <div class="mp-lobby-hero">
                 <div class="mp-lobby-avatar-big" id="mpLobbyProfileAvatar">?</div>
                 <div class="mp-lobby-profile-main">
                     <div class="mp-lobby-name-big" id="mpLobbyProfileName">Player</div>
                     <div class="mp-lobby-profile-chips">
-                        <span class="mp-lobby-profile-kicker" id="mpLobbyProfileBadge">Player</span>
+                        <span class="mp-lobby-badge-pill" id="mpLobbyProfileBadge">Player</span>
                         <span class="mp-lobby-profile-flag" id="mpLobbyProfileFlag" style="display:none;"></span>
                     </div>
                 </div>
@@ -14632,7 +14655,11 @@ midiBtn.onclick = (e) => {
             }
         }
         if(nameEl) nameEl.textContent = player.name || 'Player';
-        if(badgeEl) badgeEl.textContent = getProfileBadge(player.badgeId).label;
+        if(badgeEl){
+            const badge = getProfileBadge(player.badgeId);
+            badgeEl.textContent = badge.label;
+            badgeEl.className = 'mp-lobby-badge-pill mp-lobby-badge-' + (badge.rarity || 'common');
+        }
         if(flagEl){
             const country = profileCountryText(player);
             if(country && country !== '—'){ flagEl.textContent = country; flagEl.style.display = ''; }
@@ -14683,7 +14710,11 @@ midiBtn.onclick = (e) => {
             if(selectedPlayer && selectedPlayer.id === player.id && overlay.classList.contains('active')){
                 selectedPlayer = fresh;
                 if(nameEl) nameEl.textContent = fresh.name || 'Player';
-                if(badgeEl) badgeEl.textContent = getProfileBadge(fresh.badgeId).label;
+                if(badgeEl){
+                    const badge = getProfileBadge(fresh.badgeId);
+                    badgeEl.textContent = badge.label;
+                    badgeEl.className = 'mp-lobby-badge-pill mp-lobby-badge-' + (badge.rarity || 'common');
+                }
                 if(idEl) idEl.textContent = fresh.displayUserId || fresh.userId || '—';
                 if(bioEl) bioEl.textContent = fresh.bio || '—';
                 if(likeVal) likeVal.textContent = Number(fresh.likes || 0);
