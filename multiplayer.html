@@ -5445,11 +5445,11 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
         </div>
     </div>
 
-    <div id="mpLobbyProfileOverlay" class="mp-lobby-profile-overlay" onclick="if(event.target===this){window.PapianoMultiplayer.closeLobbyProfile();}">
-        <div class="mp-lobby-profile-sheet" onclick="event.stopPropagation()">
+    <div id="mpLobbyProfileOverlay" class="mp-lobby-profile-overlay">
+        <div class="mp-lobby-profile-sheet">
             <div class="mp-lobby-profile-topline">
                 <span class="mp-lobby-profile-kicker">Profile</span>
-                <button class="mp-lobby-profile-close" type="button" aria-label="Close profile" onclick="window.PapianoMultiplayer.closeLobbyProfile()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>
+                <button class="mp-lobby-profile-close" id="mpLobbyProfileCloseX" type="button" aria-label="Close profile"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg></button>
             </div>
             <div class="mp-lobby-hero">
                 <div class="mp-lobby-avatar-big" id="mpLobbyProfileAvatar">?</div>
@@ -5474,7 +5474,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                 <button class="mp-lobby-vote-btn mp-lobby-vote-like" id="mpLobbyLikeBtn" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v10"/><path d="M11 10l1.2-4.8A2 2 0 0 1 14.1 4h.4a1.6 1.6 0 0 1 1.5 2.1L15 10h4a2 2 0 0 1 1.9 2.5l-1.4 5.3A3 3 0 0 1 16.6 20H11a4 4 0 0 1-4-4v-6"/></svg><span id="mpLobbyLikeVal">0</span></button>
                 <button class="mp-lobby-vote-btn mp-lobby-vote-dislike" id="mpLobbyDislikeBtn" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V4"/><path d="M13 14l-1.2 4.8A2 2 0 0 1 9.9 20h-.4A1.6 1.6 0 0 1 8 17.9L9 14H5a2 2 0 0 1-1.9-2.5l1.4-5.3A3 3 0 0 1 7.4 4H13a4 4 0 0 1 4 4v6"/></svg><span id="mpLobbyDislikeVal">0</span></button>
             </div>
-            <button class="mp-lobby-close-btn" type="button" onclick="window.PapianoMultiplayer.closeLobbyProfile()">Close</button>
+            <button class="mp-lobby-close-btn" id="mpLobbyProfileCloseBtn" type="button">Close</button>
         </div>
     </div>
 
@@ -14738,6 +14738,15 @@ midiBtn.onclick = (e) => {
 
     window.PapianoMultiplayer = window.PapianoMultiplayer || {};
     window.PapianoMultiplayer.closeLobbyProfile = closeLobbyProfile;
+
+    (function bindLobbyProfileClose(){
+        const overlay = document.getElementById('mpLobbyProfileOverlay');
+        const xBtn = document.getElementById('mpLobbyProfileCloseX');
+        const closeBtn = document.getElementById('mpLobbyProfileCloseBtn');
+        if(overlay) overlay.addEventListener('click', function(e){ if(e.target === overlay) closeLobbyProfile(); });
+        if(xBtn) xBtn.addEventListener('click', closeLobbyProfile);
+        if(closeBtn) closeBtn.addEventListener('click', closeLobbyProfile);
+    })();
 
     function closeProfile(){
         if(!isInPianoRoom()){
