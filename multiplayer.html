@@ -15156,8 +15156,7 @@ midiBtn.onclick = (e) => {
 })();
 </script>
 <script>
-/* Papiano auto-update: fetches version.json as single source of truth.
-   No hardcoded version — always in sync, zero maintenance. */
+// Auto-update poller — reloads page when version.json changes
 (function(){
     var APP_VERSION = null;
     var CHECK_MS = 120000;
