@@ -696,7 +696,7 @@ body,button,input,select,textarea{ font-family:'Plus Jakarta Sans','Nunito',sans
     isolation: isolate;
     contain: layout paint style;
 }
-#panel{ gap:9px; }
+#panel{ gap:8px; }
 .btn{
     border-radius:999px;
     background:rgba(255,255,255,0.075);
@@ -1255,7 +1255,7 @@ body.key-glow-on #piano .black.active{
     justify-content:space-between;
     align-items:center;
     gap:10px;
-    padding:10px 11px;
+    padding:9px 10px;
     margin-bottom:10px;
     border-radius:16px;
     background:rgba(255,255,255,0.055);
@@ -2732,7 +2732,7 @@ body:not(.mp-room-active) .perf-hud{ display:none !important; }
     width:46px;
     height:46px;
     border:0;
-    border-radius:18px;
+    border-radius:16px;
     background:rgba(8,17,31,.78);
     color:rgba(238,248,255,.92);
     cursor:pointer;
@@ -2936,7 +2936,7 @@ body:not(.mp-room-active) .perf-hud{ display:none !important; }
     border:1px solid rgba(120,220,255,.22);
     color:#a9eeff;
     font-family:var(--font-body, 'Plus Jakarta Sans', system-ui, sans-serif);
-    font-size:10px;
+    font-size:9px;
     font-weight:800;
     letter-spacing:.12px;
     line-height:1;
@@ -3294,20 +3294,148 @@ body.mp-room-active .mp-player-strip{ display:flex; }
     border-color:rgba(157,235,255,.70) !important;
     color:#061117 !important;
 }
-.mp-chat-panel{
-    position:absolute;
-    top:calc(112px + env(safe-area-inset-top,0px));
-    right:calc(14px + env(safe-area-inset-right,0px));
+:root{
+    --mp-chat-vh:100dvh;
+    --mp-chat-keyboard-inset:0px;
+    --mp-chat-preview-rows:3;
+}
+.mp-chat-preview{
+    position:fixed;
+    left:calc(14px + env(safe-area-inset-left,0px));
     bottom:calc(var(--piano-height,25vh) + 14px + env(safe-area-inset-bottom,0px));
-    width:min(356px,calc(100vw - 28px));
-    min-height:220px;
+    z-index:1115;
+    display:none;
+    flex-direction:column;
+    gap:8px;
+    width:min(248px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));
+    max-height:calc((var(--mp-chat-preview-rows,3) * 72px) + ((var(--mp-chat-preview-rows,3) - 1) * 6px));
+    overflow:hidden;
+    pointer-events:auto;
+    touch-action:manipulation;
+}
+body.mp-room-active:not(.mp-chat-open) .mp-chat-preview:not(:empty){ display:flex; }
+body.mp-chat-keyboard .mp-chat-preview,
+body.mp-chat-dismissed .mp-chat-preview{ display:none !important; }
+.mp-chat-preview-item{
+    display:flex;
+    flex-direction:column;
+    gap:5px;
+    min-height:0;
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:18px;
+    background:rgba(13,17,25,.84);
+    box-shadow:0 12px 30px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.06);
+    -webkit-backdrop-filter:blur(14px);
+    backdrop-filter:blur(14px);
+    padding:10px 11px;
+    text-align:left;
+    cursor:pointer;
+    font-family:inherit;
+    color:inherit;
+    appearance:none;
+    -webkit-appearance:none;
+}
+.mp-chat-preview-item.mine{
+    background:rgba(15,28,36,.90);
+    border-color:rgba(120,220,255,.26);
+}
+.mp-chat-preview-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    min-width:0;
+}
+.mp-chat-preview-profile{
+    display:flex;
+    align-items:center;
+    gap:9px;
+    min-width:0;
+    flex:1;
+}
+.mp-chat-preview-avatar{
+    width:28px;
+    height:28px;
+    border-radius:999px;
+    background:var(--mp-player-color,#78dcff);
+    overflow:hidden;
+    box-shadow:0 0 0 1px rgba(255,255,255,.18);
+    flex:0 0 auto;
+}
+.mp-chat-preview-avatar img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+}
+.mp-chat-preview-name{
+    color:#fff;
+    font-size:11.5px;
+    font-weight:900;
+    line-height:1.12;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.mp-chat-preview-time{
+    color:rgba(255,255,255,.50);
+    font-size:10px;
+    font-weight:800;
+    letter-spacing:.02em;
+    flex:0 0 auto;
+}
+.mp-chat-preview-text{
+    color:rgba(248,252,255,.92);
+    font-size:11.5px;
+    line-height:1.26;
+    font-weight:800;
+    max-height:2.52em;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+    word-break:break-word;
+}
+.mp-chat-preview-foot{
+    display:flex;
+    justify-content:flex-end;
+    align-items:center;
+    margin-top:-1px;
+}
+.mp-chat-preview-reply{
+    width:16px;
+    height:16px;
+    border-radius:0;
+    display:grid;
+    place-items:center;
+    background:transparent;
+    border:0;
+    color:#9defff;
+    opacity:.84;
+    flex:0 0 auto;
+}
+.mp-chat-preview-reply .mp-reply-icon{
+    width:12px;
+    height:12px;
+}
+.mp-chat-panel{
+    position:fixed;
+    top:auto;
+    left:50%;
+    right:auto;
+    transform:translateX(-50%);
+    bottom:calc(var(--piano-height,25vh) + 14px + env(safe-area-inset-bottom,0px));
+    width:min(360px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));
+    height:min(58dvh,520px);
+    max-height:calc(var(--mp-chat-vh,100dvh) - var(--piano-height,25vh) - 84px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+    min-height:min(260px,calc(var(--mp-chat-vh,100dvh) - var(--piano-height,25vh) - 84px));
     z-index:2110;
     display:none;
     flex-direction:column;
     overflow:hidden;
-    border-radius:24px;
+    border-radius:26px;
     border:1px solid rgba(255,255,255,.14);
-    background:rgba(13,17,25,.82);
+    background:rgba(13,17,25,.90);
     box-shadow:0 22px 60px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.07);
     -webkit-backdrop-filter:blur(16px);
     backdrop-filter:blur(16px);
@@ -3315,6 +3443,12 @@ body.mp-room-active .mp-player-strip{ display:flex; }
     touch-action:auto;
 }
 body.mp-chat-open .mp-chat-panel{ display:flex; }
+body.mp-chat-keyboard .mp-chat-panel{
+    bottom:calc(8px + env(safe-area-inset-bottom,0px) + var(--mp-chat-keyboard-inset,0px)) !important;
+    height:min(56dvh,calc(var(--mp-chat-vh,100dvh) - 78px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))) !important;
+    max-height:calc(var(--mp-chat-vh,100dvh) - 76px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)) !important;
+    min-height:0 !important;
+}
 .mp-chat-head{
     display:flex;
     align-items:center;
@@ -3323,6 +3457,7 @@ body.mp-chat-open .mp-chat-panel{ display:flex; }
     padding:12px 14px;
     border-bottom:1px solid rgba(255,255,255,.08);
     flex:0 0 auto;
+    touch-action:auto;
 }
 .mp-chat-title{ color:#fff; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:.55px; }
 .mp-chat-sub{ margin-top:2px; color:rgba(255,255,255,.46); font-size:10px; font-weight:800; }
@@ -3345,7 +3480,7 @@ body.mp-chat-open .mp-chat-panel{ display:flex; }
     overflow-y:auto;
     display:flex;
     flex-direction:column;
-    gap:8px;
+    gap:9px;
     padding:12px;
     -webkit-overflow-scrolling:touch;
     overscroll-behavior:contain;
@@ -3353,51 +3488,75 @@ body.mp-chat-open .mp-chat-panel{ display:flex; }
 }
 .mp-message{
     display:grid;
-    grid-template-columns:30px minmax(0,1fr);
-    gap:8px;
+    grid-template-columns:32px minmax(0,1fr);
+    gap:9px;
     align-items:start;
 }
-.mp-message.mine{ grid-template-columns:minmax(0,1fr) 30px; }
-.mp-message.mine .mp-message-avatar{ grid-column:2; grid-row:1; }
-.mp-message.mine .mp-bubble{ grid-column:1; grid-row:1; background:rgba(120,220,255,.14); border-color:rgba(120,220,255,.22); }
+.mp-message.mine{ grid-template-columns:32px minmax(0,1fr); }
 .mp-message-avatar{
-    width:30px;
-    height:30px;
+    width:32px;
+    height:32px;
     border-radius:999px;
     border:0;
     display:grid;
     place-items:center;
     background:var(--mp-player-color,#78dcff);
-    color:#071016;
+    color:transparent;
     font-size:0;
     font-weight:900;
-    color:transparent;
     overflow:hidden;
     cursor:pointer;
     font-family:inherit;
 }
+.mp-message-avatar img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+    display:block;
+}
 .mp-bubble{
     min-width:0;
-    padding:9px 10px;
-    border-radius:15px;
+    padding:10px 11px;
+    border-radius:18px;
     background:rgba(255,255,255,.075);
     border:1px solid rgba(255,255,255,.08);
 }
+.mp-message.mine .mp-bubble{
+    background:rgba(120,220,255,.14);
+    border-color:rgba(120,220,255,.22);
+}
+.mp-message-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:8px;
+    margin-bottom:7px;
+}
 .mp-message-meta{
     display:flex;
-    align-items:center;
-    gap:6px;
-    margin-bottom:5px;
-    color:rgba(255,255,255,.48);
-    font-size:9px;
+    flex-direction:column;
+    gap:2px;
+    min-width:0;
+}
+.mp-message-name{
+    color:#fff;
+    font-size:12px;
     font-weight:900;
-    text-transform:uppercase;
-    letter-spacing:.42px;
+    line-height:1.15;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+.mp-message-time{
+    color:rgba(255,255,255,.48);
+    font-size:10px;
+    font-weight:800;
+    line-height:1.1;
 }
 .mp-message-text{
     color:rgba(248,252,255,.92);
     font-size:12px;
-    line-height:1.35;
+    line-height:1.4;
     font-weight:750;
     word-break:break-word;
 }
@@ -3413,25 +3572,28 @@ body.mp-chat-open .mp-chat-panel{ display:flex; }
     line-height:1.25;
 }
 .mp-reply{
-    margin-top:8px;
+    width:28px;
+    height:28px;
     min-height:28px;
-    padding:0 12px;
+    padding:0;
     border:1px solid rgba(120,220,255,.30);
     border-radius:999px;
     background:rgba(120,220,255,.12);
     color:#9defff;
-    font-size:11px;
-    font-weight:900;
-    letter-spacing:.2px;
     overflow:hidden;
     cursor:pointer;
     font-family:inherit;
     display:inline-flex;
     align-items:center;
     justify-content:center;
+    flex:0 0 auto;
 }
 .mp-reply:active{ transform:scale(.96); }
-.mp-reply svg{ display:none; }
+.mp-reply svg{ display:block; }
+.mp-reply .mp-reply-icon{
+    width:14px;
+    height:14px;
+}
 .mp-reply-bar{
     display:none;
     align-items:center;
@@ -3462,10 +3624,11 @@ body.mp-chat-open .mp-chat-panel{ display:flex; }
     padding:0;
 }
 .mp-chat-form{
+    position:relative;
     display:grid;
-    grid-template-columns:minmax(0,1fr) 64px;
+    grid-template-columns:minmax(0,1fr) 72px;
     gap:8px;
-    padding:12px;
+    padding:12px 12px 23px;
     border-top:1px solid rgba(255,255,255,.08);
     flex:0 0 auto;
 }
@@ -3499,6 +3662,17 @@ body.mp-chat-open .mp-chat-panel{ display:flex; }
 }
 .mp-chat-send:active{ transform:scale(.94); }
 .mp-chat-send svg{ display:none; }
+.mp-chat-counter{
+    position:absolute;
+    left:24px;
+    bottom:6px;
+    color:rgba(255,255,255,.42);
+    font-size:9px;
+    font-weight:900;
+    letter-spacing:.03em;
+    pointer-events:none;
+}
+.mp-chat-counter.full{ color:#ff9f7c; }
 .mp-profile{
     position:fixed;
     left:50%;
@@ -3633,6 +3807,7 @@ body.mp-chat-open .mp-chat-panel{ display:flex; }
     color:#ff9cac;
 }
 .mp-profile-stat svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2.1; stroke-linecap:round; stroke-linejoin:round; }
+.mp-profile-stat-label{ font-size:10.5px; font-weight:950; letter-spacing:.02em; }
 .mp-profile-stat.like{ color:#93ffc0; border-color:rgba(147,255,192,.16); background:rgba(147,255,192,.055); }
 .mp-profile-stat.dislike{ color:#ff9fb0; border-color:rgba(255,159,176,.16); background:rgba(255,159,176,.055); }
 .mp-profile-stat.like.active{ border-color:rgba(147,255,192,.54); background:rgba(147,255,192,.15); box-shadow:0 0 20px rgba(147,255,192,.10); }
@@ -3671,7 +3846,35 @@ body.mp-chat-open .mp-chat-panel{ display:flex; }
     border-color:rgba(255,88,112,.24);
     color:#ff9cac;
 }
+.mp-profile-actions button.block{
+    background:rgba(255,196,87,.12);
+    border-color:rgba(255,196,87,.24);
+    color:#ffd27a;
+}
+.mp-profile-actions button.block.active{
+    background:rgba(255,196,87,.20);
+    border-color:rgba(255,196,87,.34);
+    color:#ffe2a5;
+}
+.mp-profile-actions button.report{
+    background:rgba(255,88,112,.10);
+    border-color:rgba(255,88,112,.20);
+    color:#ffb0bd;
+}
 .mp-profile-actions button:disabled{ opacity:.4; cursor:not-allowed; }
+.mp-report-modal{ position:fixed; inset:0; z-index:5300; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(4,10,18,.62); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); pointer-events:auto; }
+.mp-report-modal.show{ display:flex; }
+.mp-report-card{ width:min(360px,calc(100dvw - 36px)); border-radius:24px; border:1px solid rgba(255,255,255,.14); background:linear-gradient(180deg,rgba(21,29,40,.98),rgba(9,15,24,.98)); box-shadow:0 26px 70px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.08); padding:16px; color:#fff; }
+.mp-report-head{ display:grid; grid-template-columns:minmax(0,1fr) 34px; gap:12px; align-items:center; margin-bottom:14px; }
+.mp-report-title{ font-size:15px; font-weight:950; letter-spacing:.25px; }
+.mp-report-target{ margin-top:4px; color:rgba(255,255,255,.54); font-size:11px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mp-report-close{ width:34px; height:34px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.07); color:rgba(255,255,255,.78); display:grid; place-items:center; padding:0; cursor:pointer; }
+.mp-report-reasons{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.mp-report-reasons button,.mp-report-actions button{ min-height:38px; border-radius:14px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.07); color:rgba(245,250,255,.88); font-size:10.5px; font-weight:900; cursor:pointer; font-family:inherit; }
+.mp-report-reasons button.active{ background:rgba(120,220,255,.16); border-color:rgba(120,220,255,.30); color:#9defff; }
+.mp-report-detail{ width:100%; min-height:88px; resize:none; margin-top:10px; padding:11px 12px; border-radius:16px; border:1px solid rgba(255,255,255,.12); background:rgba(0,0,0,.22); color:#fff; outline:none; font-family:inherit; font-size:12px; font-weight:800; line-height:1.35; user-select:text; }
+.mp-report-actions{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+#mpReportSubmit{ background:linear-gradient(135deg,rgba(255,88,112,.92),rgba(255,142,112,.74)); border-color:rgba(255,142,112,.36); color:#1b0508; }
 body.mp-lobby-open #swipeStrip,
 body.mp-chat-open #swipeStrip,
 body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
@@ -3701,15 +3904,6 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
         top:calc(58px + env(safe-area-inset-top,0px));
         left:calc(124px + env(safe-area-inset-left,0px));
         right:calc(10px + env(safe-area-inset-right,0px));
-    }
-    .mp-chat-panel{
-        top:calc(100px + env(safe-area-inset-top,0px));
-        left:calc(10px + env(safe-area-inset-left,0px));
-        right:calc(10px + env(safe-area-inset-right,0px));
-        bottom:calc(var(--piano-height,25vh) + 12px + env(safe-area-inset-bottom,0px));
-        width:auto;
-        min-height:190px;
-        border-radius:22px;
     }
     .mp-player-name{ max-width:62px; }
     .mp-profile{
@@ -4182,70 +4376,61 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 }
 
 
-body.mp-chat-dragging{ cursor:grabbing; }
-.mp-chat-panel{
-    transform:translate3d(var(--mp-chat-drag-x,0px),var(--mp-chat-drag-y,0px),0);
-    max-height:calc(100dvh - 18px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+@media (min-width:1024px) and (min-height:560px){
+    .mp-chat-preview{ --mp-chat-preview-rows:6; width:min(250px,18dvw); }
+    .mp-chat-panel{ width:min(380px,28dvw); height:min(60dvh,560px); }
 }
-.mp-chat-panel.dragging{ transition:none !important; }
-.mp-chat-head{
-    cursor:grab;
-    touch-action:none;
+@media (min-width:768px) and (max-width:1023px){
+    .mp-chat-preview{ --mp-chat-preview-rows:4; width:min(246px,26dvw); }
+    .mp-chat-panel{ width:min(370px,44dvw); height:min(56dvh,520px); }
 }
-.mp-chat-panel.dragging .mp-chat-head{ cursor:grabbing; }
-.mp-chat-head::before{
-    content:'';
-    width:34px;
-    height:4px;
-    border-radius:999px;
-    background:rgba(255,255,255,.24);
-    position:absolute;
-    top:7px;
-    left:50%;
-    transform:translateX(-50%);
-    pointer-events:none;
+@media (min-width:768px) and (orientation:landscape){
+    .mp-chat-preview{ --mp-chat-preview-rows:5; }
 }
-@media (orientation:landscape), (max-height:520px){
-    .mp-chat-panel{
-        top:calc(62px + env(safe-area-inset-top,0px)) !important;
-        right:calc(10px + env(safe-area-inset-right,0px)) !important;
-        bottom:calc(8px + env(safe-area-inset-bottom,0px)) !important;
-        left:auto !important;
-        width:min(360px,42vw) !important;
-        min-width:286px;
-        min-height:0 !important;
-        height:auto !important;
-        border-radius:22px !important;
+@media (max-width:767px){
+    .mp-chat-preview{
+        left:calc(10px + env(safe-area-inset-left,0px));
+        width:min(236px,calc(100dvw - 20px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));
+        --mp-chat-preview-rows:3;
     }
-    .mp-chat-head{ padding:13px 12px 10px; }
+    .mp-chat-panel{
+        left:calc(10px + env(safe-area-inset-left,0px));
+        right:calc(10px + env(safe-area-inset-right,0px));
+        transform:none;
+        width:auto;
+        height:min(52dvh,480px);
+        min-height:min(240px,calc(var(--mp-chat-vh,100dvh) - var(--piano-height,25vh) - 78px));
+        border-radius:24px;
+    }
+}
+@media (orientation:landscape) and (max-height:520px){
+    .mp-chat-preview{
+        --mp-chat-preview-rows:3;
+        width:min(228px,28dvw);
+        bottom:calc(var(--piano-height,25vh) + 10px + env(safe-area-inset-bottom,0px));
+    }
+    .mp-chat-panel{
+        left:50%;
+        right:auto;
+        transform:translateX(-50%);
+        width:min(330px,38dvw);
+        height:min(56dvh,320px);
+        min-height:0;
+        border-radius:22px;
+    }
+    .mp-chat-head{ padding:10px 11px 8px; }
     .mp-messages{ padding:10px; gap:7px; }
     .mp-chat-form{ padding:10px; }
 }
-@media (orientation:portrait) and (min-height:521px){
-    .mp-chat-panel{
-        top:auto !important;
-        left:calc(10px + env(safe-area-inset-left,0px)) !important;
-        right:calc(10px + env(safe-area-inset-right,0px)) !important;
-        bottom:calc(10px + env(safe-area-inset-bottom,0px)) !important;
-        width:auto !important;
-        height:min(72dvh,560px) !important;
-        min-height:min(330px,calc(100dvh - 76px)) !important;
-        border-radius:24px !important;
-    }
-}
 @media (max-height:430px) and (orientation:landscape){
-    .mp-chat-panel{
-        top:calc(54px + env(safe-area-inset-top,0px)) !important;
-        width:min(338px,44vw) !important;
-    }
-    .mp-chat-head{ padding:10px 11px 8px; }
+    .mp-chat-preview{ --mp-chat-preview-rows:2; width:min(214px,26dvw); }
+    .mp-chat-panel{ width:min(300px,34dvw); height:min(58dvh,250px); }
     .mp-chat-title{ font-size:11px; }
     .mp-chat-sub{ font-size:9px; }
     .mp-chat-close{ width:30px; height:30px; }
-    .mp-message{ grid-template-columns:26px minmax(0,1fr); gap:7px; }
-    .mp-message.mine{ grid-template-columns:minmax(0,1fr) 26px; }
-    .mp-message-avatar{ width:26px; height:26px; }
-    .mp-bubble{ padding:7px 9px; border-radius:13px; }
+    .mp-message{ grid-template-columns:28px minmax(0,1fr); gap:7px; }
+    .mp-message-avatar{ width:28px; height:28px; }
+    .mp-bubble{ padding:8px 9px; border-radius:16px; }
     .mp-chat-input{ height:36px; }
     .mp-chat-send{ height:36px; }
 }
@@ -4886,6 +5071,7 @@ body.mp-chat-dragging{ cursor:grabbing; }
         </div>
     </div>
     <div id="mpPlayerStrip" class="mp-player-strip" aria-label="Room players"></div>
+    <div id="mpChatPreview" class="mp-chat-preview" aria-live="polite" aria-label="Recent room chat"></div>
     <aside id="mpChatPanel" class="mp-chat-panel" aria-label="Room chat">
         <div class="mp-chat-head">
             <div><div id="mpChatTitle" class="mp-chat-title">Room Chat</div><div id="mpChatSub" class="mp-chat-sub">0 online</div></div>
@@ -4894,8 +5080,9 @@ body.mp-chat-dragging{ cursor:grabbing; }
         <div id="mpMessages" class="mp-messages"></div>
         <div id="mpReplyBar" class="mp-reply-bar"><div><b id="mpReplyName"></b><div id="mpReplyText"></div></div><button id="mpReplyClear" class="mp-reply-clear" type="button" aria-label="Cancel reply"><svg class="mp-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
         <form id="mpChatForm" class="mp-chat-form">
-            <input id="mpChatInput" class="mp-chat-input" type="text" autocomplete="off" inputmode="text" autocorrect="on" autocapitalize="sentences" spellcheck="true" enterkeyhint="send" placeholder="Chat room...">
+            <input id="mpChatInput" class="mp-chat-input" type="text" maxlength="300" autocomplete="off" inputmode="text" autocorrect="on" autocapitalize="sentences" spellcheck="true" enterkeyhint="send" placeholder="Chat room...">
             <button class="mp-chat-send" type="submit" aria-label="Send message">Send</button>
+            <span id="mpChatCounter" class="mp-chat-counter" aria-live="polite">0/300</span>
         </form>
     </aside>
     <div id="mpProfile" class="mp-profile" role="dialog" aria-modal="false" aria-label="Player profile">
@@ -4914,14 +5101,41 @@ body.mp-chat-dragging{ cursor:grabbing; }
         </div>
         <div class="mp-profile-row mp-profile-bio-row"><span>Bio</span><b id="mpProfileBio"></b></div>
         <div class="mp-profile-stats" aria-label="Profile reactions">
-            <button id="mpProfileLikeBtn" class="mp-profile-stat like" type="button" aria-label="Like player"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10"/><path d="M11 10l1.2-4.8A2 2 0 0 1 14.1 4h.4a1.6 1.6 0 0 1 1.5 2.1L15 10h4a2 2 0 0 1 1.9 2.5l-1.4 5.3A3 3 0 0 1 16.6 20H11a4 4 0 0 1-4-4v-6"/></svg><span id="mpProfileLikes"></span></button>
-            <button id="mpProfileDislikeBtn" class="mp-profile-stat dislike" type="button" aria-label="Dislike player"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4"/><path d="M13 14l-1.2 4.8A2 2 0 0 1 9.9 20h-.4A1.6 1.6 0 0 1 8 17.9L9 14H5a2 2 0 0 1-1.9-2.5l1.4-5.3A3 3 0 0 1 7.4 4H13a4 4 0 0 1 4 4v6"/></svg><span id="mpProfileDislikes"></span></button>
+            <button id="mpProfileLikeBtn" class="mp-profile-stat like" type="button" aria-label="Like player"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v10"/><path d="M11 10l1.2-4.8A2 2 0 0 1 14.1 4h.4a1.6 1.6 0 0 1 1.5 2.1L15 10h4a2 2 0 0 1 1.9 2.5l-1.4 5.3A3 3 0 0 1 16.6 20H11a4 4 0 0 1-4-4v-6"/></svg><span class="mp-profile-stat-label">Like</span><span id="mpProfileLikes"></span></button>
+            <button id="mpProfileDislikeBtn" class="mp-profile-stat dislike" type="button" aria-label="Dislike player"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 14V4"/><path d="M13 14l-1.2 4.8A2 2 0 0 1 9.9 20h-.4A1.6 1.6 0 0 1 8 17.9L9 14H5a2 2 0 0 1-1.9-2.5l1.4-5.3A3 3 0 0 1 7.4 4H13a4 4 0 0 1 4 4v6"/></svg><span class="mp-profile-stat-label">Dislike</span><span id="mpProfileDislikes"></span></button>
         </div>
         <div class="mp-profile-actions">
             <button id="mpFriendAction" class="friend" type="button">Add Friend</button>
+            <button id="mpBlockAction" class="block" type="button">Block Player</button>
+            <button id="mpReportAction" class="report" type="button">Report Player</button>
             <button id="mpKickBan" class="danger" type="button">Remove Player</button>
             <button id="mpMuteChat" type="button">Mute Chat</button>
             <button id="mpMuteInst" type="button">Mute Piano</button>
+        </div>
+    </div>
+
+    <div id="mpReportModal" class="mp-report-modal" aria-hidden="true">
+        <div class="mp-report-card" role="dialog" aria-modal="true" aria-labelledby="mpReportTitle">
+            <div class="mp-report-head">
+                <div>
+                    <div id="mpReportTitle" class="mp-report-title">Report Player</div>
+                    <div id="mpReportTarget" class="mp-report-target"></div>
+                </div>
+                <button id="mpReportClose" class="mp-report-close" type="button" aria-label="Close report dialog"><svg class="mp-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+            </div>
+            <div class="mp-report-reasons" id="mpReportReasons">
+                <button type="button" data-report-reason="Spam">Spam</button>
+                <button type="button" data-report-reason="Harassment">Harassment</button>
+                <button type="button" data-report-reason="Abusive chat">Abusive chat</button>
+                <button type="button" data-report-reason="Bad profile">Bad profile</button>
+                <button type="button" data-report-reason="Cheating">Cheating</button>
+                <button type="button" data-report-reason="Other">Other</button>
+            </div>
+            <textarea id="mpReportDetail" class="mp-report-detail" maxlength="300" placeholder="Optional detail"></textarea>
+            <div class="mp-report-actions">
+                <button id="mpReportCancel" type="button">Cancel</button>
+                <button id="mpReportSubmit" type="button">Submit Report</button>
+            </div>
         </div>
     </div>
 
@@ -5554,7 +5768,7 @@ body.mp-chat-dragging{ cursor:grabbing; }
         <div style="color:rgba(255,255,255,0.35); font-size:10px; text-align:center;">Min: 3 | Max: 52</div>
         <div class="perf-setting-block" style="margin-top:12px;">
                                 <div class="section-title ui-mb8">Custom Piano</div>
-                                <div class="ui-setting-head">
+                                <div class="ui-setting-head-divided">
                                     <span class="ui-label">Black Key Width</span>
                                     <span class="ui-value" id="blackKeyWidthVal">120%</span>
                                 </div>
@@ -6746,11 +6960,22 @@ function updateKeyLabelStyle(labelEl, mode, blackKey) {
 }
 
 let labelMode = 'off';
+let pianoScalePercent = 100;
 let blackKeyWidthPercent = 120;
 let blackKeyHeightPercent = 60;
 let pianoVisibilityPercent = 100;
 
-function clampOffset(){ viewOffset=Math.max(0, Math.min(ALL_WHITE.length-wCount, viewOffset)); }
+function getPianoVisualScaleRatio(){
+    return 1;
+}
+function getEffectiveVisibleWhiteCount(){
+    const visibleWhiteCount = Math.max(1, Math.min(ALL_WHITE.length, Math.round(Number(wCount) || 52)));
+    return Math.max(1, Math.min(ALL_WHITE.length, visibleWhiteCount / getPianoVisualScaleRatio()));
+}
+function getSwipeMaxOffset(){
+    return Math.max(0, ALL_WHITE.length - getEffectiveVisibleWhiteCount());
+}
+function clampOffset(){ viewOffset=Math.max(0, Math.min(getSwipeMaxOffset(), viewOffset)); }
 function clampPianoCustomPercent(value, fallback, min, max){
     const parsed = Math.round(Number(value));
     const safe = Number.isFinite(parsed) ? parsed : fallback;
@@ -6817,7 +7042,7 @@ const whiteKeyWidths = [];
 function syncWhiteKeyGeometry(viewportWidth){
     const rawWidth = Number(viewportWidth) || getPianoViewportWidth() || window.innerWidth || 1;
     const measuredWidth = Math.max(1, rawWidth);
-    const visibleWhiteCount = Math.max(1, Math.min(ALL_WHITE.length, Math.round(Number(wCount) || 52)));
+    const visibleWhiteCount = getEffectiveVisibleWhiteCount();
     const nominalWhiteWidth = measuredWidth / visibleWhiteCount;
     const total = ALL_WHITE.length;
     whiteKeyWidth = nominalWhiteWidth;
@@ -6904,6 +7129,13 @@ function setBlackKeyWidthPercent(value){
     blackKeyWidthPercent = clampPianoCustomPercent(value, 120, 70, 130);
     syncPianoCustomControl('blackKeyWidthRange', 'blackKeyWidthVal', blackKeyWidthPercent);
     updateKeyLayout();
+}
+function setPianoScalePercent(){
+    pianoScalePercent = 100;
+    clampOffset();
+    updateKeyLayout();
+    if(typeof updateKeyHitCache === 'function') updateKeyHitCache();
+    if(typeof updateNoteXCache === 'function') requestAnimationFrame(updateNoteXCache);
 }
 function setBlackKeyHeightPercent(value){
     blackKeyHeightPercent = clampPianoCustomPercent(value, 60, 45, 75);
@@ -8776,6 +9008,7 @@ if(keyPanelHRange){
 document.getElementById('blackKeyWidthRange')?.addEventListener('input', e => setBlackKeyWidthPercent(e.target.value));
 document.getElementById('blackKeyHeightRange')?.addEventListener('input', e => setBlackKeyHeightPercent(e.target.value));
 document.getElementById('pianoVisibilityRange')?.addEventListener('input', e => setPianoVisibilityPercent(e.target.value));
+setPianoScalePercent(pianoScalePercent);
 setBlackKeyWidthPercent(blackKeyWidthPercent);
 setBlackKeyHeightPercent(blackKeyHeightPercent);
 setPianoVisibilityPercent(pianoVisibilityPercent);
@@ -9255,6 +9488,7 @@ function applyFactoryDefaults(clearSavedState){
     document.getElementById('tVal').innerText = 0;
     currentPianoHeightPx = '';
     applyPianoHeight(50);
+    setPianoScalePercent();
     setBlackKeyWidthPercent(120);
     setBlackKeyHeightPercent(60);
     setPianoVisibilityPercent(80);
@@ -9725,6 +9959,7 @@ function applySettings(s) {
         }
         const savedPianoHeight = Number(s.pianoHeight);
         if (Number.isFinite(savedPianoHeight) && savedPianoHeight > 5) { applyPianoHeight(savedPianoHeight); } else { applyPianoHeight(50); }
+        setPianoScalePercent();
         setBlackKeyWidthPercent(s.blackKeyWidthPercent !== undefined ? s.blackKeyWidthPercent : 120);
         setBlackKeyHeightPercent(s.blackKeyHeightPercent !== undefined ? s.blackKeyHeightPercent : 60);
         setPianoVisibilityPercent(s.pianoVisibilityPercent !== undefined ? s.pianoVisibilityPercent : 80);
@@ -10582,7 +10817,7 @@ let swipeSnapRafId = null;
 pianoEl.style.transition = 'none';
 
 function hasSwipeRange() {
-    return whiteKeyWidth > 0 && (ALL_WHITE.length - wCount) > 0;
+    return whiteKeyWidth > 0 && getSwipeMaxOffset() > 0.0001;
 }
 
 function swipeSetTransform(px) {
@@ -10598,12 +10833,12 @@ function swipeGetBase() {
 }
 
 function swipeClampOffset(offset) {
-    return Math.max(0, Math.min(ALL_WHITE.length - wCount, offset));
+    return Math.max(0, Math.min(getSwipeMaxOffset(), offset));
 }
 
 function swipeClampVisual(value) {
     if(!hasSwipeRange()) return 0;
-    const maxOffset = ALL_WHITE.length - wCount;
+    const maxOffset = getSwipeMaxOffset();
     const currentOffsetPx = getViewOffsetPx(viewOffset);
     const maxDragRight = currentOffsetPx;
     const maxDragLeft = getViewOffsetPx(maxOffset) - currentOffsetPx;
@@ -11784,6 +12019,7 @@ midiBtn.onclick = (e) => {
     const leaveYes = document.getElementById('mpLeaveYes');
     const leaveNo = document.getElementById('mpLeaveNo');
     const playerStrip = document.getElementById('mpPlayerStrip');
+    const chatPreview = document.getElementById('mpChatPreview');
     const chatPanel = document.getElementById('mpChatPanel');
     const chatClose = document.getElementById('mpChatClose');
     const chatTitle = document.getElementById('mpChatTitle');
@@ -11791,10 +12027,12 @@ midiBtn.onclick = (e) => {
     const messagesBox = document.getElementById('mpMessages');
     const chatForm = document.getElementById('mpChatForm');
     const chatInput = document.getElementById('mpChatInput');
+    const chatCounter = document.getElementById('mpChatCounter');
     const replyBar = document.getElementById('mpReplyBar');
     const replyName = document.getElementById('mpReplyName');
     const replyText = document.getElementById('mpReplyText');
     const replyClear = document.getElementById('mpReplyClear');
+    const MP_REPLY_ICON = '<svg class="mp-reply-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 9 5 14l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 14h8a6 6 0 0 1 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     const profile = document.getElementById('mpProfile');
     const profileAvatar = document.getElementById('mpProfileAvatar');
     const profileName = document.getElementById('mpProfileName');
@@ -11804,6 +12042,15 @@ midiBtn.onclick = (e) => {
     const profileLayerInstrument = document.getElementById('mpProfileLayerInstrument');
     const profileCountry = document.getElementById('mpProfileCountry');
     const friendAction = document.getElementById('mpFriendAction');
+    const blockAction = document.getElementById('mpBlockAction');
+    const reportAction = document.getElementById('mpReportAction');
+    const reportModal = document.getElementById('mpReportModal');
+    const reportClose = document.getElementById('mpReportClose');
+    const reportCancel = document.getElementById('mpReportCancel');
+    const reportSubmit = document.getElementById('mpReportSubmit');
+    const reportTarget = document.getElementById('mpReportTarget');
+    const reportReasons = document.getElementById('mpReportReasons');
+    const reportDetail = document.getElementById('mpReportDetail');
     const profileBio = document.getElementById('mpProfileBio');
     const profileLikes = document.getElementById('mpProfileLikes');
     const profileDislikes = document.getElementById('mpProfileDislikes');
@@ -11832,10 +12079,18 @@ midiBtn.onclick = (e) => {
         };
 
     const MAX_ROOMS = 15;
+    const ROOM_CREATE_COOLDOWN_MS = 30000;
     const ROOM_CREATE_GRACE_MS = 4000;
     const ROOM_EMPTY_DELETE_DELAY_MS = 250;
     const ROOM_PLAYER_STALE_MS = 90000;
     const ROOM_HEARTBEAT_MS = 20000;
+    const CHAT_MAX_LENGTH = 300;
+    const CHAT_COOLDOWN_MS = 1200;
+    const CHAT_BURST_WINDOW_MS = 10000;
+    const CHAT_BURST_LIMIT = 5;
+    const STREAM_MAX_EVENTS_PER_WRITE = 49;
+    const PROFILE_REACTION_COOLDOWN_MS = 1200;
+    const REPORT_COOLDOWN_MS = 60000;
     const FIREBASE_ROOT = 'papianoOnlineBeta';
     let mpHistoryArmed = false;
     let leaveConfirmSource = null;
@@ -11855,6 +12110,9 @@ midiBtn.onclick = (e) => {
     let pendingPasswordRoom = null;
     let replyTarget = null;
     let selectedPlayer = null;
+    let reportPlayer = null;
+    let selectedReportReason = 'Spam';
+    let blockedPlayersLoadedFor = '';
     let roomPlayersByRoom = {};
     let roomModerationByRoom = {};
     let eventUnsubscribe = null;
@@ -11886,13 +12144,16 @@ midiBtn.onclick = (e) => {
     const roomDeleteQueue = new Set();
     const profileCache = new Map();
     const profileVoteCache = new Map();
+    const profileVoteInFlight = new Set();
+    const blockedPlayerIds = new Set();
+    const reportCooldownByPlayer = new Map();
+    const chatSendTimes = [];
     const remoteMixer = new Map();
     const remoteSustainByPlayer = new Map();
     const remotePedalHeldNotes = new Map();
     let remoteMixerLoadedFor = '';
     let searchRenderToken = 0;
-    let chatDragRaf = 0;
-    let chatDragState = null;
+    let chatViewportRaf = 0;
     const playerActivity = new Map();
     const friendIds = new Set();
     const friendProfiles = new Map();
@@ -12842,6 +13103,31 @@ midiBtn.onclick = (e) => {
         return state.get(id);
     }
     function currentUser(){ return getPlayer(mpSelfId); }
+
+    function localStoreGetNumber(key){
+        try{
+            const value = Number(localStorage.getItem(key) || 0);
+            return Number.isFinite(value) ? value : 0;
+        }catch(e){ return 0; }
+    }
+
+    function localStoreSetNumber(key, value){
+        try{ localStorage.setItem(key, String(Number(value) || 0)); }catch(e){}
+    }
+
+    function roomCreateCooldownKey(){ return `papiano_room_create_at_${mpSelfId || 'guest'}`; }
+
+    function roomCreateCooldownLeft(now = Date.now()){
+        const last = localStoreGetNumber(roomCreateCooldownKey());
+        return Math.max(0, ROOM_CREATE_COOLDOWN_MS - (now - last));
+    }
+
+    function markRoomCreated(now = Date.now()){
+        localStoreSetNumber(roomCreateCooldownKey(), now);
+    }
+
+    function compactSeconds(ms){ return Math.max(1, Math.ceil(ms / 1000)); }
+
     function isRoomOwner(){
         if(!currentRoom) return false;
         return currentRoom.ownerUid ? currentRoom.ownerUid === currentUser().id : currentRoom.owner === currentUser().name;
@@ -12935,6 +13221,7 @@ midiBtn.onclick = (e) => {
     }
 
     function getRemotePlaybackGain(playerId){
+        if(isPlayerBlocked(playerId)) return 0;
         const mixer = getRemoteMixer(playerId);
         return mixer.muted ? 0 : Math.max(0, Math.min(1, Number(mixer.volume ?? 1)));
     }
@@ -12962,6 +13249,50 @@ midiBtn.onclick = (e) => {
         const live = roomPlayersByRoom[currentRoom.id];
         const list = live ? Object.entries(live).map(([id, data]) => normalizePlayer(id, data)) : players.filter(player => player.room === currentRoom.id);
         return list.filter(player => isAuthenticatedDisplayPlayer(player) && !getState(player.id).banned);
+    }
+
+    function blockedPlayersKey(){ return 'papianoBlockedPlayers:' + String(mpSelfId || 'local'); }
+    function loadBlockedPlayers(){
+        const key = blockedPlayersKey();
+        if(blockedPlayersLoadedFor === key) return;
+        blockedPlayersLoadedFor = key;
+        blockedPlayerIds.clear();
+        try{
+            const data = JSON.parse(localStorage.getItem(key) || '[]');
+            if(Array.isArray(data)) data.forEach(id => { if(id && id !== mpSelfId) blockedPlayerIds.add(String(id)); });
+        }catch(e){}
+    }
+    function saveBlockedPlayers(){ try{ localStorage.setItem(blockedPlayersKey(), JSON.stringify([...blockedPlayerIds])); }catch(e){} }
+    function isPlayerBlocked(id){ loadBlockedPlayers(); return blockedPlayerIds.has(String(id || '')); }
+    function canUseSafetyAction(player){ return !!player && isInPianoRoom() && player.id !== mpSelfId && !isLocalGuestPlayerId(player.id); }
+    function syncSafetyActions(player){
+        const show = canUseSafetyAction(player);
+        if(blockAction){
+            const blocked = show && isPlayerBlocked(player.id);
+            blockAction.hidden = !show;
+            blockAction.style.display = show ? '' : 'none';
+            blockAction.disabled = !show;
+            blockAction.classList.toggle('active', blocked);
+            blockAction.textContent = blocked ? 'Unblock Player' : 'Block Player';
+        }
+        if(reportAction){
+            reportAction.hidden = !show;
+            reportAction.style.display = show ? '' : 'none';
+            reportAction.disabled = !show;
+        }
+    }
+    function toggleBlockedPlayer(player){
+        if(!canUseSafetyAction(player)) return;
+        loadBlockedPlayers();
+        const id = String(player.id);
+        const blocked = blockedPlayerIds.has(id);
+        if(blocked) blockedPlayerIds.delete(id);
+        else blockedPlayerIds.add(id);
+        saveBlockedPlayers();
+        syncSafetyActions(player);
+        renderMessages();
+        renderRoomChrome();
+        showToast(blocked ? 'Player unblocked.' : 'Player blocked.', { type:'success', title:'Profile' });
     }
     function mpHistoryKey(screen){
         if(screen === 'home' || screen === 'multiHome') return 'multiHome';
@@ -13071,7 +13402,7 @@ midiBtn.onclick = (e) => {
         document.body.classList.add('mp-lobby-open');
         attachRoomsListener();
         attachUsersListener();
-        document.body.classList.remove('mp-chat-open','mp-profile-open');
+        document.body.classList.remove('mp-chat-open','mp-profile-open','mp-chat-keyboard','mp-chat-dismissed');
         if(profile) profile.classList.remove('show');
         document.querySelectorAll('[data-mp-screen]').forEach(item => item.classList.toggle('active', item.dataset.mpScreen === screen));
         roomButton.classList.add('active');
@@ -13115,14 +13446,19 @@ midiBtn.onclick = (e) => {
         window.location.assign('/');
     }
 
-    function setChatOpen(open){
+    function setChatOpen(open, options = {}){
         const willOpen = !!open;
         document.body.classList.toggle('mp-chat-open', willOpen);
+        document.body.classList.toggle('mp-chat-dismissed', !willOpen && options.dismiss !== false);
+        if(willOpen) document.body.classList.remove('mp-chat-dismissed');
         roomButton.classList.toggle('active', willOpen);
+        if(!willOpen) setChatKeyboardActive(false);
+        refreshChatViewport();
+        renderChatPreview();
         if(willOpen){
-            resetChatPanelPosition();
             pushMpHistory('chat');
             renderMessages();
+            updateChatCounter();
         }
     }
 
@@ -13250,6 +13586,7 @@ midiBtn.onclick = (e) => {
             roomChromeSignature = '';
             playerStrip.innerHTML = '';
             playerPillMap.clear();
+            if(chatPreview) chatPreview.innerHTML = '';
             chatTitle.textContent = 'Room Chat';
             chatSub.textContent = 'No room active';
             return;
@@ -13281,25 +13618,79 @@ midiBtn.onclick = (e) => {
         updateAllPlayerActivityUi();
     }
 
-    function renderMessages(){
-        messagesBox.innerHTML = messages.filter(message => {
+    function visibleRoomMessages(){
+        return messages.filter(message => {
             const s = getState(message.playerId);
-            return !s.banned && !s.muteChat;
-        }).map(message => {
+            return !s.banned && !s.muteChat && !isPlayerBlocked(message.playerId);
+        });
+    }
+
+    function chatPreviewLimit(){
+        const vv = window.visualViewport;
+        const width = Math.round(vv ? vv.width : window.innerWidth);
+        const height = Math.round(vv ? vv.height : window.innerHeight);
+        const landscape = width > height;
+        let quota = 3;
+        if(width >= 1024 && height >= 560) quota = 6;
+        else if(width >= 768) quota = landscape ? 5 : 4;
+        else if(landscape && height < 430) quota = 2;
+        const piano = document.getElementById('pianoWrap');
+        const pianoHeight = piano ? piano.getBoundingClientRect().height : Math.round(height * 0.25);
+        const topReserve = width <= 767 ? 104 : 116;
+        const available = Math.max(42, height - pianoHeight - topReserve - 20);
+        const fit = Math.max(1, Math.floor(available / (width >= 768 ? 74 : 68)));
+        return Math.max(1, Math.min(quota, fit));
+    }
+
+    function renderChatPreview(){
+        if(!chatPreview) return;
+        if(!currentRoom){
+            chatPreview.innerHTML = '';
+            return;
+        }
+        const limit = chatPreviewLimit();
+        chatPreview.style.setProperty('--mp-chat-preview-rows', String(limit));
+        chatPreview.innerHTML = visibleRoomMessages().slice(-limit).map(message => {
+            const player = getPlayer(message.playerId);
+            const mine = message.playerId === currentUser().id;
+            return `
+                <button class="mp-chat-preview-item${mine ? ' mine' : ''}" type="button" data-mp-open-chat="1" data-mp-message-open="${escapeHtml(message.id)}" aria-label="Open room chat">
+                    <span class="mp-chat-preview-head">
+                        <span class="mp-chat-preview-profile">
+                            <span class="mp-chat-preview-avatar" style="--mp-player-color:${escapeHtml(playerColor(player))}">${player.photoURL ? `<img src="${escapeHtml(player.photoURL)}" alt="${escapeHtml(player.name)}">` : ''}</span>
+                            <span class="mp-chat-preview-name">${escapeHtml(player.name)}</span>
+                        </span>
+                        <span class="mp-chat-preview-time">${escapeHtml(message.time)}</span>
+                    </span>
+                    <span class="mp-chat-preview-text">${escapeHtml(message.text)}</span>
+                    <span class="mp-chat-preview-foot"><span class="mp-chat-preview-reply" aria-hidden="true">${MP_REPLY_ICON}</span></span>
+                </button>
+            `;
+        }).join('');
+    }
+
+    function renderMessages(){
+        messagesBox.innerHTML = visibleRoomMessages().map(message => {
             const player = getPlayer(message.playerId);
             const quote = message.replyTo ? `<div class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><br>${escapeHtml(message.replyTo.text)}</div>` : '';
             return `
                 <div class="mp-message${message.playerId === currentUser().id ? ' mine' : ''}" data-mp-message="${escapeHtml(message.id)}">
                     <button class="mp-message-avatar" type="button" data-mp-player="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}" style="--mp-player-color:${escapeHtml(playerColor(player))}">${player.photoURL ? `<img src="${escapeHtml(player.photoURL)}" alt="${escapeHtml(player.name)}">` : ''}</button>
                     <div class="mp-bubble">
+                        <div class="mp-message-head">
+                            <div class="mp-message-meta">
+                                <span class="mp-message-name">${escapeHtml(player.name)}</span>
+                                <span class="mp-message-time">${escapeHtml(message.time)}</span>
+                            </div>
+                            <button class="mp-reply" type="button" data-mp-reply="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">${MP_REPLY_ICON}</button>
+                        </div>
                         ${quote}
-                        <div class="mp-message-meta"><span>${escapeHtml(player.name)}</span><span>${escapeHtml(message.time)}</span><span>${escapeHtml(playerInstrumentSummary(player))}</span></div>
                         <div class="mp-message-text">${escapeHtml(message.text)}</div>
-                        <button class="mp-reply" type="button" data-mp-reply="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">Reply</button>
                     </div>
                 </div>
             `;
         }).join('');
+        renderChatPreview();
         requestAnimationFrame(() => {
             messagesBox.scrollTop = messagesBox.scrollHeight;
         });
@@ -13314,24 +13705,64 @@ midiBtn.onclick = (e) => {
         }
     }
 
+    function updateChatCounter(){
+        if(!chatCounter || !chatInput) return;
+        const length = Math.min(CHAT_MAX_LENGTH, String(chatInput.value || '').length);
+        chatCounter.textContent = `${length}/${CHAT_MAX_LENGTH}`;
+        chatCounter.classList.toggle('full', length >= CHAT_MAX_LENGTH);
+    }
+
+    function cleanChatText(text){
+        return String(text || '').trim().replace(/\s+/g, ' ').slice(0, CHAT_MAX_LENGTH);
+    }
+
+    function canSendRoomChat(user, now = Date.now()){
+        if(!currentRoom || !user) return false;
+        if(currentRoom.chatEnabled === false){
+            showToast('Room chat is disabled.', { type:'info', title:'Room Chat' });
+            return false;
+        }
+        const userState = getState(user.id);
+        if(userState.banned || userState.muteChat){
+            showToast('You are muted in this room.', { type:'error', title:'Room Chat' });
+            return false;
+        }
+        while(chatSendTimes.length && now - chatSendTimes[0] > CHAT_BURST_WINDOW_MS) chatSendTimes.shift();
+        const last = chatSendTimes[chatSendTimes.length - 1] || 0;
+        if(last && now - last < CHAT_COOLDOWN_MS){
+            showToast(`Wait ${compactSeconds(CHAT_COOLDOWN_MS - (now - last))}s before sending again.`, { type:'info', title:'Room Chat' });
+            return false;
+        }
+        if(chatSendTimes.length >= CHAT_BURST_LIMIT){
+            showToast('Chat rate limit reached. Slow down.', { type:'error', title:'Room Chat' });
+            return false;
+        }
+        chatSendTimes.push(now);
+        return true;
+    }
+
     async function addMessage(text){
-        const clean = text.trim();
+        const clean = cleanChatText(text);
         if(!clean || !currentRoom) return;
         const user = currentUser();
+        const now = Date.now();
+        if(!canSendRoomChat(user, now)) return;
         const payload = {
             playerId:user.id,
-            text:clean.slice(0, 500),
-            createdAt:Date.now(),
-            time:timeLabel(Date.now()),
+            text:clean,
+            createdAt:now,
+            time:timeLabel(now),
             replyTo:replyTarget || null
         };
         chatInput.value = '';
+        updateChatCounter();
         setReply(null);
         if(firebaseReady && dbApi){
             try{ await dbApi.push(dbRef(`messages/${currentRoom.id}`), payload); }
             catch(e){ showToast('Couldn’t send message. Try again.', { type:'error', title:'Online Room' }); }
         }else{
-            messages.push({ id:'m' + Date.now(), ...payload });
+            messages.push({ id:'m' + now, ...payload });
+            if(messages.length > 60) messages.splice(0, messages.length - 60);
             renderMessages();
         }
         markPlayerActivity(user.id, 'active');
@@ -13402,6 +13833,7 @@ midiBtn.onclick = (e) => {
         if(selectedPlayer && selectedPlayer.id === String(id) && profile.classList.contains('show')){
             if(profileCountry) profileCountry.textContent = profileCountryText(selectedPlayer);
             syncFriendAction(selectedPlayer);
+            syncSafetyActions(selectedPlayer);
         }
     }
 
@@ -13492,14 +13924,85 @@ midiBtn.onclick = (e) => {
         }
     }
 
+    function safeReactionCount(value){
+        const count = Math.trunc(Number(value || 0));
+        if(!Number.isFinite(count) || count < 0) return 0;
+        return Math.min(count, 1000000);
+    }
+
+    function syncReportReasonButtons(){
+        reportReasons?.querySelectorAll('[data-report-reason]').forEach(button => {
+            button.classList.toggle('active', button.dataset.reportReason === selectedReportReason);
+        });
+    }
+    function openReportModal(player){
+        if(!canUseSafetyAction(player)) return;
+        reportPlayer = player;
+        selectedReportReason = 'Spam';
+        if(reportTarget) reportTarget.textContent = `${player.name} · ${player.displayUserId || player.userId || player.id}`;
+        if(reportDetail) reportDetail.value = '';
+        syncReportReasonButtons();
+        reportModal?.classList.add('show');
+        reportModal?.setAttribute('aria-hidden', 'false');
+        pushMpHistory('report');
+    }
+    function closeReportModal(){
+        reportPlayer = null;
+        reportModal?.classList.remove('show');
+        reportModal?.setAttribute('aria-hidden', 'true');
+    }
+    function cleanReportDetail(value){ return String(value || '').trim().replace(/\s+/g, ' ').slice(0, 300); }
+    async function submitPlayerReport(){
+        const player = reportPlayer;
+        if(!canUseSafetyAction(player)) return;
+        if(!firebaseReady || !dbApi || !isSignedIn()){
+            showToast('Report is available after login.', { type:'error', title:'Report' });
+            return;
+        }
+        const now = Date.now();
+        const last = Number(reportCooldownByPlayer.get(player.id) || 0);
+        if(last && now - last < REPORT_COOLDOWN_MS){
+            showToast('Report already sent. Wait before sending another one.', { type:'info', title:'Report' });
+            return;
+        }
+        const payload = {
+            reporterId:mpSelfId,
+            reporterName:currentUser().name,
+            targetId:player.id,
+            targetName:player.name,
+            targetUserId:player.displayUserId || player.userId || '',
+            roomId:currentRoom?.id || '',
+            roomName:currentRoom?.name || '',
+            reason:selectedReportReason || 'Other',
+            detail:cleanReportDetail(reportDetail?.value),
+            createdAt:now,
+            status:'open'
+        };
+        try{
+            await dbApi.push(dbRef(`reports/${currentRoom.id}`), payload);
+            reportCooldownByPlayer.set(player.id, now);
+            closeReportModal();
+            showToast('Report sent.', { type:'success', title:'Report' });
+        }catch(e){
+            showToast('Couldn’t send report. Try again.', { type:'error', title:'Report' });
+        }
+    }
+
     async function castProfileVote(voteType){
         const player = selectedPlayer;
         if(!player || player.id === mpSelfId) return;
         if(voteType !== 'like' && voteType !== 'dislike') return;
-        if(!firebaseReady || !fsApi || !fsDb){
+        if(!firebaseReady || !fsApi || !fsDb || !isSignedIn()){
             showToast('Profile reactions are not available right now.', { type:'error', title:'Profile' });
             return;
         }
+        const voteKey = player.id + ':' + mpSelfId;
+        if(profileVoteInFlight.has(voteKey)) return;
+        const now = Date.now();
+        const lastVoteAt = Number(profileVoteCache.get(voteKey + ':at') || 0);
+        if(lastVoteAt && now - lastVoteAt < PROFILE_REACTION_COOLDOWN_MS) return;
+        profileVoteInFlight.add(voteKey);
+        profileVoteCache.set(voteKey + ':at', now);
         if(profileLikeButton) profileLikeButton.disabled = true;
         if(profileDislikeButton) profileDislikeButton.disabled = true;
         try{
@@ -13511,8 +14014,8 @@ midiBtn.onclick = (e) => {
                 const oldTypeRaw = voteSnap.exists() ? String(voteSnap.data()?.type || '') : '';
                 const oldType = oldTypeRaw === 'like' || oldTypeRaw === 'dislike' ? oldTypeRaw : '';
                 const nextType = oldType === voteType ? '' : voteType;
-                let likes = Math.max(0, Number(targetData.likes || 0));
-                let dislikes = Math.max(0, Number(targetData.dislikes || 0));
+                let likes = safeReactionCount(targetData.likes);
+                let dislikes = safeReactionCount(targetData.dislikes);
                 if(oldType === 'like') likes = Math.max(0, likes - 1);
                 if(oldType === 'dislike') dislikes = Math.max(0, dislikes - 1);
                 if(nextType === 'like') likes += 1;
@@ -13525,20 +14028,22 @@ midiBtn.onclick = (e) => {
                 }
                 return { likes, dislikes, vote:nextType };
             });
-            profileVoteCache.set(player.id + ':' + mpSelfId, result.vote);
+            profileVoteCache.set(voteKey, result.vote);
             const freshProfile = await loadHomeProfile(player.id, player, { force:true });
             const local = players.find(item => item.id === player.id);
             const target = applyHomeProfileToPlayer(local || player, freshProfile);
             if(local && local !== player) applyHomeProfileToPlayer(player, freshProfile);
-            const likes = Number(target.likes || freshProfile.likes || 0);
-            const dislikes = Number(target.dislikes || freshProfile.dislikes || 0);
+            const likes = safeReactionCount(target.likes || freshProfile.likes);
+            const dislikes = safeReactionCount(target.dislikes || freshProfile.dislikes);
             if(profileLikes) profileLikes.textContent = likes;
             if(profileDislikes) profileDislikes.textContent = dislikes;
             updateProfileVoteButtons(player, result.vote);
             profileCache.set(player.id, freshProfile);
         }catch(e){
             showToast('Couldn’t update reaction. Try again.', { type:'error', title:'Profile' });
-            updateProfileVoteButtons(player, profileVoteCache.get(player.id + ':' + mpSelfId) || '');
+            updateProfileVoteButtons(player, profileVoteCache.get(voteKey) || '');
+        }finally{
+            profileVoteInFlight.delete(voteKey);
         }
     }
 
@@ -13567,12 +14072,14 @@ midiBtn.onclick = (e) => {
         if(profileDislikes) profileDislikes.textContent = Number(player.dislikes || 0);
         if(profileCountry) profileCountry.textContent = profileCountryText(player);
         syncFriendAction(player);
+        syncSafetyActions(player);
         const s = getState(player.id);
         const canModerate = canModeratePlayer(player);
         if(profileActions){
             const showFriend = canOfferFriend(player);
-            profileActions.hidden = !canModerate && !showFriend;
-            profileActions.style.display = canModerate || showFriend ? '' : 'none';
+            const showSafety = canUseSafetyAction(player);
+            profileActions.hidden = !canModerate && !showFriend && !showSafety;
+            profileActions.style.display = canModerate || showFriend || showSafety ? '' : 'none';
         }
         [kickBan, muteChat, muteInst].forEach(button => {
             if(!button) return;
@@ -13878,6 +14385,8 @@ midiBtn.onclick = (e) => {
         if(!ok) return;
         const ownerRoom = await loadOwnedLiveRoom();
         if(ownerRoom){ await enterRoom(ownerRoom); return; }
+        const createWait = roomCreateCooldownLeft();
+        if(createWait > 0){ showToast(`Wait ${compactSeconds(createWait)}s before creating another room.`, { type:'info', title:'Host Room' }); return; }
         if(activeRoomTotal() >= MAX_ROOMS){ showToast('Room limit reached.', { type:'error', title:'Online Room' }); return; }
         showLayer('create');
     }
@@ -13948,6 +14457,8 @@ midiBtn.onclick = (e) => {
         if(!(await requireSignedInAccount())) return;
         const ownerRoom = await loadOwnedLiveRoom();
         if(ownerRoom){ await enterRoom(ownerRoom); return; }
+        const createWait = roomCreateCooldownLeft();
+        if(createWait > 0){ showToast(`Wait ${compactSeconds(createWait)}s before creating another room.`, { type:'info', title:'Host Room' }); return; }
         if(activeRoomTotal() >= MAX_ROOMS){ showToast('Room limit reached.', { type:'error', title:'Online Room' }); return; }
         const user = currentUser();
         const maxPlayers = Math.min(6, Math.max(2, Number(maxPlayersInput.value) || 6));
@@ -13958,7 +14469,7 @@ midiBtn.onclick = (e) => {
             roomNameInput?.focus();
             return;
         }
-        const roomPassword = mode === 'Private' ? (roomPasswordInput?.value || '').trim() : '';
+        const roomPassword = mode === 'Private' ? (roomPasswordInput?.value || '').trim().slice(0, 48) : '';
         if(mode === 'Private' && !roomPassword){
             showToast('Enter a private room password.', { type:'error', title:'Host Room' });
             roomPasswordInput?.focus();
@@ -14003,6 +14514,7 @@ midiBtn.onclick = (e) => {
         }else{
             rooms.unshift(room);
         }
+        markRoomCreated(now);
         const entered = await enterRoom(room);
         if(!entered && firebaseReady && dbApi){
             await Promise.allSettled([dbApi.remove(dbRef(`rooms/${room.id}`)), releaseOwnerRoom(room), releaseRoomSlot(room)]);
@@ -14390,9 +14902,50 @@ midiBtn.onclick = (e) => {
         return JSON.stringify(state);
     }
 
+    function cleanStreamEvents(events){
+        if(!Array.isArray(events)) return [];
+        const clean = [];
+        for(let i = 0; i < events.length && clean.length < STREAM_MAX_EVENTS_PER_WRITE; i++){
+            const item = events[i] || {};
+            if(item.k === 'x'){
+                clean.push({ k:'x', ...compactPerformanceState() });
+                continue;
+            }
+            if(item.k === 's'){
+                clean.push({
+                    k:'s',
+                    se:!!item.se,
+                    sd:!!item.sd,
+                    sv:Math.round(Math.max(0, Math.min(1, Number(item.sv || 0))) * 100) / 100
+                });
+                continue;
+            }
+            if(item.k !== 'n' && item.k !== 'f') continue;
+            const note = Number(item.n);
+            if(!Number.isFinite(note) || note < 21 || note > 108) continue;
+            if(item.k === 'f') clean.push({ k:'f', n:Math.trunc(note) });
+            else clean.push({
+                k:'n',
+                n:Math.trunc(note),
+                v:Math.round(Math.max(0.01, Math.min(1, Number(item.v || 0.8))) * 100) / 100
+            });
+        }
+        return clean;
+    }
+
     async function writeRoomStream(payload){
         if(!firebaseReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
-        try{ await dbApi.set(dbRef(`streams/${currentRoom.id}/${mpSelfId}`), payload); }catch(e){}
+        const events = cleanStreamEvents(payload?.e);
+        if(!events.length) return;
+        const cleanPayload = {
+            r:currentRoom.id,
+            p:mpSelfId,
+            q:Math.max(1, Math.trunc(Number(payload?.q || 1))),
+            s:String(payload?.s || roomStreamSessionId || 'default').slice(0, 48),
+            e:events,
+            t:Date.now()
+        };
+        try{ await dbApi.set(dbRef(`streams/${currentRoom.id}/${mpSelfId}`), cleanPayload); }catch(e){}
     }
 
     function inflateCompactEvent(item, roomId, playerId){
@@ -14443,6 +14996,7 @@ midiBtn.onclick = (e) => {
         if(!seq || seq <= (streamSeqByPlayer.get(seqKey) || 0)) return;
         streamSeqByPlayer.set(seqKey, seq);
         const events = Array.isArray(stream.e) ? stream.e : [];
+        if(events.length > STREAM_MAX_EVENTS_PER_WRITE) return;
         for(let i = 0; i < events.length; i++){
             const event = inflateCompactEvent(events[i], currentRoom.id, playerId);
             if(event) playRemoteNote(event);
@@ -14598,67 +15152,23 @@ midiBtn.onclick = (e) => {
         refreshAll();
     }
 
-    function resetChatPanelPosition(){
-        if(!chatPanel) return;
-        chatPanel.style.setProperty('--mp-chat-drag-x', '0px');
-        chatPanel.style.setProperty('--mp-chat-drag-y', '0px');
+    function refreshChatViewport(){
+        if(chatViewportRaf) cancelAnimationFrame(chatViewportRaf);
+        chatViewportRaf = requestAnimationFrame(() => {
+            chatViewportRaf = 0;
+            const vv = window.visualViewport;
+            const height = Math.max(1, Math.round(vv ? vv.height : window.innerHeight));
+            const inset = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+            document.documentElement.style.setProperty('--mp-chat-vh', `${height}px`);
+            document.documentElement.style.setProperty('--mp-chat-keyboard-inset', `${inset}px`);
+            renderChatPreview();
+        });
     }
 
-    function clampChatPanelDrag(x, y){
-        if(!chatPanel) return { x:0, y:0 };
-        const rect = chatPanel.getBoundingClientRect();
-        const margin = 8;
-        let nextX = x;
-        let nextY = y;
-        if(rect.left + x < margin) nextX += margin - (rect.left + x);
-        if(rect.right + x > window.innerWidth - margin) nextX -= (rect.right + x) - (window.innerWidth - margin);
-        if(rect.top + y < margin) nextY += margin - (rect.top + y);
-        if(rect.bottom + y > window.innerHeight - margin) nextY -= (rect.bottom + y) - (window.innerHeight - margin);
-        return { x:nextX, y:nextY };
-    }
-
-    function setChatPanelDrag(x, y){
-        const next = clampChatPanelDrag(x, y);
-        chatPanel.style.setProperty('--mp-chat-drag-x', `${Math.round(next.x)}px`);
-        chatPanel.style.setProperty('--mp-chat-drag-y', `${Math.round(next.y)}px`);
-    }
-
-    function bindChatPanelDrag(){
-        if(!chatPanel) return;
-        const head = chatPanel.querySelector('.mp-chat-head');
-        if(!head) return;
-        head.addEventListener('pointerdown', event => {
-            if(event.button && event.button !== 0) return;
-            if(event.target.closest('button,input,textarea,select,a')) return;
-            const currentX = parseFloat(getComputedStyle(chatPanel).getPropertyValue('--mp-chat-drag-x')) || 0;
-            const currentY = parseFloat(getComputedStyle(chatPanel).getPropertyValue('--mp-chat-drag-y')) || 0;
-            chatDragState = { id:event.pointerId, startX:event.clientX, startY:event.clientY, baseX:currentX, baseY:currentY };
-            chatPanel.classList.add('dragging');
-            document.body.classList.add('mp-chat-dragging');
-            head.setPointerCapture?.(event.pointerId);
-            event.preventDefault();
-        }, { passive:false });
-        head.addEventListener('pointermove', event => {
-            if(!chatDragState || chatDragState.id !== event.pointerId) return;
-            const nextX = chatDragState.baseX + event.clientX - chatDragState.startX;
-            const nextY = chatDragState.baseY + event.clientY - chatDragState.startY;
-            if(chatDragRaf) cancelAnimationFrame(chatDragRaf);
-            chatDragRaf = requestAnimationFrame(() => {
-                chatDragRaf = 0;
-                setChatPanelDrag(nextX, nextY);
-            });
-            event.preventDefault();
-        }, { passive:false });
-        const end = event => {
-            if(!chatDragState || chatDragState.id !== event.pointerId) return;
-            chatDragState = null;
-            chatPanel.classList.remove('dragging');
-            document.body.classList.remove('mp-chat-dragging');
-        };
-        head.addEventListener('pointerup', end);
-        head.addEventListener('pointercancel', end);
-        window.addEventListener('resize', resetChatPanelPosition);
-        window.addEventListener('orientationchange', resetChatPanelPosition);
+    function setChatKeyboardActive(active){
+        document.body.classList.toggle('mp-chat-keyboard', !!active);
+        lockUiLayout(active ? 900 : 260);
+        refreshChatViewport();
     }
 
     function bindDragScroll(element, axis){
@@ -14917,8 +15427,16 @@ midiBtn.onclick = (e) => {
     function createCompatFirestoreApi(firebaseGlobal){
         const makeOp = (method, args) => ({ method, args });
         return {
-            collection(database, name){ return database.collection(name); },
-            doc(database, ...parts){ return database.collection(parts[0]).doc(parts[1]); },
+            collection(database, ...parts){
+                let ref = database.collection(parts[0]);
+                for(let i = 1; i < parts.length; i += 2) ref = ref.doc(parts[i]).collection(parts[i + 1]);
+                return ref;
+            },
+            doc(database, ...parts){
+                let ref = database.collection(parts[0]).doc(parts[1]);
+                for(let i = 2; i < parts.length; i += 2) ref = ref.collection(parts[i]).doc(parts[i + 1]);
+                return ref;
+            },
             getDoc(ref){ return ref.get().then(wrapCompatDoc); },
             getDocs(query){ return query.get().then(snap => ({ forEach(callback){ snap.forEach(item => callback(wrapCompatDoc(item))); } })); },
             runTransaction(database, handler){ return database.runTransaction(handler); },
@@ -15006,21 +15524,51 @@ midiBtn.onclick = (e) => {
     bindDragScroll(playerStrip, 'x');
     bindDragScroll(messagesBox, 'y');
     bindDragScroll(searchResults, 'y');
-    bindChatPanelDrag();
     window.setInterval(updateAllPlayerActivityUi, 15000);
-    [layer, chatPanel, playerStrip, profile, roomTypeModal, maxPlayersModal, passwordModal, leaveConfirm].forEach(isolate);
+    [layer, chatPanel, chatPreview, playerStrip, profile, reportModal, roomTypeModal, maxPlayersModal, passwordModal, leaveConfirm].forEach(isolate);
+    refreshChatViewport();
 
     roomButton.addEventListener('click', () => {
-        if(document.body.classList.contains('mp-room-active')) setChatOpen(!document.body.classList.contains('mp-chat-open'));
-        else { showLayer('home'); initFirebase(); }
+        if(document.body.classList.contains('mp-room-active')){
+            const open = !document.body.classList.contains('mp-chat-open');
+            setChatOpen(open, { dismiss:!open });
+        }else { showLayer('home'); initFirebase(); }
     });
     topLeaveButton?.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); requestLeaveRoom('button'); });
     document.addEventListener('click', event => {
         if(event.target.closest('#mpLeaveTopBtn')){ event.preventDefault(); event.stopPropagation(); requestLeaveRoom('button'); }
     }, true);
     closeButton.addEventListener('click', () => currentScreen === 'home' ? closeLobbyToSolo() : showLayer('home'));
-    chatClose.addEventListener('click', () => setChatOpen(false));
+    chatClose.addEventListener('click', () => setChatOpen(false, { dismiss:true }));
+    chatPreview?.addEventListener('click', event => {
+        const trigger = event.target.closest('[data-mp-open-chat]');
+        if(!trigger) return;
+        event.preventDefault();
+        setChatOpen(true);
+    });
+    chatInput?.addEventListener('focus', () => setChatKeyboardActive(true));
+    chatInput?.addEventListener('input', updateChatCounter);
+    chatInput?.addEventListener('blur', () => window.setTimeout(() => setChatKeyboardActive(false), 140));
+    updateChatCounter();
+    window.addEventListener('resize', refreshChatViewport, { passive:true });
+    window.addEventListener('orientationchange', refreshChatViewport, { passive:true });
+    window.visualViewport?.addEventListener('resize', () => {
+        if(document.activeElement === chatInput) lockUiLayout(900);
+        refreshChatViewport();
+    }, { passive:true });
+    window.visualViewport?.addEventListener('scroll', refreshChatViewport, { passive:true });
     profileClose.addEventListener('click', closeProfile);
+    blockAction?.addEventListener('click', () => toggleBlockedPlayer(selectedPlayer));
+    reportAction?.addEventListener('click', () => openReportModal(selectedPlayer));
+    reportClose?.addEventListener('click', closeReportModal);
+    reportCancel?.addEventListener('click', closeReportModal);
+    reportSubmit?.addEventListener('click', submitPlayerReport);
+    reportReasons?.addEventListener('click', event => {
+        const button = event.target.closest('[data-report-reason]');
+        if(!button) return;
+        selectedReportReason = button.dataset.reportReason || 'Other';
+        syncReportReasonButtons();
+    });
     profileLikeButton?.addEventListener('click', () => castProfileVote('like'));
     profileDislikeButton?.addEventListener('click', () => castProfileVote('dislike'));
     friendAction?.addEventListener('click', () => toggleFriend(selectedPlayer));
@@ -15106,6 +15654,7 @@ midiBtn.onclick = (e) => {
     document.addEventListener('keydown', event => {
         if(event.key !== 'Escape') return;
         if(leaveConfirm?.classList.contains('show')) stayInPianoRoom();
+        else if(reportModal?.classList.contains('show')) closeReportModal();
         else if(roomTypeModal?.classList.contains('show')) closeRoomTypeModal();
         else if(maxPlayersModal?.classList.contains('show')) closeMaxPlayersModal();
         else if(passwordModal?.classList.contains('show')) closePasswordModal();
@@ -15116,6 +15665,7 @@ midiBtn.onclick = (e) => {
 
     window.addEventListener('popstate', event => {
         if(leaveConfirm?.classList.contains('show')){ stayInPianoRoom(); return; }
+        if(reportModal?.classList.contains('show')){ closeReportModal(); return; }
         if(roomTypeModal?.classList.contains('show')){ closeRoomTypeModal(); return; }
         if(maxPlayersModal?.classList.contains('show')){ closeMaxPlayersModal(); return; }
         if(passwordModal?.classList.contains('show')){ closePasswordModal(); return; }
@@ -15156,9 +15706,11 @@ midiBtn.onclick = (e) => {
 })();
 </script>
 <script>
-// Auto-update poller — reloads page when version.json changes
+/* Papiano auto-update: silently reloads when a new build is deployed, so users
+   never get stuck on a cached old version. Bump APP_VERSION on every deploy to
+   match version.json. */
 (function(){
-    var APP_VERSION = null;
+    var APP_VERSION = '2026.06.07-1';
     var CHECK_MS = 120000;
     var busy = false;
     function isTyping(){
@@ -15174,29 +15726,22 @@ midiBtn.onclick = (e) => {
         }catch(e){}
         location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
     }
-    async function fetchVersion(){
+    async function check(){
+        if(busy || document.hidden) return;
+        busy = true;
         try{
             var res = await fetch('/version.json?_=' + Date.now(), { cache:'no-store' });
             if(res.ok){
                 var data = await res.json();
-                return String((data && data.version) || '');
+                var latest = String((data && data.version) || '');
+                if(latest && latest !== APP_VERSION && !isTyping()) applyUpdate(latest);
             }
         }catch(e){}
-        return '';
-    }
-    async function init(){
-        APP_VERSION = await fetchVersion();
-    }
-    async function check(){
-        if(busy || document.hidden || !APP_VERSION) return;
-        busy = true;
-        var latest = await fetchVersion();
-        if(latest && latest !== APP_VERSION && !isTyping()) applyUpdate(latest);
         busy = false;
     }
-    init();
     setInterval(check, CHECK_MS);
     document.addEventListener('visibilitychange', function(){ if(!document.hidden) check(); });
+    setTimeout(check, 8000);
 })();
 </script>
 </body>
