@@ -15400,12 +15400,17 @@ midiBtn.onclick = (e) => {
             return;
         }
 
-        // Color: self = own seat color, remote = their seat color
-        var color;
+        // Color: resolve FRESH from seat data (bypass lock to avoid stale colors)
+        var color = '#78dcff'; // default cyan
         if(bestSource === 'self'){
-            color = getCurrentRoomSelfColor();
+            var selfSeat = currentRoomSeat || (currentRoom && roomPlayersByRoom[currentRoom.id] && roomPlayersByRoom[currentRoom.id][mpSelfId] ? Number(roomPlayersByRoom[currentRoom.id][mpSelfId].seat || 0) : 0);
+            if(selfSeat >= 1 && selfSeat <= MP_PLAYER_COLORS.length) color = MP_PLAYER_COLORS[selfSeat - 1];
         } else {
-            color = playerColor(getPlayer(bestSource));
+            var remoteSeat = 0;
+            if(currentRoom && roomPlayersByRoom[currentRoom.id] && roomPlayersByRoom[currentRoom.id][bestSource]){
+                remoteSeat = Number(roomPlayersByRoom[currentRoom.id][bestSource].seat || 0);
+            }
+            if(remoteSeat >= 1 && remoteSeat <= MP_PLAYER_COLORS.length) color = MP_PLAYER_COLORS[remoteSeat - 1];
         }
         _lastChordSource = bestSource;
 
