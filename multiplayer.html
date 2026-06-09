@@ -15432,6 +15432,10 @@ midiBtn.onclick = (e) => {
                         secondary: matches.length >= 2 ? formatChord(matches[1]) : '',
                         idleSince: 0
                     });
+                } else {
+                    // Notes held but no chord matched — fade the stale label
+                    const existing = _remoteChordText.get(pid);
+                    if(existing && !existing.idleSince) existing.idleSince = now;
                 }
             } else {
                 // Notes released — mark idle timestamp so it fades after hold window
