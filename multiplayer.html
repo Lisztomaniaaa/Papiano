@@ -3880,98 +3880,113 @@ body.mp-chat-open #swipeStrip,
 body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
 
 body.mp-lobby-open:not(.mp-room-active) .mp-profile{
-    top:50%;
-    max-height:max(236px,calc(100dvh - 80px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));
-    background:#d7edff;
-    border-color:rgba(6,17,31,.12);
-    box-shadow:0 28px 80px rgba(6,17,31,.18), 0 4px 12px rgba(6,17,31,.08);
-    color:#06111f;
+    top:50% !important;
+    max-height:max(236px,calc(100dvh - 80px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))) !important;
+    background:#d7edff !important;
+    border:1px solid rgba(6,17,31,.12) !important;
+    box-shadow:0 28px 80px rgba(6,17,31,.18), 0 4px 12px rgba(6,17,31,.08) !important;
+    color:#06111f !important;
     -webkit-backdrop-filter:blur(20px);
     backdrop-filter:blur(20px);
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-name{
-    color:#06111f;
+    color:#06111f !important;
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile .mp-chat-close{
+    background:rgba(6,17,31,.06) !important;
+    border:1px solid rgba(6,17,31,.10) !important;
+    color:#06111f !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-role{
-    background:rgba(6,17,31,.08);
-    border-color:rgba(6,17,31,.12);
-    color:#06111f;
+    background:rgba(6,17,31,.08) !important;
+    border-color:rgba(6,17,31,.12) !important;
+    color:#06111f !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-row{
-    border-top-color:rgba(6,17,31,.10);
+    border-top-color:rgba(6,17,31,.10) !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-row span{
-    color:rgba(6,17,31,.52);
+    color:rgba(6,17,31,.52) !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-row b{
-    color:#06111f;
+    color:#06111f !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-bio-row b{
-    background:rgba(6,17,31,.04);
-    border-color:rgba(6,17,31,.10);
-    color:#06111f;
+    background:rgba(6,17,31,.04) !important;
+    border-color:rgba(6,17,31,.10) !important;
+    color:#06111f !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-volume-head{
-    color:#06111f;
+    color:#06111f !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-volume-control button{
-    border-color:rgba(6,17,31,.10);
-    background:#f1f5f9;
-    color:#06111f;
+    border-color:rgba(6,17,31,.10) !important;
+    background:#f1f5f9 !important;
+    color:#06111f !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-volume-control button.active{
-    background:rgba(255,88,112,.12);
-    border-color:rgba(255,88,112,.24);
-    color:#c0392b;
+    background:rgba(255,88,112,.12) !important;
+    border-color:rgba(255,88,112,.24) !important;
+    color:#c0392b !important;
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-stats{
+    border-top-color:rgba(6,17,31,.10) !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat{
-    border-color:rgba(6,17,31,.08);
-    background:#f1f5f9;
-    color:#06111f;
+    border-color:rgba(6,17,31,.08) !important;
+    background:#f1f5f9 !important;
+    color:#06111f !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat.like{
-    background:rgba(39,174,96,.08);
-    border-color:rgba(39,174,96,.18);
-    color:#1e8449;
+    background:rgba(39,174,96,.08) !important;
+    border-color:rgba(39,174,96,.18) !important;
+    color:#1e8449 !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat.dislike{
-    background:rgba(192,57,43,.08);
-    border-color:rgba(192,57,43,.18);
-    color:#c0392b;
+    background:rgba(192,57,43,.08) !important;
+    border-color:rgba(192,57,43,.18) !important;
+    color:#c0392b !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat.like.active{
-    background:rgba(39,174,96,.16);
-    border-color:rgba(39,174,96,.36);
+    background:rgba(39,174,96,.16) !important;
+    border-color:rgba(39,174,96,.36) !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat.dislike.active{
-    background:rgba(192,57,43,.16);
-    border-color:rgba(192,57,43,.36);
+    background:rgba(192,57,43,.16) !important;
+    border-color:rgba(192,57,43,.36) !important;
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat svg{
+    stroke:#06111f !important;
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat.like svg{
+    stroke:#1e8449 !important;
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat.dislike svg{
+    stroke:#c0392b !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-actions button{
-    background:#f1f5f9;
-    border-color:rgba(6,17,31,.08);
-    color:#06111f;
-    border-radius:999px;
+    background:#f1f5f9 !important;
+    border:1px solid rgba(6,17,31,.08) !important;
+    color:#06111f !important;
+    border-radius:999px !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-actions button.friend{
-    background:rgba(6,17,31,.06);
-    border-color:rgba(6,17,31,.12);
-    color:#06111f;
+    background:rgba(6,17,31,.06) !important;
+    border-color:rgba(6,17,31,.12) !important;
+    color:#06111f !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-actions button.danger{
-    background:rgba(192,57,43,.08);
-    border-color:rgba(192,57,43,.16);
-    color:#c0392b;
+    background:rgba(192,57,43,.08) !important;
+    border-color:rgba(192,57,43,.16) !important;
+    color:#c0392b !important;
 }
 body.mp-lobby-open:not(.mp-room-active) .mp-profile-actions button.active{
-    background:rgba(6,17,31,.10);
-    border-color:rgba(6,17,31,.16);
-    color:#06111f;
+    background:rgba(6,17,31,.10) !important;
+    border-color:rgba(6,17,31,.16) !important;
+    color:#06111f !important;
 }
-body.mp-lobby-open:not(.mp-room-active) .mp-chat-close{
-    background:rgba(6,17,31,.06);
-    border-color:rgba(6,17,31,.10);
-    color:#06111f;
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat-label{
+    color:inherit !important;
 }
 @media (max-width:760px){
     .mp-shell{ border-radius:24px; }
