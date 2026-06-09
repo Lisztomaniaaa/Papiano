@@ -15361,34 +15361,38 @@ midiBtn.onclick = (e) => {
        LIVE MULTIPLAYER CHORD DETECTION
        — Tracks remote players' active notes client-side (zero extra writes)
        — Detects chords using the existing matchChords() engine
+       — Uses user's local chordMode (Opsi B: follow local setting)
        — Renders per-player chord labels with their seat color
        ═══════════════════════════════════════════════════════════════════ */
     const _remoteActiveNotes = new Map(); // playerId → Set<midi>
     const _remoteChordCache = new Map();  // playerId → { text, secondary, ts }
-    let _mpChordContainer = null;
+    let _mpChordEl = null;
     let _mpChordRafId = 0;
-    const _MP_CHORD_DEBOUNCE = 55; // ms between chord UI refreshes
     let _mpChordLastRender = 0;
-    const _MP_CHORD_DECAY_MS = 2800; // fade chord label after silence
+    const _MP_CHORD_DECAY_MS = 2400;
 
-    function _getMpChordContainer(){
-        if(_mpChordContainer && _mpChordContainer.isConnected) return _mpChordContainer;
-        _mpChordContainer = document.getElementById('mpChordLive');
-        if(!_mpChordContainer){
-            _mpChordContainer = document.createElement('div');
-            _mpChordContainer.id = 'mpChordLive';
-            const stage = document.querySelector('.stage');
-            if(stage) stage.appendChild(_mpChordContainer);
-        }
-        return _mpChordContainer;
+    function _ensureMpChordEl(){
+        if(_mpChordEl && _mpChordEl.parentNode) return _mpChordEl;
+        // Try to find existing
+        _mpChordEl = document.getElementById('mpChordLive');
+        if(_mpChordEl) return _mpChordEl;
+        // Create and append directly to stage
+        const stage = document.querySelector('.stage');
+        if(!stage) return null;
+        _mpChordEl = document.createElement('div');
+        _mpChordEl.id = 'mpChordLive';
+        _mpChordEl.setAttribute('aria-live', 'polite');
+        stage.appendChild(_mpChordEl);
+        return _mpChordEl;
     }
 
     function _remoteNoteOn(playerId, midi){
         if(!playerId || playerId === mpSelfId) return;
+        if(chordMode === 'off') return; // respect user's chord setting
         let set = _remoteActiveNotes.get(playerId);
         if(!set){ set = new Set(); _remoteActiveNotes.set(playerId, set); }
         set.add(midi);
-        _scheduleRemoteChordUpdate(playerId);
+        _scheduleRemoteChordFlush();
     }
 
     function _remoteNoteOff(playerId, midi){
@@ -15396,7 +15400,7 @@ midiBtn.onclick = (e) => {
         const set = _remoteActiveNotes.get(playerId);
         if(!set) return;
         set.delete(midi);
-        _scheduleRemoteChordUpdate(playerId);
+        _scheduleRemoteChordFlush();
     }
 
     function _clearRemoteNotes(playerId){
@@ -15407,67 +15411,63 @@ midiBtn.onclick = (e) => {
             _remoteActiveNotes.clear();
             _remoteChordCache.clear();
         }
-        _scheduleRemoteChordRender();
+        _requestMpChordRender();
     }
 
-    const _remoteChordDirtyPlayers = new Set();
-    let _remoteChordFlushTimer = 0;
-
-    function _scheduleRemoteChordUpdate(playerId){
-        _remoteChordDirtyPlayers.add(playerId);
-        if(_remoteChordFlushTimer) return;
-        _remoteChordFlushTimer = setTimeout(_flushRemoteChords, 22);
+    let _mpChordFlushTimer = 0;
+    function _scheduleRemoteChordFlush(){
+        if(_mpChordFlushTimer) return;
+        _mpChordFlushTimer = setTimeout(_flushRemoteChords, 18);
     }
 
     function _flushRemoteChords(){
-        _remoteChordFlushTimer = 0;
+        _mpChordFlushTimer = 0;
+        if(chordMode === 'off') return;
         const now = performance.now();
-        _remoteChordDirtyPlayers.forEach(pid => {
-            const set = _remoteActiveNotes.get(pid);
+        const currentMode = chordMode; // user's current mode — Opsi B
+        _remoteActiveNotes.forEach((set, pid) => {
             if(!set || set.size < 2){
-                // Keep existing chord for decay period
                 const cached = _remoteChordCache.get(pid);
                 if(cached && !cached.fading){
                     cached.fading = true;
                     cached.fadeStart = now;
                 }
+                return;
+            }
+            const midiArr = Array.from(set).sort((a,b) => a - b);
+            // Use user's local chord mode for detection level
+            const matches = matchChords(midiArr);
+            if(matches.length > 0){
+                const text = formatChord(matches[0]);
+                const secondary = matches.length >= 2 ? formatChord(matches[1]) : '';
+                _remoteChordCache.set(pid, { text, secondary, ts: now, fading: false, fadeStart: 0 });
             } else {
-                const midiArr = Array.from(set).sort((a,b) => a - b);
-                if(typeof matchChords === 'function'){
-                    // Force chord detection to 'medium' level regardless of local chordMode setting
-                    const savedMode = chordMode;
-                    chordMode = 'medium';
-                    const matches = matchChords(midiArr);
-                    chordMode = savedMode;
-                    if(matches.length > 0){
-                        const text = formatChord(matches[0]);
-                        const secondary = matches.length >= 2 ? formatChord(matches[1]) : '';
-                        _remoteChordCache.set(pid, { text, secondary, ts: now, fading: false, fadeStart: 0 });
-                    }
-                }
+                // No match at current level — start fading if cached
+                const cached = _remoteChordCache.get(pid);
+                if(cached && !cached.fading){ cached.fading = true; cached.fadeStart = now; }
             }
         });
-        _remoteChordDirtyPlayers.clear();
-        _scheduleRemoteChordRender();
+        _requestMpChordRender();
     }
 
-    function _scheduleRemoteChordRender(){
+    function _requestMpChordRender(){
         if(_mpChordRafId) return;
-        _mpChordRafId = requestAnimationFrame(_renderRemoteChords);
+        _mpChordRafId = requestAnimationFrame(_renderMpChords);
     }
 
-    function _renderRemoteChords(){
+    function _renderMpChords(){
         _mpChordRafId = 0;
         const now = performance.now();
-        if(now - _mpChordLastRender < _MP_CHORD_DEBOUNCE){
-            _mpChordRafId = requestAnimationFrame(_renderRemoteChords);
+        const container = _ensureMpChordEl();
+        if(!container){ return; }
+
+        // If chord mode is off, hide everything
+        if(chordMode === 'off'){
+            if(container.innerHTML) container.innerHTML = '';
             return;
         }
-        _mpChordLastRender = now;
-        const container = _getMpChordContainer();
-        if(!container) return;
 
-        // Collect active chords
+        // Collect visible entries
         const entries = [];
         _remoteChordCache.forEach((data, pid) => {
             if(data.fading && now - data.fadeStart > _MP_CHORD_DECAY_MS){
@@ -15478,34 +15478,29 @@ midiBtn.onclick = (e) => {
             const player = getPlayer(pid);
             const color = playerColor(player);
             const name = player?.name || 'Player';
-            entries.push({ pid, text: data.text, secondary: data.secondary, color, name, opacity });
+            entries.push({ text: data.text, secondary: data.secondary, color, name, opacity });
         });
 
-        // Build HTML
         if(entries.length === 0){
-            if(container.innerHTML !== '') container.innerHTML = '';
-            return;
+            if(container.innerHTML) container.innerHTML = '';
+        } else {
+            let html = '';
+            for(let i = 0; i < entries.length; i++){
+                const e = entries[i];
+                html += '<div class="mpc-row" style="opacity:' + (Math.round(e.opacity * 100) / 100) + '">' +
+                    '<span class="mpc-dot" style="background:' + e.color + '"></span>' +
+                    '<span class="mpc-name" style="color:' + e.color + '">' + escapeHtml(e.name) + '</span>' +
+                    '<span class="mpc-chord">' + escapeHtml(e.text) + '</span>' +
+                    (e.secondary ? '<span class="mpc-sub">' + escapeHtml(e.secondary) + '</span>' : '') +
+                    '</div>';
+            }
+            container.innerHTML = html;
         }
 
-        let html = '';
-        for(let i = 0; i < entries.length; i++){
-            const e = entries[i];
-            const op = Math.round(e.opacity * 100) / 100;
-            html += `<div class="mpc-row" style="opacity:${op}">` +
-                `<span class="mpc-dot" style="background:${e.color}"></span>` +
-                `<span class="mpc-name" style="color:${e.color}">${escapeHtml(e.name)}</span>` +
-                `<span class="mpc-chord">${escapeHtml(e.text)}</span>` +
-                (e.secondary ? `<span class="mpc-sub">${escapeHtml(e.secondary)}</span>` : '') +
-                `</div>`;
-        }
-        container.innerHTML = html;
-
-        // Continue render loop if fading
-        if(_remoteChordCache.size > 0){
-            let hasFading = false;
-            _remoteChordCache.forEach(d => { if(d.fading) hasFading = true; });
-            if(hasFading && !_mpChordRafId) _mpChordRafId = requestAnimationFrame(_renderRemoteChords);
-        }
+        // Keep rendering while fading
+        let hasFading = false;
+        _remoteChordCache.forEach(d => { if(d.fading) hasFading = true; });
+        if(hasFading) _mpChordRafId = requestAnimationFrame(_renderMpChords);
     }
 
     // Hook is done via direct injection in playRemoteNote (see noteOn/noteOff branches)
