@@ -15423,35 +15423,50 @@ midiBtn.onclick = (e) => {
     }
 
     function _detectAndRenderChords(){
-        // Detect chords for every tracked player (synchronous, fast)
-        const effectiveMode = _mpEffectiveMode();
-        const now = Date.now();
-        _remoteActiveNotes.forEach((set, pid) => {
+        var effectiveMode = _mpEffectiveMode();
+        var now = Date.now();
+        _remoteActiveNotes.forEach(function(set, pid){
             if(set && set.size >= 2){
-                const midiArr = Array.from(set).sort((a,b) => a - b);
-                const savedMode = chordMode;
+                var midiArr = Array.from(set).sort(function(a,b){ return a - b; });
+                var savedMode = chordMode;
                 chordMode = effectiveMode;
-                let matches = [];
+                var matches = [];
                 try{ matches = matchChords(midiArr) || []; }catch(e){ matches = []; }
                 chordMode = savedMode;
                 if(matches.length > 0){
-                    _remoteChordText.set(pid, {
-                        text: formatChord(matches[0]),
-                        secondary: matches.length >= 2 ? formatChord(matches[1]) : '',
-                        idleSince: 0
-                    });
+                    _remoteChordText.set(pid, { text: formatChord(matches[0]), secondary: matches.length >= 2 ? formatChord(matches[1]) : '', idleSince: 0 });
                 } else {
-                    // Notes held but no chord matched — fade the stale label
-                    const existing = _remoteChordText.get(pid);
-                    if(existing && !existing.idleSince) existing.idleSince = now;
+                    var ex1 = _remoteChordText.get(pid);
+                    if(ex1 && !ex1.idleSince) ex1.idleSince = now;
                 }
             } else {
-                // Notes released — mark idle timestamp so it fades after hold window
-                const existing = _remoteChordText.get(pid);
-                if(existing && !existing.idleSince) existing.idleSince = now;
+                var ex2 = _remoteChordText.get(pid);
+                if(ex2 && !ex2.idleSince) ex2.idleSince = now;
             }
         });
-        _renderMpChords();
+        // Render to FIXED position element on body (guaranteed visible — same approach as green debug box)
+        var html = '';
+        _remoteChordText.forEach(function(data, pid){
+            if(data.idleSince && now - data.idleSince > _MP_CHORD_HOLD_MS) return;
+            var player = getPlayer(pid);
+            var color = playerColor(player);
+            var name = (player && player.name) ? player.name : 'Player';
+            var dim = data.idleSince ? 'opacity:0.5;' : '';
+            html += '<div style="display:flex;align-items:center;gap:7px;padding:6px 12px;border-radius:12px;background:rgba(0,0,0,0.7);border:1px solid rgba(255,255,255,0.12);' + dim + '">' +
+                '<span style="width:9px;height:9px;border-radius:50%;background:' + color + ';box-shadow:0 0 6px ' + color + ';flex-shrink:0;"></span>' +
+                '<span style="font-size:11px;font-weight:800;color:' + color + ';max-width:60px;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(name) + '</span>' +
+                '<span style="font-size:16px;font-weight:900;color:#fff;letter-spacing:0.3px;">' + escapeHtml(data.text) + '</span>' +
+                (data.secondary ? '<span style="font-size:11px;color:rgba(255,255,255,0.5);margin-left:3px;">' + escapeHtml(data.secondary) + '</span>' : '') +
+                '</div>';
+        });
+        var container = document.getElementById('_mpChordFixed');
+        if(!container){
+            container = document.createElement('div');
+            container.id = '_mpChordFixed';
+            container.style.cssText = 'position:fixed;top:72px;right:10px;z-index:99999;pointer-events:none;display:flex;flex-direction:column;gap:5px;max-width:250px;font-family:Quicksand,sans-serif;';
+            document.body.appendChild(container);
+        }
+        container.innerHTML = html;
         _ensureDecayTimer();
     }
 
