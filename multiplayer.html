@@ -12345,6 +12345,20 @@ midiBtn.onclick = (e) => {
         }catch(e){}
     }
 
+    let banWatcherUnsubscribe = null;
+    function startAccountBanWatcher(uid){
+        if(!uid || !firebaseReady || !dbApi || !db) return;
+        try{ banWatcherUnsubscribe?.(); }catch(e){}
+        var banRef = dbApi.ref(db, 'deletedAccounts/' + uid);
+        banWatcherUnsubscribe = dbApi.onValue(banRef, snap => {
+            if(snap.val()?.deleted){
+                try{ banWatcherUnsubscribe?.(); }catch(e){}
+                try{ authApi.signOut(firebaseAuth); }catch(e){}
+                window.location.assign('/');
+            }
+        }, () => {});
+    }
+
     function formatMpSequentialId(value){
         const raw = String(value ?? '').trim().replace(/^#/, '');
         if(!/^\d+$/.test(raw)) return '';
@@ -15460,6 +15474,7 @@ midiBtn.onclick = (e) => {
         friendsUnsubscribe = attachFirestoreFriends();
         attachBlocksListener();
         requestsUnsubscribe = attachRequestsListener();
+        startAccountBanWatcher(mpSelfId);
         syncAuthUi();
         attachRoomsListener();
         attachUsersListener();
