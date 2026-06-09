@@ -15145,7 +15145,9 @@ midiBtn.onclick = (e) => {
             }
             playRemotePressVisual(midi, el, player.id);
             pulsePlayer(player.id);
+            console.debug('[MPC] noteOn hook check:', typeof _remoteNoteOn, 'player:', player.id, 'midi:', midi);
             if(typeof _remoteNoteOn === 'function') _remoteNoteOn(player.id, midi);
+            else console.warn('[MPC] _remoteNoteOn is NOT a function!', typeof _remoteNoteOn);
         }else if(event.type === 'noteOff'){
             updateRemoteSustainState(player.id, event);
             const sustainHeld = shouldHoldRemoteNoteOff(player.id, event);
@@ -15404,9 +15406,11 @@ midiBtn.onclick = (e) => {
 
     function _remoteNoteOn(playerId, midi){
         if(!playerId || playerId === mpSelfId) return;
+        console.debug('[MPC] _remoteNoteOn called:', playerId, midi);
         let set = _remoteActiveNotes.get(playerId);
         if(!set){ set = new Set(); _remoteActiveNotes.set(playerId, set); }
         set.add(midi);
+        console.debug('[MPC] active notes for', playerId, ':', Array.from(set));
         _scheduleRemoteChordFlush();
     }
 
@@ -15438,9 +15442,8 @@ midiBtn.onclick = (e) => {
     function _flushRemoteChords(){
         _mpChordFlushTimer = 0;
         const now = performance.now();
-        // Use user's mode if active, otherwise default to 'biasa' minimum
-        // This ensures remote chords always display regardless of local chord setting
         const effectiveMode = (chordMode && chordMode !== 'off') ? chordMode : 'biasa';
+        console.debug('[MPC] flush:', _remoteActiveNotes.size, 'players, effectiveMode:', effectiveMode);
         _remoteActiveNotes.forEach((set, pid) => {
             if(!set || set.size < 2){
                 const cached = _remoteChordCache.get(pid);
@@ -15451,11 +15454,11 @@ midiBtn.onclick = (e) => {
                 return;
             }
             const midiArr = Array.from(set).sort((a,b) => a - b);
-            // Temporarily apply effective mode for detection
             const savedMode = chordMode;
             chordMode = effectiveMode;
             const matches = matchChords(midiArr);
             chordMode = savedMode;
+            console.debug('[MPC] matchChords', midiArr, '→', matches.length, 'results', matches.length > 0 ? formatChord(matches[0]) : '(none)');
             if(matches.length > 0){
                 const text = formatChord(matches[0]);
                 const secondary = matches.length >= 2 ? formatChord(matches[1]) : '';
@@ -15477,6 +15480,7 @@ midiBtn.onclick = (e) => {
         _mpChordRafId = 0;
         const now = performance.now();
         const container = _ensureMpChordEl();
+        console.debug('[MPC] render:', container ? 'container OK' : 'NO CONTAINER', 'cache size:', _remoteChordCache.size);
         if(!container) return;
 
         // Collect visible entries
