@@ -8546,7 +8546,7 @@ function _spriteRoundPath(sctx, w, h, r){
 
 function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
     const wB = _qBucket(w, 2);
-    const hB = style === 'rainbowV2' ? 64 : _qBucket(h, 24);
+    const hB = _qBucket(h, 24);
     const cB = style === 'rainbow' ? ((hue|0) >> 2)
              : style === 'solid' ? ((rgb[0]|0) * 65536 + (rgb[1]|0) * 256 + (rgb[2]|0))
              : _colorBucket(rgb);
@@ -8563,11 +8563,9 @@ function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
         _spriteCache.delete(firstKey);
     }
     sprite = document.createElement('canvas');
-    const NFRAMES_V2 = 16;
-    const isV2Atlas = (style === 'rainbowV2');
     const wPhys = Math.max(1, Math.round(wB * dpr));
     const hPhys = Math.max(1, Math.round(hB * dpr));
-    sprite.width = isV2Atlas ? wPhys * NFRAMES_V2 : wPhys;
+    sprite.width = wPhys;
     sprite.height = hPhys;
     const sctx = sprite.getContext('2d', { alpha: true });
     sctx.imageSmoothingEnabled = true;
@@ -8589,159 +8587,6 @@ function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
         sctx.fillStyle = g;
         _spriteRoundPath(sctx, wB, hB, r);
         sctx.fill();
-    } else if(style === 'rainbowV2'){
-        const R = rgb[0], G = rgb[1], B = rgb[2];
-        const whiteMode = _isNearWhiteRgb(rgb);
-        const iR = whiteMode ? 255 : Math.min(255, Math.round(R*0.55 + G*0.25 + B*0.20 + 32));
-        const iG = whiteMode ? 255 : Math.min(255, Math.round(R*0.20 + G*0.55 + B*0.25 + 32));
-        const iB = whiteMode ? 255 : Math.min(255, Math.round(R*0.25 + G*0.20 + B*0.55 + 32));
-        for(let i = 0; i < NFRAMES_V2; i++){
-            const ox = i * wB;
-            const t = i / NFRAMES_V2;
-            sctx.save();
-            sctx.translate(ox, 0);
-
-            const body = sctx.createLinearGradient(0, 0, 0, hB);
-            if(whiteMode){
-                body.addColorStop(0,    'rgb(255,255,255)');
-                body.addColorStop(0.24, 'rgb(255,255,255)');
-                body.addColorStop(0.58, 'rgb(250,253,255)');
-                body.addColorStop(0.86, 'rgb(247,252,255)');
-                body.addColorStop(1,    'rgb(255,255,255)');
-            } else {
-                body.addColorStop(0,    `rgb(${Math.min(255,R+115)},${Math.min(255,G+115)},${Math.min(255,B+115)})`);
-                body.addColorStop(0.18, `rgb(${Math.min(255,R+55)},${Math.min(255,G+55)},${Math.min(255,B+55)})`);
-                body.addColorStop(0.50, `rgb(${R},${G},${B})`);
-                body.addColorStop(0.82, `rgb(${Math.max(0,R-32)},${Math.max(0,G-32)},${Math.max(0,B-32)})`);
-                body.addColorStop(1,    `rgb(${Math.max(0,R-72)},${Math.max(0,G-72)},${Math.max(0,B-72)})`);
-            }
-            sctx.fillStyle = body;
-            _spriteRoundPath(sctx, wB, hB, r);
-            sctx.fill();
-
-            _spriteRoundPath(sctx, wB, hB, r);
-            sctx.clip();
-
-            const iCenter = -0.20 + t * 1.40;
-            const iL  = Math.max(0, Math.min(1, iCenter - 0.22));
-            const iC  = Math.max(0, Math.min(1, iCenter));
-            const iR_ = Math.max(0, Math.min(1, iCenter + 0.22));
-            const iri = sctx.createLinearGradient(0, hB*0.10, wB, hB*0.90);
-            iri.addColorStop(0,   'rgba(255,255,255,0)');
-            if(iL > 0) iri.addColorStop(iL, 'rgba(255,255,255,0)');
-            iri.addColorStop(iC,  `rgba(${iR},${iG},${iB},${whiteMode ? '0.18' : '0.34'})`);
-            if(iR_ < 1) iri.addColorStop(iR_, 'rgba(255,255,255,0)');
-            iri.addColorStop(1,   'rgba(255,255,255,0)');
-            sctx.fillStyle = iri;
-            sctx.fillRect(0, 0, wB, hB);
-
-            const sCenter = 1.20 - t * 1.40;
-            const sL  = Math.max(0, Math.min(1, sCenter - 0.14));
-            const sC  = Math.max(0, Math.min(1, sCenter));
-            const sR_ = Math.max(0, Math.min(1, sCenter + 0.14));
-            const sheen = sctx.createLinearGradient(0, 0, wB, hB);
-            sheen.addColorStop(0,   'rgba(255,255,255,0)');
-            if(sL > 0) sheen.addColorStop(sL, 'rgba(255,255,255,0)');
-            sheen.addColorStop(sC,  `rgba(255,255,255,${whiteMode ? '0.36' : '0.55'})`);
-            if(sR_ < 1) sheen.addColorStop(sR_, 'rgba(255,255,255,0)');
-            sheen.addColorStop(1,   'rgba(255,255,255,0)');
-            sctx.fillStyle = sheen;
-            sctx.fillRect(0, 0, wB, hB);
-
-            const rim = sctx.createLinearGradient(0, 0, 0, hB * 0.45);
-            rim.addColorStop(0,   `rgba(255,255,255,${whiteMode ? '0.30' : '0.50'})`);
-            rim.addColorStop(0.5, `rgba(255,255,255,${whiteMode ? '0.08' : '0.10'})`);
-            rim.addColorStop(1,   'rgba(255,255,255,0)');
-            sctx.fillStyle = rim;
-            sctx.fillRect(0, 0, wB, hB * 0.45);
-
-            if(!whiteMode){
-                const shd = sctx.createLinearGradient(0, hB * 0.65, 0, hB);
-                shd.addColorStop(0, 'rgba(0,0,0,0)');
-                shd.addColorStop(1, 'rgba(0,0,0,0.26)');
-                sctx.fillStyle = shd;
-                sctx.fillRect(0, hB * 0.65, wB, hB * 0.35);
-            }
-
-            sctx.restore();
-        }
-        sprite._isV2Atlas = true;
-        sprite._v2FrameW = wPhys;
-        sprite._v2FrameH = hPhys;
-        sprite._v2FrameCount = NFRAMES_V2;
-    } else if(style === 'crystal3d'){
-
-        const R = rgb[0], G = rgb[1], B = rgb[2];
-        const lite = (c, a) => Math.min(255, c + a);
-        const dark = (c, a) => Math.max(0, c - a);
-
-        const body = sctx.createLinearGradient(0, 0, 0, hB);
-        body.addColorStop(0,    `rgb(${lite(R,96)},${lite(G,96)},${lite(B,96)})`);
-        body.addColorStop(0.12, `rgb(${lite(R,44)},${lite(G,44)},${lite(B,44)})`);
-        body.addColorStop(0.50, `rgb(${R},${G},${B})`);
-        body.addColorStop(0.88, `rgb(${dark(R,48)},${dark(G,48)},${dark(B,48)})`);
-        body.addColorStop(1,    `rgb(${dark(R,92)},${dark(G,92)},${dark(B,92)})`);
-        sctx.fillStyle = body;
-        _spriteRoundPath(sctx, wB, hB, r);
-        sctx.fill();
-
-        _spriteRoundPath(sctx, wB, hB, r);
-        sctx.clip();
-
-        const wrap = sctx.createLinearGradient(0, 0, wB, 0);
-        wrap.addColorStop(0,    'rgba(255,255,255,0.30)');
-        wrap.addColorStop(0.28, 'rgba(255,255,255,0)');
-        wrap.addColorStop(0.66, 'rgba(0,0,0,0)');
-        wrap.addColorStop(1,    'rgba(0,0,0,0.26)');
-        sctx.fillStyle = wrap;
-        sctx.fillRect(0, 0, wB, hB);
-
-        const capH = Math.max(2, hB * 0.38);
-        const cap = sctx.createLinearGradient(0, 0, 0, capH);
-        cap.addColorStop(0,   'rgba(255,255,255,0.62)');
-        cap.addColorStop(0.55,'rgba(255,255,255,0.12)');
-        cap.addColorStop(1,   'rgba(255,255,255,0)');
-        sctx.fillStyle = cap;
-        sctx.fillRect(0, 0, wB, capH);
-
-        const sx = wB * 0.32, sy = hB * 0.24;
-        const sr = Math.max(2, Math.min(wB, hB) * 0.62);
-        const spec = sctx.createRadialGradient(sx, sy, 0, sx, sy, sr);
-        spec.addColorStop(0,   'rgba(255,255,255,0.72)');
-        spec.addColorStop(0.4, 'rgba(255,255,255,0.16)');
-        spec.addColorStop(1,   'rgba(255,255,255,0)');
-        sctx.fillStyle = spec;
-        sctx.fillRect(0, 0, wB, hB);
-
-        const ao = sctx.createLinearGradient(0, hB * 0.62, 0, hB);
-        ao.addColorStop(0, 'rgba(0,0,0,0)');
-        ao.addColorStop(1, 'rgba(0,0,0,0.36)');
-        sctx.fillStyle = ao;
-        sctx.fillRect(0, hB * 0.62, wB, hB * 0.38);
-
-        const inset = 0.75;
-        sctx.lineWidth = 1.4;
-        sctx.strokeStyle = 'rgba(255,255,255,0.40)';
-        sctx.beginPath();
-        if(r > 0 && sctx.roundRect){ sctx.roundRect(inset, inset, wB - inset*2, hB - inset*2, Math.max(0, r - inset)); }
-        else { sctx.rect(inset, inset, wB - inset*2, hB - inset*2); }
-        sctx.stroke();
-        sctx.save();
-        sctx.beginPath();
-        sctx.moveTo(wB, 0); sctx.lineTo(wB, hB); sctx.lineTo(0, hB); sctx.closePath();
-        sctx.clip();
-        sctx.lineWidth = 1.2;
-        sctx.strokeStyle = 'rgba(0,0,0,0.30)';
-        sctx.beginPath();
-        if(r > 0 && sctx.roundRect){ sctx.roundRect(inset, inset, wB - inset*2, hB - inset*2, Math.max(0, r - inset)); }
-        else { sctx.rect(inset, inset, wB - inset*2, hB - inset*2); }
-        sctx.stroke();
-        sctx.restore();
-
-        sctx.lineWidth = 1;
-        sctx.strokeStyle = 'rgba(255,255,255,0.30)';
-        _spriteRoundPath(sctx, wB, hB, r);
-        sctx.stroke();
     }
 
     _spriteCache.set(key, sprite);
@@ -8836,45 +8681,22 @@ function drawFallingNote(f){
     const isRounded = shape === 'rounded' && roundPct > 0;
     const rv = isRounded ? Math.min(8, w*0.45, h*0.35) * (roundPct / 100) : 0;
     const drawStyleRaw = f.styleResolved || f.style;
-    const drawStyle = drawStyleRaw === 'rainbowV2' ? 'rainbow' : drawStyleRaw;
+    const drawStyle = (drawStyleRaw === 'rainbowV2' || drawStyleRaw === 'crystal3d') ? 'rainbow' : drawStyleRaw;
 
     ctx2d.globalAlpha = noteAlpha;
     ctx2d.globalCompositeOperation = 'source-over';
 
     if(drawStyle === 'rainbow'){
         const hue = Number.isFinite(f.rainbowHue) ? f.rainbowHue : 0;
-        const sprite = getEffectSprite('rainbow', null, w, h, isRounded, hue, roundPct);
-        ctx2d.drawImage(sprite, x0, y, w, h);
-    } else if(drawStyle === 'rainbowV2'){
-        const baseRgb = safeHex(f.base || cachedAnimColor || '#ffffff', '#ffffff');
-        const tunedRgb = tuneRgbForFalling(baseRgb);
-        const sprite = getEffectSprite('rainbowV2', tunedRgb, w, h, isRounded, 0, roundPct);
-        if(sprite._isV2Atlas){
-            const NF = sprite._v2FrameCount;
-            const phase = (renderNow / 3000) + (f.midi * 0.137);
-            const fphase = (phase - Math.floor(phase)) * NF;
-            let f0 = fphase | 0;
-            if(f0 < 0) f0 = 0;
-            if(f0 >= NF) f0 = NF - 1;
-            const f1 = (f0 + 1) % NF;
-            const blend = fphase - f0;
-            const fw = sprite._v2FrameW, fh = sprite._v2FrameH;
-            ctx2d.drawImage(sprite, f0 * fw, 0, fw, fh, x0, y, w, h);
-            const allowFrameBlend = perfGovScale >= 0.85 && !extremeRenderBurst && falling.length <= 28 && frameBurstLevel < 8;
-            if(allowFrameBlend && blend > 0.035){
-                const prevAlpha = ctx2d.globalAlpha;
-                ctx2d.globalAlpha = prevAlpha * blend;
-                ctx2d.drawImage(sprite, f1 * fw, 0, fw, fh, x0, y, w, h);
-                ctx2d.globalAlpha = prevAlpha;
-            }
+        ctx2d.fillStyle = `hsl(${hue|0},88%,58%)`;
+        if(isRounded && rv > 0){
+            ctx2d.beginPath();
+            if(ctx2d.roundRect) ctx2d.roundRect(x0, y, w, h, rv);
+            else ctx2d.rect(x0, y, w, h);
+            ctx2d.fill();
         } else {
-            ctx2d.drawImage(sprite, x0, y, w, h);
+            ctx2d.fillRect(x0, y, w, h);
         }
-    } else if(drawStyle === 'crystal3d'){
-        const baseRgb = safeHex(f.base || cachedAnimColor || '#ffffff', '#ffffff');
-        const tunedRgb = tuneRgbForFalling(baseRgb);
-        const sprite = getEffectSprite('crystal3d', tunedRgb, w, h, isRounded, 0, roundPct);
-        ctx2d.drawImage(sprite, x0, y, w, h);
     } else {
 
         const baseHex = f.base || cachedAnimColor || '#ffffff';
