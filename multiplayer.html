@@ -12197,7 +12197,7 @@ midiBtn.onclick = (e) => {
         }
     }
 
-    const MP_PLAYER_COLORS = ['#ffffff','#ffe066','#b28cff','#5ee68a','#78dcff','#ff5f73'];
+    const MP_PLAYER_COLORS = ['#e8f0ff','#ffe066','#b28cff','#5ee68a','#78dcff','#ff5f73'];
 
     function colorFromId(id){
         const text = String(id || '');
@@ -12226,8 +12226,10 @@ midiBtn.onclick = (e) => {
         return fallback || '#78dcff';
     }
 
-    // Cache seat colors from stream events for players not yet in roomPlayersByRoom
+    // Seat cache + color lock: once a player's color is resolved from seat data,
+    // it is LOCKED for the entire room session. This prevents flicker/fade to white.
     const _playerSeatCache = new Map(); // playerId → seat number
+    const _playerColorLock = new Map(); // playerId → resolved hex color (immutable per session)
 
     function getRoomPlayerColorIndex(id){
         const targetId = String(id || '');
@@ -12245,7 +12247,6 @@ midiBtn.onclick = (e) => {
                 return seatIndex;
             }
         }
-        // Check cached seat from stream events
         const cachedSeat = _playerSeatCache.get(targetId);
         if(cachedSeat){
             const seatIndex = playerSeatColorIndex(cachedSeat);
@@ -12257,15 +12258,30 @@ midiBtn.onclick = (e) => {
     function playerColor(playerOrId){
         const player = typeof playerOrId === 'object' ? playerOrId : null;
         const id = player ? player.id : playerOrId;
+        const idStr = String(id || '');
+
+        // Once locked, color never changes during room session
+        const locked = _playerColorLock.get(idStr);
+        if(locked) return locked;
+
+        // Try seat from player object
         const seatIndex = playerSeatColorIndex(player?.seat);
         if(seatIndex >= 0){
-            _playerSeatCache.set(String(id || ''), player.seat);
-            return MP_PLAYER_COLORS[seatIndex];
+            const color = MP_PLAYER_COLORS[seatIndex];
+            _playerSeatCache.set(idStr, player.seat);
+            _playerColorLock.set(idStr, color);
+            return color;
         }
+
+        // Try seat from room data / cache
         const roomIndex = getRoomPlayerColorIndex(id);
-        if(roomIndex >= 0) return MP_PLAYER_COLORS[roomIndex];
-        // Fallback: deterministic color from player ID hash (never index 0 = white)
-        const idStr = String(id || '');
+        if(roomIndex >= 0){
+            const color = MP_PLAYER_COLORS[roomIndex];
+            _playerColorLock.set(idStr, color);
+            return color;
+        }
+
+        // Fallback: deterministic from ID hash — NOT locked (upgrades when seat arrives)
         let hash = 0;
         for(let i = 0; i < idStr.length; i++) hash = ((hash << 5) - hash + idStr.charCodeAt(i)) | 0;
         const fallbackIndex = 1 + (((hash < 0 ? -hash : hash) % (MP_PLAYER_COLORS.length - 1)));
@@ -12273,8 +12289,18 @@ midiBtn.onclick = (e) => {
     }
 
     function getCurrentRoomSelfColor(){
+        // Lock self color on first resolve too
+        const selfId = String(mpSelfId || '');
+        const locked = _playerColorLock.get(selfId);
+        if(locked) return locked;
         const seatIndex = playerSeatColorIndex(currentRoomSeat || roomPlayersByRoom[currentRoom?.id]?.[mpSelfId]?.seat || currentUser()?.seat);
-        return MP_PLAYER_COLORS[seatIndex >= 0 ? seatIndex : 0];
+        if(seatIndex >= 0){
+            const color = MP_PLAYER_COLORS[seatIndex];
+            _playerColorLock.set(selfId, color);
+            return color;
+        }
+        // Fallback: visible cyan instead of invisible white
+        return '#78dcff';
     }
 
     function sanitizeText(value, fallback = ''){
@@ -15513,7 +15539,8 @@ midiBtn.onclick = (e) => {
         if(roomPlayersUnsubscribe){ roomPlayersUnsubscribe(); roomPlayersUnsubscribe = null; }
         if(roomModerationUnsubscribe){ roomModerationUnsubscribe(); roomModerationUnsubscribe = null; }
         _clearRemoteNotes(); // reset chord state on room leave
-        _playerSeatCache.clear(); // reset color cache on room leave
+        _playerSeatCache.clear(); // reset seat cache on room leave
+        _playerColorLock.clear(); // reset color lock on room leave
     }
 
     function subscribeRoomData(roomId){
@@ -15538,9 +15565,22 @@ midiBtn.onclick = (e) => {
         roomPlayersUnsubscribe = dbApi.onValue(dbRef(`roomPlayers/${roomId}`), snap => {
             roomPlayersLoaded = true;
             roomPlayersByRoom[roomId] = snap.val() || {};
-            // Populate seat cache for all players to prevent color flicker
+            // Populate seat cache and lock colors for all players
             const live = roomPlayersByRoom[roomId];
-            if(live){ Object.entries(live).forEach(([key, data]) => { const seat = Number(data?.seat || 0); if(seat >= 1) _playerSeatCache.set(String(data?.id || key), seat); }); }
+            if(live){
+                Object.entries(live).forEach(([key, data]) => {
+                    const pid = String(data?.id || key);
+                    const seat = Number(data?.seat || 0);
+                    if(seat >= 1){
+                        _playerSeatCache.set(pid, seat);
+                        // Lock color if not already locked
+                        if(!_playerColorLock.has(pid)){
+                            const seatIdx = playerSeatColorIndex(seat);
+                            if(seatIdx >= 0) _playerColorLock.set(pid, MP_PLAYER_COLORS[seatIdx]);
+                        }
+                    }
+                });
+            }
             // Clear sprite/rgb caches so falling notes pick up corrected colors
             if(typeof _solidRgbCache !== 'undefined' && _solidRgbCache) _solidRgbCache.clear();
             if(typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
