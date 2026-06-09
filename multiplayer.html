@@ -5888,25 +5888,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="section-title ui-mb8">Chord Detector</div>
-                        <div class="chord-mode-grid">
-                            <div class="chord-mode-row">
-                                <button class="btn ui-flex-1" id="chordModeOff" data-chord-mode="off">Off</button>
-                                <button class="btn ui-flex-1" id="chordModeBiasa" data-chord-mode="biasa">Basic</button>
-                                <button class="btn active ui-flex-1" id="chordModeMedium" data-chord-mode="medium">Medium</button>
-                            </div>
-                            <div class="chord-mode-row">
-                                <button class="btn ui-flex-1" id="chordModePro" data-chord-mode="pro">Pro</button>
-                                <button class="btn btn-crazy ui-flex-1" id="chordModeCrazy" data-chord-mode="crazy">Beta</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="perf-setting-block ui-mt8">
-                        <div class="section-title ui-mb8">Chord Display Color</div>
-                        <div class="chord-color-grid">
-                            <div class="color-pad-host" id="chordPrimaryColor"></div>
-                            <div class="color-pad-host" id="chordSecondaryColor"></div>
-                        </div>
-                        <button class="btn" id="chordColorReset" type="button" style="width:100%; margin-top:9px;">Reset Chord Colors</button>
+                        <button class="btn active ui-flex-1" id="chordToggleBtn" style="width:100%;">On</button>
                     </div>
                 </div>
                 <div class="settings-section" data-settings-section="piano">
@@ -11268,58 +11250,22 @@ function clearChordLine(el){
     el.textContent = '';
 }
 function updateChordDisplay(){
-    const el1=document.getElementById('chordPrimary');
-    const el2=document.getElementById('chordSecondary');
-    if(!el1 || !el2) return;
-    if(chordMode==='off'||pressStartTimes.size===0){
-        clearChordLine(el1);
-        clearChordLine(el2);
-        _lastChordNoteKey=''; _chordKeyHash=0; return;
-    }
-    let n = 0;
-    const cap = _chordMidiScratch.length;
-    for(const k of pressStartTimes.keys()){
-        if(n >= cap) break;
-        _chordMidiScratch[n++] = k;
-    }
-    _chordMidiScratchLen = n;
-    for(let i=1;i<n;i++){
-        const v = _chordMidiScratch[i];
-        let j = i - 1;
-        while(j >= 0 && _chordMidiScratch[j] > v){
-            _chordMidiScratch[j+1] = _chordMidiScratch[j];
-            j--;
-        }
-        _chordMidiScratch[j+1] = v;
-    }
-    const hash = _buildChordKeyHash();
-    if(hash === _chordKeyHash) return;
-    _chordKeyHash = hash;
-    const midiNotes = new Array(n);
-    for(let i=0;i<n;i++) midiNotes[i] = _chordMidiScratch[i];
-    _lastChordNoteKey = String(hash);
-    const matches=matchChords(midiNotes);
-    if(matches.length===0){
-        clearChordLine(el1);
-        clearChordLine(el2);
-        return;
-    }
-    el1.textContent=formatChord(matches[0]);
-    el1.classList.add('show');
-    if(matches.length>=2){
-        el2.textContent=formatChord(matches[1]);
-        el2.classList.add('show');
-    } else {
-        clearChordLine(el2);
-    }
+    // Local chord disabled — remote-only chord display active
 }
 function setChordMode(mode){
-    if(isLowGraphic() && !['off','biasa'].includes(mode)) mode='biasa';
     chordMode=mode;
-    [['Off','off'],['Biasa','biasa'],['Medium','medium'],['Pro','pro'],['Crazy','crazy']].forEach(([label,value])=>{ const el=document.getElementById('chordMode'+label); if(el) el.classList.toggle('active',mode===value); });
-    updateChordDisplay();
 }
-document.getElementById('chordModeOff').onclick=()=>setChordMode('off'); document.getElementById('chordModeBiasa').onclick=()=>setChordMode('biasa'); document.getElementById('chordModeMedium').onclick=()=>setChordMode('medium'); document.getElementById('chordModePro').onclick=()=>setChordMode('pro'); document.getElementById('chordModeCrazy').onclick=()=>setChordMode('crazy');
+// Chord toggle On/Off (persisted)
+var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordOn') !== '0'; }catch(e){ return true; } })();
+(function initChordToggle(){
+    var btn = document.getElementById('chordToggleBtn');
+    if(!btn) return;
+    function sync(){ btn.classList.toggle('active', _chordEnabled); btn.textContent = _chordEnabled ? 'On' : 'Off'; }
+    sync();
+    btn.onclick = function(){ _chordEnabled = !_chordEnabled; try{ localStorage.setItem('papianoChordOn', _chordEnabled ? '1' : '0'); }catch(e){} sync(); if(!_chordEnabled){ var el1=document.getElementById('chordPrimary'); var el2=document.getElementById('chordSecondary'); if(el1){el1.classList.remove('show');el1.textContent='';} if(el2){el2.classList.remove('show');el2.textContent='';} } };
+    // Set chordMode to crazy so matchChords uses beta/all detection
+    chordMode = 'crazy';
+})();
 
 let midiAccess = null;
 const midiBtn = document.getElementById('midiBtn');
@@ -15397,107 +15343,89 @@ midiBtn.onclick = (e) => {
        — Decay handled by a single timer that only manages fade-out cleanup
        ═══════════════════════════════════════════════════════════════════ */
     const _remoteActiveNotes = new Map(); // playerId → Set<midi>
-    const _remoteChordText = new Map();   // playerId → { text, secondary, idleSince }
-    let _mpChordEl = null;
     let _mpChordDecayTimer = 0;
-    const _MP_CHORD_HOLD_MS = 2200; // how long to keep a chord after notes released
-
-    function _ensureMpChordEl(){
-        if(!_mpChordEl || !_mpChordEl.isConnected){
-            _mpChordEl = document.getElementById('mpChordLive');
-        }
-        return _mpChordEl;
-    }
 
     function _mpEffectiveMode(){
-        return (chordMode && chordMode !== 'off') ? chordMode : 'biasa';
+        return 'crazy'; // always beta/all detection
     }
 
     function _detectAndRenderChords(){
-        var effectiveMode = _mpEffectiveMode();
-        var now = Date.now();
+        if(!_chordEnabled) return;
+        var el1 = document.getElementById('chordPrimary');
+        var el2 = document.getElementById('chordSecondary');
+        if(!el1 || !el2) return;
+
+        // Find the player who most recently triggered a noteOn (latest active)
+        var latestPid = null;
+        var latestSet = null;
         _remoteActiveNotes.forEach(function(set, pid){
-            if(set && set.size >= 2){
-                var midiArr = Array.from(set).sort(function(a,b){ return a - b; });
-                var savedMode = chordMode;
-                chordMode = effectiveMode;
-                var matches = [];
-                try{ matches = matchChords(midiArr) || []; }catch(e){ matches = []; }
-                chordMode = savedMode;
-                if(matches.length > 0){
-                    _remoteChordText.set(pid, { text: formatChord(matches[0]), secondary: matches.length >= 2 ? formatChord(matches[1]) : '', idleSince: 0 });
-                } else {
-                    var ex1 = _remoteChordText.get(pid);
-                    if(ex1 && !ex1.idleSince) ex1.idleSince = now;
-                }
-            } else {
-                var ex2 = _remoteChordText.get(pid);
-                if(ex2 && !ex2.idleSince) ex2.idleSince = now;
-            }
+            if(set && set.size >= 2){ latestPid = pid; latestSet = set; }
         });
-        // Render into #chordDisplay — unified with local chord, same visual style, no names
-        var chordBox = document.getElementById('chordDisplay');
-        if(!chordBox) return;
-        // Remove old remote chord elements
-        var oldRemotes = chordBox.querySelectorAll('.chord-name-remote');
-        for(var i = 0; i < oldRemotes.length; i++) oldRemotes[i].remove();
-        // Append remote chords below local chord lines
-        _remoteChordText.forEach(function(data, pid){
-            if(data.idleSince && now - data.idleSince > _MP_CHORD_HOLD_MS) return;
-            var color = playerColor(getPlayer(pid));
-            var el = document.createElement('div');
-            el.className = 'chord-name chord-name-remote show';
-            el.style.color = color;
-            el.style.textShadow = '0 2px 12px rgba(0,0,0,0.8), 0 0 20px ' + color + '40';
-            el.style.fontSize = '20px';
-            if(data.idleSince) el.style.opacity = '0.45';
-            el.textContent = data.text + (data.secondary ? '  ' + data.secondary : '');
-            chordBox.appendChild(el);
-        });
-        // Remove old fixed container if leftover from previous version
-        var oldFixed = document.getElementById('_mpChordFixed');
-        if(oldFixed) oldFixed.remove();
-        _ensureDecayTimer();
+
+        if(!latestPid || !latestSet || latestSet.size < 2){
+            // No valid chord — instant cut
+            el1.classList.remove('show'); el1.textContent = ''; el1.style.color = '';
+            el2.classList.remove('show'); el2.textContent = ''; el2.style.color = '';
+            return;
+        }
+
+        var midiArr = Array.from(latestSet).sort(function(a,b){ return a - b; });
+        var savedMode = chordMode;
+        chordMode = 'crazy';
+        var matches = [];
+        try{ matches = matchChords(midiArr) || []; }catch(e){ matches = []; }
+        chordMode = savedMode;
+
+        if(matches.length === 0){
+            // Notes exist but don't form a chord — instant cut
+            el1.classList.remove('show'); el1.textContent = ''; el1.style.color = '';
+            el2.classList.remove('show'); el2.textContent = ''; el2.style.color = '';
+            return;
+        }
+
+        // Render using seat color
+        var color = playerColor(getPlayer(latestPid));
+        el1.textContent = formatChord(matches[0]);
+        el1.style.color = color;
+        el1.style.textShadow = '0 2px 12px rgba(0,0,0,0.8), 0 0 20px ' + color + '55';
+        el1.classList.add('show');
+        if(matches.length >= 2){
+            el2.textContent = formatChord(matches[1]);
+            el2.style.color = color;
+            el2.style.opacity = '0.6';
+            el2.classList.add('show');
+        } else {
+            el2.classList.remove('show'); el2.textContent = '';
+        }
     }
 
+    // Stuck note cleanup — if a note has been held >10s, it's probably a missed noteOff
     function _ensureDecayTimer(){
         if(_mpChordDecayTimer) return;
-        _mpChordDecayTimer = setInterval(() => {
-            const now = Date.now();
-            let changed = false;
-            // Cleanup decayed chord labels
-            _remoteChordText.forEach((data, pid) => {
-                if(data.idleSince && now - data.idleSince > _MP_CHORD_HOLD_MS){
-                    _remoteChordText.delete(pid);
-                    changed = true;
+        _mpChordDecayTimer = setInterval(function(){
+            var now = Date.now();
+            var changed = false;
+            _remoteActiveNotes.forEach(function(set, pid){
+                if(set && set.size > 0 && _remoteNoteTimestamps){
+                    var ts = _remoteNoteTimestamps.get(pid);
+                    if(ts && now - ts > 10000){ set.clear(); changed = true; }
                 }
             });
-            // Stuck note cleanup: remove notes active >30s (missed noteOff)
-            _remoteActiveNotes.forEach((set, pid) => {
-                if(set && set.size > 0){
-                    const existing = _remoteChordText.get(pid);
-                    if(existing && existing.idleSince && now - existing.idleSince > 30000){
-                        set.clear();
-                        _remoteChordText.delete(pid);
-                        changed = true;
-                    }
-                }
-            });
-            if(changed) _renderMpChords();
-            if(_remoteChordText.size === 0 && _remoteActiveNotes.size === 0){
-                clearInterval(_mpChordDecayTimer);
-                _mpChordDecayTimer = 0;
-            }
-        }, 400);
+            if(changed) _detectAndRenderChords();
+            if(_remoteActiveNotes.size === 0){ clearInterval(_mpChordDecayTimer); _mpChordDecayTimer = 0; }
+        }, 2000);
     }
+    var _remoteNoteTimestamps = new Map(); // playerId → last noteOn timestamp
 
 
     function _remoteNoteOn(playerId, midi){
         if(!playerId || playerId === mpSelfId) return;
-        let set = _remoteActiveNotes.get(playerId);
+        var set = _remoteActiveNotes.get(playerId);
         if(!set){ set = new Set(); _remoteActiveNotes.set(playerId, set); }
         set.add(midi);
+        _remoteNoteTimestamps.set(playerId, Date.now());
         _detectAndRenderChords();
+        _ensureDecayTimer();
     }
 
     function _remoteNoteOff(playerId, midi){
@@ -15511,15 +15439,16 @@ midiBtn.onclick = (e) => {
     function _clearRemoteNotes(playerId){
         if(playerId){
             _remoteActiveNotes.delete(playerId);
-            _remoteChordText.delete(playerId);
+            _remoteNoteTimestamps.delete(playerId);
         } else {
             _remoteActiveNotes.clear();
-            _remoteChordText.clear();
+            _remoteNoteTimestamps.clear();
         }
-        var chordBox = document.getElementById('chordDisplay');
-        if(chordBox){ var old = chordBox.querySelectorAll('.chord-name-remote'); for(var i=0;i<old.length;i++) old[i].remove(); }
-        var oldFixed = document.getElementById('_mpChordFixed');
-        if(oldFixed) oldFixed.remove();
+        // Instant clear display
+        var el1 = document.getElementById('chordPrimary');
+        var el2 = document.getElementById('chordSecondary');
+        if(el1){ el1.classList.remove('show'); el1.textContent = ''; el1.style.color = ''; }
+        if(el2){ el2.classList.remove('show'); el2.textContent = ''; el2.style.color = ''; }
     }
 
     // Hook is done via direct injection in playRemoteNote (see noteOn/noteOff branches)
