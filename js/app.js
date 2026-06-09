@@ -3740,12 +3740,28 @@
     function restoreMultiplayerPresence(uid) {
         if (!realtimeDb || !uid) return;
         try {
+            var profile = currentProfile || {};
+            var now = Date.now();
             var userRef = realtimeDb.ref('papianoOnlineBeta/users/' + uid);
             userRef.update({
+                id: uid,
+                uid: uid,
+                name: profile.name || 'Papiano User',
+                uidLabel: profile.userId || '',
+                userId: profile.userId || '',
+                publicId: profile.publicId || 0,
+                role: profile.badgeId || 'common',
+                badgeId: profile.badgeId || 'common',
+                photoURL: profile.photoURL || '',
+                bio: profile.desc || '',
+                desc: profile.desc || '',
+                color: profile.color || '',
+                countryCode: profile.countryCode || '',
                 online: true,
-                lastSeen: Date.now(),
-                lastActive: Date.now(),
-                updatedAt: Date.now()
+                room: null,
+                lastSeen: now,
+                lastActive: now,
+                updatedAt: now
             });
             userRef.onDisconnect().update({
                 online: false,
