@@ -12135,9 +12135,12 @@ midiBtn.onclick = (e) => {
         const match = text.match(/(\d+)$/);
         if(match){
             const index = (Number(match[1]) - 1) % MP_PLAYER_COLORS.length;
-            return MP_PLAYER_COLORS[index >= 0 ? index : 0];
+            return MP_PLAYER_COLORS[index >= 0 ? index : 1];
         }
-        return MP_PLAYER_COLORS[0];
+        let hash = 0;
+        for(let i = 0; i < text.length; i++) hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0;
+        const fallbackIndex = 1 + (((hash < 0 ? -hash : hash) % (MP_PLAYER_COLORS.length - 1)));
+        return MP_PLAYER_COLORS[fallbackIndex];
     }
 
     function playerSeatColorIndex(seat){
@@ -12177,7 +12180,12 @@ midiBtn.onclick = (e) => {
         if(seatIndex >= 0) return MP_PLAYER_COLORS[seatIndex];
         const roomIndex = getRoomPlayerColorIndex(id);
         if(roomIndex >= 0) return MP_PLAYER_COLORS[roomIndex];
-        return MP_PLAYER_COLORS[0];
+        // Fallback: deterministic color from player ID hash (never default to white)
+        const idStr = String(id || '');
+        let hash = 0;
+        for(let i = 0; i < idStr.length; i++) hash = ((hash << 5) - hash + idStr.charCodeAt(i)) | 0;
+        const fallbackIndex = 1 + (((hash < 0 ? -hash : hash) % (MP_PLAYER_COLORS.length - 1)));
+        return MP_PLAYER_COLORS[fallbackIndex];
     }
 
     function getCurrentRoomSelfColor(){
