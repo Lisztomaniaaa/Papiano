@@ -4061,9 +4061,14 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
     overflow-wrap:anywhere;
 }
 .mp-lobby-profile-actions{
-    display:grid;
-    grid-template-columns:1fr 1fr;
+    display:grid !important;
+    grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
     gap:8px;
+    width:100%;
+}
+.mp-lobby-profile-actions > *[style*="display: none"],
+.mp-lobby-profile-actions > .mp-lobby-action-btn[style*="none"]{
+    display:none !important;
 }
 .mp-lobby-action-btn{
     border:1px solid rgba(6,17,31,0.08);
