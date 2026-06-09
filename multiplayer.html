@@ -12813,6 +12813,14 @@ midiBtn.onclick = (e) => {
                 return null;
             }
             const room = normalizeRoom(roomId, roomSnap.val() || {});
+            const playersSnap = await dbApi.get(dbRef(`roomPlayers/${roomId}`));
+            const live = playersSnap.val() || {};
+            const activeCount = activeRoomPlayerEntries(live).length;
+            if(activeCount <= 0){
+                await dbApi.remove(dbRef(`ownerRooms/${mpSelfId}`)).catch(() => {});
+                await dbApi.remove(dbRef(`rooms/${roomId}`)).catch(() => {});
+                return null;
+            }
             const index = rooms.findIndex(item => item.id === room.id);
             if(index >= 0) rooms[index] = room;
             else rooms.unshift(room);
@@ -12884,13 +12892,24 @@ midiBtn.onclick = (e) => {
     }
     function pruneStaleRoomPlayers(roomId, live){
         if(!firebaseReady || !dbApi || !roomId || !live || typeof live !== 'object') return;
+        let pruned = false;
         Object.entries(live).forEach(([id, data]) => {
             if(isActiveRoomPlayer(id, data || {})) return;
             const key = roomId + ':' + id;
             if(staleRoomPlayerCleanup.has(key)) return;
             staleRoomPlayerCleanup.add(key);
+            pruned = true;
             dbApi.remove(dbRef(`roomPlayers/${roomId}/${id}`)).catch(() => {}).finally(() => staleRoomPlayerCleanup.delete(key));
         });
+        if(pruned){
+            const room = rooms.find(r => r.id === roomId);
+            if(room){
+                const freshCount = activeRoomPlayerEntries(live).length;
+                room.count = freshCount;
+                room.activeCount = freshCount;
+                updateRoomActiveCount(room, freshCount);
+            }
+        }
     }
     function removeRoomLocally(roomId){
         const id = String(roomId || '');
