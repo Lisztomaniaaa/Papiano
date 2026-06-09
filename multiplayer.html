@@ -15113,11 +15113,19 @@ midiBtn.onclick = (e) => {
         if(event.playerId === currentUser().id) return;
 
         // ═══ CHORD DETECTION: runs BEFORE all audio/mute/volume guards ═══
-        // Chord display must work even if player is muted or volume=0
         var _chMidi = Number(event.note);
         if(Number.isFinite(_chMidi) && _chMidi >= 21 && _chMidi <= 108){
             if(event.type === 'noteOn' && typeof _remoteNoteOn === 'function') _remoteNoteOn(event.playerId, _chMidi);
             else if(event.type === 'noteOff' && typeof _remoteNoteOff === 'function') _remoteNoteOff(event.playerId, _chMidi);
+        }
+        // ON-SCREEN DEBUG: proves hook fires (green bar at bottom of screen)
+        if(event.type === 'noteOn'){
+            var _dbg = document.getElementById('_mpcDBG');
+            if(!_dbg){ _dbg = document.createElement('div'); _dbg.id='_mpcDBG'; _dbg.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(0,255,100,0.95);color:#000;padding:10px 20px;border-radius:14px;font-size:15px;font-weight:900;font-family:monospace;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,255,100,0.5);'; document.body.appendChild(_dbg); }
+            var _ns = (typeof _remoteActiveNotes !== 'undefined') ? _remoteActiveNotes.get(event.playerId) : null;
+            _dbg.textContent = 'HOOK OK | ' + (_ns ? _ns.size : '?') + ' notes | midi:' + _chMidi;
+            _dbg.style.display = 'block';
+            clearTimeout(window._mpcDbgT); window._mpcDbgT = setTimeout(function(){ if(_dbg) _dbg.style.display='none'; }, 4000);
         }
         // ═══ END CHORD DETECTION ═══
 
