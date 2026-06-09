@@ -8682,7 +8682,7 @@ function drawFallingNote(f){
         let rgb = _solidRgbCache.get(baseHex);
         if(rgb === undefined){
             const rgb0 = safeHex(baseHex, '#78dcff');
-            rgb = _isNearWhiteRgb(rgb0) ? [255,255,255] : tuneRgbForFalling(rgb0).slice();
+            rgb = _isNearWhiteRgb(rgb0) ? [240,248,255] : tuneRgbForFalling(rgb0).slice();
             if(_solidRgbCache.size > 64) _solidRgbCache.clear();
             _solidRgbCache.set(baseHex, rgb);
         }
@@ -12226,6 +12226,9 @@ midiBtn.onclick = (e) => {
         return fallback || '#78dcff';
     }
 
+    // Cache seat colors from stream events for players not yet in roomPlayersByRoom
+    const _playerSeatCache = new Map(); // playerId → seat number
+
     function getRoomPlayerColorIndex(id){
         const targetId = String(id || '');
         if(currentRoom && roomPlayersByRoom[currentRoom.id]){
@@ -12237,6 +12240,15 @@ midiBtn.onclick = (e) => {
                 }))
                 .find(player => player.id === targetId);
             const seatIndex = playerSeatColorIndex(entry?.seat);
+            if(seatIndex >= 0){
+                _playerSeatCache.set(targetId, entry.seat);
+                return seatIndex;
+            }
+        }
+        // Check cached seat from stream events
+        const cachedSeat = _playerSeatCache.get(targetId);
+        if(cachedSeat){
+            const seatIndex = playerSeatColorIndex(cachedSeat);
             if(seatIndex >= 0) return seatIndex;
         }
         return -1;
@@ -12246,10 +12258,13 @@ midiBtn.onclick = (e) => {
         const player = typeof playerOrId === 'object' ? playerOrId : null;
         const id = player ? player.id : playerOrId;
         const seatIndex = playerSeatColorIndex(player?.seat);
-        if(seatIndex >= 0) return MP_PLAYER_COLORS[seatIndex];
+        if(seatIndex >= 0){
+            _playerSeatCache.set(String(id || ''), player.seat);
+            return MP_PLAYER_COLORS[seatIndex];
+        }
         const roomIndex = getRoomPlayerColorIndex(id);
         if(roomIndex >= 0) return MP_PLAYER_COLORS[roomIndex];
-        // Fallback: deterministic color from player ID hash (never default to white)
+        // Fallback: deterministic color from player ID hash (never index 0 = white)
         const idStr = String(id || '');
         let hash = 0;
         for(let i = 0; i < idStr.length; i++) hash = ((hash << 5) - hash + idStr.charCodeAt(i)) | 0;
@@ -12950,14 +12965,19 @@ midiBtn.onclick = (e) => {
             });
         }catch(e){}
     }
+    let _roomCountWriteInFlight = false;
     async function updateRoomActiveCount(room, count){
         if(!firebaseReady || !dbApi || !room || emptyRoomCleanup.has(room.id)) return;
         const safeCount = Math.max(0, Math.min(Number(room.max || 6), Number(count || 0)));
         room.count = safeCount;
         room.activeCount = safeCount;
+        if(_roomCountWriteInFlight) return;
+        _roomCountWriteInFlight = true;
         try{
             await dbApi.update(dbRef(`rooms/${room.id}`), { count:safeCount, activeCount:safeCount, updatedAt:Date.now() });
-        }catch(e){}
+        }catch(e){}finally{
+            _roomCountWriteInFlight = false;
+        }
     }
     function pruneStaleRoomPlayers(roomId, live){
         if(!firebaseReady || !dbApi || !roomId || !live || typeof live !== 'object') return;
@@ -13063,7 +13083,7 @@ midiBtn.onclick = (e) => {
             const timer = emptyRoomTimers.get(room.id);
             if(timer) clearTimeout(timer);
             emptyRoomTimers.delete(room.id);
-            if(Number(room.activeCount ?? room.count ?? 0) !== count) updateRoomActiveCount(room, count);
+            if(!_roomCountWriteInFlight && Number(room.activeCount ?? room.count ?? 0) !== count) updateRoomActiveCount(room, count);
             return;
         }
         scheduleEmptyRoomDelete(room);
@@ -13531,15 +13551,29 @@ midiBtn.onclick = (e) => {
         lastSentPerformanceSignature = '';
     }
 
-    function enterPianoRoom(){
+    let _roomPlayersReadyResolve = null;
+    let _roomPlayersReadyPromise = null;
+
+    function _createRoomPlayersReadyGate(){
+        _roomPlayersReadyPromise = new Promise(resolve => { _roomPlayersReadyResolve = resolve; });
+        // Safety timeout — never block UI forever if Firebase is dead
+        const timeout = setTimeout(() => { if(_roomPlayersReadyResolve){ _roomPlayersReadyResolve(); _roomPlayersReadyResolve = null; } }, 4000);
+        const origResolve = _roomPlayersReadyResolve;
+        _roomPlayersReadyResolve = () => { clearTimeout(timeout); origResolve(); _roomPlayersReadyResolve = null; };
+    }
+
+    async function enterPianoRoom(){
         if(!currentRoom) return;
         setPianoInputReady(false);
         resetRoomStreamSession();
         currentScreen = 'pianoMulti';
         syncSelfInstrumentState(true);
         startBackgroundSoundfont();
+        _createRoomPlayersReadyGate();
         subscribeRoomData(currentRoom.id);
         startRoomPresenceHeartbeat();
+        // Wait for first roomPlayers snapshot before showing the room
+        if(_roomPlayersReadyPromise) await _roomPlayersReadyPromise;
         setRoomActive(true);
         scheduleWarmRemoteInstruments(700);
         window.setTimeout(() => {
@@ -14588,7 +14622,7 @@ midiBtn.onclick = (e) => {
             const nextCount = activeRoomPlayerEntries(roomPlayersByRoom[room.id]).length;
             room.count = nextCount;
             room.activeCount = nextCount;
-            updateRoomActiveCount(room, nextCount).catch(() => {});
+            await updateRoomActiveCount(room, nextCount);
             writeSelfUser({ room:room.id }).catch(() => {});
             try{
                 roomPlayerDisconnect = dbApi.onDisconnect(dbRef(`roomPlayers/${room.id}/${mpSelfId}`));
@@ -14646,7 +14680,7 @@ midiBtn.onclick = (e) => {
                 currentRoom = room;
             }
             await preparePianoEntryRuntime();
-            enterPianoRoom();
+            await enterPianoRoom();
             await finalizePianoEntryRuntime();
             hidePianoEntryLoading();
             return true;
@@ -14962,7 +14996,10 @@ midiBtn.onclick = (e) => {
         const notes = Array.from(held);
         held.clear();
         const releaseEvent = { ...event, sustainPedalDown:false, sustainEnabled:false };
-        notes.forEach(midi => releaseRemoteNote(id, midi, false, releaseEvent));
+        notes.forEach(midi => {
+            releaseRemoteNote(id, midi, false, releaseEvent);
+            if(typeof _remoteNoteOff === 'function') _remoteNoteOff(id, midi);
+        });
     }
 
     function releaseRemoteLayer(playerId, midi, layer, event = {}, fast = false){
@@ -15085,10 +15122,12 @@ midiBtn.onclick = (e) => {
             if(typeof _remoteNoteOn === 'function') _remoteNoteOn(player.id, midi);
         }else if(event.type === 'noteOff'){
             updateRemoteSustainState(player.id, event);
-            if(shouldHoldRemoteNoteOff(player.id, event)) holdRemoteNoteOff(player.id, midi);
+            const sustainHeld = shouldHoldRemoteNoteOff(player.id, event);
+            if(sustainHeld) holdRemoteNoteOff(player.id, midi);
             else releaseRemoteNote(player.id, midi, !remoteSustainActive(player.id, event), event);
             playRemoteReleaseVisual(midi, el, player.id);
-            if(typeof _remoteNoteOff === 'function') _remoteNoteOff(player.id, midi);
+            // Only remove from chord tracking if not sustained
+            if(!sustainHeld && typeof _remoteNoteOff === 'function') _remoteNoteOff(player.id, midi);
         }
     }
 
@@ -15395,7 +15434,11 @@ midiBtn.onclick = (e) => {
             } else {
                 const midiArr = Array.from(set).sort((a,b) => a - b);
                 if(typeof matchChords === 'function'){
+                    // Force chord detection to 'medium' level regardless of local chordMode setting
+                    const savedMode = chordMode;
+                    chordMode = 'medium';
                     const matches = matchChords(midiArr);
+                    chordMode = savedMode;
                     if(matches.length > 0){
                         const text = formatChord(matches[0]);
                         const secondary = matches.length >= 2 ? formatChord(matches[1]) : '';
@@ -15475,6 +15518,7 @@ midiBtn.onclick = (e) => {
         if(roomPlayersUnsubscribe){ roomPlayersUnsubscribe(); roomPlayersUnsubscribe = null; }
         if(roomModerationUnsubscribe){ roomModerationUnsubscribe(); roomModerationUnsubscribe = null; }
         _clearRemoteNotes(); // reset chord state on room leave
+        _playerSeatCache.clear(); // reset color cache on room leave
     }
 
     function subscribeRoomData(roomId){
@@ -15499,6 +15543,13 @@ midiBtn.onclick = (e) => {
         roomPlayersUnsubscribe = dbApi.onValue(dbRef(`roomPlayers/${roomId}`), snap => {
             roomPlayersLoaded = true;
             roomPlayersByRoom[roomId] = snap.val() || {};
+            // Populate seat cache for all players to prevent color flicker
+            const live = roomPlayersByRoom[roomId];
+            if(live){ Object.entries(live).forEach(([key, data]) => { const seat = Number(data?.seat || 0); if(seat >= 1) _playerSeatCache.set(String(data?.id || key), seat); }); }
+            // Clear sprite/rgb caches so falling notes pick up corrected colors
+            if(typeof _solidRgbCache !== 'undefined' && _solidRgbCache) _solidRgbCache.clear();
+            if(typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
+            if(_roomPlayersReadyResolve){ _roomPlayersReadyResolve(); _roomPlayersReadyResolve = null; }
             reconcileRoomPresence(rooms.find(room => room.id === roomId) || currentRoom);
             refreshAll();
             scheduleWarmRemoteInstruments(900);
