@@ -3878,6 +3878,49 @@ body.mp-chat-keyboard .mp-chat-panel{
 body.mp-lobby-open #swipeStrip,
 body.mp-chat-open #swipeStrip,
 body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
+
+body.mp-lobby-open:not(.mp-room-active) .mp-profile{
+    top:50%;
+    max-height:max(236px,calc(100dvh - 80px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));
+    background:rgba(8,20,42,.92);
+    border-color:rgba(120,180,255,.18);
+    box-shadow:0 28px 80px rgba(0,0,0,.6), inset 0 1px 0 rgba(120,180,255,.10);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-actions button{
+    background:rgba(120,180,255,.09);
+    border-color:rgba(120,180,255,.18);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-actions button.friend{
+    background:rgba(120,220,255,.14);
+    border-color:rgba(120,220,255,.28);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-actions button.danger{
+    background:rgba(255,88,112,.14);
+    border-color:rgba(255,88,112,.24);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat{
+    border-color:rgba(120,180,255,.12);
+    background:rgba(120,180,255,.06);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat.like{
+    border-color:rgba(147,255,192,.18);
+    background:rgba(147,255,192,.06);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-stat.dislike{
+    border-color:rgba(255,159,176,.18);
+    background:rgba(255,159,176,.06);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-row{
+    border-top-color:rgba(120,180,255,.10);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-bio-row b{
+    background:rgba(120,180,255,.06);
+    border-color:rgba(120,180,255,.12);
+}
+body.mp-lobby-open:not(.mp-room-active) .mp-profile-volume-control button{
+    border-color:rgba(120,180,255,.16);
+    background:rgba(120,180,255,.08);
+}
 @media (max-width:760px){
     .mp-shell{ border-radius:24px; }
     .mp-head{ padding:14px; }
@@ -3916,6 +3959,9 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
     .mp-profile-bio-row b{ max-height:64px; padding:9px 11px; }
     .mp-profile-actions{ gap:7px; }
     .mp-profile-actions button{ min-height:36px; font-size:10px; }
+    body.mp-lobby-open:not(.mp-room-active) .mp-profile{
+        max-height:max(228px,calc(100dvh - 80px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));
+    }
 }
 @media (max-width:430px){
     .mp-player-strip{
