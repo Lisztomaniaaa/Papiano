@@ -1055,3 +1055,13 @@ select.form-input-control::-ms-expand{display:none}
 .friend-action-button.report-user-action.full-row{
     grid-column:auto !important;
 }
+
+.profile-action-grid{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:8px !important;
+}
+.profile-action-grid > *{
+    grid-column:auto !important;
+    min-width:0 !important;
+}
