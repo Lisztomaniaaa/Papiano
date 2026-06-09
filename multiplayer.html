@@ -6275,7 +6275,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
         </div>
         <button class="metro-start-btn" id="metroStartBtn">Start</button>
     </div>
-    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
+    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
     <div id="swipeStrip"></div>
     <div id="pianoWrap"><div id="pianoViewport"><div id="piano"></div><div id="activeKeyLayer"></div></div></div>
 </div>
@@ -15398,23 +15398,12 @@ midiBtn.onclick = (e) => {
     const _MP_CHORD_DECAY_MS = 2400;
 
     function _ensureMpChordEl(){
-        if(_mpChordEl && _mpChordEl.parentNode) return _mpChordEl;
-        // Try to find existing
-        _mpChordEl = document.getElementById('mpChordLive');
-        if(_mpChordEl) return _mpChordEl;
-        // Create and append directly to stage
-        const stage = document.querySelector('.stage');
-        if(!stage) return null;
-        _mpChordEl = document.createElement('div');
-        _mpChordEl.id = 'mpChordLive';
-        _mpChordEl.setAttribute('aria-live', 'polite');
-        stage.appendChild(_mpChordEl);
+        if(!_mpChordEl) _mpChordEl = document.getElementById('mpChordLive');
         return _mpChordEl;
     }
 
     function _remoteNoteOn(playerId, midi){
         if(!playerId || playerId === mpSelfId) return;
-        if(chordMode === 'off') return; // respect user's chord setting
         let set = _remoteActiveNotes.get(playerId);
         if(!set){ set = new Set(); _remoteActiveNotes.set(playerId, set); }
         set.add(midi);
@@ -15448,9 +15437,10 @@ midiBtn.onclick = (e) => {
 
     function _flushRemoteChords(){
         _mpChordFlushTimer = 0;
-        if(chordMode === 'off') return;
         const now = performance.now();
-        const currentMode = chordMode; // user's current mode — Opsi B
+        // Use user's mode if active, otherwise default to 'biasa' minimum
+        // This ensures remote chords always display regardless of local chord setting
+        const effectiveMode = (chordMode && chordMode !== 'off') ? chordMode : 'biasa';
         _remoteActiveNotes.forEach((set, pid) => {
             if(!set || set.size < 2){
                 const cached = _remoteChordCache.get(pid);
@@ -15461,14 +15451,16 @@ midiBtn.onclick = (e) => {
                 return;
             }
             const midiArr = Array.from(set).sort((a,b) => a - b);
-            // Use user's local chord mode for detection level
+            // Temporarily apply effective mode for detection
+            const savedMode = chordMode;
+            chordMode = effectiveMode;
             const matches = matchChords(midiArr);
+            chordMode = savedMode;
             if(matches.length > 0){
                 const text = formatChord(matches[0]);
                 const secondary = matches.length >= 2 ? formatChord(matches[1]) : '';
                 _remoteChordCache.set(pid, { text, secondary, ts: now, fading: false, fadeStart: 0 });
             } else {
-                // No match at current level — start fading if cached
                 const cached = _remoteChordCache.get(pid);
                 if(cached && !cached.fading){ cached.fading = true; cached.fadeStart = now; }
             }
@@ -15485,13 +15477,7 @@ midiBtn.onclick = (e) => {
         _mpChordRafId = 0;
         const now = performance.now();
         const container = _ensureMpChordEl();
-        if(!container){ return; }
-
-        // If chord mode is off, hide everything
-        if(chordMode === 'off'){
-            if(container.innerHTML) container.innerHTML = '';
-            return;
-        }
+        if(!container) return;
 
         // Collect visible entries
         const entries = [];
