@@ -14,7 +14,13 @@
             if(sessionStorage.getItem('papianoReloadGuard') === latest) return;
             sessionStorage.setItem('papianoReloadGuard', latest);
         }catch(e){}
-        location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
+        if(window.caches){
+            caches.keys().then(function(names){ names.forEach(function(n){ caches.delete(n); }); }).catch(function(){}).finally(function(){
+                location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
+            });
+        } else {
+            location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
+        }
     }
     async function fetchVersion(){
         try{
