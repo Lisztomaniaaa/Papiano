@@ -1,9 +1,0 @@
-{
-  "private": true,
-  "name": "papiano",
-  "version": "1.0.0",
-  "description": "Papiano backend — Vercel serverless functions with Firebase Admin SDK",
-  "dependencies": {
-    "firebase-admin": "^12.0.0"
-  }
-}

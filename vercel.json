@@ -3,11 +3,6 @@
   "trailingSlash": false,
   "buildCommand": "node stamp-version.js",
   "outputDirectory": ".",
-  "functions": {
-    "api/**/*.js": {
-      "maxDuration": 10
-    }
-  },
   "headers": [
     {
       "source": "/version.json",
@@ -35,12 +30,6 @@
     },
     {
       "source": "/multiplayer.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/adminpanel",
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, must-revalidate" }
       ]
