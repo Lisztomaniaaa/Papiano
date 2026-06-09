@@ -92,11 +92,9 @@
     var patched = false;
     function patchEdit(){
         if(patched) return;
-        if(typeof window.editMessage !== 'function') return;
+        if(typeof window.editOwnMessage !== 'function') return;
         patched = true;
-        var origEdit = window.editMessage;
-        window.editMessage = async function(msgId){
-            // Replicate the logic but with custom modal instead of prompt
+        window.editOwnMessage = async function(msgId){
             try{
                 if(!window.currentUser || !window.currentUser.uid || !window.activeChatRoomId || !msgId) return;
                 var db = window.firestoreDb;
