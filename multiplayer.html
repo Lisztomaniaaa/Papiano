@@ -13251,19 +13251,7 @@ midiBtn.onclick = (e) => {
         return list.filter(player => isAuthenticatedDisplayPlayer(player) && !getState(player.id).banned);
     }
 
-    function blockedPlayersKey(){ return 'papianoBlockedPlayers:' + String(mpSelfId || 'local'); }
-    function loadBlockedPlayers(){
-        const key = blockedPlayersKey();
-        if(blockedPlayersLoadedFor === key) return;
-        blockedPlayersLoadedFor = key;
-        blockedPlayerIds.clear();
-        try{
-            const data = JSON.parse(localStorage.getItem(key) || '[]');
-            if(Array.isArray(data)) data.forEach(id => { if(id && id !== mpSelfId) blockedPlayerIds.add(String(id)); });
-        }catch(e){}
-    }
-    function saveBlockedPlayers(){ try{ localStorage.setItem(blockedPlayersKey(), JSON.stringify([...blockedPlayerIds])); }catch(e){} }
-    function isPlayerBlocked(id){ loadBlockedPlayers(); return blockedPlayerIds.has(String(id || '')); }
+    function isPlayerBlocked(id){ return blockedPlayerIds.has(String(id || '')); }
     function canUseSafetyAction(player){ return !!player && isInPianoRoom() && player.id !== mpSelfId && !isLocalGuestPlayerId(player.id); }
     function syncSafetyActions(player){
         const show = canUseSafetyAction(player);
@@ -13281,18 +13269,53 @@ midiBtn.onclick = (e) => {
             reportAction.disabled = !show;
         }
     }
-    function toggleBlockedPlayer(player){
+    function attachBlocksListener(){
+        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return null;
+        try{
+            const col = fsApi.collection(fsDb, 'blocks');
+            const q = fsApi.query(col, fsApi.where('blockerId', '==', mpSelfId));
+            return fsApi.onSnapshot(q, snap => {
+                blockedPlayerIds.clear();
+                snap.forEach(docSnap => {
+                    const data = (docSnap.data && docSnap.data()) || {};
+                    if(data.blockedId) blockedPlayerIds.add(String(data.blockedId));
+                });
+                renderMessages();
+                renderRoomChrome();
+                if(selectedPlayer && profile.classList.contains('show')) syncSafetyActions(selectedPlayer);
+            }, () => {});
+        }catch(e){ return null; }
+    }
+    async function toggleBlockedPlayer(player){
         if(!canUseSafetyAction(player)) return;
-        loadBlockedPlayers();
+        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
+            showToast('Block is available after login.', { type:'error', title:'Profile' });
+            return;
+        }
         const id = String(player.id);
         const blocked = blockedPlayerIds.has(id);
-        if(blocked) blockedPlayerIds.delete(id);
-        else blockedPlayerIds.add(id);
-        saveBlockedPlayers();
+        try{
+            const blockDocId = mpSelfId + '_' + id;
+            const ref = fsApi.doc(fsDb, 'blocks', blockDocId);
+            if(blocked){
+                await fsApi.deleteDoc(ref);
+                blockedPlayerIds.delete(id);
+                showToast('Player unblocked.', { type:'success', title:'Profile' });
+            }else{
+                await fsApi.setDoc(ref, {
+                    blockerId: mpSelfId,
+                    blockedId: id,
+                    createdAt: fsApi.serverTimestamp()
+                });
+                blockedPlayerIds.add(id);
+                showToast('Player blocked.', { type:'success', title:'Profile' });
+            }
+        }catch(e){
+            showToast('Couldn\'t update block. Try again.', { type:'error', title:'Profile' });
+        }
         syncSafetyActions(player);
         renderMessages();
         renderRoomChrome();
-        showToast(blocked ? 'Player unblocked.' : 'Player blocked.', { type:'success', title:'Profile' });
     }
     function mpHistoryKey(screen){
         if(screen === 'home' || screen === 'multiHome') return 'multiHome';
@@ -13955,7 +13978,7 @@ midiBtn.onclick = (e) => {
     async function submitPlayerReport(){
         const player = reportPlayer;
         if(!canUseSafetyAction(player)) return;
-        if(!firebaseReady || !dbApi || !isSignedIn()){
+        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
             showToast('Report is available after login.', { type:'error', title:'Report' });
             return;
         }
@@ -13965,26 +13988,36 @@ midiBtn.onclick = (e) => {
             showToast('Report already sent. Wait before sending another one.', { type:'info', title:'Report' });
             return;
         }
-        const payload = {
-            reporterId:mpSelfId,
-            reporterName:currentUser().name,
-            targetId:player.id,
-            targetName:player.name,
-            targetUserId:player.displayUserId || player.userId || '',
-            roomId:currentRoom?.id || '',
-            roomName:currentRoom?.name || '',
-            reason:selectedReportReason || 'Other',
-            detail:cleanReportDetail(reportDetail?.value),
-            createdAt:now,
-            status:'open'
-        };
+        const reportDocId = mpSelfId + '_' + player.id;
         try{
-            await dbApi.push(dbRef(`reports/${currentRoom.id}`), payload);
+            const ref = fsApi.doc(fsDb, 'reports', reportDocId);
+            const existing = await fsApi.getDoc(ref);
+            if(existing && (typeof existing.exists === 'function' ? existing.exists() : existing.exists)){
+                showToast('Already reported this user.', { type:'info', title:'Report' });
+                closeReportModal();
+                return;
+            }
+            await fsApi.setDoc(ref, {
+                reporterId: mpSelfId,
+                reporterName: currentUser().name,
+                targetId: player.id,
+                targetName: player.name,
+                targetUserId: player.displayUserId || player.userId || '',
+                reason: selectedReportReason || 'Other',
+                source: 'multiplayer',
+                roomId: currentRoom?.id || '',
+                roomType: 'multiplayer',
+                messageId: '',
+                messageTextSnapshot: cleanReportDetail(reportDetail?.value),
+                messageImageURL: '',
+                messageSenderName: player.name,
+                createdAt: fsApi.serverTimestamp()
+            });
             reportCooldownByPlayer.set(player.id, now);
             closeReportModal();
             showToast('Report sent.', { type:'success', title:'Report' });
         }catch(e){
-            showToast('Couldn’t send report. Try again.', { type:'error', title:'Report' });
+            showToast('Couldn\'t send report. Try again.', { type:'error', title:'Report' });
         }
     }
 
@@ -15275,6 +15308,7 @@ midiBtn.onclick = (e) => {
         friendIds.clear();
         friendProfiles.clear();
         friendsUnsubscribe = attachFirestoreFriends();
+        attachBlocksListener();
         syncAuthUi();
         attachRoomsListener();
         attachUsersListener();
