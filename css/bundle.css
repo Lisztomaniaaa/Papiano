@@ -1131,3 +1131,11 @@ select.form-input-control::-ms-expand{display:none}
     border-top:none !important;
     box-shadow:none !important;
 }
+
+.chat-messages-scroll{
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+}
+.chat-messages-scroll::-webkit-scrollbar{
+    display:none;
+}

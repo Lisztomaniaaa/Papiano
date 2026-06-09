@@ -25,3 +25,5 @@
 .msg-bubble .reply-source-card{background:rgba(255,255,255,.12) !important;border-left-color:rgba(255,255,255,.3) !important;color:inherit !important}
 .msg-bubble .reply-source-card span,.msg-bubble .reply-source-card strong{color:inherit !important}
 .chat-input-bar{border-top:none !important;box-shadow:none !important}
+
+.chat-messages-scroll{scrollbar-width:none;-ms-overflow-style:none}.chat-messages-scroll::-webkit-scrollbar{display:none}
