@@ -16,24 +16,6 @@
     if(document.body) inject();
     else document.addEventListener('DOMContentLoaded', inject, {once:true});
 
-    var _resolve = null;
-    var nativePrompt = window.prompt;
-
-    window.prompt = function(title, defaultValue){
-        if(title && title.toLowerCase().indexOf('edit') !== -1){
-            return showEditModal(defaultValue || '');
-        }
-        return nativePrompt.apply(window, arguments);
-    };
-
-    // Make prompt async-compatible by patching the edit function directly
-    // Since the original code uses prompt() synchronously, we need a different approach:
-    // We'll make the calling code wait. But prompt() is synchronous...
-    // The only way: override the editMessage function itself.
-    // Instead, let's use a synchronous-looking approach with a blocking workaround.
-    // Actually, we CAN'T make prompt() async. So we need to patch editMessage directly.
-
-    // Better approach: expose a global that app.min.js's editMessage will check
     window.__papianoEditModal = {
         pending: false,
         value: null,
@@ -68,31 +50,14 @@
         }
     };
 
-    // Monkey-patch: override prompt to return a special marker, then intercept
-    // This won't work because prompt is sync. We need to replace editMessage.
-    // Final approach: replace window.prompt with async-aware version that
-    // triggers the modal and stores the result. The calling code in app.min.js
-    // awaits the prompt result because editMessage is async.
-    // Looking at the code: `const r=prompt(...)` inside `async function`.
-    // In an async function, `prompt()` still blocks. BUT if we replace it
-    // before app.min.js loads, we can redefine the function that CALLS prompt.
-
-    // Simplest working solution: since editMessage is async and uses await,
-    // we can override prompt to show modal and return synchronously ONLY IF
-    // we use a hack. But actually, since the entire function is:
-    // `const r=prompt("Edit message",a.text||"");if(null===r)return;`
-    // We just need prompt to return the value OR null. It's sync.
-    // So we'll just show a blocking approach won't work...
-
-    // THE REAL FIX: Patch the global editMessage function AFTER app.min.js loads
-    window.addEventListener('papiano-sdks-ready', patchEdit);
-    window.addEventListener('load', patchEdit);
-    setTimeout(patchEdit, 4000);
-
+    // Patch editOwnMessage after app.min.js loads
     var patched = false;
-    function patchEdit(){
+    function tryPatch(){
         if(patched) return;
-        if(typeof window.editOwnMessage !== 'function') return;
+        if(typeof window.editOwnMessage !== 'function'){
+            setTimeout(tryPatch, 200);
+            return;
+        }
         patched = true;
         window.editOwnMessage = async function(msgId){
             try{
@@ -120,4 +85,5 @@
             }
         };
     }
+    tryPatch();
 })();
