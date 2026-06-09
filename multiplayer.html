@@ -15118,15 +15118,6 @@ midiBtn.onclick = (e) => {
             if(event.type === 'noteOn' && typeof _remoteNoteOn === 'function') _remoteNoteOn(event.playerId, _chMidi);
             else if(event.type === 'noteOff' && typeof _remoteNoteOff === 'function') _remoteNoteOff(event.playerId, _chMidi);
         }
-        // ON-SCREEN DEBUG: proves hook fires (green bar at bottom of screen)
-        if(event.type === 'noteOn'){
-            var _dbg = document.getElementById('_mpcDBG');
-            if(!_dbg){ _dbg = document.createElement('div'); _dbg.id='_mpcDBG'; _dbg.style.cssText='position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:99999;background:rgba(0,255,100,0.95);color:#000;padding:10px 20px;border-radius:14px;font-size:15px;font-weight:900;font-family:monospace;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,255,100,0.5);'; document.body.appendChild(_dbg); }
-            var _ns = (typeof _remoteActiveNotes !== 'undefined') ? _remoteActiveNotes.get(event.playerId) : null;
-            _dbg.textContent = 'HOOK OK | ' + (_ns ? _ns.size : '?') + ' notes | midi:' + _chMidi;
-            _dbg.style.display = 'block';
-            clearTimeout(window._mpcDbgT); window._mpcDbgT = setTimeout(function(){ if(_dbg) _dbg.style.display='none'; }, 4000);
-        }
         // ═══ END CHORD DETECTION ═══
 
         const player = getPlayer(event.playerId);
@@ -15501,39 +15492,6 @@ midiBtn.onclick = (e) => {
         }, 400);
     }
 
-    function _renderMpChords(){
-        var now = Date.now();
-        var remoteHtml = '';
-        _remoteChordText.forEach(function(data, pid){
-            if(data.idleSince && now - data.idleSince > _MP_CHORD_HOLD_MS) return;
-            var player = getPlayer(pid);
-            var color = playerColor(player);
-            var name = (player && player.name) ? player.name : 'Player';
-            var dim = data.idleSince ? ' style="opacity:0.55"' : '';
-            remoteHtml += '<div class="mpc-row"' + dim + '>' +
-                '<span class="mpc-dot" style="background:' + color + '"></span>' +
-                '<span class="mpc-name" style="color:' + color + '">' + escapeHtml(name) + '</span>' +
-                '<span class="mpc-chord">' + escapeHtml(data.text) + '</span>' +
-                (data.secondary ? '<span class="mpc-sub">' + escapeHtml(data.secondary) + '</span>' : '') +
-                '</div>';
-        });
-        // Write to #mpChordLive (hardcoded in HTML)
-        var el = _ensureMpChordEl();
-        if(el) el.innerHTML = remoteHtml;
-        // GUARANTEED FALLBACK: also inject into stage via dynamic element
-        // This bypasses ANY scenario where #mpChordLive might be hidden/removed
-        var fb = document.getElementById('_mpcFB');
-        if(!fb){
-            var stage = document.querySelector('.stage') || document.getElementById('chordDisplay');
-            if(stage && stage.parentNode){
-                fb = document.createElement('div');
-                fb.id = '_mpcFB';
-                fb.style.cssText = 'position:absolute;top:12px;right:12px;z-index:9999;pointer-events:none;display:flex;flex-direction:column;gap:5px;max-width:240px;font-family:Quicksand,sans-serif;';
-                (stage.tagName === 'DIV' && stage.classList.contains('stage') ? stage : stage.parentNode).appendChild(fb);
-            }
-        }
-        if(fb) fb.innerHTML = remoteHtml;
-    }
 
     function _remoteNoteOn(playerId, midi){
         if(!playerId || playerId === mpSelfId) return;
@@ -15559,7 +15517,8 @@ midiBtn.onclick = (e) => {
             _remoteActiveNotes.clear();
             _remoteChordText.clear();
         }
-        _renderMpChords();
+        var container = document.getElementById('_mpChordFixed');
+        if(container) container.innerHTML = '';
     }
 
     // Hook is done via direct injection in playRemoteNote (see noteOn/noteOff branches)
