@@ -8107,10 +8107,7 @@ function refreshKeyDustColorCache(){
     _smokeSpriteCache.clear();
 }
 function requestChordUpdate(){
-    if(chordMode === 'off') return;
-
-    chordDirty = true;
-    scheduleChordFlush();
+    if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function') window.PapianoMultiplayer._detectChords();
 }
 let _chordFlushScheduled = false;
 function scheduleChordFlush(){
@@ -15331,7 +15328,8 @@ midiBtn.onclick = (e) => {
         syncInstrument(){ scheduleSelfInstrumentStateSync(); },
         isInRoom(){ return !!(currentRoom && currentScreen === 'pianoMulti'); },
         playerColor(id){ return playerColor(id || mpSelfId); },
-        isOnline(){ return firebaseReady; }
+        isOnline(){ return firebaseReady; },
+        _detectChords(){ _detectAndRenderChords(); }
     };
 
     /* ═══════════════════════════════════════════════════════════════════
@@ -15349,27 +15347,46 @@ midiBtn.onclick = (e) => {
         return 'crazy'; // always beta/all detection
     }
 
+    var _lastChordSource = ''; // 'self' or playerId — tracks who triggered last
+
     function _detectAndRenderChords(){
         if(!_chordEnabled) return;
         var el1 = document.getElementById('chordPrimary');
         var el2 = document.getElementById('chordSecondary');
         if(!el1 || !el2) return;
 
-        // Find the player who most recently triggered a noteOn (latest active)
-        var latestPid = null;
-        var latestSet = null;
+        // Collect candidates: self (pressStartTimes) + all remote players
+        var bestMidi = null;
+        var bestSource = '';
+        var bestTs = 0;
+
+        // Self notes from pressStartTimes
+        if(typeof pressStartTimes !== 'undefined' && pressStartTimes.size >= 2){
+            bestMidi = Array.from(pressStartTimes.keys());
+            bestSource = 'self';
+            bestTs = Date.now(); // self is always "now"
+        }
+
+        // Remote notes — pick the one with most recent activity
         _remoteActiveNotes.forEach(function(set, pid){
-            if(set && set.size >= 2){ latestPid = pid; latestSet = set; }
+            if(set && set.size >= 2){
+                var ts = _remoteNoteTimestamps.get(pid) || 0;
+                if(ts >= bestTs || !bestMidi){
+                    bestMidi = Array.from(set);
+                    bestSource = pid;
+                    bestTs = ts;
+                }
+            }
         });
 
-        if(!latestPid || !latestSet || latestSet.size < 2){
-            // No valid chord — instant cut
+        if(!bestMidi || bestMidi.length < 2){
             el1.classList.remove('show'); el1.textContent = ''; el1.style.color = '';
             el2.classList.remove('show'); el2.textContent = ''; el2.style.color = '';
+            _lastChordSource = '';
             return;
         }
 
-        var midiArr = Array.from(latestSet).sort(function(a,b){ return a - b; });
+        var midiArr = bestMidi.sort(function(a,b){ return a - b; });
         var savedMode = chordMode;
         chordMode = 'crazy';
         var matches = [];
@@ -15377,14 +15394,21 @@ midiBtn.onclick = (e) => {
         chordMode = savedMode;
 
         if(matches.length === 0){
-            // Notes exist but don't form a chord — instant cut
             el1.classList.remove('show'); el1.textContent = ''; el1.style.color = '';
             el2.classList.remove('show'); el2.textContent = ''; el2.style.color = '';
+            _lastChordSource = '';
             return;
         }
 
-        // Render using seat color
-        var color = playerColor(getPlayer(latestPid));
+        // Color: self = own seat color, remote = their seat color
+        var color;
+        if(bestSource === 'self'){
+            color = getCurrentRoomSelfColor();
+        } else {
+            color = playerColor(getPlayer(bestSource));
+        }
+        _lastChordSource = bestSource;
+
         el1.textContent = formatChord(matches[0]);
         el1.style.color = color;
         el1.style.textShadow = '0 2px 12px rgba(0,0,0,0.8), 0 0 20px ' + color + '55';
