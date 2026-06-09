@@ -584,6 +584,71 @@ body.hide-ui #logoToggle{ opacity:.55 !important; }
 .chord-name.primary { font-size: 26px; color: #00e5ff; }
 .chord-name.secondary { font-size: 16px; color: rgba(255,255,255,0.55); }
 
+/* Multiplayer Live Chord Display */
+#mpChordLive {
+    position: absolute;
+    top: 12px;
+    right: 15px;
+    z-index: 500;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-width: 260px;
+    contain: layout paint;
+}
+.mpc-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 10px;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.45);
+    border: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    transition: opacity 0.18s ease-out;
+    white-space: nowrap;
+}
+.mpc-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px currentColor;
+}
+.mpc-name {
+    font-family: 'Quicksand', sans-serif;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    opacity: 0.8;
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mpc-chord {
+    font-family: 'Quicksand', sans-serif;
+    font-size: 15px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 0.3px;
+    text-shadow: 0 1px 8px rgba(0,0,0,0.6);
+}
+.mpc-sub {
+    font-family: 'Quicksand', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.45);
+    margin-left: 2px;
+}
+@media (max-width: 700px){
+    #mpChordLive { right: 10px; top: 10px; max-width: 200px; }
+    .mpc-row { padding: 4px 8px; gap: 5px; }
+    .mpc-chord { font-size: 13px; }
+    .mpc-name { font-size: 9px; max-width: 50px; }
+}
+
 .chord-mode-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .chord-mode-row { display: flex; gap: 6px; }
 
@@ -1637,6 +1702,10 @@ body.papiano-fullscreen #fsBtn,
     #chordDisplay{
         top:96px !important;
         left:calc((100vw - min(1180px, calc(100vw - 44px))) / 2 + 22px) !important;
+    }
+    #mpChordLive{
+        top:96px !important;
+        right:calc((100vw - min(1180px, calc(100vw - 44px))) / 2 + 22px) !important;
     }
     .perf-hud{
         top:98px !important;
@@ -15013,11 +15082,13 @@ midiBtn.onclick = (e) => {
             }
             playRemotePressVisual(midi, el, player.id);
             pulsePlayer(player.id);
+            if(typeof _remoteNoteOn === 'function') _remoteNoteOn(player.id, midi);
         }else if(event.type === 'noteOff'){
             updateRemoteSustainState(player.id, event);
             if(shouldHoldRemoteNoteOff(player.id, event)) holdRemoteNoteOff(player.id, midi);
             else releaseRemoteNote(player.id, midi, !remoteSustainActive(player.id, event), event);
             playRemoteReleaseVisual(midi, el, player.id);
+            if(typeof _remoteNoteOff === 'function') _remoteNoteOff(player.id, midi);
         }
     }
 
@@ -15247,6 +15318,155 @@ midiBtn.onclick = (e) => {
         isOnline(){ return firebaseReady; }
     };
 
+    /* ═══════════════════════════════════════════════════════════════════
+       LIVE MULTIPLAYER CHORD DETECTION
+       — Tracks remote players' active notes client-side (zero extra writes)
+       — Detects chords using the existing matchChords() engine
+       — Renders per-player chord labels with their seat color
+       ═══════════════════════════════════════════════════════════════════ */
+    const _remoteActiveNotes = new Map(); // playerId → Set<midi>
+    const _remoteChordCache = new Map();  // playerId → { text, secondary, ts }
+    let _mpChordContainer = null;
+    let _mpChordRafId = 0;
+    const _MP_CHORD_DEBOUNCE = 55; // ms between chord UI refreshes
+    let _mpChordLastRender = 0;
+    const _MP_CHORD_DECAY_MS = 2800; // fade chord label after silence
+
+    function _getMpChordContainer(){
+        if(_mpChordContainer && _mpChordContainer.isConnected) return _mpChordContainer;
+        _mpChordContainer = document.getElementById('mpChordLive');
+        if(!_mpChordContainer){
+            _mpChordContainer = document.createElement('div');
+            _mpChordContainer.id = 'mpChordLive';
+            const stage = document.querySelector('.stage');
+            if(stage) stage.appendChild(_mpChordContainer);
+        }
+        return _mpChordContainer;
+    }
+
+    function _remoteNoteOn(playerId, midi){
+        if(!playerId || playerId === mpSelfId) return;
+        let set = _remoteActiveNotes.get(playerId);
+        if(!set){ set = new Set(); _remoteActiveNotes.set(playerId, set); }
+        set.add(midi);
+        _scheduleRemoteChordUpdate(playerId);
+    }
+
+    function _remoteNoteOff(playerId, midi){
+        if(!playerId || playerId === mpSelfId) return;
+        const set = _remoteActiveNotes.get(playerId);
+        if(!set) return;
+        set.delete(midi);
+        _scheduleRemoteChordUpdate(playerId);
+    }
+
+    function _clearRemoteNotes(playerId){
+        if(playerId){
+            _remoteActiveNotes.delete(playerId);
+            _remoteChordCache.delete(playerId);
+        } else {
+            _remoteActiveNotes.clear();
+            _remoteChordCache.clear();
+        }
+        _scheduleRemoteChordRender();
+    }
+
+    const _remoteChordDirtyPlayers = new Set();
+    let _remoteChordFlushTimer = 0;
+
+    function _scheduleRemoteChordUpdate(playerId){
+        _remoteChordDirtyPlayers.add(playerId);
+        if(_remoteChordFlushTimer) return;
+        _remoteChordFlushTimer = setTimeout(_flushRemoteChords, 22);
+    }
+
+    function _flushRemoteChords(){
+        _remoteChordFlushTimer = 0;
+        const now = performance.now();
+        _remoteChordDirtyPlayers.forEach(pid => {
+            const set = _remoteActiveNotes.get(pid);
+            if(!set || set.size < 2){
+                // Keep existing chord for decay period
+                const cached = _remoteChordCache.get(pid);
+                if(cached && !cached.fading){
+                    cached.fading = true;
+                    cached.fadeStart = now;
+                }
+            } else {
+                const midiArr = Array.from(set).sort((a,b) => a - b);
+                if(typeof matchChords === 'function'){
+                    const matches = matchChords(midiArr);
+                    if(matches.length > 0){
+                        const text = formatChord(matches[0]);
+                        const secondary = matches.length >= 2 ? formatChord(matches[1]) : '';
+                        _remoteChordCache.set(pid, { text, secondary, ts: now, fading: false, fadeStart: 0 });
+                    }
+                }
+            }
+        });
+        _remoteChordDirtyPlayers.clear();
+        _scheduleRemoteChordRender();
+    }
+
+    function _scheduleRemoteChordRender(){
+        if(_mpChordRafId) return;
+        _mpChordRafId = requestAnimationFrame(_renderRemoteChords);
+    }
+
+    function _renderRemoteChords(){
+        _mpChordRafId = 0;
+        const now = performance.now();
+        if(now - _mpChordLastRender < _MP_CHORD_DEBOUNCE){
+            _mpChordRafId = requestAnimationFrame(_renderRemoteChords);
+            return;
+        }
+        _mpChordLastRender = now;
+        const container = _getMpChordContainer();
+        if(!container) return;
+
+        // Collect active chords
+        const entries = [];
+        _remoteChordCache.forEach((data, pid) => {
+            if(data.fading && now - data.fadeStart > _MP_CHORD_DECAY_MS){
+                _remoteChordCache.delete(pid);
+                return;
+            }
+            const opacity = data.fading ? Math.max(0, 1 - (now - data.fadeStart) / _MP_CHORD_DECAY_MS) : 1;
+            const player = getPlayer(pid);
+            const color = playerColor(player);
+            const name = player?.name || 'Player';
+            entries.push({ pid, text: data.text, secondary: data.secondary, color, name, opacity });
+        });
+
+        // Build HTML
+        if(entries.length === 0){
+            if(container.innerHTML !== '') container.innerHTML = '';
+            return;
+        }
+
+        let html = '';
+        for(let i = 0; i < entries.length; i++){
+            const e = entries[i];
+            const op = Math.round(e.opacity * 100) / 100;
+            html += `<div class="mpc-row" style="opacity:${op}">` +
+                `<span class="mpc-dot" style="background:${e.color}"></span>` +
+                `<span class="mpc-name" style="color:${e.color}">${escapeHtml(e.name)}</span>` +
+                `<span class="mpc-chord">${escapeHtml(e.text)}</span>` +
+                (e.secondary ? `<span class="mpc-sub">${escapeHtml(e.secondary)}</span>` : '') +
+                `</div>`;
+        }
+        container.innerHTML = html;
+
+        // Continue render loop if fading
+        if(_remoteChordCache.size > 0){
+            let hasFading = false;
+            _remoteChordCache.forEach(d => { if(d.fading) hasFading = true; });
+            if(hasFading && !_mpChordRafId) _mpChordRafId = requestAnimationFrame(_renderRemoteChords);
+        }
+    }
+
+    // Hook is done via direct injection in playRemoteNote (see noteOn/noteOff branches)
+
     function clearRoomSubscriptions(){
         if(chatUnsubscribe){ chatUnsubscribe(); chatUnsubscribe = null; }
         if(eventUnsubscribe){ eventUnsubscribe(); eventUnsubscribe = null; }
@@ -15254,6 +15474,7 @@ midiBtn.onclick = (e) => {
         if(streamChangedUnsubscribe){ streamChangedUnsubscribe(); streamChangedUnsubscribe = null; }
         if(roomPlayersUnsubscribe){ roomPlayersUnsubscribe(); roomPlayersUnsubscribe = null; }
         if(roomModerationUnsubscribe){ roomModerationUnsubscribe(); roomModerationUnsubscribe = null; }
+        _clearRemoteNotes(); // reset chord state on room leave
     }
 
     function subscribeRoomData(roomId){
