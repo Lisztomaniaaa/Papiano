@@ -1585,7 +1585,16 @@
                 node.style.display = 'none';
             }
         });
-        const node = document.getElementById(id);
+        // Lazy-inflate from <template> if not yet in DOM
+        let node = document.getElementById(id);
+        if (!node) {
+            const tpl = document.getElementById('tpl-' + id);
+            if (tpl) {
+                const container = document.getElementById('mainAppScreen');
+                if (container) container.insertBefore(tpl.content.cloneNode(true), container.firstChild);
+                node = document.getElementById(id);
+            }
+        }
         if (node) node.style.display = 'flex';
         updateHomeTopBarVisibility();
         if (id === 'subPageDonation') subscribeDonationLeaderboard();
