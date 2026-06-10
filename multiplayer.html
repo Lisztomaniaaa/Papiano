@@ -12089,7 +12089,7 @@ midiBtn.onclick = (e) => {
     const ROOM_CREATE_COOLDOWN_MS = 30000;
     const ROOM_CREATE_GRACE_MS = 4000;
     const ROOM_EMPTY_DELETE_DELAY_MS = 250;
-    const ROOM_PLAYER_STALE_MS = 90000;
+    const ROOM_PLAYER_STALE_MS = 45000;
     const ROOM_HEARTBEAT_MS = 20000;
     const CHAT_MAX_LENGTH = 300;
     const CHAT_COOLDOWN_MS = 1200;
@@ -13615,6 +13615,9 @@ midiBtn.onclick = (e) => {
         const now = Date.now();
         dbApi.update(dbRef(`roomPlayers/${currentRoom.id}/${mpSelfId}`), { lastSeen:now, lastActive:now, room:currentRoom.id }).catch(() => {});
         dbApi.update(dbRef(`users/${mpSelfId}`), { room:currentRoom.id, online:true, lastSeen:now, lastActive:now, updatedAt:now }).catch(() => {});
+        // Prune ghost players on every heartbeat
+        const live = roomPlayersByRoom[currentRoom.id];
+        if(live) pruneStaleRoomPlayers(currentRoom.id, live);
     }
 
     function startRoomPresenceHeartbeat(){
