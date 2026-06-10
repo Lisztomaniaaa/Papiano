@@ -11217,7 +11217,7 @@ function filterReadableChordResults(list, pcs){
     return filtered;
 }
 function matchChords(midiArr){
-    if(midiArr.length<2) return [];
+    if(midiArr.length<3) return [];
     let pcMask = 0;
     let bassMidi = midiArr[0];
     for(let i=0;i<midiArr.length;i++){
@@ -15424,7 +15424,7 @@ midiBtn.onclick = (e) => {
         var bestTs = 0;
 
         // Self notes from pressStartTimes
-        if(typeof pressStartTimes !== 'undefined' && pressStartTimes.size >= 2){
+        if(typeof pressStartTimes !== 'undefined' && pressStartTimes.size >= 3){
             bestMidi = Array.from(pressStartTimes.keys());
             bestSource = 'self';
             bestTs = Date.now(); // self is always "now"
@@ -15432,7 +15432,7 @@ midiBtn.onclick = (e) => {
 
         // Remote notes — pick the one with most recent activity
         _remoteActiveNotes.forEach(function(set, pid){
-            if(set && set.size >= 2){
+            if(set && set.size >= 3){
                 var ts = _remoteNoteTimestamps.get(pid) || 0;
                 if(ts >= bestTs || !bestMidi){
                     bestMidi = Array.from(set);
@@ -15442,7 +15442,7 @@ midiBtn.onclick = (e) => {
             }
         });
 
-        if(!bestMidi || bestMidi.length < 2){
+        if(!bestMidi || bestMidi.length < 3){
             el1.classList.remove('show'); el1.textContent = ''; el1.style.color = '';
             el2.classList.remove('show'); el2.textContent = ''; el2.style.color = '';
             _lastChordSource = '';
