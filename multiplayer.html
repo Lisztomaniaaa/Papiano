@@ -6433,7 +6433,7 @@ function clearPianoEntryVisualState(){
         if(typeof midiPedalHeldNotes !== 'undefined' && midiPedalHeldNotes) midiPedalHeldNotes.clear();
         if(typeof pendingActiveAdds !== 'undefined' && pendingActiveAdds) pendingActiveAdds.clear();
         if(typeof pendingActiveRemoves !== 'undefined' && pendingActiveRemoves) pendingActiveRemoves.clear();
-        if(typeof _keyHolders !== 'undefined' && _keyHolders) _keyHolders.clear();
+        if(typeof _keyColorMap !== 'undefined' && _keyColorMap) _keyColorMap.clear();
         document.querySelectorAll('#piano .active').forEach(el => {
             el.classList.remove('active');
             _applyKeyColor(el, '');
@@ -7673,7 +7673,7 @@ function refreshActiveKeyLayerGeometry(){
     activeKeyLayer.innerHTML = '';
     activeKeyOverlayMap.clear();
     notes.forEach(midi => {
-        const color = _keyHoldersGetColor(midi);
+        const color = _resolveKeyColor(midi);
         renderActiveKeyOverlay(midi, noteElementMap.get(midi), color);
     });
 }
@@ -8148,37 +8148,9 @@ const pendingActiveRemoves = new Set();
 const keyVisualDesired = new WeakMap();
 let keyVisualRaf = null;
 
-// === Per-player key color tracking ===
-// Maps midi → Map<holderId, color>  where holderId = 'self' or playerId
-const _keyHolders = new Map();
+// === Per-player key color tracking (overlay only — does NOT affect activation logic) ===
 const _KEY_SELF = '__self__';
-
-function _keyHoldersAdd(midi, holderId, color){
-    let holders = _keyHolders.get(midi);
-    if(!holders){ holders = new Map(); _keyHolders.set(midi, holders); }
-    holders.set(holderId, color || '');
-}
-function _keyHoldersRemove(midi, holderId){
-    const holders = _keyHolders.get(midi);
-    if(!holders) return;
-    holders.delete(holderId);
-    if(holders.size === 0) _keyHolders.delete(midi);
-}
-function _keyHoldersGetColor(midi){
-    // Priority: if self is holding, no override (use global CSS vars = user custom).
-    // If only remote holders, return the color of the most recent one (last in map).
-    const holders = _keyHolders.get(midi);
-    if(!holders || holders.size === 0) return '';
-    if(holders.has(_KEY_SELF)) return ''; // self = use user's custom/global
-    // Return last remote color
-    let color = '';
-    holders.forEach(c => { if(c) color = c; });
-    return color;
-}
-function _keyHoldersHasAny(midi){
-    const holders = _keyHolders.get(midi);
-    return holders && holders.size > 0;
-}
+const _keyColorMap = new Map(); // midi → Map<holderId, color>
 
 function _applyKeyColor(el, color){
     if(!el) return;
@@ -8191,30 +8163,40 @@ function _applyKeyColor(el, color){
     }
 }
 
-function scheduleKeyVisual(el, active, holderId, color){
+function _resolveKeyColor(midi){
+    const holders = _keyColorMap.get(midi);
+    if(!holders || holders.size === 0) return '';
+    if(holders.has(_KEY_SELF)) return ''; // self = user's custom color
+    let color = '';
+    holders.forEach(c => { if(c) color = c; });
+    return color;
+}
+
+function _trackKeyColor(midi, holderId, color, el){
+    let holders = _keyColorMap.get(midi);
+    if(!holders){ holders = new Map(); _keyColorMap.set(midi, holders); }
+    holders.set(holderId, color || '');
+    // Apply color immediately
+    if(el) _applyKeyColor(el, _resolveKeyColor(midi));
+}
+
+function _untrackKeyColor(midi, holderId, el){
+    const holders = _keyColorMap.get(midi);
+    if(!holders) return;
+    holders.delete(holderId);
+    if(holders.size === 0){
+        _keyColorMap.delete(midi);
+        if(el) _applyKeyColor(el, '');
+    } else {
+        if(el) _applyKeyColor(el, _resolveKeyColor(midi));
+    }
+}
+
+function scheduleKeyVisual(el, active){
     if(!el || !el.classList) return;
-    const midi = Number(el.dataset.note);
-
-    // Track holders
-    if(Number.isFinite(midi)){
-        if(active){
-            _keyHoldersAdd(midi, holderId || _KEY_SELF, color || '');
-        } else {
-            _keyHoldersRemove(midi, holderId || _KEY_SELF);
-        }
-    }
-
-    // Determine if key should be visually active (any holder present)
-    const shouldBeActive = Number.isFinite(midi) ? _keyHoldersHasAny(midi) : active;
-
-    if(keyVisualDesired.get(el) === shouldBeActive && shouldBeActive){
-        // Key stays active but color might change — update color
-        const resolvedColor = Number.isFinite(midi) ? _keyHoldersGetColor(midi) : '';
-        _applyKeyColor(el, resolvedColor);
-        return;
-    }
-    keyVisualDesired.set(el, shouldBeActive);
-    if(shouldBeActive){ pendingActiveRemoves.delete(el); pendingActiveAdds.add(el); }
+    if(keyVisualDesired.get(el) === active) return;
+    keyVisualDesired.set(el, active);
+    if(active){ pendingActiveRemoves.delete(el); pendingActiveAdds.add(el); }
     else { pendingActiveAdds.delete(el); pendingActiveRemoves.add(el); }
     if(keyVisualRaf) return;
     keyVisualRaf = requestAnimationFrame(() => {
@@ -8228,25 +8210,27 @@ function scheduleKeyVisual(el, active, holderId, color){
         });
         pendingActiveAdds.forEach(x => {
             if(keyVisualDesired.get(x) === true){
-                const m = Number(x.dataset.note);
-                const resolvedColor = Number.isFinite(m) ? _keyHoldersGetColor(m) : '';
-                _applyKeyColor(x, resolvedColor);
                 if(!x.classList.contains('active')) x.classList.add('active');
-                setActiveKeyOverlay(x, true, resolvedColor);
+                const m = Number(x.dataset.note);
+                const color = Number.isFinite(m) ? _resolveKeyColor(m) : '';
+                _applyKeyColor(x, color);
+                setActiveKeyOverlay(x, true, color);
             }
         });
         pendingActiveAdds.clear(); pendingActiveRemoves.clear();
     });
 }
 function playPressVisual(n,k,burst){
-    scheduleKeyVisual(k, true, _KEY_SELF, '');
+    scheduleKeyVisual(k, true);
+    if(Number.isFinite(n)) _trackKeyColor(n, _KEY_SELF, '', k);
     startNeonDust(n, k);
     pressStartTimes.set(n,performance.now());
     if(isAnimOn) addAnim(n);
     requestChordUpdate();
 }
 function playReleaseVisual(n,k){
-    scheduleKeyVisual(k, false, _KEY_SELF, '');
+    scheduleKeyVisual(k, false);
+    if(Number.isFinite(n)) _untrackKeyColor(n, _KEY_SELF, k);
     stopNeonDust(n);
     pressStartTimes.delete(n);
     _lastChordNoteKey='';
@@ -14867,7 +14851,8 @@ midiBtn.onclick = (e) => {
     function playRemotePressVisual(midi, keyEl, playerId){
         const player = getPlayer(playerId);
         const color = playerColor(player);
-        if(keyEl) scheduleKeyVisual(keyEl, true, playerId, color);
+        if(keyEl) scheduleKeyVisual(keyEl, true);
+        if(Number.isFinite(midi)) _trackKeyColor(midi, playerId, color, keyEl);
         const level = getRemoteVisualLevel();
         addRemoteAnim(midi, playerId, level, color);
         if(level === 'full' && saberDustEnabled){
@@ -14877,7 +14862,8 @@ midiBtn.onclick = (e) => {
     }
 
     function playRemoteReleaseVisual(midi, keyEl, playerId){
-        if(keyEl) scheduleKeyVisual(keyEl, false, playerId, '');
+        if(keyEl) scheduleKeyVisual(keyEl, false);
+        if(Number.isFinite(midi)) _untrackKeyColor(midi, playerId, keyEl);
         markFallingReleased(midi, remoteFallingOwnerId(playerId));
     }
 
@@ -15544,51 +15530,27 @@ midiBtn.onclick = (e) => {
         if(playerId){
             _remoteActiveNotes.delete(playerId);
             _remoteNoteTimestamps.delete(playerId);
-            // Clean up key holders for this player
-            if(typeof _keyHolders !== 'undefined'){
-                _keyHolders.forEach((holders, midi) => {
+            // Clean up key color tracking for this player
+            if(typeof _keyColorMap !== 'undefined'){
+                _keyColorMap.forEach((holders, midi) => {
                     if(holders.has(playerId)){
                         holders.delete(playerId);
-                        if(holders.size === 0) _keyHolders.delete(midi);
-                        // Update visual for this key
+                        if(holders.size === 0) _keyColorMap.delete(midi);
                         const el = noteElementMap.get(midi);
-                        if(el){
-                            const remaining = _keyHoldersHasAny(midi);
-                            if(!remaining){
-                                el.classList.remove('active');
-                                _applyKeyColor(el, '');
-                                setActiveKeyOverlay(el, false);
-                                keyVisualDesired.set(el, false);
-                            } else {
-                                const newColor = _keyHoldersGetColor(midi);
-                                _applyKeyColor(el, newColor);
-                            }
-                        }
+                        if(el) _applyKeyColor(el, _resolveKeyColor(midi));
                     }
                 });
             }
         } else {
             _remoteActiveNotes.clear();
             _remoteNoteTimestamps.clear();
-            // Clear all remote holders from _keyHolders
-            if(typeof _keyHolders !== 'undefined'){
-                _keyHolders.forEach((holders, midi) => {
-                    const hadRemote = holders.size > (holders.has(_KEY_SELF) ? 1 : 0);
+            // Clear all remote color entries
+            if(typeof _keyColorMap !== 'undefined'){
+                _keyColorMap.forEach((holders, midi) => {
                     holders.forEach((color, hid) => { if(hid !== _KEY_SELF) holders.delete(hid); });
-                    if(holders.size === 0) _keyHolders.delete(midi);
-                    if(hadRemote){
-                        const el = noteElementMap.get(midi);
-                        if(el){
-                            if(!_keyHoldersHasAny(midi)){
-                                el.classList.remove('active');
-                                _applyKeyColor(el, '');
-                                setActiveKeyOverlay(el, false);
-                                keyVisualDesired.set(el, false);
-                            } else {
-                                _applyKeyColor(el, '');
-                            }
-                        }
-                    }
+                    if(holders.size === 0) _keyColorMap.delete(midi);
+                    const el = noteElementMap.get(midi);
+                    if(el) _applyKeyColor(el, _resolveKeyColor(midi));
                 });
             }
         }
