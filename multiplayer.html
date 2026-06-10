@@ -3351,11 +3351,11 @@ body.mp-room-active .mp-player-strip{ display:flex; }
 .mp-player-pill.is-muted{ opacity:.58; }
 @keyframes mpPlayerOutlinePulse{
     0%{ transform:scale(1); }
-    50%{ transform:scale(1.07); }
+    40%{ transform:scale(1.08); }
     100%{ transform:scale(1); }
 }
 .mp-player-pill.is-playing{
-    animation:mpPlayerOutlinePulse .45s ease-in-out;
+    animation:mpPlayerOutlinePulse .28s cubic-bezier(.4,0,.2,1);
     background:var(--mp-player-color,#78dcff);
 }
 .mp-player-pill.is-playing .mp-avatar{ animation:none !important; }
@@ -14791,6 +14791,9 @@ midiBtn.onclick = (e) => {
             pill = findPlayerPill(id);
         }
         if(!pill) return;
+        // Force-restart animation on every note by removing and re-adding class
+        pill.classList.remove('is-playing');
+        void pill.offsetWidth; // reflow trigger — forces browser to restart animation
         pill.classList.add('is-playing');
         if(playerPulseTimers.has(id)) clearTimeout(playerPulseTimers.get(id));
         playerPulseTimers.set(id, window.setTimeout(() => {
