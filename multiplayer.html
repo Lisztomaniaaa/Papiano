@@ -3349,16 +3349,6 @@ body.mp-room-active .mp-player-strip{ display:flex; }
     font-weight:900;
 }
 .mp-player-pill.is-muted{ opacity:.58; }
-@keyframes mpPlayerOutlinePulse{
-    0%{ transform:scale(1); }
-    40%{ transform:scale(1.08); }
-    100%{ transform:scale(1); }
-}
-.mp-player-pill.is-playing{
-    animation:mpPlayerOutlinePulse .28s cubic-bezier(.4,0,.2,1);
-    background:var(--mp-player-color,#78dcff);
-}
-.mp-player-pill.is-playing .mp-avatar{ animation:none !important; }
 #mpRoomBtn.active{
     background:linear-gradient(135deg,rgba(91,198,242,.94),rgba(127,226,255,.74)) !important;
     border-color:rgba(157,235,255,.70) !important;
@@ -12452,7 +12442,6 @@ midiBtn.onclick = (e) => {
     }, {});
     const remoteSoundfontBuffers = new Map();
     const remoteSoundfontLoading = new Map();
-    const playerPulseTimers = new Map();
     let remoteSoundfontLoadChain = Promise.resolve();
     let roomChromeSignature = '';
     let warmRemoteTimer = 0;
@@ -13427,8 +13416,6 @@ midiBtn.onclick = (e) => {
         clearRoomSubscriptions();
         if(roomPlayerDisconnect){ try{ roomPlayerDisconnect.cancel(); }catch(e){} roomPlayerDisconnect = null; }
         if(warmRemoteTimer){ clearTimeout(warmRemoteTimer); warmRemoteTimer = 0; }
-        playerPulseTimers.forEach(timer => clearTimeout(timer));
-        playerPulseTimers.clear();
         stopRoomPresenceHeartbeat();
         leaveFirebaseRoom();
         const user = currentUser();
@@ -14785,22 +14772,6 @@ midiBtn.onclick = (e) => {
     function pulsePlayer(id){
         if(!id || getState(id).muteInstrument) return;
         markPlayerActivity(id, 'playing');
-        let pill = findPlayerPill(id);
-        if(!pill){
-            renderRoomChrome();
-            pill = findPlayerPill(id);
-        }
-        if(!pill) return;
-        // Force-restart animation on every note by removing and re-adding class
-        pill.classList.remove('is-playing');
-        void pill.offsetWidth; // reflow trigger — forces browser to restart animation
-        pill.classList.add('is-playing');
-        if(playerPulseTimers.has(id)) clearTimeout(playerPulseTimers.get(id));
-        playerPulseTimers.set(id, window.setTimeout(() => {
-            playerPulseTimers.delete(id);
-            const current = findPlayerPill(id);
-            if(current) current.classList.remove('is-playing');
-        }, 620));
     }
 
     function playRemotePressVisual(midi, keyEl, playerId){
