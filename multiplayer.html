@@ -6433,8 +6433,10 @@ function clearPianoEntryVisualState(){
         if(typeof midiPedalHeldNotes !== 'undefined' && midiPedalHeldNotes) midiPedalHeldNotes.clear();
         if(typeof pendingActiveAdds !== 'undefined' && pendingActiveAdds) pendingActiveAdds.clear();
         if(typeof pendingActiveRemoves !== 'undefined' && pendingActiveRemoves) pendingActiveRemoves.clear();
+        if(typeof _keyHolders !== 'undefined' && _keyHolders) _keyHolders.clear();
         document.querySelectorAll('#piano .active').forEach(el => {
             el.classList.remove('active');
+            _applyKeyColor(el, '');
             if(typeof setActiveKeyOverlay === 'function') setActiveKeyOverlay(el, false);
         });
         if(typeof chordNotes !== 'undefined' && chordNotes) chordNotes.clear();
@@ -7596,7 +7598,7 @@ function appendActiveKeyPiece(className, left, width, config){
     activeKeyLayer.appendChild(piece);
     return piece;
 }
-function renderActiveKeyOverlay(midi, keyEl){
+function renderActiveKeyOverlay(midi, keyEl, color){
     if(!activeKeyLayer) return;
     clearActiveKeyOverlay(midi);
     if(!Number.isFinite(midi) || midi < 21 || midi > 108) return;
@@ -7636,9 +7638,16 @@ function renderActiveKeyOverlay(midi, keyEl){
             taperDepthPct
         }));
     }
+    // Apply per-player color override to overlay pieces
+    if(color){
+        pieces.forEach(piece => {
+            piece.style.setProperty('--accent-white', color);
+            piece.style.setProperty('--accent-black', color);
+        });
+    }
     activeKeyOverlayMap.set(midi, pieces);
 }
-function setActiveKeyOverlay(keyEl, active){
+function setActiveKeyOverlay(keyEl, active, color){
     if(!keyEl) return;
     const midi = Number(keyEl.dataset.note);
     if(!Number.isFinite(midi)) return;
@@ -7649,7 +7658,7 @@ function setActiveKeyOverlay(keyEl, active){
             return;
         }
         activeOverlayNotes.add(midi);
-        renderActiveKeyOverlay(midi, keyEl);
+        renderActiveKeyOverlay(midi, keyEl, color);
     } else {
         activeOverlayNotes.delete(midi);
         clearActiveKeyOverlay(midi);
@@ -7663,7 +7672,10 @@ function refreshActiveKeyLayerGeometry(){
     const notes = Array.from(activeOverlayNotes);
     activeKeyLayer.innerHTML = '';
     activeKeyOverlayMap.clear();
-    notes.forEach(midi => renderActiveKeyOverlay(midi, noteElementMap.get(midi)));
+    notes.forEach(midi => {
+        const color = _keyHoldersGetColor(midi);
+        renderActiveKeyOverlay(midi, noteElementMap.get(midi), color);
+    });
 }
 
 function buildDOM() {
@@ -8135,11 +8147,74 @@ const pendingActiveAdds = new Set();
 const pendingActiveRemoves = new Set();
 const keyVisualDesired = new WeakMap();
 let keyVisualRaf = null;
-function scheduleKeyVisual(el, active){
+
+// === Per-player key color tracking ===
+// Maps midi → Map<holderId, color>  where holderId = 'self' or playerId
+const _keyHolders = new Map();
+const _KEY_SELF = '__self__';
+
+function _keyHoldersAdd(midi, holderId, color){
+    let holders = _keyHolders.get(midi);
+    if(!holders){ holders = new Map(); _keyHolders.set(midi, holders); }
+    holders.set(holderId, color || '');
+}
+function _keyHoldersRemove(midi, holderId){
+    const holders = _keyHolders.get(midi);
+    if(!holders) return;
+    holders.delete(holderId);
+    if(holders.size === 0) _keyHolders.delete(midi);
+}
+function _keyHoldersGetColor(midi){
+    // Priority: if self is holding, no override (use global CSS vars = user custom).
+    // If only remote holders, return the color of the most recent one (last in map).
+    const holders = _keyHolders.get(midi);
+    if(!holders || holders.size === 0) return '';
+    if(holders.has(_KEY_SELF)) return ''; // self = use user's custom/global
+    // Return last remote color
+    let color = '';
+    holders.forEach(c => { if(c) color = c; });
+    return color;
+}
+function _keyHoldersHasAny(midi){
+    const holders = _keyHolders.get(midi);
+    return holders && holders.size > 0;
+}
+
+function _applyKeyColor(el, color){
+    if(!el) return;
+    if(color){
+        el.style.setProperty('--accent-white', color);
+        el.style.setProperty('--accent-black', color);
+    } else {
+        el.style.removeProperty('--accent-white');
+        el.style.removeProperty('--accent-black');
+    }
+}
+
+function scheduleKeyVisual(el, active, holderId, color){
     if(!el || !el.classList) return;
-    if(keyVisualDesired.get(el) === active) return;
-    keyVisualDesired.set(el, active);
-    if(active){ pendingActiveRemoves.delete(el); pendingActiveAdds.add(el); }
+    const midi = Number(el.dataset.note);
+
+    // Track holders
+    if(Number.isFinite(midi)){
+        if(active){
+            _keyHoldersAdd(midi, holderId || _KEY_SELF, color || '');
+        } else {
+            _keyHoldersRemove(midi, holderId || _KEY_SELF);
+        }
+    }
+
+    // Determine if key should be visually active (any holder present)
+    const shouldBeActive = Number.isFinite(midi) ? _keyHoldersHasAny(midi) : active;
+
+    if(keyVisualDesired.get(el) === shouldBeActive && shouldBeActive){
+        // Key stays active but color might change — update color
+        const resolvedColor = Number.isFinite(midi) ? _keyHoldersGetColor(midi) : '';
+        _applyKeyColor(el, resolvedColor);
+        return;
+    }
+    keyVisualDesired.set(el, shouldBeActive);
+    if(shouldBeActive){ pendingActiveRemoves.delete(el); pendingActiveAdds.add(el); }
     else { pendingActiveAdds.delete(el); pendingActiveRemoves.add(el); }
     if(keyVisualRaf) return;
     keyVisualRaf = requestAnimationFrame(() => {
@@ -8147,27 +8222,31 @@ function scheduleKeyVisual(el, active){
         pendingActiveRemoves.forEach(x => {
             if(keyVisualDesired.get(x) === false){
                 if(x.classList.contains('active')) x.classList.remove('active');
+                _applyKeyColor(x, '');
                 setActiveKeyOverlay(x, false);
             }
         });
         pendingActiveAdds.forEach(x => {
             if(keyVisualDesired.get(x) === true){
+                const m = Number(x.dataset.note);
+                const resolvedColor = Number.isFinite(m) ? _keyHoldersGetColor(m) : '';
+                _applyKeyColor(x, resolvedColor);
                 if(!x.classList.contains('active')) x.classList.add('active');
-                setActiveKeyOverlay(x, true);
+                setActiveKeyOverlay(x, true, resolvedColor);
             }
         });
         pendingActiveAdds.clear(); pendingActiveRemoves.clear();
     });
 }
 function playPressVisual(n,k,burst){
-    scheduleKeyVisual(k, true);
+    scheduleKeyVisual(k, true, _KEY_SELF, '');
     startNeonDust(n, k);
     pressStartTimes.set(n,performance.now());
     if(isAnimOn) addAnim(n);
     requestChordUpdate();
 }
 function playReleaseVisual(n,k){
-    scheduleKeyVisual(k, false);
+    scheduleKeyVisual(k, false, _KEY_SELF, '');
     stopNeonDust(n);
     pressStartTimes.delete(n);
     _lastChordNoteKey='';
@@ -8400,11 +8479,8 @@ function normalizeFallingOverrideColor(value){
     return '';
 }
 function getRoomLocalFallingColor(){
-    try{
-        if(typeof isInPianoRoom === 'function' && isInPianoRoom() && typeof getCurrentRoomSelfColor === 'function'){
-            return normalizeFallingOverrideColor(getCurrentRoomSelfColor());
-        }
-    }catch(e){}
+    // Self falling notes use custom --anim-color (user's private custom color), NOT seat color
+    // This ensures self always sees their own custom/white, while remote players see seat colors
     return '';
 }
 function addFallingNote(n, options = {}){
@@ -14789,10 +14865,11 @@ midiBtn.onclick = (e) => {
     }
 
     function playRemotePressVisual(midi, keyEl, playerId){
-        if(keyEl) scheduleKeyVisual(keyEl, true);
-        const level = getRemoteVisualLevel();
         const player = getPlayer(playerId);
-        addRemoteAnim(midi, playerId, level, playerColor(player));
+        const color = playerColor(player);
+        if(keyEl) scheduleKeyVisual(keyEl, true, playerId, color);
+        const level = getRemoteVisualLevel();
+        addRemoteAnim(midi, playerId, level, color);
         if(level === 'full' && saberDustEnabled){
             const geom = getKeyStageGeom(midi);
             if(geom) spawnNeonDust(geom, geom.isBlack ? 2 : 3);
@@ -14800,7 +14877,7 @@ midiBtn.onclick = (e) => {
     }
 
     function playRemoteReleaseVisual(midi, keyEl, playerId){
-        if(keyEl) scheduleKeyVisual(keyEl, false);
+        if(keyEl) scheduleKeyVisual(keyEl, false, playerId, '');
         markFallingReleased(midi, remoteFallingOwnerId(playerId));
     }
 
@@ -15403,11 +15480,11 @@ midiBtn.onclick = (e) => {
         // Color: self = white (like own falling notes), remote = their seat color
         var color = '#ffffff';
         if(bestSource !== 'self'){
-            var remoteSeat = 0;
+            var remotePlayer = null;
             if(currentRoom && roomPlayersByRoom[currentRoom.id] && roomPlayersByRoom[currentRoom.id][bestSource]){
-                remoteSeat = Number(roomPlayersByRoom[currentRoom.id][bestSource].seat || 0);
+                remotePlayer = roomPlayersByRoom[currentRoom.id][bestSource];
             }
-            if(remoteSeat >= 1 && remoteSeat <= MP_PLAYER_COLORS.length) color = MP_PLAYER_COLORS[remoteSeat - 1];
+            color = playerColor(remotePlayer || bestSource);
         }
         _lastChordSource = bestSource;
 
@@ -15467,9 +15544,53 @@ midiBtn.onclick = (e) => {
         if(playerId){
             _remoteActiveNotes.delete(playerId);
             _remoteNoteTimestamps.delete(playerId);
+            // Clean up key holders for this player
+            if(typeof _keyHolders !== 'undefined'){
+                _keyHolders.forEach((holders, midi) => {
+                    if(holders.has(playerId)){
+                        holders.delete(playerId);
+                        if(holders.size === 0) _keyHolders.delete(midi);
+                        // Update visual for this key
+                        const el = noteElementMap.get(midi);
+                        if(el){
+                            const remaining = _keyHoldersHasAny(midi);
+                            if(!remaining){
+                                el.classList.remove('active');
+                                _applyKeyColor(el, '');
+                                setActiveKeyOverlay(el, false);
+                                keyVisualDesired.set(el, false);
+                            } else {
+                                const newColor = _keyHoldersGetColor(midi);
+                                _applyKeyColor(el, newColor);
+                            }
+                        }
+                    }
+                });
+            }
         } else {
             _remoteActiveNotes.clear();
             _remoteNoteTimestamps.clear();
+            // Clear all remote holders from _keyHolders
+            if(typeof _keyHolders !== 'undefined'){
+                _keyHolders.forEach((holders, midi) => {
+                    const hadRemote = holders.size > (holders.has(_KEY_SELF) ? 1 : 0);
+                    holders.forEach((color, hid) => { if(hid !== _KEY_SELF) holders.delete(hid); });
+                    if(holders.size === 0) _keyHolders.delete(midi);
+                    if(hadRemote){
+                        const el = noteElementMap.get(midi);
+                        if(el){
+                            if(!_keyHoldersHasAny(midi)){
+                                el.classList.remove('active');
+                                _applyKeyColor(el, '');
+                                setActiveKeyOverlay(el, false);
+                                keyVisualDesired.set(el, false);
+                            } else {
+                                _applyKeyColor(el, '');
+                            }
+                        }
+                    }
+                });
+            }
         }
         // Instant clear display
         var el1 = document.getElementById('chordPrimary');
