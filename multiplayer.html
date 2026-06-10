@@ -15100,7 +15100,7 @@ midiBtn.onclick = (e) => {
             updateRemoteSustainState(player.id, event);
             const sustainHeld = shouldHoldRemoteNoteOff(player.id, event);
             if(sustainHeld) holdRemoteNoteOff(player.id, midi);
-            else releaseRemoteNote(player.id, midi, !remoteSustainActive(player.id, event), event);
+            else releaseRemoteNote(player.id, midi, false, event);
             playRemoteReleaseVisual(midi, el, player.id);
         }
     }
