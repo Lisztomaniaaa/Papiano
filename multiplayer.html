@@ -584,70 +584,7 @@ body.hide-ui #logoToggle{ opacity:.55 !important; }
 .chord-name.primary { font-size: 26px; color: #00e5ff; }
 .chord-name.secondary { font-size: 16px; color: rgba(255,255,255,0.55); }
 
-/* Multiplayer Live Chord Display */
-#mpChordLive {
-    position: absolute;
-    top: 12px;
-    right: 15px;
-    z-index: 500;
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    max-width: 260px;
-    contain: layout paint;
-}
-.mpc-row {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 10px;
-    border-radius: 10px;
-    background: rgba(0,0,0,0.45);
-    border: 1px solid rgba(255,255,255,0.08);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    transition: opacity 0.18s ease-out;
-    white-space: nowrap;
-}
-.mpc-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    box-shadow: 0 0 6px currentColor;
-}
-.mpc-name {
-    font-family: 'Quicksand', sans-serif;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 0.3px;
-    opacity: 0.8;
-    max-width: 70px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.mpc-chord {
-    font-family: 'Quicksand', sans-serif;
-    font-size: 15px;
-    font-weight: 900;
-    color: #fff;
-    letter-spacing: 0.3px;
-    text-shadow: 0 1px 8px rgba(0,0,0,0.6);
-}
-.mpc-sub {
-    font-family: 'Quicksand', sans-serif;
-    font-size: 11px;
-    font-weight: 700;
-    color: rgba(255,255,255,0.45);
-    margin-left: 2px;
-}
-@media (max-width: 700px){
-    #mpChordLive { right: 10px; top: 10px; max-width: 200px; }
-    .mpc-row { padding: 4px 8px; gap: 5px; }
-    .mpc-chord { font-size: 13px; }
-    .mpc-name { font-size: 9px; max-width: 50px; }
-}
+/* Chord mode grid (kept for potential future use) */
 
 .chord-mode-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
 .chord-mode-row { display: flex; gap: 6px; }
@@ -1702,10 +1639,6 @@ body.papiano-fullscreen #fsBtn,
     #chordDisplay{
         top:96px !important;
         left:calc((100vw - min(1180px, calc(100vw - 44px))) / 2 + 22px) !important;
-    }
-    #mpChordLive{
-        top:96px !important;
-        right:calc((100vw - min(1180px, calc(100vw - 44px))) / 2 + 22px) !important;
     }
     .perf-hud{
         top:98px !important;
@@ -6257,7 +6190,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
         </div>
         <button class="metro-start-btn" id="metroStartBtn">Start</button>
     </div>
-    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
+    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
     <div id="swipeStrip"></div>
     <div id="pianoWrap"><div id="pianoViewport"><div id="piano"></div><div id="activeKeyLayer"></div></div></div>
 </div>
@@ -7897,8 +7830,6 @@ noteXFast.fill(NaN);
 const keyElFast = new Array(128);
 let currentPianoTransformPx = viewOffset * whiteKeyWidth;
 let noteCacheTransformPx = viewOffset * whiteKeyWidth;
-let chordDirty = false;
-let lastChordUpdateAt = 0;
 function _detectDefaultGraphicQuality(){
     try {
         const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -8108,28 +8039,6 @@ function refreshKeyDustColorCache(){
 }
 function requestChordUpdate(){
     if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function') window.PapianoMultiplayer._detectChords();
-}
-let _chordFlushScheduled = false;
-function scheduleChordFlush(){
-    if(_chordFlushScheduled || !chordDirty) return;
-    _chordFlushScheduled = true;
-    requestAnimationFrame(() => {
-        _chordFlushScheduled = false;
-        flushChordIfDirty();
-
-        if(chordDirty) scheduleChordFlush();
-    });
-}
-function flushChordIfDirty(){
-    if(!chordDirty) return;
-    const now = performance.now();
-    const burst = getBurstLevel();
-    const profile = getGraphicProfile();
-    const dynamicDebounce = Math.max(profile.chordDebounce, burst > 12 ? 95 : burst > 8 ? 72 : burst > 4 ? 60 : CHORD_DEBOUNCE_MS);
-    if(now - lastChordUpdateAt < dynamicDebounce) return;
-    chordDirty = false;
-    lastChordUpdateAt = now;
-    if(typeof updateChordDisplay === 'function') updateChordDisplay();
 }
 const pendingActiveAdds = new Set();
 const pendingActiveRemoves = new Set();
@@ -9128,10 +9037,6 @@ document.querySelectorAll('.settings-cat-btn').forEach(btn => {
 document.querySelectorAll('[data-close-panel]').forEach(btn => {
     btn.addEventListener('click', () => toggle(btn.dataset.closePanel));
 });
-document.querySelectorAll('[data-chord-mode]').forEach(btn => {
-    btn.addEventListener('click', () => setChordMode(btn.dataset.chordMode));
-});
-
 document.getElementById('colBtn').onclick=()=>{ setVisualPanelPage('hub'); toggle('colorPanel'); };
 document.getElementById('metroBtn').onclick=()=>toggle('metronomePanel');
 document.getElementById('sfBtn').onclick=()=>openSfPanelTab('main');
@@ -11240,11 +11145,6 @@ function _buildChordKeyHash(){
         h = (h * 16777619) >>> 0;
     }
     return h;
-}
-function clearChordLine(el){
-    if(!el) return;
-    el.classList.remove('show');
-    el.textContent = '';
 }
 function updateChordDisplay(){
     // Local chord disabled — remote-only chord display active
