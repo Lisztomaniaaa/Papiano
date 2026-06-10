@@ -3350,11 +3350,12 @@ body.mp-room-active .mp-player-strip{ display:flex; }
 }
 .mp-player-pill.is-muted{ opacity:.58; }
 @keyframes mpPlayerOutlinePulse{
-    from{ opacity:.85; }
-    to{ opacity:1; }
+    0%{ transform:scale(1); }
+    50%{ transform:scale(1.07); }
+    100%{ transform:scale(1); }
 }
 .mp-player-pill.is-playing{
-    animation:mpPlayerOutlinePulse .52s ease-in-out infinite alternate;
+    animation:mpPlayerOutlinePulse .45s ease-in-out;
     background:var(--mp-player-color,#78dcff);
 }
 .mp-player-pill.is-playing .mp-avatar{ animation:none !important; }
