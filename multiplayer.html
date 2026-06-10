@@ -15402,16 +15402,24 @@ midiBtn.onclick = (e) => {
 
         // Color: resolve FRESH from seat data (bypass lock to avoid stale colors)
         var color = '#78dcff'; // default cyan
+        var _dbgSeat = 0;
         if(bestSource === 'self'){
             var selfSeat = currentRoomSeat || (currentRoom && roomPlayersByRoom[currentRoom.id] && roomPlayersByRoom[currentRoom.id][mpSelfId] ? Number(roomPlayersByRoom[currentRoom.id][mpSelfId].seat || 0) : 0);
+            _dbgSeat = selfSeat;
             if(selfSeat >= 1 && selfSeat <= MP_PLAYER_COLORS.length) color = MP_PLAYER_COLORS[selfSeat - 1];
         } else {
             var remoteSeat = 0;
             if(currentRoom && roomPlayersByRoom[currentRoom.id] && roomPlayersByRoom[currentRoom.id][bestSource]){
                 remoteSeat = Number(roomPlayersByRoom[currentRoom.id][bestSource].seat || 0);
             }
+            _dbgSeat = remoteSeat;
             if(remoteSeat >= 1 && remoteSeat <= MP_PLAYER_COLORS.length) color = MP_PLAYER_COLORS[remoteSeat - 1];
         }
+        // TEMP DEBUG: show resolved seat+color at bottom
+        var _sdbg = document.getElementById('_seatDbg');
+        if(!_sdbg){ _sdbg = document.createElement('div'); _sdbg.id='_seatDbg'; _sdbg.style.cssText='position:fixed;bottom:10px;left:10px;z-index:99999;background:rgba(0,0,0,0.85);color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:900;font-family:monospace;pointer-events:none;'; document.body.appendChild(_sdbg); }
+        _sdbg.textContent = 'src:' + bestSource + ' seat:' + _dbgSeat + ' color:' + color + ' crSeat:' + currentRoomSeat;
+        _sdbg.style.borderLeft = '4px solid ' + color;
         _lastChordSource = bestSource;
 
         el1.textContent = formatChord(matches[0]);
