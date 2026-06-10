@@ -8810,6 +8810,8 @@ function anim(now){
             if(f.height<MAX_NOTE_HEIGHT){
                 f.height=Math.min(f.height+riseSpeed, MAX_NOTE_HEIGHT);
                 f.y=f.bottomY-f.height;
+            } else {
+                f.growing = false;
             }
         } else {
             f.y -= riseSpeed;
