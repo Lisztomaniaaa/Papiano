@@ -3350,8 +3350,8 @@ body.mp-room-active .mp-player-strip{ display:flex; }
 }
 .mp-player-pill.is-muted{ opacity:.58; }
 @keyframes mpPlayerOutlinePulse{
-    from{ box-shadow:0 0 0 1px rgba(255,255,255,.28),0 0 0 0 color-mix(in srgb,var(--mp-player-color,#78dcff) 42%,transparent),inset 0 1px 0 rgba(255,255,255,.24); }
-    to{ box-shadow:0 0 0 2px rgba(255,255,255,.72),0 0 18px 2px color-mix(in srgb,var(--mp-player-color,#78dcff) 50%,transparent),inset 0 1px 0 rgba(255,255,255,.30); }
+    from{ opacity:.85; }
+    to{ opacity:1; }
 }
 .mp-player-pill.is-playing{
     animation:mpPlayerOutlinePulse .52s ease-in-out infinite alternate;
