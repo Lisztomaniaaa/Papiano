@@ -7909,7 +7909,6 @@ noteXFast.fill(NaN);
 const keyElFast = new Array(128);
 let currentPianoTransformPx = viewOffset * whiteKeyWidth;
 let noteCacheTransformPx = viewOffset * whiteKeyWidth;
-let chordDirty = false;
 let lastChordUpdateAt = 0;
 function _detectDefaultGraphicQuality(){
     try {
@@ -8121,28 +8120,7 @@ function refreshKeyDustColorCache(){
 function requestChordUpdate(){
     if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function') window.PapianoMultiplayer._detectChords();
 }
-let _chordFlushScheduled = false;
-function scheduleChordFlush(){
-    if(_chordFlushScheduled || !chordDirty) return;
-    _chordFlushScheduled = true;
-    requestAnimationFrame(() => {
-        _chordFlushScheduled = false;
-        flushChordIfDirty();
 
-        if(chordDirty) scheduleChordFlush();
-    });
-}
-function flushChordIfDirty(){
-    if(!chordDirty) return;
-    const now = performance.now();
-    const burst = getBurstLevel();
-    const profile = getGraphicProfile();
-    const dynamicDebounce = Math.max(profile.chordDebounce, burst > 12 ? 95 : burst > 8 ? 72 : burst > 4 ? 60 : CHORD_DEBOUNCE_MS);
-    if(now - lastChordUpdateAt < dynamicDebounce) return;
-    chordDirty = false;
-    lastChordUpdateAt = now;
-    if(typeof updateChordDisplay === 'function') updateChordDisplay();
-}
 const pendingActiveAdds = new Set();
 const pendingActiveRemoves = new Set();
 const keyVisualDesired = new WeakMap();
@@ -8233,7 +8211,6 @@ function playReleaseVisual(n,k){
     if(Number.isFinite(n)) _untrackKeyColor(n, _KEY_SELF, k);
     stopNeonDust(n);
     pressStartTimes.delete(n);
-    _lastChordNoteKey='';
     markFallingReleased(n);
     requestChordUpdate();
 }
@@ -8462,11 +8439,6 @@ function normalizeFallingOverrideColor(value){
     if(/^#[0-9a-fA-F]{3}$/.test(raw)) return '#' + raw.slice(1).split('').map(ch => ch + ch).join('').toLowerCase();
     return '';
 }
-function getRoomLocalFallingColor(){
-    // Self falling notes use custom --anim-color (user's private custom color), NOT seat color
-    // This ensures self always sees their own custom/white, while remote players see seat colors
-    return '';
-}
 function addFallingNote(n, options = {}){
     n = Number(n);
     if(!Number.isFinite(n) || n < 21 || n > 108) return;
@@ -8508,7 +8480,7 @@ function addFallingNote(n, options = {}){
     ensureAnimLoop();
 }
 function addAnim(n){
-    addFallingNote(n, { color:getRoomLocalFallingColor() });
+    addFallingNote(n, {});
 }
 function addRemoteAnim(n, playerId, level, color){
     if(!isAnimOn) return;
@@ -8518,11 +8490,9 @@ function hexToRgb(hex){ hex=hex.trim().replace('#',''); if(hex.length===3) hex=h
 let animFrameId = null;
 let _lastAnimTs = -1;
 let frameBurstLevel = 0;
-let smoothAnimDt = 1 / 60;
 function ensureAnimLoop(){
     if(!animFrameId){
         lastFrameTime=0;
-        smoothAnimDt=1/60;
         if(document.body.classList.contains('idle-no-notes')){
             document.body.classList.remove('idle-no-notes');
         }
@@ -8532,16 +8502,6 @@ function ensureAnimLoop(){
 if(document && document.body) document.body.classList.add('idle-no-notes');
 else document.addEventListener('DOMContentLoaded', () => document.body.classList.add('idle-no-notes'), { once:true });
 refreshStageHeight();
-function buildShapePath(shape, x0, y, w, h) {
-    ctx2d.beginPath();
-    if (shape === 'rounded') {
-        const r = Math.min(8, w * 0.45, h * 0.35);
-        if (ctx2d.roundRect) ctx2d.roundRect(x0, y, w, h, r);
-        else ctx2d.rect(x0, y, w, h);
-        return;
-    }
-    ctx2d.rect(x0, y, w, h);
-}
 
 
 const _spriteCache = new Map();
@@ -8737,15 +8697,6 @@ function drawFallingNote(f){
     ctx2d.globalAlpha = 1;
 }
 
-function _fnBuildPath(fx, fy, fw, fh, fr, isRounded){
-    ctx2d.beginPath();
-    if(isRounded && fr > 0){
-        if(ctx2d.roundRect) ctx2d.roundRect(fx, fy, fw, fh, fr);
-        else ctx2d.rect(fx, fy, fw, fh);
-    } else {
-        ctx2d.rect(fx, fy, fw, fh);
-    }
-}
 function safeHex(hex, fallback){
     try { return hexToRgb(hex || fallback); }
     catch(e){ return hexToRgb(fallback); }
@@ -8814,10 +8765,6 @@ LightEngine.master = 0;
 
 
 
-function saberCoreActive(){
-    return false;
-}
-
 function anim(now){
 
     if(_lastAnimTs >= 0 && (now - _lastAnimTs) >= 0 && (now - _lastAnimTs) < 6 && animFrameId){
@@ -8872,15 +8819,12 @@ function anim(now){
         if(removed) unregisterDeadFalling();
     }
 
-    flushChordIfDirty();
-
     if(hasLive) animFrameId=requestAnimationFrame(anim);
     else {
-        animFrameId=null; lastFrameTime=0; smoothAnimDt=1/60; _lastAnimTs=-1; falling.length=0; fallingByMidi.clear();
+        animFrameId=null; lastFrameTime=0; _lastAnimTs=-1; falling.length=0; fallingByMidi.clear();
         if(pressStartTimes.size === 0 && document.body && !document.body.classList.contains('idle-no-notes')){
             document.body.classList.add('idle-no-notes');
         }
-        if(chordDirty) scheduleChordFlush();
     }
 }
 let resizeRaf = null;
@@ -11289,7 +11233,6 @@ function matchChords(midiArr){
     return filterReadableChordResults(deduped, pcs).slice(0,2);
 }
 function formatChord(match){ const rootName=NOTE_NAMES[match.root]; const chordName=rootName+match.suffix; if(match.isInversion&&match.bassNote!==match.root) return chordName+'/'+NOTE_NAMES[match.bassNote]; return chordName; }
-let _lastChordNoteKey = '';
 const _chordMidiScratch = new Int16Array(32);
 let _chordMidiScratchLen = 0;
 let _chordKeyHash = 0;
@@ -11977,11 +11920,6 @@ midiBtn.onclick = (e) => {
     }
     if(window.LightEngine && window.LightEngine.subscribe){
         window.LightEngine.subscribe(applyKeysGlowFromEngine);
-        window.LightEngine.subscribe(() => {
-            if(typeof ensureAnimLoop === 'function' && typeof saberCoreActive === 'function' && saberCoreActive()){
-                ensureAnimLoop();
-            }
-        });
     }
     applyKeysGlowFromEngine();
 
@@ -12367,15 +12305,11 @@ midiBtn.onclick = (e) => {
         return Number.isInteger(number) && number > 0 ? '#' + number : '';
     }
 
-    function formatMpPublicUserId(value){
-        return formatMpSequentialId(value);
-    }
-
     function normalizeHomeProfile(uid, data = {}){
         const badge = getProfileBadge(data.badgeId || 'common');
         const publicId = Number(data.publicId || 0);
         const validPublicId = Number.isInteger(publicId) && publicId > 0 ? publicId : 0;
-        const userId = formatMpPublicUserId(data.userId || validPublicId);
+        const userId = formatMpSequentialId(data.userId || validPublicId);
         return {
             uid:String(uid || data.uid || ''),
             name:sanitizeText(data.name || data.displayName, 'Papiano User').slice(0, 24),
