@@ -8442,6 +8442,18 @@ function normalizeFallingOverrideColor(value){
 function addFallingNote(n, options = {}){
     n = Number(n);
     if(!Number.isFinite(n) || n < 21 || n > 108) return;
+    // Release any existing growing notes with same midi+owner to prevent stuck notes at fast tempos
+    const ownerId = options.ownerId || null;
+    const ownerStr = ownerId == null ? '' : String(ownerId);
+    const existing = fallingByMidi.get(n);
+    if(existing){
+        for(let i=0;i<existing.length;i++){
+            const e = existing[i];
+            if(e && e.growing && (e.ownerId == null ? '' : String(e.ownerId)) === ownerStr){
+                e.growing = false;
+            }
+        }
+    }
     const now = performance.now();
     const remote = !!options.remote;
     const remoteLevel = options.remoteLevel === 'full' ? 'full' : 'light';
