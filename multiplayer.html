@@ -3767,12 +3767,12 @@ body.mp-chat-keyboard .mp-chat-panel{
 }
 .mp-profile .mp-avatar{ width:38px; height:38px; font-size:0; }
 .mp-profile-name{ font-size:14px; font-weight:900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.mp-profile-role{ margin-top:5px; display:inline-flex; align-items:center; width:max-content; max-width:100%; padding:4px 10px; border-radius:999px; background:#444; border:none; color:#ccc; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; }
-.mp-profile-role[data-rarity="common"]{ background:#1e6b35; color:#a8ffb0; }
-.mp-profile-role[data-rarity="uncommon"]{ background:#1a5cb5; color:#a8d4ff; }
-.mp-profile-role[data-rarity="rare"]{ background:#5b2bb0; color:#d4aaff; }
-.mp-profile-role[data-rarity="epic"]{ background:#b01a2a; color:#ffaaaa; }
-.mp-profile-role[data-rarity="legendary"]{ background:#8a6500; color:#ffe680; }
+.mp-profile-role{ margin-top:5px; display:inline-flex; align-items:center; width:max-content; max-width:100%; padding:4px 10px; border-radius:999px; background:#4a4a5a; border:none; color:#fff; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; }
+.mp-profile-role[data-rarity="common"]{ background:#4a4a5a; color:#fff; }
+.mp-profile-role[data-rarity="uncommon"]{ background:#1755b5; color:#fff; }
+.mp-profile-role[data-rarity="rare"]{ background:#6b2fad; color:#fff; }
+.mp-profile-role[data-rarity="epic"]{ background:#c0152a; color:#fff; }
+.mp-profile-role[data-rarity="legendary"]{ background:#9a6e00; color:#fff; }
 .mp-profile-row{
     display:flex;
     justify-content:space-between;
@@ -8587,7 +8587,7 @@ function addFallingNote(n, options = {}){
     ensureAnimLoop();
 }
 function addAnim(n){
-    addFallingNote(n, {});
+    addFallingNote(n, _mpSelfSeatColor ? { color: _mpSelfSeatColor } : {});
 }
 function addRemoteAnim(n, playerId, level, color){
     if(!isAnimOn) return;
