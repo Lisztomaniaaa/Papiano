@@ -9,9 +9,9 @@
 // 3. Create an Email Template with variables: {{to_email}} {{to_name}} {{otp_code}} {{expiry_min}}
 //    Copy Template ID
 // 4. Go to Account → API Keys → copy Public Key
-const _EJS_SERVICE_ID  = 'YOUR_SERVICE_ID';
-const _EJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
-const _EJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';
+const _EJS_SERVICE_ID  = 'service_r2zj9dn';
+const _EJS_TEMPLATE_ID = 'template_yxhiqyo';
+const _EJS_PUBLIC_KEY  = '8sOe4jrGJCBwHhx06';
 
 // ── Allowed email domains ──────────────────────────────────────────────────────
 const _ALLOWED_DOMAINS = new Set([
