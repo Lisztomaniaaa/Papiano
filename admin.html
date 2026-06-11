@@ -218,29 +218,23 @@ tr:hover td{background:var(--s2)}
 
       <!-- ROLES -->
       <div class="page" id="pageRoles">
-        <div class="ph"><div class="pt">Roles</div><div class="ps">Each role has an ID, label, and a color you set directly — no tiers.</div></div>
+        <div class="ph"><div class="pt">Roles</div><div class="ps">Create roles by label only. The internal key is auto-generated from the label.</div></div>
         <div class="card">
           <div class="ct">Current Roles</div>
           <div class="twrap">
             <table>
-              <thead><tr><th>ID</th><th>Label</th><th>Color</th><th>Preview</th><th style="text-align:right">Actions</th></tr></thead>
-              <tbody id="rolesTbody"><tr><td colspan="5" class="lrow">Loading…</td></tr></tbody>
+              <thead><tr><th>Label</th><th>Color</th><th>Preview</th><th style="text-align:right">Actions</th></tr></thead>
+              <tbody id="rolesTbody"><tr><td colspan="4" class="lrow">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
         <div class="card">
           <div class="ct">Create Role</div>
-          <div class="fgrid">
-            <div class="frow">
-              <label>Role ID <span style="color:var(--faint)">(lowercase, unique)</span></label>
-              <input class="fc" id="nRoleId" placeholder="e.g. vip" maxlength="30">
-            </div>
-            <div class="frow">
-              <label>Display Label</label>
-              <input class="fc" id="nRoleLabel" placeholder="e.g. VIP" maxlength="28">
-            </div>
-          </div>
           <div class="frow">
+            <label>Role Label</label>
+            <input class="fc" id="nRoleLabel" placeholder="e.g. VIP" maxlength="28" oninput="updateColorPreview()">
+          </div>
+          <div class="frow" style="margin-top:10px">
             <label>Badge Color</label>
             <div class="color-row">
               <input type="color" class="color-input" id="nRoleColor" value="#4d90ff" oninput="updateColorPreview()">
@@ -486,14 +480,13 @@ async function loadRoles() {
 function renderRolesTable() {
   const tbody = document.getElementById('rolesTbody');
   const keys = Object.keys(allRoles).sort();
-  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="5" class="lrow">No roles. Create one below.</td></tr>'; return; }
+  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="4" class="lrow">No roles. Create one below.</td></tr>'; return; }
   tbody.innerHTML = keys.map(id => {
     const r = allRoles[id];
     const color = r.color || '#888888';
     const label = r.label || id.toUpperCase();
     const textColor = luminance(color) > 128 ? '#06111f' : '#ffffff';
     return `<tr>
-      <td><code style="color:var(--accent);font-size:12px">${x(id)}</code></td>
       <td style="font-weight:700">${x(label)}</td>
       <td><span style="font-family:monospace;font-size:12px;color:var(--muted)">${x(color)}</span></td>
       <td><span class="bp-pill" style="background:${x(color)};color:${textColor};border-color:rgba(0,0,0,.25)">${x(label)}</span></td>
@@ -517,7 +510,7 @@ function renderGiftSelect() {
   const sel = document.getElementById('giftSel');
   sel.innerHTML = '<option value="">— select role —</option>' + Object.keys(allRoles).sort().map(id => {
     const r = allRoles[id];
-    return `<option value="${x(id)}">${x(r.label||id.toUpperCase())} (${x(id)})</option>`;
+    return `<option value="${x(id)}">${x(r.label||id.toUpperCase())}</option>`;
   }).join('');
 }
 
@@ -530,19 +523,18 @@ window.updateColorPreview = function() {
   const label = document.getElementById('nRoleLabel').value || 'LABEL';
   sw.textContent = label.toUpperCase().slice(0,8);
 };
-document.getElementById('nRoleLabel').addEventListener('input', window.updateColorPreview);
 
 window.createRole = async function() {
-  const id = document.getElementById('nRoleId').value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'');
-  const label = document.getElementById('nRoleLabel').value.trim().toUpperCase();
+  const rawLabel = document.getElementById('nRoleLabel').value.trim();
+  const label = rawLabel.toUpperCase();
   const color = document.getElementById('nRoleColor').value;
-  if (!id) { toast('Role ID required', 'err'); return; }
   if (!label) { toast('Label required', 'err'); return; }
-  if (!color) { toast('Color required', 'err'); return; }
+  // Auto-derive key from label: lowercase, spaces→underscore, strip non-alphanumeric
+  const id = rawLabel.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  if (!id) { toast('Label must contain letters or numbers', 'err'); return; }
   try {
     await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB, `roles/${id}`), { label, color, createdAt: Date.now() });
     toast(`Role "${label}" created`, 'ok');
-    document.getElementById('nRoleId').value = '';
     document.getElementById('nRoleLabel').value = '';
     document.getElementById('nRoleColor').value = '#4d90ff';
     window.updateColorPreview();
@@ -552,7 +544,7 @@ window.createRole = async function() {
 
 window.openDelRole = function(id, label) {
   pendingDelRoleId = id;
-  document.getElementById('delRoleName').textContent = `${label} (${id})`;
+  document.getElementById('delRoleName').textContent = label;
   open('mDelRole');
 };
 window.doDeleteRole = async function() {
