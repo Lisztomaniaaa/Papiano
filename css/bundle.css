@@ -1268,6 +1268,11 @@ select.form-input-control::-ms-expand{display:none}
   flex-direction:column;
   gap:6px;
 }
+#annExtraFields .chat-selected-image-preview{
+  flex:0 0 auto;
+  width:100%;
+  margin-bottom:2px;
+}
 .ann-title-input{
   width:100%;
   background:transparent;
