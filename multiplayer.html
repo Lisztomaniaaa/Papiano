@@ -12402,7 +12402,8 @@ midiBtn.onclick = (e) => {
                     const label = String(role?.label || role?.name || roleId).trim().slice(0, 28) || roleId.toUpperCase();
                     const rarity = String(role?.rarity || 'member').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '') || 'member';
                     const color = typeof role?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(role.color) ? role.color : null;
-                    mpRoleRegistry[roleId] = { id:roleId, label, rarity, color };
+                    const permissions = Array.isArray(role?.permissions) ? role.permissions : [];
+                    mpRoleRegistry[roleId] = { id:roleId, label, rarity, color, permissions };
                 });
                 renderSearch();
                 renderRoomChrome();
@@ -13561,8 +13562,26 @@ midiBtn.onclick = (e) => {
         replaceMpHistory('multiHome');
     }
 
+    function mpSelfHasPermission(permName){
+        try{
+            const selfData = roomPlayersByRoom[currentRoom?.id]?.[mpSelfId];
+            const badgeId = String(selfData?.badgeId||'common');
+            const role = mpRoleRegistry[badgeId] || mpRoleRegistry.common || {};
+            return Array.isArray(role.permissions) && role.permissions.includes(permName);
+        }catch(e){ return false; }
+    }
     function canModeratePlayer(player){
-        return !!player && isInPianoRoom() && isRoomOwner() && player.id !== currentUser().id && currentRoom && player.room === currentRoom.id && !getState(player.id).banned;
+        if(!player || !isInPianoRoom() || !currentRoom) return false;
+        if(player.id === currentUser().id) return false;
+        if(player.room !== currentRoom.id) return false;
+        if(getState(player.id).banned) return false;
+        return isRoomOwner() || mpSelfHasPermission('kick_player') || mpSelfHasPermission('ban_user') || mpSelfHasPermission('mute_chat') || mpSelfHasPermission('mute_playing');
+    }
+    function canKickPlayer(player){
+        return canModeratePlayer(player) && (isRoomOwner() || mpSelfHasPermission('kick_player') || mpSelfHasPermission('ban_user'));
+    }
+    function canMutePlayer(player){
+        return canModeratePlayer(player) && (isRoomOwner() || mpSelfHasPermission('mute_chat') || mpSelfHasPermission('mute_playing'));
     }
 
     function showLayer(screen='home', options = {}){

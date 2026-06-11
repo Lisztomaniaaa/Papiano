@@ -1224,3 +1224,94 @@ select.form-input-control::-ms-expand{display:none}
   }
   .chat-input-bar{padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
 }
+
+/* ===== Announcement Channel Styles ===== */
+
+/* Announcement post cards */
+.ann-post-card{
+  background:rgba(255,255,255,0.92);
+  border:1px solid rgba(6,17,31,0.14);
+  border-radius:16px;
+  padding:16px;
+  margin:6px 12px;
+  box-shadow:0 2px 8px rgba(6,17,31,0.08);
+  cursor:pointer;
+  transition:box-shadow .15s;
+}
+.ann-post-card:hover{box-shadow:0 4px 16px rgba(6,17,31,0.13)}
+.ann-post-card.active-actions .msg-action-strip{display:flex}
+.ann-post-author{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ann-post-name{font-size:13px;font-weight:700;color:#06111f;display:block}
+.ann-post-time{font-size:11px;color:rgba(6,17,31,0.55);margin-left:2px}
+.ann-post-title{font-size:17px;font-weight:800;color:#06111f;margin-bottom:8px;letter-spacing:-.02em;line-height:1.25}
+.ann-post-body{font-size:14px;color:rgba(6,17,31,0.82);line-height:1.6;white-space:pre-wrap;word-break:break-word;margin-bottom:8px}
+.ann-post-deleted{font-size:13px;color:rgba(6,17,31,0.42);font-style:italic;margin-bottom:8px}
+.ann-post-image{width:100%;border-radius:10px;margin-top:8px;max-height:360px;object-fit:cover;display:block}
+
+/* Poll styles */
+.ann-poll{margin-top:12px;background:rgba(0,91,255,0.06);border:1px solid rgba(0,91,255,0.18);border-radius:12px;padding:12px}
+.ann-poll-q{font-size:14px;font-weight:700;color:#06111f;margin-bottom:10px;line-height:1.35}
+.ann-poll-opt{display:flex;align-items:center;position:relative;width:100%;text-align:left;padding:9px 12px;border-radius:8px;border:1.5px solid rgba(6,17,31,0.14);background:#fff;cursor:pointer;margin-bottom:7px;overflow:hidden;font-size:13px;font-weight:600;color:#06111f;transition:border-color .15s}
+.ann-poll-opt:hover{border-color:rgba(0,91,255,0.4)}
+.ann-poll-opted,.ann-poll-voted{border-color:#005BFF;background:rgba(0,91,255,0.06)}
+.ann-poll-bar{position:absolute;left:0;top:0;bottom:0;background:rgba(0,91,255,0.12);border-radius:8px;transition:width .4s ease;z-index:0}
+.ann-poll-otext{flex:1;position:relative;z-index:1}
+.ann-poll-pct{font-size:11px;color:rgba(6,17,31,0.55);font-weight:700;position:relative;z-index:1;min-width:32px;text-align:right}
+.ann-poll-meta{font-size:11px;color:rgba(6,17,31,0.45);margin-top:8px;text-align:right}
+
+/* Announcement composer fields */
+#annExtraFields{
+  width:100%;
+  padding:8px 12px 6px;
+  border-bottom:1px solid rgba(6,17,31,0.10);
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.ann-title-input{
+  width:100%;
+  background:transparent;
+  border:none;
+  border-bottom:1px solid rgba(6,17,31,0.18);
+  color:#06111f;
+  font-size:14px;
+  font-weight:700;
+  padding:4px 2px;
+  outline:none;
+  font-family:inherit;
+}
+.ann-title-input::placeholder{color:rgba(6,17,31,0.35);font-weight:500}
+#annPollArea{
+  background:rgba(0,91,255,0.05);
+  border:1px solid rgba(0,91,255,0.2);
+  border-radius:10px;
+  padding:10px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.ann-poll-q-input{
+  width:100%;
+  background:rgba(255,255,255,0.7);
+  border:1px solid rgba(6,17,31,0.18);
+  border-radius:7px;
+  color:#06111f;
+  font-size:13px;
+  font-weight:600;
+  padding:7px 10px;
+  outline:none;
+  font-family:inherit;
+}
+.ann-poll-opt-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.ann-poll-opt-input{flex:1;background:rgba(255,255,255,0.7);border:1px solid rgba(6,17,31,0.15);border-radius:7px;color:#06111f;font-size:13px;padding:6px 9px;outline:none;font-family:inherit}
+.ann-rm-opt-btn{width:24px;height:24px;border-radius:50%;border:1px solid rgba(6,17,31,0.2);background:transparent;color:rgba(6,17,31,0.5);cursor:pointer;font-size:16px;line-height:1;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#annAddOptBtn{font-size:11px;font-weight:700;background:none;border:1px dashed rgba(0,91,255,0.4);color:rgba(0,91,255,0.8);padding:5px 12px;border-radius:6px;cursor:pointer;font-family:inherit;align-self:flex-start}
+#annPollToggleBtn.active{background:rgba(0,91,255,0.12) !important;color:#005BFF !important}
+
+/* Dark mode overrides for announcement channel */
+@media (prefers-color-scheme:dark){
+  .ann-post-card{background:rgba(14,26,46,0.95);border-color:rgba(255,255,255,0.1);color:#e2eaf8}
+  .ann-post-title,.ann-post-name,.ann-post-body,.ann-poll-q{color:#e2eaf8}
+  .ann-poll{background:rgba(0,91,255,0.1);border-color:rgba(0,91,255,0.3)}
+  .ann-poll-opt{background:rgba(14,26,46,0.8);border-color:rgba(255,255,255,0.12);color:#e2eaf8}
+}

@@ -125,7 +125,7 @@ tr:hover td{background:var(--s2)}
 .toast.inf{border-color:var(--accent);color:var(--accent)}
 @keyframes tsi{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
 
-.color-row{display:flex;align-items:center;gap:10px}
+.color-row{display:flex;align-items:center;gap:10px}.perm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-top:4px}.perm-cb{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--bd2);border-radius:7px;padding:7px 10px;cursor:pointer;transition:border-color .15s;user-select:none}.perm-cb:hover{border-color:var(--accent)}.perm-cb input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0}.perm-cb-label{font-size:12px;font-weight:600;color:var(--text)}.perm-list-item{display:inline-flex;align-items:center;gap:4px;background:rgba(77,144,255,.12);border:1px solid rgba(77,144,255,.3);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700;color:var(--accent);margin:2px}.perm-none{font-size:11px;color:var(--faint);font-style:italic}
 .color-input{width:44px;height:36px;border-radius:7px;border:1px solid var(--bd2);padding:2px;background:var(--s2);cursor:pointer;flex-shrink:0}
 .color-preview{font-size:12px;color:var(--muted);font-family:monospace}
 
@@ -223,7 +223,7 @@ tr:hover td{background:var(--s2)}
           <div class="ct">Current Roles</div>
           <div class="twrap">
             <table>
-              <thead><tr><th>Label</th><th>Color</th><th>Preview</th><th style="text-align:right">Actions</th></tr></thead>
+              <thead><tr><th>Label</th><th>Color</th><th>Preview</th><th>Permissions</th><th style="text-align:right">Actions</th></tr></thead>
               <tbody id="rolesTbody"><tr><td colspan="4" class="lrow">Loading…</td></tr></tbody>
             </table>
           </div>
@@ -241,6 +241,10 @@ tr:hover td{background:var(--s2)}
               <span class="color-preview" id="colorPreview">#4d90ff</span>
               <div id="colorSwatch" style="width:80px;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:900;text-align:center;background:#4d90ff;color:#fff">LABEL</div>
             </div>
+          </div>
+          <div class="frow" style="margin-top:10px">
+            <label>Permissions</label>
+            <div class="perm-grid" id="createPermGrid"></div>
           </div>
           <div class="faction">
             <button class="btn bp" onclick="createRole()">Create Role</button>
@@ -341,6 +345,22 @@ tr:hover td{background:var(--s2)}
   </div>
 </div>
 
+<!-- Edit Role Modal -->
+<div class="modal-bg" id="mEditRole">
+  <div class="modal">
+    <h3>Edit Role Permissions</h3>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Role: <strong id="editRoleName">—</strong></p>
+    <div class="frow">
+      <label>Permissions</label>
+      <div class="perm-grid" id="editPermGrid"></div>
+    </div>
+    <div class="mfooter">
+      <button class="btn bgh" onclick="close('mEditRole')">Cancel</button>
+      <button class="btn bp" onclick="doEditRole()">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Delete Role Modal -->
 <div class="modal-bg" id="mDelRole">
   <div class="modal">
@@ -379,6 +399,35 @@ const CONFIG = {
   storageBucket:'papianoverse.appspot.com'
 };
 const RTDB_ROOT = 'papianoOnlineBeta';
+const PERMISSIONS = [
+  {id:'write_announcement', label:'Post Announcements'},
+  {id:'delete_any_message', label:'Delete Any Message'},
+  {id:'mute_chat', label:'Mute Chat'},
+  {id:'mute_playing', label:'Mute Playing'},
+  {id:'kick_player', label:'Kick Player'},
+  {id:'ban_user', label:'Ban User'},
+  {id:'manage_rooms', label:'Manage Rooms'},
+];
+function renderPermGrid(containerId, selectedIds = []) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = PERMISSIONS.map(p =>
+    `<label class="perm-cb">
+      <input type="checkbox" id="perm_${x(p.id)}" value="${x(p.id)}" ${selectedIds.includes(p.id)?'checked':''}>
+      <span class="perm-cb-label">${x(p.label)}</span>
+    </label>`
+  ).join('');
+}
+function getCheckedPerms(containerId) {
+  return PERMISSIONS.filter(p => document.getElementById('perm_'+p.id)?.checked).map(p => p.id);
+}
+function renderPermPills(perms) {
+  if (!Array.isArray(perms) || !perms.length) return '<span class="perm-none">None</span>';
+  return perms.map(pid => {
+    const p = PERMISSIONS.find(p => p.id === pid);
+    return p ? `<span class="perm-list-item">${x(p.label)}</span>` : '';
+  }).join('');
+}
 const DON_GOAL = 100;
 // Allowed admin emails (always granted access regardless of role)
 const ADMIN_EMAILS = new Set(['utamairfan44@gmail.com','akunpolos0444000@gmail.com','papianobase@gmail.com']);
@@ -475,6 +524,7 @@ async function loadRoles() {
   renderDashRoles();
   renderGiftSelect();
   document.getElementById('stRoles').textContent = Object.keys(allRoles).length;
+  renderPermGrid('createPermGrid', []);
 }
 
 function renderRolesTable() {
@@ -490,7 +540,8 @@ function renderRolesTable() {
       <td style="font-weight:700">${x(label)}</td>
       <td><span style="font-family:monospace;font-size:12px;color:var(--muted)">${x(color)}</span></td>
       <td><span class="bp-pill" style="background:${x(color)};color:${textColor};border-color:rgba(0,0,0,.25)">${x(label)}</span></td>
-      <td class="tda"><button class="btn br bsm" onclick="openDelRole('${x(id)}','${x(label)}')">Delete</button></td>
+      <td>${renderPermPills(r.permissions||[])}</td>
+      <td class="tda"><button class="btn bp bsm" onclick="openEditRole('${x(id)}','${x(label)}')">Edit</button><button class="btn br bsm" onclick="openDelRole('${x(id)}','${x(label)}')">Delete</button></td>
     </tr>`;
   }).join('');
 }
@@ -533,7 +584,8 @@ window.createRole = async function() {
   const id = rawLabel.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
   if (!id) { toast('Label must contain letters or numbers', 'err'); return; }
   try {
-    await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB, `roles/${id}`), { label, color, createdAt: Date.now() });
+    const permissions = getCheckedPerms('createPermGrid');
+    await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB, `roles/${id}`), { label, color, permissions, createdAt: Date.now() });
     toast(`Role "${label}" created`, 'ok');
     document.getElementById('nRoleLabel').value = '';
     document.getElementById('nRoleColor').value = '#4d90ff';
@@ -542,6 +594,23 @@ window.createRole = async function() {
   } catch(e) { toast('Failed: ' + e.message, 'err'); }
 };
 
+window.openEditRole = function(id, label) {
+  pendingDelRoleId = id;
+  document.getElementById('editRoleName').textContent = label;
+  const currentPerms = (allRoles[id]?.permissions) || [];
+  renderPermGrid('editPermGrid', currentPerms);
+  open('mEditRole');
+};
+window.doEditRole = async function() {
+  if (!pendingDelRoleId) return;
+  const permissions = getCheckedPerms('editPermGrid');
+  try {
+    await fbR.rtdbMod.update(fbR.rtdbMod.ref(RTDB, `roles/${pendingDelRoleId}`), { permissions });
+    toast('Permissions updated', 'ok');
+    close('mEditRole');
+    await loadRoles();
+  } catch(e) { toast('Failed: ' + e.message, 'err'); }
+};
 window.openDelRole = function(id, label) {
   pendingDelRoleId = id;
   document.getElementById('delRoleName').textContent = label;
