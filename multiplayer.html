@@ -9599,9 +9599,9 @@ function getDefaultPianoHeightPercent(){
     const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
     const vw = window.innerWidth;
     const isTouch = window.matchMedia('(pointer:coarse)').matches;
-    if(!isTouch) return Math.min(25, Math.round(250 / vh * 100));
-    if(vw > vh) return 20;
-    return Math.min(30, Math.max(22, Math.round(180 / vh * 100)));
+    if(!isTouch) return Math.min(28, Math.max(18, Math.round(230 / vh * 100)));
+    if(vw > vh) return 28;
+    return Math.min(42, Math.max(32, Math.round(340 / vh * 100)));
 }
 function applyFactoryDefaults(clearSavedState){
     wCount = 52;
