@@ -14383,7 +14383,15 @@ midiBtn.onclick = (e) => {
         if(badgeEl){
             const badge = getProfileBadge(player.badgeId);
             badgeEl.textContent = badge.label;
-            badgeEl.className = 'mp-lobby-badge-pill mp-lobby-badge-' + (badge.rarity || 'common');
+            if(badge.color && /^#[0-9a-fA-F]{6}$/.test(badge.color)){
+                const[cr,cg,cb]=[badge.color.slice(1,3),badge.color.slice(3,5),badge.color.slice(5,7)].map(v=>parseInt(v,16));
+                const ink=(cr*299+cg*587+cb*114)/1000>128?'#06111f':'#fff';
+                badgeEl.style.cssText=`background:${badge.color};color:${ink};border-color:transparent`;
+                badgeEl.className='mp-lobby-badge-pill';
+            } else {
+                badgeEl.style.cssText='';
+                badgeEl.className='mp-lobby-badge-pill mp-lobby-badge-'+(badge.rarity||'common');
+            }
         }
         if(flagEl){
             const country = profileCountryText(player);
@@ -14449,7 +14457,15 @@ midiBtn.onclick = (e) => {
                 if(badgeEl){
                     const badge = getProfileBadge(fresh.badgeId);
                     badgeEl.textContent = badge.label;
-                    badgeEl.className = 'mp-lobby-badge-pill mp-lobby-badge-' + (badge.rarity || 'common');
+                    if(badge.color && /^#[0-9a-fA-F]{6}$/.test(badge.color)){
+                        const[cr,cg,cb]=[badge.color.slice(1,3),badge.color.slice(3,5),badge.color.slice(5,7)].map(v=>parseInt(v,16));
+                        const ink=(cr*299+cg*587+cb*114)/1000>128?'#06111f':'#fff';
+                        badgeEl.style.cssText=`background:${badge.color};color:${ink};border-color:transparent`;
+                        badgeEl.className='mp-lobby-badge-pill';
+                    } else {
+                        badgeEl.style.cssText='';
+                        badgeEl.className='mp-lobby-badge-pill mp-lobby-badge-'+(badge.rarity||'common');
+                    }
                 }
                 if(idEl) idEl.textContent = fresh.displayUserId || fresh.userId || '—';
                 if(bioEl) bioEl.textContent = fresh.bio || '—';
