@@ -12126,6 +12126,8 @@ midiBtn.onclick = (e) => {
     const ROOM_EMPTY_DELETE_DELAY_MS = 250;
     const ROOM_PLAYER_STALE_MS = 45000;
     const ROOM_HEARTBEAT_MS = 20000;
+    const ONLINE_STALE_MS = 3 * 60 * 1000; // 3 min TTL — user missed 9+ heartbeats = truly offline
+    const GLOBAL_HEARTBEAT_MS = 55000; // lobby presence heartbeat (55s, well within 3-min TTL)
     const CHAT_MAX_LENGTH = 300;
     const CHAT_COOLDOWN_MS = 1200;
     const CHAT_BURST_WINDOW_MS = 10000;
@@ -12209,6 +12211,7 @@ midiBtn.onclick = (e) => {
     const staleRoomPlayerCleanup = new Set();
     let searchDebounceTimer = 0;
     let roomPresenceTimer = 0;
+    let globalPresenceTimer = 0;
     let roomStreamSeq = 0;
     let roomStreamSessionId = '';
     let roomStreamJoinCutoff = 0;
@@ -12391,6 +12394,7 @@ midiBtn.onclick = (e) => {
         banWatcherUnsubscribe = dbApi.onValue(banRef, snap => {
             if(snap.val()?.deleted){
                 try{ banWatcherUnsubscribe?.(); }catch(e){}
+                try{ writeSelfUser({ online:false, room:null }); }catch(e){}
                 try{ authApi.signOut(firebaseAuth); }catch(e){}
                 window.location.assign('/');
             }
@@ -13661,6 +13665,23 @@ midiBtn.onclick = (e) => {
         roomPresenceTimer = 0;
     }
 
+    function touchGlobalPresence(){
+        if(!firebaseReady || !dbApi || !mpSelfId || mpSelfId === 'local_self') return;
+        const now = Date.now();
+        dbApi.update(dbRef(`users/${mpSelfId}`), { online:true, lastSeen:now, updatedAt:now }).catch(() => {});
+    }
+
+    function startGlobalPresenceHeartbeat(){
+        if(globalPresenceTimer) clearInterval(globalPresenceTimer);
+        touchGlobalPresence();
+        globalPresenceTimer = window.setInterval(touchGlobalPresence, GLOBAL_HEARTBEAT_MS);
+    }
+
+    function stopGlobalPresenceHeartbeat(){
+        if(globalPresenceTimer) clearInterval(globalPresenceTimer);
+        globalPresenceTimer = 0;
+    }
+
     function renderRooms(){
         syncAuthUi();
         const list = visibleRooms().slice(0, MAX_ROOMS);
@@ -13731,14 +13752,14 @@ midiBtn.onclick = (e) => {
             }).filter(player => isAuthenticatedDisplayPlayer(player));
         }else{
             const source = currentRoom ? activePlayers() : players;
-            list = source.filter(player => isAuthenticatedDisplayPlayer(player) && player.online === true);
+            list = source.filter(player => isAuthenticatedDisplayPlayer(player) && player.online === true && (Date.now() - (player.lastSeen || 0)) < ONLINE_STALE_MS);
         }
 
         list = list.sort((a,b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
 
         const emptyText = mode === 'friends' ? 'No friends yet.' : 'No online players.';
         searchResults.innerHTML = list.map(player => {
-            const isOnline = player.online === true;
+            const isOnline = player.online === true && (Date.now() - (player.lastSeen || 0)) < ONLINE_STALE_MS;
             const statusText = isOnline ? 'Online' : 'Offline';
             const statusClass = isOnline ? 'online' : 'offline';
             const meta = [player.displayUserId || player.userId, player.id === mpSelfId ? 'You' : (mode === 'friends' ? 'Friend' : ''), player.room ? 'In room' : ''].filter(Boolean).join(' · ');
@@ -15815,11 +15836,13 @@ midiBtn.onclick = (e) => {
         mpPlayTimePending = 0;
         mpPlayTimeRemoteSyncedAt = 0;
         startMpPlayTimeTracker();
+        startGlobalPresenceHeartbeat();
         refreshAll();
         return self;
     }
 
     function resetAuthenticatedUser(){
+        stopGlobalPresenceHeartbeat();
         pauseMpPlayTimeTracker(true);
         mpPlayTimeBaseSeconds = 0;
         mpPlayTimePending = 0;
