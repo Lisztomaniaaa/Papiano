@@ -195,6 +195,20 @@ function authOtpInput(el, idx) {
     if (idx === 5 && el.value && _getOtpValue().length === 6) setTimeout(authCheckOtp, 80);
 }
 
+function authOtpPaste(e, el, idx) {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    const digits = text.replace(/\D/g, '').slice(0, 6 - idx);
+    if (!digits) return;
+    for (let i = 0; i < digits.length; i++) {
+        const box = document.getElementById('authOtp' + (idx + i));
+        if (box) { box.value = digits[i]; box.classList.remove('otp-error'); box.classList.add('otp-filled'); }
+    }
+    const lastIdx = Math.min(idx + digits.length - 1, 5);
+    document.getElementById('authOtp' + lastIdx)?.focus();
+    if (idx + digits.length >= 6) setTimeout(authCheckOtp, 80);
+}
+
 function authOtpKey(e, el, idx) {
     if (e.key === 'Backspace' && !el.value && idx > 0) {
         const prev = document.getElementById('authOtp' + (idx - 1));
@@ -440,10 +454,10 @@ async function authCheckOtp() {
         // updateProfile immediately to set displayName before ensureUserProfile race
         await cred.user.updateProfile({ displayName: name });
 
-        // Write name directly to Firestore with merge — overwrites any 'Papiano User' from race
+        // Write name to Firestore profiles collection — overwrites any 'Papiano User' from race
         if (typeof firestoreDb !== 'undefined' && firestoreDb && name) {
             try {
-                await firestoreDb.collection('users').doc(cred.user.uid).set(
+                await firestoreDb.collection('profiles').doc(cred.user.uid).set(
                     { name: name, searchName: name.toLowerCase() },
                     { merge: true }
                 );
@@ -492,6 +506,45 @@ async function authResendOtp() {
         _showErr('authVerifyErr', err.message || _friendly(err));
     }
 }
+
+// ── Delete account — email re-auth wrapper ─────────────────────────────────────
+// Patches deletePapianoAccount() to handle email/password re-authentication
+// (Firebase requires recent login before user.delete())
+(function () {
+    function patch() {
+        const orig = window.deletePapianoAccount;
+        if (typeof orig !== 'function') return;
+        window.deletePapianoAccount = async function () {
+            const user = typeof firebaseAuth !== 'undefined' ? firebaseAuth?.currentUser : null;
+            if (user?.email) {
+                let methods = [];
+                try { methods = await firebaseAuth.fetchSignInMethodsForEmail(user.email); } catch (_) {}
+                if (methods.includes('password')) {
+                    const wrap = document.getElementById('accountDeletePasswordWrap');
+                    const passEl = document.getElementById('accountDeletePasswordInput');
+                    const pass = passEl?.value?.trim() || '';
+                    if (!pass) {
+                        if (wrap) wrap.style.display = '';
+                        passEl?.focus();
+                        if (typeof showToast === 'function') showToast('Enter your password to confirm deletion.', 'Required');
+                        return;
+                    }
+                    try {
+                        const cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
+                        await user.reauthenticateWithCredential(cred);
+                    } catch (_) {
+                        if (passEl) passEl.value = '';
+                        if (typeof showToast === 'function') showToast('Incorrect password. Account not deleted.', 'Error');
+                        return;
+                    }
+                }
+            }
+            return orig.call(window);
+        };
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', patch);
+    else setTimeout(patch, 500); // defer so app.min.js defines deletePapianoAccount first
+})();
 
 // ── Password reset ─────────────────────────────────────────────────────────────
 async function authSendReset() {
