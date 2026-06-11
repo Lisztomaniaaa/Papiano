@@ -5293,6 +5293,90 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     .mp-reply:hover{ filter:brightness(1.18); }
     .mp-message-text, .mp-message-meta{ -webkit-user-select:text; user-select:text; }
 }
+
+/* ===== multiplayer sizing fixes (2026-06-11) ===== */
+
+/* 1–3: Home desktop — max-width container, 3-col grid, card height */
+@media (min-width:900px){
+    .mp-screen[data-mp-screen] .mp-room-main,
+    .mp-screen[data-mp-screen] .mp-notice,
+    .mp-screen[data-mp-screen] .mp-home-footer{
+        max-width:1200px;
+        margin-left:auto;
+        margin-right:auto;
+    }
+    .mp-room-card{ min-height:94px; }
+}
+@media (min-width:1280px){
+    .mp-room-list{ grid-template-columns:repeat(3,minmax(260px,1fr)); }
+}
+
+/* 4: CSS init align — reduce flash gap (JS will override immediately) */
+:root{ --piano-height:26vh; }
+
+/* 5–6: Chat panel desktop — side column right, stage menyempit */
+@media (min-width:900px){
+    .mp-chat-panel{
+        position:absolute !important;
+        top:calc(72px + env(safe-area-inset-top,0px)) !important;
+        right:8px !important;
+        left:auto !important;
+        transform:none !important;
+        bottom:calc(var(--piano-height,26vh) + 8px) !important;
+        width:300px !important;
+        height:auto !important;
+        max-height:none !important;
+        min-height:200px !important;
+    }
+    body.mp-chat-open .stage{
+        margin-right:316px;
+        width:calc(100% - 316px) !important;
+        max-width:calc(var(--desk-stage-max,1760px) - 316px) !important;
+    }
+    body.mp-chat-open #pianoWrap{
+        margin-right:316px;
+        width:calc(100% - 316px) !important;
+        max-width:calc(var(--desk-stage-max,1760px) - 316px) !important;
+    }
+    body.mp-chat-open #swipeStrip{
+        width:calc(min(100%,var(--desk-stage-max,1760px)) - 316px) !important;
+    }
+}
+
+/* 7: Chat preview desktop — align ke piano left edge */
+@media (min-width:900px){
+    .mp-chat-preview{
+        left:max(14px, calc((100vw - 1180px) / 2 + 14px)) !important;
+    }
+}
+@media (min-width:1224px){
+    .mp-chat-preview{
+        left:calc((100vw - 1180px) / 2 + 14px) !important;
+    }
+}
+
+/* 8: Chat preview overflow protection — cap max-height based on remaining viewport */
+.mp-chat-preview{
+    max-height:min(
+        calc(var(--mp-chat-preview-rows,3) * 72px + (var(--mp-chat-preview-rows,3) - 1) * 6px),
+        calc(100dvh - var(--piano-height,26vh) - 84px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))
+    ) !important;
+}
+
+/* 9: Player strip — align ke piano boundary di desktop */
+@media (min-width:900px){
+    .mp-player-strip{
+        left:max(clamp(130px,17vw,174px), calc((100vw - 1180px) / 2 + 174px)) !important;
+        right:max(calc(14px + env(safe-area-inset-right,0px)), calc((100vw - 1180px) / 2 + 14px)) !important;
+    }
+}
+
+/* 10: Floating panel width normalisasi — jangan mengecil di tablet */
+@media (min-width:900px) and (max-width:1599px){
+    .floating-panel{ width:min(340px,calc(100vw - 28px)) !important; }
+    #settingsPanel{ width:min(360px,calc(100vw - 28px)) !important; }
+    #colorPanel{ width:min(350px,calc(100vw - 28px)) !important; }
+}
 </style>
 </head>
 <body class="render-fixed">
@@ -7373,7 +7457,7 @@ let labelMode = 'off';
 let pianoScalePercent = 100;
 let blackKeyWidthPercent = 120;
 let blackKeyHeightPercent = 60;
-let pianoVisibilityPercent = 100;
+let pianoVisibilityPercent = 80;
 
 function getPianoVisualScaleRatio(){
     return 1;
@@ -9511,6 +9595,14 @@ const STORAGE_SCHEMA_VERSION = 2;
 const animModeBtns = { mDef:'default', mRainbow:'rainbow', mDouble:'double' };
 const NO_COLOR="__none";
 const colors=[NO_COLOR,"#ffffff","#00e5ff","#38bdf8","#2979ff","#651fff","#8b5cf6","#ff4081","#ff2d75","#ff1744","#ff6d00","#f7b733","#ffea00","#b2ff59","#00e676"];
+function getDefaultPianoHeightPercent(){
+    const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    const vw = window.innerWidth;
+    const isTouch = window.matchMedia('(pointer:coarse)').matches;
+    if(!isTouch) return Math.min(25, Math.round(250 / vh * 100));
+    if(vw > vh) return 20;
+    return Math.min(30, Math.max(22, Math.round(180 / vh * 100)));
+}
 function applyFactoryDefaults(clearSavedState){
     wCount = 52;
     pendingWCount = 52;
@@ -9518,7 +9610,7 @@ function applyFactoryDefaults(clearSavedState){
     transpose = 0;
     document.getElementById('tVal').innerText = 0;
     currentPianoHeightPx = '';
-    applyPianoHeight(50);
+    applyPianoHeight(getDefaultPianoHeightPercent());
     setPianoScalePercent();
     setBlackKeyWidthPercent(120);
     setBlackKeyHeightPercent(60);
@@ -9969,7 +10061,7 @@ function applySettings(s) {
             }
         }
         const savedPianoHeight = Number(s.pianoHeight);
-        if (Number.isFinite(savedPianoHeight) && savedPianoHeight > 5) { applyPianoHeight(savedPianoHeight); } else { applyPianoHeight(50); }
+        if (Number.isFinite(savedPianoHeight) && savedPianoHeight > 5) { applyPianoHeight(savedPianoHeight); } else { applyPianoHeight(getDefaultPianoHeightPercent()); }
         setPianoScalePercent();
         setBlackKeyWidthPercent(s.blackKeyWidthPercent !== undefined ? s.blackKeyWidthPercent : 120);
         setBlackKeyHeightPercent(s.blackKeyHeightPercent !== undefined ? s.blackKeyHeightPercent : 60);
