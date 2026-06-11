@@ -507,26 +507,42 @@ async function authResendOtp() {
     }
 }
 
-// ── Delete account — email re-auth wrapper ─────────────────────────────────────
-// Patches deletePapianoAccount() to handle email/password re-authentication
-// (Firebase requires recent login before user.delete())
+// ── Delete account — complete override ────────────────────────────────────────
+// Replaces deletePapianoAccount() entirely to fix:
+// 1. closeDeleteAccountModal won't close when accountDeleteBusy=true (original bug)
+// 2. email/password users need reauthenticateWithCredential before user.delete()
+// 3. Google users also re-auth if needed (catches auth/requires-recent-login)
 (function () {
-    function patch() {
-        const orig = window.deletePapianoAccount;
-        if (typeof orig !== 'function') return;
+    function install() {
         window.deletePapianoAccount = async function () {
-            const user = typeof firebaseAuth !== 'undefined' ? firebaseAuth?.currentUser : null;
-            if (user?.email) {
+            const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+            if (!user?.uid) {
+                if (typeof showToast === 'function') showToast('Sign in to manage your account.');
+                return;
+            }
+
+            // Verify account ID
+            const expectedId = (typeof getCurrentPublicIdNumber === 'function') ? getCurrentPublicIdNumber() : null;
+            const idInput    = document.getElementById('accountDeleteIdInput');
+            const enteredId  = (typeof parsePublicIdInput === 'function') ? parsePublicIdInput(idInput?.value || '') : null;
+            if (!expectedId || enteredId !== expectedId) {
+                if (typeof showToast === 'function') showToast('Account ID does not match.');
+                idInput?.focus();
+                return;
+            }
+
+            // Email/password users: require password re-auth
+            if (user.email) {
                 let methods = [];
                 try { methods = await firebaseAuth.fetchSignInMethodsForEmail(user.email); } catch (_) {}
                 if (methods.includes('password')) {
-                    const wrap = document.getElementById('accountDeletePasswordWrap');
+                    const wrap   = document.getElementById('accountDeletePasswordWrap');
                     const passEl = document.getElementById('accountDeletePasswordInput');
-                    const pass = passEl?.value?.trim() || '';
+                    const pass   = (passEl?.value || '').trim();
                     if (!pass) {
                         if (wrap) wrap.style.display = '';
                         passEl?.focus();
-                        if (typeof showToast === 'function') showToast('Enter your password to confirm deletion.', 'Required');
+                        if (typeof showToast === 'function') showToast('Enter your password to confirm.', 'Required');
                         return;
                     }
                     try {
@@ -534,16 +550,69 @@ async function authResendOtp() {
                         await user.reauthenticateWithCredential(cred);
                     } catch (_) {
                         if (passEl) passEl.value = '';
-                        if (typeof showToast === 'function') showToast('Incorrect password. Account not deleted.', 'Error');
+                        if (typeof showToast === 'function') showToast('Incorrect password.', 'Error');
                         return;
                     }
                 }
             }
-            return orig.call(window);
+
+            // Set busy UI
+            const btn = document.getElementById('accountDeleteConfirmBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+
+            const uid = user.uid;
+            try {
+                // Stop background workers
+                ['stopCommunityListeners','stopLeaderboardListeners','stopDeletedAccountWatcher'].forEach(fn => {
+                    if (typeof window[fn] === 'function') try { window[fn](); } catch (_) {}
+                });
+                if (typeof pausePlayTimeTracker === 'function') try { pausePlayTimeTracker(true); } catch (_) {}
+
+                // Mark deleted in Realtime DB (non-fatal)
+                if (typeof realtimeDb !== 'undefined' && realtimeDb) {
+                    await realtimeDb.ref('deletedAccounts/' + uid).set({
+                        deleted: true,
+                        deletedAt: firebase.database.ServerValue.TIMESTAMP
+                    }).catch(() => {});
+                }
+
+                // Wipe Firestore profile (non-fatal)
+                if (typeof firestoreDb !== 'undefined' && firestoreDb) {
+                    await firestoreDb.collection('profiles').doc(uid).set({
+                        deleted: true,
+                        name: 'Deleted Account',
+                        searchName: 'deleted account',
+                        desc: '', photoURL: '', avatarURL: '',
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true }).catch(() => {});
+                }
+
+                // Delete Firebase Auth user (the critical step)
+                await user.delete();
+
+                // Clear local caches
+                try { localStorage.removeItem('papiano_profile_cache_v2'); } catch (_) {}
+                try { localStorage.removeItem('papiano_access_session'); } catch (_) {}
+                try { sessionStorage.clear(); } catch (_) {}
+
+                // Force close modal directly (bypass accountDeleteBusy check)
+                const overlay = document.getElementById('accountDeleteOverlay');
+                if (overlay) { overlay.classList.remove('active', 'is-verify'); overlay.setAttribute('aria-hidden', 'true'); }
+
+                if (typeof showToast === 'function') showToast('Account deleted. You can sign up again with the same email.', 'Done');
+                setTimeout(() => location.reload(), 1800);
+
+            } catch (err) {
+                if (btn) { btn.disabled = false; btn.textContent = 'Delete Account'; }
+                const msg = err?.code === 'auth/requires-recent-login'
+                    ? 'Session expired. Sign out, sign back in, then try again.'
+                    : (err?.message || 'Failed to delete account. Please try again.');
+                if (typeof showToast === 'function') showToast(msg, 'Error');
+            }
         };
     }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', patch);
-    else setTimeout(patch, 500); // defer so app.min.js defines deletePapianoAccount first
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install);
+    else setTimeout(install, 300);
 })();
 
 // ── Password reset ─────────────────────────────────────────────────────────────
