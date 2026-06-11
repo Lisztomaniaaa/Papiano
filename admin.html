@@ -327,7 +327,7 @@ tr:hover td{background:var(--s2)}
     <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Gift a role to <strong id="giftName">—</strong></p>
     <div class="frow"><label>Role</label><select class="fc" id="giftSel"></select></div>
     <div class="mfooter">
-      <button class="btn bgh" onclick="close('mGift')">Cancel</button>
+      <button class="btn bgh" onclick="closeModal('mGift')">Cancel</button>
       <button class="btn bp" onclick="doGiftRole()">Gift Role</button>
     </div>
   </div>
@@ -339,7 +339,7 @@ tr:hover td{background:var(--s2)}
     <h3>Remove Role</h3>
     <p style="color:var(--muted);font-size:13px">Remove role from <strong id="removeName">—</strong>? They will have no role.</p>
     <div class="mfooter">
-      <button class="btn bgh" onclick="close('mRemove')">Cancel</button>
+      <button class="btn bgh" onclick="closeModal('mRemove')">Cancel</button>
       <button class="btn br" onclick="doRemoveRole()">Remove Role</button>
     </div>
   </div>
@@ -355,7 +355,7 @@ tr:hover td{background:var(--s2)}
       <div class="perm-grid" id="editPermGrid"></div>
     </div>
     <div class="mfooter">
-      <button class="btn bgh" onclick="close('mEditRole')">Cancel</button>
+      <button class="btn bgh" onclick="closeModal('mEditRole')">Cancel</button>
       <button class="btn bp" onclick="doEditRole()">Save</button>
     </div>
   </div>
@@ -367,7 +367,7 @@ tr:hover td{background:var(--s2)}
     <h3>Delete Role</h3>
     <p style="color:var(--muted);font-size:13px">Delete role <strong id="delRoleName">—</strong> from Firebase?</p>
     <div class="mfooter">
-      <button class="btn bgh" onclick="close('mDelRole')">Cancel</button>
+      <button class="btn bgh" onclick="closeModal('mDelRole')">Cancel</button>
       <button class="btn br" onclick="doDeleteRole()">Delete</button>
     </div>
   </div>
@@ -379,7 +379,7 @@ tr:hover td{background:var(--s2)}
     <h3>Remove Donation</h3>
     <p style="color:var(--muted);font-size:13px">Remove donation record for <strong id="delDonName">—</strong>? The Supporter role will NOT be auto-removed.</p>
     <div class="mfooter">
-      <button class="btn bgh" onclick="close('mDelDon')">Cancel</button>
+      <button class="btn bgh" onclick="closeModal('mDelDon')">Cancel</button>
       <button class="btn br" onclick="doDeleteDonation()">Remove Record</button>
     </div>
   </div>
@@ -413,13 +413,15 @@ function renderPermGrid(containerId, selectedIds = []) {
   if (!el) return;
   el.innerHTML = PERMISSIONS.map(p =>
     `<label class="perm-cb">
-      <input type="checkbox" id="perm_${x(p.id)}" value="${x(p.id)}" ${selectedIds.includes(p.id)?'checked':''}>
+      <input type="checkbox" value="${x(p.id)}" ${selectedIds.includes(p.id)?'checked':''}>
       <span class="perm-cb-label">${x(p.label)}</span>
     </label>`
   ).join('');
 }
 function getCheckedPerms(containerId) {
-  return PERMISSIONS.filter(p => document.getElementById('perm_'+p.id)?.checked).map(p => p.id);
+  const el = document.getElementById(containerId);
+  if (!el) return [];
+  return [...el.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
 }
 function renderPermPills(perms) {
   if (!Array.isArray(perms) || !perms.length) return '<span class="perm-none">None</span>';
@@ -599,7 +601,7 @@ window.openEditRole = function(id, label) {
   document.getElementById('editRoleName').textContent = label;
   const currentPerms = (allRoles[id]?.permissions) || [];
   renderPermGrid('editPermGrid', currentPerms);
-  open('mEditRole');
+  openModal('mEditRole');
 };
 window.doEditRole = async function() {
   if (!pendingDelRoleId) return;
@@ -607,14 +609,14 @@ window.doEditRole = async function() {
   try {
     await fbR.rtdbMod.update(fbR.rtdbMod.ref(RTDB, `roles/${pendingDelRoleId}`), { permissions });
     toast('Permissions updated', 'ok');
-    close('mEditRole');
+    closeModal('mEditRole');
     await loadRoles();
   } catch(e) { toast('Failed: ' + e.message, 'err'); }
 };
 window.openDelRole = function(id, label) {
   pendingDelRoleId = id;
   document.getElementById('delRoleName').textContent = label;
-  open('mDelRole');
+  openModal('mDelRole');
 };
 window.doDeleteRole = async function() {
   if (!pendingDelRoleId) return;
@@ -623,7 +625,7 @@ window.doDeleteRole = async function() {
     // Cascade: remove this role from all Firestore profiles
     await cascadeRemoveRole(pendingDelRoleId);
     toast('Role deleted + user profiles cleaned', 'ok');
-    close('mDelRole');
+    closeModal('mDelRole');
     await loadRoles();
   } catch(e) { toast('Failed: ' + e.message, 'err'); }
 };
@@ -706,7 +708,7 @@ window.openGift = function(uid, name) {
   pendingGiftUid = uid;
   document.getElementById('giftName').textContent = name;
   renderGiftSelect();
-  open('mGift');
+  openModal('mGift');
 };
 window.doGiftRole = async function() {
   const roleId = document.getElementById('giftSel').value;
@@ -714,7 +716,7 @@ window.doGiftRole = async function() {
   try {
     await setUserRole(pendingGiftUid, roleId);
     toast('Role gifted!', 'ok');
-    close('mGift');
+    closeModal('mGift');
     window.searchUsers();
   } catch(e) { toast('Failed: ' + e.message, 'err'); }
 };
@@ -722,13 +724,13 @@ window.doGiftRole = async function() {
 window.openRemove = function(uid, name) {
   pendingRemoveUid = uid;
   document.getElementById('removeName').textContent = name;
-  open('mRemove');
+  openModal('mRemove');
 };
 window.doRemoveRole = async function() {
   try {
     await clearUserRole(pendingRemoveUid);
     toast('Role removed', 'ok');
-    close('mRemove');
+    closeModal('mRemove');
     window.searchUsers();
   } catch(e) { toast('Failed: ' + e.message, 'err'); }
 };
@@ -836,13 +838,13 @@ window.addDonation = async function() {
 window.openDelDon = function(uid, name) {
   pendingDelDonUid=uid;
   document.getElementById('delDonName').textContent=name;
-  open('mDelDon');
+  openModal('mDelDon');
 };
 window.doDeleteDonation = async function() {
   try {
     await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,`${RTDB_ROOT}/donations/${pendingDelDonUid}`));
     toast('Record removed','ok');
-    close('mDelDon');
+    closeModal('mDelDon');
     await loadDonations();
   } catch(e) { toast('Failed: '+e.message,'err'); }
 };
@@ -914,8 +916,10 @@ window.resetAllUsers = async function() {
 };
 
 /* ── MODALS ── */
-window.open = function(id){ document.getElementById(id).classList.add('open'); };
-window.close = function(id){ document.getElementById(id).classList.remove('open'); };
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+window.openModal = openModal;
+window.closeModal = closeModal;
 document.querySelectorAll('.modal-bg').forEach(el=>{
   el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); });
 });
