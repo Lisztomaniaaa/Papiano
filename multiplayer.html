@@ -12298,6 +12298,8 @@ midiBtn.onclick = (e) => {
         const id = player ? player.id : playerOrId;
         const idStr = String(id || '');
 
+        if(idStr && mpSelfId && idStr === mpSelfId) return '#ffffff';
+
         // Once locked, color never changes during room session
         const locked = _playerColorLock.get(idStr);
         if(locked) return locked;
@@ -15624,11 +15626,9 @@ midiBtn.onclick = (e) => {
                     const seat = Number(data?.seat || 0);
                     if(seat >= 1){
                         _playerSeatCache.set(pid, seat);
-                        // Lock color if not already locked
-                        if(!_playerColorLock.has(pid)){
-                            const seatIdx = playerSeatColorIndex(seat);
-                            if(seatIdx >= 0) _playerColorLock.set(pid, MP_PLAYER_COLORS[seatIdx]);
-                        }
+                        // Always update from authoritative seat data — overrides any stale hash-based lock
+                        const seatIdx = playerSeatColorIndex(seat);
+                        if(seatIdx >= 0) _playerColorLock.set(pid, MP_PLAYER_COLORS[seatIdx]);
                     }
                 });
             }
