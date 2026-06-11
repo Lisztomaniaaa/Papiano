@@ -3,6 +3,11 @@
   "trailingSlash": false,
   "buildCommand": "node stamp-version.js",
   "outputDirectory": ".",
+  "functions": {
+    "api/verify-captcha.js": {
+      "maxDuration": 10
+    }
+  },
   "headers": [
     {
       "source": "/version.json",
