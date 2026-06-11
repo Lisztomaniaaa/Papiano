@@ -559,11 +559,38 @@ window.doDeleteRole = async function() {
   if (!pendingDelRoleId) return;
   try {
     await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB, `roles/${pendingDelRoleId}`));
-    toast('Role deleted', 'ok');
+    // Cascade: remove this role from all Firestore profiles
+    await cascadeRemoveRole(pendingDelRoleId);
+    toast('Role deleted + user profiles cleaned', 'ok');
     close('mDelRole');
     await loadRoles();
   } catch(e) { toast('Failed: ' + e.message, 'err'); }
 };
+
+async function cascadeRemoveRole(roleId) {
+  const { fsMod } = fbR;
+  const col = fsMod.collection(FS, 'profiles');
+  // Batch update users whose badgeId matches
+  const q1 = await fsMod.getDocs(fsMod.query(col, fsMod.where('badgeId','==',roleId)));
+  // Batch update users whose ownedRoles contains roleId
+  const q2 = await fsMod.getDocs(fsMod.query(col, fsMod.where('ownedRoles','array-contains',roleId)));
+  const affected = new Map();
+  q1.docs.forEach(d => affected.set(d.id, { ...d.data(), _ref: d.ref, _clearBadge: true }));
+  q2.docs.forEach(d => {
+    const ex = affected.get(d.id);
+    if (ex) ex._removeOwned = true;
+    else affected.set(d.id, { ...d.data(), _ref: d.ref, _removeOwned: true });
+  });
+  if (affected.size === 0) return;
+  const batch = fsMod.writeBatch(FS);
+  affected.forEach(({ _ref, _clearBadge, _removeOwned }) => {
+    const upd = {};
+    if (_clearBadge) upd.badgeId = null;
+    if (_removeOwned) upd.ownedRoles = fsMod.arrayRemove(roleId);
+    batch.update(_ref, upd);
+  });
+  await batch.commit();
+}
 
 /* ── USERS ── */
 window.searchUsers = async function() {
@@ -761,13 +788,38 @@ window.doDeleteDonation = async function() {
 
 /* ── NUCLEAR ── */
 window.deleteAllRoles = async function() {
-  if (!confirm('Delete ALL roles from Firebase? This cannot be undone.')) return;
+  if (!confirm('Delete ALL roles from Firebase? This cannot be undone.\n\nThis will also remove role data from all user profiles.')) return;
   try {
+    // Get all role IDs first so we can cascade
+    const snap = await fbR.rtdbMod.get(fbR.rtdbMod.ref(RTDB,'roles'));
+    const roleIds = snap.exists() ? Object.keys(snap.val()) : [];
     await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,'roles'));
-    toast('All roles deleted','ok');
+    // Cascade: clear badgeId + ownedRoles on ALL users
+    await resetAllUserRoleData();
+    toast(`All roles deleted (${roleIds.length} role defs + all user profiles cleaned)`,'ok');
     await loadRoles();
   } catch(e) { toast('Failed: '+e.message,'err'); }
 };
+
+async function resetAllUserRoleData() {
+  const { fsMod } = fbR;
+  let cursor = null;
+  let total = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    let q = fsMod.query(fsMod.collection(FS,'profiles'), fsMod.limit(400));
+    if (cursor) q = fsMod.query(fsMod.collection(FS,'profiles'), fsMod.startAfter(cursor), fsMod.limit(400));
+    const snap = await fsMod.getDocs(q);
+    if (snap.empty) break;
+    const batch = fsMod.writeBatch(FS);
+    snap.docs.forEach(d => batch.update(d.ref, { badgeId: null, ownedRoles: [] }));
+    await batch.commit();
+    total += snap.docs.length;
+    cursor = snap.docs[snap.docs.length - 1];
+    if (snap.docs.length < 400) break;
+  }
+  return total;
+}
 
 window.resetAllUsers = async function() {
   if (!confirm('Remove badgeId and ownedRoles from ALL Firestore profiles? This cannot be undone.')) return;
