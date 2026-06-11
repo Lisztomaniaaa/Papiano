@@ -15899,7 +15899,7 @@ midiBtn.onclick = (e) => {
         }, () => {
             try{ roomsUnsubscribe?.(); }catch(e){}
             roomsUnsubscribe = null;
-            showToast(isSignedIn() ? 'Room list is unavailable right now.' : 'Login with Google to load rooms.', { type:isSignedIn() ? 'error' : 'info', title:'Online Room' });
+            showToast(isSignedIn() ? 'Room list is unavailable right now.' : 'Sign in from Papiano home to load rooms.', { type:isSignedIn() ? 'error' : 'info', title:'Online Room' });
             syncAuthUi();
         });
     }
