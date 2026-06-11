@@ -1343,9 +1343,12 @@ body.key-glow-on #piano .black.active{
 .sf-category{
     border-radius:16px;
     background:rgba(255,255,255,0.045);
-    border:1px solid rgba(255,255,255,0.075);
+    box-shadow:0 0 0 1px rgba(255,255,255,0.10);
     margin-bottom:9px;
     overflow:hidden;
+}
+.sf-category:has(.sf-option.active){
+    box-shadow:0 0 0 1px rgba(120,220,255,0.35);
 }
 .sf-category summary{
     list-style:none;
@@ -3764,7 +3767,12 @@ body.mp-chat-keyboard .mp-chat-panel{
 }
 .mp-profile .mp-avatar{ width:38px; height:38px; font-size:0; }
 .mp-profile-name{ font-size:14px; font-weight:900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.mp-profile-role{ margin-top:5px; display:inline-flex; align-items:center; width:max-content; max-width:100%; padding:4px 10px; border-radius:999px; background:rgba(120,220,255,.14); border:1px solid rgba(120,220,255,.24); color:#8fe7ff; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; }
+.mp-profile-role{ margin-top:5px; display:inline-flex; align-items:center; width:max-content; max-width:100%; padding:4px 10px; border-radius:999px; background:rgba(160,160,160,.25); border:1px solid rgba(200,200,200,.3); color:#e0e0e0; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; }
+.mp-profile-role[data-rarity="common"]{ background:rgba(100,180,100,.22); border-color:rgba(100,220,100,.35); color:#7de87d; }
+.mp-profile-role[data-rarity="uncommon"]{ background:rgba(80,149,239,.25); border-color:rgba(80,149,239,.45); color:#82c0ff; }
+.mp-profile-role[data-rarity="rare"]{ background:rgba(178,140,255,.25); border-color:rgba(178,140,255,.5); color:#c9aaff; }
+.mp-profile-role[data-rarity="epic"]{ background:rgba(230,57,70,.28); border-color:rgba(230,57,70,.5); color:#ff8a94; }
+.mp-profile-role[data-rarity="legendary"]{ background:rgba(255,200,0,.22); border-color:rgba(255,200,0,.45); color:#ffd740; }
 .mp-profile-row{
     display:flex;
     justify-content:space-between;
@@ -8230,7 +8238,6 @@ function _applyKeyColor(el, color){
 function _resolveKeyColor(midi){
     const holders = _keyColorMap.get(midi);
     if(!holders || holders.size === 0) return '';
-    if(holders.has(_KEY_SELF)) return ''; // self = user's custom color
     let color = '';
     holders.forEach(c => { if(c) color = c; });
     return color;
@@ -8260,8 +8267,18 @@ function scheduleKeyVisual(el, active){
     if(!el || !el.classList) return;
     if(keyVisualDesired.get(el) === active) return;
     keyVisualDesired.set(el, active);
-    if(active){ pendingActiveRemoves.delete(el); pendingActiveAdds.add(el); }
-    else { pendingActiveAdds.delete(el); pendingActiveRemoves.add(el); }
+    if(active){
+        // Apply press immediately — no rAF delay for key-down
+        pendingActiveRemoves.delete(el);
+        pendingActiveAdds.delete(el);
+        if(!el.classList.contains('active')) el.classList.add('active');
+        const m = Number(el.dataset.note);
+        const color = Number.isFinite(m) ? _resolveKeyColor(m) : '';
+        _applyKeyColor(el, color);
+        setActiveKeyOverlay(el, true, color);
+        return;
+    }
+    pendingActiveAdds.delete(el); pendingActiveRemoves.add(el);
     if(keyVisualRaf) return;
     keyVisualRaf = requestAnimationFrame(() => {
         keyVisualRaf = null;
@@ -8272,21 +8289,12 @@ function scheduleKeyVisual(el, active){
                 setActiveKeyOverlay(x, false);
             }
         });
-        pendingActiveAdds.forEach(x => {
-            if(keyVisualDesired.get(x) === true){
-                if(!x.classList.contains('active')) x.classList.add('active');
-                const m = Number(x.dataset.note);
-                const color = Number.isFinite(m) ? _resolveKeyColor(m) : '';
-                _applyKeyColor(x, color);
-                setActiveKeyOverlay(x, true, color);
-            }
-        });
-        pendingActiveAdds.clear(); pendingActiveRemoves.clear();
+        pendingActiveRemoves.clear();
     });
 }
 function playPressVisual(n,k,burst){
+    if(Number.isFinite(n)) _trackKeyColor(n, _KEY_SELF, playerColor(mpSelfId), k);
     scheduleKeyVisual(k, true);
-    if(Number.isFinite(n)) _trackKeyColor(n, _KEY_SELF, '', k);
     startNeonDust(n, k);
     pressStartTimes.set(n,performance.now());
     if(isAnimOn) addAnim(n);
@@ -12249,7 +12257,7 @@ midiBtn.onclick = (e) => {
         }
     }
 
-    const MP_PLAYER_COLORS = ['#ffa340','#ffe066','#b28cff','#5ee68a','#ff8fa3','#ff5f73'];
+    const MP_PLAYER_COLORS = ['#e63946','#ffffff','#b28cff','#4895ef','#5ee68a','#ffe066'];
 
     function colorFromId(id){
         const text = String(id || '');
@@ -13761,14 +13769,14 @@ midiBtn.onclick = (e) => {
             }).filter(player => isAuthenticatedDisplayPlayer(player));
         }else{
             const source = currentRoom ? activePlayers() : players;
-            list = source.filter(player => isAuthenticatedDisplayPlayer(player) && player.online === true && (Date.now() - (player.lastSeen || 0)) < ONLINE_STALE_MS);
+            list = source.filter(player => isAuthenticatedDisplayPlayer(player) && player.online === true && !(player.lastSeen > 0 && (Date.now() - player.lastSeen) >= ONLINE_STALE_MS));
         }
 
         list = list.sort((a,b) => Number(b.online) - Number(a.online) || a.name.localeCompare(b.name));
 
         const emptyText = mode === 'friends' ? 'No friends yet.' : 'No online players.';
         searchResults.innerHTML = list.map(player => {
-            const isOnline = player.online === true && (Date.now() - (player.lastSeen || 0)) < ONLINE_STALE_MS;
+            const isOnline = player.online === true && !(player.lastSeen > 0 && (Date.now() - player.lastSeen) >= ONLINE_STALE_MS);
             const statusText = isOnline ? 'Online' : 'Offline';
             const statusClass = isOnline ? 'online' : 'offline';
             const meta = [player.displayUserId || player.userId, player.id === mpSelfId ? 'You' : (mode === 'friends' ? 'Friend' : ''), player.room ? 'In room' : ''].filter(Boolean).join(' · ');
@@ -14261,7 +14269,9 @@ midiBtn.onclick = (e) => {
         profileAvatar.setAttribute('aria-label', player.name);
         profileAvatar.style.setProperty('--mp-player-color', playerColor(player));
         profileName.textContent = player.name;
-        profileRole.textContent = getProfileBadge(player.badgeId).label;
+        const badge = getProfileBadge(player.badgeId);
+        profileRole.textContent = badge.label;
+        profileRole.dataset.rarity = badge.rarity || 'common';
         profileId.textContent = player.displayUserId || player.userId || 'ID pending';
         profileInstrument.textContent = playerMainInstrumentText(player);
         if(profileLayerInstrument) profileLayerInstrument.textContent = playerLayerInstrumentText(player);
@@ -14901,8 +14911,8 @@ midiBtn.onclick = (e) => {
     function playRemotePressVisual(midi, keyEl, playerId){
         const player = getPlayer(playerId);
         const color = playerColor(player);
-        if(keyEl) scheduleKeyVisual(keyEl, true);
         if(Number.isFinite(midi)) _trackKeyColor(midi, playerId, color, keyEl);
+        if(keyEl) scheduleKeyVisual(keyEl, true);
         const level = getRemoteVisualLevel();
         addRemoteAnim(midi, playerId, level, color);
         if(level === 'full' && saberDustEnabled){
@@ -15513,8 +15523,8 @@ midiBtn.onclick = (e) => {
             return;
         }
 
-        // Color: self = white (like own falling notes), remote = their seat color
-        var color = '#ffffff';
+        // Color: self = own seat color, remote = their seat color
+        var color = playerColor(mpSelfId);
         if(bestSource !== 'self'){
             var remotePlayer = null;
             if(currentRoom && roomPlayersByRoom[currentRoom.id] && roomPlayersByRoom[currentRoom.id][bestSource]){
