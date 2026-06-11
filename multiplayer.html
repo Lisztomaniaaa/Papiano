@@ -12400,8 +12400,9 @@ midiBtn.onclick = (e) => {
                 Object.entries(data).forEach(([id, role]) => {
                     const roleId = String(id || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'common';
                     const label = String(role?.label || role?.name || roleId).trim().slice(0, 28) || roleId.toUpperCase();
-                    const rarity = String(role?.rarity || 'common').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '') || 'common';
-                    mpRoleRegistry[roleId] = { id:roleId, label, rarity };
+                    const rarity = String(role?.rarity || 'member').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '') || 'member';
+                    const color = typeof role?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(role.color) ? role.color : null;
+                    mpRoleRegistry[roleId] = { id:roleId, label, rarity, color };
                 });
                 renderSearch();
                 renderRoomChrome();
@@ -14278,7 +14279,13 @@ midiBtn.onclick = (e) => {
         profileName.textContent = player.name;
         const badge = getProfileBadge(player.badgeId);
         profileRole.textContent = badge.label;
-        profileRole.dataset.rarity = badge.rarity || 'common';
+        profileRole.dataset.rarity = badge.rarity || 'member';
+        if(badge.color && /^#[0-9a-fA-F]{6}$/.test(badge.color)){
+            const lum = (parseInt(badge.color.slice(1,3),16)*299+parseInt(badge.color.slice(3,5),16)*587+parseInt(badge.color.slice(5,7),16)*114)/1000;
+            profileRole.style.cssText = `background:${badge.color};color:${lum>128?'#06111f':'#fff'};border:none;box-shadow:none`;
+        } else {
+            profileRole.style.cssText = '';
+        }
         profileId.textContent = player.displayUserId || player.userId || 'ID pending';
         profileInstrument.textContent = playerMainInstrumentText(player);
         if(profileLayerInstrument) profileLayerInstrument.textContent = playerLayerInstrumentText(player);
