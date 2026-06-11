@@ -18,6 +18,7 @@ console.log(`version.json -> ${version}`);
   html = html.replace(/(sdk-loader\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(edit-modal\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(app\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(auth-email\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(updater\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
   fs.writeFileSync(file, html);
   console.log(`${file} stamped -> ?v=${version}`);

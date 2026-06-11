@@ -1,6 +1,6 @@
 // === Papiano — Email Auth Extension ===
 // Requires app.min.js (provides: firebaseAuth, ensureUserProfile,
-// closeAuthEntryPopup, openAuthEntryPopup, showToast, friendlyError).
+// closeAuthEntryPopup, showToast, friendlyError).
 
 // ── Allowed email domains ─────────────────────────────────────────────────────
 const _ALLOWED_DOMAINS = new Set([
@@ -31,64 +31,66 @@ function _isDomainAllowed(email) {
 // ── State ─────────────────────────────────────────────────────────────────────
 let _authCurrentScreen = 'signin';
 let _authBusy = false;
-let _captchaSigninId = null;
-let _captchaSignupId = null;
-let _captchaRendered = false;
+let _captchaIds = { signin: null, signup: null };
+let _captchaRendered = { signin: false, signup: false };
 let _verifyPendingEmail = '';
-const RECAPTCHA_SITE_KEY = '6LejzhgtAAAAALFINJQN0QhispRIrMy2VPDIzYoy';
+const _RECAPTCHA_KEY = '6LejzhgtAAAAALFINJQN0QhispRIrMy2VPDIzYoy';
 
-// ── reCAPTCHA render ──────────────────────────────────────────────────────────
+// ── reCAPTCHA ─────────────────────────────────────────────────────────────────
+// Called by Google script via ?onload=_authCaptchaReady
 window._authCaptchaReady = function () {
-    _captchaRendered = false;
-    const ov = document.getElementById('authEntryOverlay');
-    if (ov && ov.classList.contains('active')) _renderCaptchas();
+    // Script just loaded — render for whichever screen is currently active
+    _renderCaptchaForScreen(_authCurrentScreen);
 };
 
-function _renderCaptchas() {
-    if (typeof grecaptcha === 'undefined' || _captchaRendered) return;
-    const si = document.getElementById('authSigninCaptcha');
-    const su = document.getElementById('authSignupCaptcha');
-    if (si && !si.dataset.rendered) {
-        si.dataset.rendered = '1';
-        try { _captchaSigninId = grecaptcha.render(si, { sitekey: RECAPTCHA_SITE_KEY, theme: 'light' }); } catch (_) {}
-    }
-    if (su && !su.dataset.rendered) {
-        su.dataset.rendered = '1';
-        try { _captchaSignupId = grecaptcha.render(su, { sitekey: RECAPTCHA_SITE_KEY, theme: 'light' }); } catch (_) {}
-    }
-    _captchaRendered = true;
-}
-
-function _getCaptchaToken(id) {
-    if (typeof grecaptcha === 'undefined' || id === null) return null;
-    const t = grecaptcha.getResponse(id);
-    return t || null;
-}
-
-function _captchaReset() {
+function _renderCaptchaForScreen(screen) {
     if (typeof grecaptcha === 'undefined') return;
-    try { if (_captchaSigninId !== null) grecaptcha.reset(_captchaSigninId); } catch (_) {}
-    try { if (_captchaSignupId !== null) grecaptcha.reset(_captchaSignupId); } catch (_) {}
+    const map = { signin: 'authSigninCaptcha', signup: 'authSignupCaptcha' };
+    const containerId = map[screen];
+    if (!containerId) return;
+    if (_captchaRendered[screen]) return;
+
+    const el = document.getElementById(containerId);
+    if (!el) return;
+
+    _captchaRendered[screen] = true;          // mark before try to avoid double-render
+    try {
+        const widgetId = grecaptcha.render(el, { sitekey: _RECAPTCHA_KEY, theme: 'light' });
+        _captchaIds[screen] = widgetId;
+    } catch (e) {
+        _captchaRendered[screen] = false;     // allow retry if render threw
+    }
 }
 
-// Server-side captcha verification via Vercel function
-async function _verifyCaptcha(widgetId) {
-    const token = _getCaptchaToken(widgetId);
-    if (!token) return { ok: false, reason: 'Please complete the CAPTCHA verification.' };
+function _getCaptchaToken(screen) {
+    if (typeof grecaptcha === 'undefined') return null;
+    const id = _captchaIds[screen];
+    if (id === null) return null;
+    return grecaptcha.getResponse(id) || null;
+}
 
+function _resetCaptcha(screen) {
+    if (typeof grecaptcha === 'undefined') return;
+    const id = _captchaIds[screen];
+    if (id !== null) try { grecaptcha.reset(id); } catch (_) {}
+}
+
+// Server-side captcha verify via Vercel function
+async function _verifyCaptchaToken(screen) {
+    const token = _getCaptchaToken(screen);
+    if (!token) return { ok: false, reason: 'Please complete the CAPTCHA verification.' };
     try {
-        const resp = await fetch('/api/verify-captcha', {
+        const res = await fetch('/api/verify-captcha', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token }),
         });
-        if (!resp.ok) return { ok: false, reason: 'CAPTCHA service error. Please try again.' };
-        const data = await resp.json();
+        if (!res.ok) return { ok: false, reason: 'CAPTCHA service unavailable. Try again.' };
+        const data = await res.json();
         if (!data.success) return { ok: false, reason: 'CAPTCHA verification failed. Please try again.' };
         return { ok: true };
     } catch (_) {
-        // Network error — fail open so auth still works if API unreachable
-        return { ok: true };
+        return { ok: true }; // fail-open on network error so auth still works
     }
 }
 
@@ -100,7 +102,6 @@ async function _verifyCaptcha(widgetId) {
         new MutationObserver(() => {
             if (ov.classList.contains('active')) {
                 authShowScreen(_authCurrentScreen);
-                setTimeout(_renderCaptchas, 120);
             } else {
                 _authCurrentScreen = 'signin';
             }
@@ -122,20 +123,21 @@ function authShowScreen(screen) {
     const title = document.getElementById('authEntryTitle');
     const sub   = document.getElementById('authEntrySubtitle');
     const tabs  = document.getElementById('authTabBar');
-
-    const config = {
+    const cfg = {
         signin: { t: 'Sign In',        s: 'Access multiplayer, profiles, chat, and more.', tabs: true  },
         signup: { t: 'Create Account', s: "Join Papiano — it's free.",                     tabs: true  },
         verify: { t: 'Verify Email',   s: '',                                               tabs: false },
         forgot: { t: 'Reset Password', s: 'Enter your email to receive a reset link.',      tabs: false },
     };
-    const c = config[screen] || config.signin;
+    const c = cfg[screen] || cfg.signin;
     if (title) title.textContent = c.t;
     if (sub)   sub.textContent   = c.s;
     if (tabs)  tabs.style.display = c.tabs ? '' : 'none';
-
     document.querySelectorAll('.auth-tab-btn').forEach(b =>
         b.classList.toggle('auth-tab-active', b.dataset.tab === screen));
+
+    // Render captcha for this screen (deferred so DOM is painted first)
+    setTimeout(() => _renderCaptchaForScreen(screen), 80);
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -153,17 +155,14 @@ function _setLoading(busy) {
 function _friendly(err) {
     if (typeof friendlyError === 'function') return friendlyError(err, 'Something went wrong. Please try again.');
     const c = String(err?.code || err?.message || '').toLowerCase();
-    if (c.includes('invalid-email'))          return 'Invalid email address.';
+    if (c.includes('invalid-email'))        return 'Invalid email address.';
     if (c.includes('user-not-found') || c.includes('wrong-password') || c.includes('invalid-credential'))
-                                              return 'Incorrect email or password.';
-    if (c.includes('email-already-in-use'))   return 'Email already registered. Sign in instead.';
-    if (c.includes('weak-password'))          return 'Password too weak.';
-    if (c.includes('too-many-requests'))      return 'Too many attempts. Try again later.';
-    if (c.includes('network'))                return 'Network error. Check your connection.';
+                                            return 'Incorrect email or password.';
+    if (c.includes('email-already-in-use')) return 'Email already registered. Sign in instead.';
+    if (c.includes('weak-password'))        return 'Password too weak.';
+    if (c.includes('too-many-requests'))    return 'Too many attempts. Try again later.';
+    if (c.includes('network'))              return 'Network error. Check your connection.';
     return err?.message || 'Something went wrong.';
-}
-function _sdkReady() {
-    return !!(typeof firebaseAuth !== 'undefined' && firebaseAuth);
 }
 
 // ── Password strength ─────────────────────────────────────────────────────────
@@ -186,16 +185,16 @@ function authTogglePwd(inputId, btn) {
     if (icon) icon.textContent = show ? 'visibility_off' : 'visibility';
 }
 
-// ── Sign In ───────────────────────────────────────────────────────────────────
+// ── Sign In / Sign Up ─────────────────────────────────────────────────────────
 async function authEntryWithEmail(mode) {
     if (_authBusy) return;
-    if (!_sdkReady()) {
+    if (!firebaseAuth) {
         window.addEventListener('papiano-sdks-ready', () => authEntryWithEmail(mode), { once: true });
         if (typeof showToast === 'function') showToast('Loading auth service, please wait…');
         return;
     }
 
-    // ── SIGN IN ──
+    // ── SIGN IN ──────────────────────────────────────────────────────────────
     if (mode === 'signin') {
         const email = (document.getElementById('authSigninEmail')?.value || '').trim();
         const pass  =  document.getElementById('authSigninPassword')?.value || '';
@@ -203,18 +202,16 @@ async function authEntryWithEmail(mode) {
         if (!email) { _showErr('authSigninErr', 'Please enter your email.'); return; }
         if (!pass)  { _showErr('authSigninErr', 'Please enter your password.'); return; }
 
-        // Server-side CAPTCHA verification
-        const cap = await _verifyCaptcha(_captchaSigninId);
+        const cap = await _verifyCaptchaToken('signin');
         if (!cap.ok) { _showErr('authSigninErr', cap.reason); return; }
 
         _setLoading(true); _authClearErr();
         try {
-            // Detect Google-only accounts before attempting password sign-in
             let methods = [];
             try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
             if (methods.includes('google.com') && !methods.includes('password')) {
-                _showErr('authSigninErr', 'This email is registered with Google. Use "Continue with Google" to sign in.');
-                _captchaReset();
+                _showErr('authSigninErr', 'This email is linked to Google. Use "Continue with Google" to sign in.');
+                _resetCaptcha('signin');
                 return;
             }
 
@@ -234,25 +231,25 @@ async function authEntryWithEmail(mode) {
             if (typeof closeAuthEntryPopup === 'function') closeAuthEntryPopup();
         } catch (err) {
             _showErr('authSigninErr', _friendly(err));
-            _captchaReset();
+            _resetCaptcha('signin');
         } finally {
             _setLoading(false);
         }
         return;
     }
 
-    // ── SIGN UP ──
+    // ── SIGN UP ──────────────────────────────────────────────────────────────
     if (mode === 'signup') {
         const name    = (document.getElementById('authSignupName')?.value    || '').trim();
         const email   = (document.getElementById('authSignupEmail')?.value   || '').trim();
         const pass    =  document.getElementById('authSignupPassword')?.value || '';
         const confirm =  document.getElementById('authSignupConfirm')?.value  || '';
 
-        if (!name || name.length < 2)  { _showErr('authSignupErr', 'Display name must be at least 2 characters.'); return; }
-        if (name.length > 32)          { _showErr('authSignupErr', 'Display name must be 32 characters or less.'); return; }
-        if (!email)                    { _showErr('authSignupErr', 'Please enter your email.'); return; }
-        if (!_isDomainAllowed(email))  {
-            _showErr('authSignupErr', 'Use a verified email provider (Gmail, Outlook, Yahoo, iCloud, etc.). Temporary or unknown domains are not allowed.');
+        if (!name || name.length < 2) { _showErr('authSignupErr', 'Display name must be at least 2 characters.'); return; }
+        if (name.length > 32)         { _showErr('authSignupErr', 'Display name must be 32 characters or less.'); return; }
+        if (!email)                   { _showErr('authSignupErr', 'Please enter your email.'); return; }
+        if (!_isDomainAllowed(email)) {
+            _showErr('authSignupErr', 'Use a verified email provider (Gmail, Outlook, Yahoo, iCloud, etc.).');
             return;
         }
         const req = _validPass(pass);
@@ -262,38 +259,45 @@ async function authEntryWithEmail(mode) {
         }
         if (pass !== confirm) { _showErr('authSignupErr', 'Passwords do not match.'); return; }
 
-        // Server-side CAPTCHA verification
-        const cap = await _verifyCaptcha(_captchaSignupId);
+        const cap = await _verifyCaptchaToken('signup');
         if (!cap.ok) { _showErr('authSignupErr', cap.reason); return; }
 
         _setLoading(true); _authClearErr();
         try {
-            // Detect existing account (any provider) before creating
             let methods = [];
             try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
             if (methods.length > 0) {
-                if (methods.includes('google.com')) {
-                    _showErr('authSignupErr', 'This email is already linked to a Google account. Use "Continue with Google" to sign in.');
-                } else {
-                    _showErr('authSignupErr', 'Email already registered. Sign in instead.');
-                    setTimeout(() => authShowScreen('signin'), 1600);
-                }
-                _captchaReset();
+                _showErr('authSignupErr', methods.includes('google.com')
+                    ? 'This email is already linked to a Google account. Use "Continue with Google".'
+                    : 'Email already registered. Sign in instead.');
+                _resetCaptcha('signup');
+                if (!methods.includes('google.com')) setTimeout(() => authShowScreen('signin'), 1600);
                 return;
             }
 
             const cred = await firebaseAuth.createUserWithEmailAndPassword(email, pass);
             await cred.user.updateProfile({ displayName: name });
-            await cred.user.sendEmailVerification({ url: location.origin });
+
+            // Send verification email — surface errors clearly
+            try {
+                await cred.user.sendEmailVerification({ url: location.origin });
+            } catch (emailErr) {
+                // Account created but email failed — still proceed to verify screen
+                console.error('[auth] sendEmailVerification failed:', emailErr);
+            }
+
             _verifyPendingEmail = email;
             await firebaseAuth.signOut();
 
             const addr = document.getElementById('authVerifyEmailAddr');
             if (addr) addr.textContent = email;
             authShowScreen('verify');
+
+            if (typeof showToast === 'function')
+                showToast('Account created! Check your inbox (and spam folder) for the verification link.', 'Almost there');
         } catch (err) {
             _showErr('authSignupErr', _friendly(err));
-            _captchaReset();
+            _resetCaptcha('signup');
         } finally {
             _setLoading(false);
         }
@@ -303,7 +307,7 @@ async function authEntryWithEmail(mode) {
 
 // ── Email verification ────────────────────────────────────────────────────────
 async function authCheckVerified() {
-    if (_authBusy || !_sdkReady()) return;
+    if (_authBusy || !firebaseAuth) return;
     if (!_verifyPendingEmail) { authShowScreen('signin'); return; }
 
     const pass = document.getElementById('authVerifyPassword')?.value || '';
@@ -315,7 +319,7 @@ async function authCheckVerified() {
         await cred.user.reload();
         if (!cred.user.emailVerified) {
             await firebaseAuth.signOut();
-            _showErr('authVerifyErr', "Email not verified yet. Click the link in your inbox, then try again.");
+            _showErr('authVerifyErr', "Email not verified yet. Click the link in your inbox, then try again. Check your spam folder too.");
             return;
         }
         await ensureUserProfile(cred.user);
@@ -328,7 +332,7 @@ async function authCheckVerified() {
 }
 
 async function authResendVerify() {
-    if (!_sdkReady() || !_verifyPendingEmail) {
+    if (!firebaseAuth || !_verifyPendingEmail) {
         if (typeof showToast === 'function') showToast('No pending verification. Please sign up first.', 'Info');
         return;
     }
@@ -339,7 +343,8 @@ async function authResendVerify() {
         const cred = await firebaseAuth.signInWithEmailAndPassword(_verifyPendingEmail, pass);
         await cred.user.sendEmailVerification({ url: location.origin });
         await firebaseAuth.signOut();
-        if (typeof showToast === 'function') showToast('Verification email resent! Check your inbox.', 'Sent');
+        if (typeof showToast === 'function')
+            showToast('Verification email resent! Check inbox and spam folder.', 'Sent');
     } catch (err) {
         if (typeof showToast === 'function') showToast(_friendly(err), 'Error');
     }
@@ -347,7 +352,7 @@ async function authResendVerify() {
 
 // ── Password reset ────────────────────────────────────────────────────────────
 async function authSendReset() {
-    if (_authBusy || !_sdkReady()) return;
+    if (_authBusy || !firebaseAuth) return;
     const email = (document.getElementById('authForgotEmail')?.value || '').trim();
     if (!email) { _showErr('authForgotErr', 'Please enter your email.'); return; }
 
@@ -356,12 +361,12 @@ async function authSendReset() {
         let methods = [];
         try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
         if (methods.includes('google.com') && !methods.includes('password')) {
-            _showErr('authForgotErr', 'This account uses Google sign-in. Use "Continue with Google" instead — there is no password to reset.');
+            _showErr('authForgotErr', 'This account uses Google sign-in — no password to reset. Use "Continue with Google".');
             return;
         }
 
         await firebaseAuth.sendPasswordResetEmail(email, { url: location.origin });
-        if (typeof showToast === 'function') showToast('Reset link sent! Check your inbox.', 'Email Sent');
+        if (typeof showToast === 'function') showToast('Reset link sent! Check your inbox (and spam folder).', 'Email Sent');
         authShowScreen('signin');
     } catch (err) {
         _showErr('authForgotErr', _friendly(err));
