@@ -254,9 +254,9 @@ tr:hover td{background:var(--s2)}
 
       <!-- USERS -->
       <div class="page" id="pageUsers">
-        <div class="ph"><div class="pt">Users</div><div class="ps">Search by display name or User ID (e.g. #1) to manage roles.</div></div>
+        <div class="ph"><div class="pt">Users</div><div class="ps">Search by display name or User ID (e.g. 1) to manage roles.</div></div>
         <div class="searchbar">
-          <input class="fc" id="uSearch" placeholder="Name or #ID…" onkeydown="if(event.key==='Enter')searchUsers()">
+          <input class="fc" id="uSearch" placeholder="Name or ID…" onkeydown="if(event.key==='Enter')searchUsers()">
           <button class="btn bp" onclick="searchUsers()">Search</button>
         </div>
         <div id="uResults"></div>
@@ -277,7 +277,7 @@ tr:hover td{background:var(--s2)}
         <div class="card">
           <div class="ct">Add Donation</div>
           <div class="searchbar">
-            <input class="fc" id="donorSearch" placeholder="Find donor by name or #ID…" onkeydown="if(event.key==='Enter')searchDonor()">
+            <input class="fc" id="donorSearch" placeholder="Find donor by name or ID…" onkeydown="if(event.key==='Enter')searchDonor()">
             <button class="btn bgh" onclick="searchDonor()">Find User</button>
           </div>
           <div id="donorCard" style="display:none" class="ucard">
@@ -668,10 +668,13 @@ window.searchUsers = async function() {
 async function queryUsers(q) {
   const { fsMod } = fbR;
   const map = new Map();
-  try {
-    const s = await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'), fsMod.where('userId','==',q), fsMod.limit(10)));
-    s.docs.forEach(d => map.set(d.id,{uid:d.id,...d.data()}));
-  } catch(e){}
+  const qClean = q.replace(/^#/, '');
+  for (const uid of [qClean, '#' + qClean]) {
+    try {
+      const s = await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'), fsMod.where('userId','==',uid), fsMod.limit(10)));
+      s.docs.forEach(d => map.set(d.id,{uid:d.id,...d.data()}));
+    } catch(e){}
+  }
   try {
     const s = await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'), fsMod.orderBy('name'), fsMod.startAt(q), fsMod.endAt(q+''), fsMod.limit(15)));
     s.docs.forEach(d => map.set(d.id,{uid:d.id,...d.data()}));
@@ -693,7 +696,7 @@ function renderUserCards(users, el) {
       ${av}
       <div class="uinfo">
         <div class="uname">${x(u.name||'Unknown')}</div>
-        <div class="uid">${x(u.userId||u.uid)}</div>
+        <div class="uid">${x((u.userId||u.uid||'').replace(/^#/,''))}</div>
       </div>
       <div class="uacts">
         <span class="bp-pill" style="${pillStyle}">${x(label)}</span>
@@ -764,7 +767,7 @@ function renderDonationsTable(data) {
   if (!entries.length) { tbody.innerHTML='<tr><td colspan="6" class="lrow">No donations yet.</td></tr>'; return; }
   tbody.innerHTML = entries.map(([uid,d]) => `<tr>
     <td><strong>${x(d.name||'Unknown')}</strong></td>
-    <td style="color:var(--muted);font-size:12px">${x(d.userId||'—')}</td>
+    <td style="color:var(--muted);font-size:12px">${x((d.userId||'—').replace(/^#/,''))}</td>
     <td><strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong>${d.currency&&d.currency!=='USD'?`<span style="font-size:11px;color:var(--muted)"> ${x(d.currency)}</span>`:''}</td>
     <td style="font-size:12px;color:var(--muted)">${d.date?new Date(d.date).toLocaleDateString():'—'}</td>
     <td style="font-size:12px;color:var(--muted)">${x(d.note||'—')}</td>
@@ -777,7 +780,7 @@ function renderDashDonors(data) {
   const entries = Object.entries(data).sort((a,b)=>(b[1].total||0)-(a[1].total||0)).slice(0,5);
   if (!entries.length) { el.innerHTML='<div class="empty">No donors yet.</div>'; return; }
   el.innerHTML = entries.map(([,d])=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)">
-    <div><div style="font-weight:700;font-size:13px">${x(d.name||'Unknown')}</div><div style="font-size:11px;color:var(--muted)">${x(d.userId||'—')}</div></div>
+    <div><div style="font-weight:700;font-size:13px">${x(d.name||'Unknown')}</div><div style="font-size:11px;color:var(--muted)">${x((d.userId||'—').replace(/^#/,''))}</div></div>
     <strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong>
   </div>`).join('');
 }
@@ -801,7 +804,7 @@ window.searchDonor = async function() {
   const ink = luminance(color)>128?'#06111f':'#fff';
   document.getElementById('donorCard').style.display='flex';
   document.getElementById('donorName').textContent = u.name||'Unknown';
-  document.getElementById('donorUid').textContent = u.userId||u.uid;
+  document.getElementById('donorUid').textContent = (u.userId||u.uid||'').replace(/^#/,'');
   document.getElementById('donorBadge').innerHTML = `<span class="bp-pill" style="background:${color};color:${ink};border-color:rgba(0,0,0,.25)">${x(label)}</span>`;
   const av = document.getElementById('donorAv');
   av.textContent=(u.name||'?')[0].toUpperCase();

@@ -12431,7 +12431,7 @@ midiBtn.onclick = (e) => {
         const raw = String(value ?? '').trim().replace(/^#/, '');
         if(!/^\d+$/.test(raw)) return '';
         const number = Number(raw);
-        return Number.isInteger(number) && number > 0 ? '#' + number : '';
+        return Number.isInteger(number) && number > 0 ? String(number) : '';
     }
 
     function normalizeHomeProfile(uid, data = {}){
