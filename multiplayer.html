@@ -2695,7 +2695,7 @@ body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKe
 .render-fixed .floating-panel{
     position:absolute !important;
     top:68px !important;
-    z-index:2300 !important;
+    z-index:1500 !important;
 }
 .render-fixed #chordDisplay{
     position:absolute !important;
@@ -2740,6 +2740,7 @@ body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKe
     }
     .render-fixed .floating-panel{
         top:60px !important;
+        z-index:1500 !important;
     }
     .render-fixed #chordDisplay{
         top:50% !important;
@@ -5070,6 +5071,16 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     background:rgba(255,255,255,0.05);
     border:1px solid rgba(255,255,255,0.12);
     border-radius:16px;
+}
+.mp-request-card .mp-search-card-text{
+    padding-right:170px;
+    overflow:hidden;
+}
+.mp-request-card .mp-search-card-text b{
+    display:block;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
 }
 #mpLayer .mp-search-card{
     position:relative;
@@ -12238,7 +12249,7 @@ midiBtn.onclick = (e) => {
         }
     }
 
-    const MP_PLAYER_COLORS = ['#78dcff','#ffe066','#b28cff','#5ee68a','#ff8fa3','#ff5f73'];
+    const MP_PLAYER_COLORS = ['#ffa340','#ffe066','#b28cff','#5ee68a','#ff8fa3','#ff5f73'];
 
     function colorFromId(id){
         const text = String(id || '');
@@ -12300,8 +12311,6 @@ midiBtn.onclick = (e) => {
         const player = typeof playerOrId === 'object' ? playerOrId : null;
         const id = player ? player.id : playerOrId;
         const idStr = String(id || '');
-
-        if(idStr && mpSelfId && idStr === mpSelfId) return '#ffffff';
 
         // Once locked, color never changes during room session
         const locked = _playerColorLock.get(idStr);
