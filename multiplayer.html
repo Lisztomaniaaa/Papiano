@@ -355,7 +355,7 @@ html[data-graphic-quality="low"] #pianoWrap::before{ display:none !important; }
     height: 100%;
     left: 0; top: 0;
     display: flex;
-    background: linear-gradient(180deg,var(--piano-white-top,#ffffff) 0%,var(--piano-white-mid,#f7f8f6) 52%,var(--piano-white-bottom,#e4e8e6) 100%);
+    background: linear-gradient(180deg,var(--piano-white-top,#ffffff) 0%,var(--piano-white-mid,#f7f8fa) 52%,var(--piano-white-bottom,#e9ecef) 100%);
     opacity: var(--piano-visibility, 1);
     will-change: transform;
     transform: translate3d(0,0,0);
@@ -940,8 +940,8 @@ body,button,input,select,textarea{ font-family:'Plus Jakarta Sans','Nunito',sans
 :root{
     --bg-stage:#090d12;
     --piano-white-top:#ffffff;
-    --piano-white-mid:#f7f8f6;
-    --piano-white-bottom:#e4e8e6;
+    --piano-white-mid:#f7f8fa;
+    --piano-white-bottom:#e9ecef;
     --piano-black-top:#2d333d;
     --piano-black-mid:#151a22;
     --piano-black-bottom:#040506;
@@ -1893,9 +1893,9 @@ body.layout-changing #piano .black.active{
 
 @media (pointer: fine) {
 #piano .white:not(.active){
-    background:linear-gradient(180deg,#f4efdf 0%,#e3dccd 52%,#cfc5b4 100%) !important;
-    background-color:#e3dccd !important;
-    background-image:linear-gradient(180deg,#f4efdf 0%,#e3dccd 52%,#cfc5b4 100%) !important;
+    background:linear-gradient(180deg,#ffffff 0%,#f5f7f9 52%,#e7eaee 100%) !important;
+    background-color:#f5f7f9 !important;
+    background-image:linear-gradient(180deg,#ffffff 0%,#f5f7f9 52%,#e7eaee 100%) !important;
     box-shadow:inset 0 -5px 9px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.85) !important;
     filter:none !important;
 }
@@ -5299,12 +5299,8 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 }
 
 @media (min-width:900px){
-    #app{ --desk-stage-max:1760px; }
-    .stage{ width:100%; max-width:var(--desk-stage-max); margin-inline:auto; }
-    #pianoWrap{ width:100%; max-width:var(--desk-stage-max); margin-inline:auto; }
-    #swipeStrip{ left:50%; transform:translateX(-50%); width:min(100%, var(--desk-stage-max)); }
-    #panel .btn{ height:40px; line-height:40px; font-size:14px; padding:0 20px; }
-    .brand-text{ font-size:15px; }
+    .stage{ width:100%; }
+    #pianoWrap{ width:100%; }
 }
 @media (hover:hover) and (pointer:fine){
     #panel .btn:not(.active):hover{ background:#34343f; border-color:rgba(255,255,255,0.14); }
@@ -5313,88 +5309,212 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     .mp-message-text, .mp-message-meta{ -webkit-user-select:text; user-select:text; }
 }
 
-/* ===== multiplayer sizing fixes (2026-06-11) ===== */
+/* ============================================================
+   PAPIANO — Universal responsive layer (2026-06-11)
+   Fluid scaling untuk semua device: phone / tablet / laptop / PC
+   (320px s.d. 3840px), portrait & landscape, fullscreen & non-fullscreen.
+   Semua geometri top bar / pill / panel diturunkan dari variabel
+   di bawah agar tidak ada lagi nilai px yang saling bertabrakan.
+   ============================================================ */
 
-/* 1–3: Home desktop — max-width container, 3-col grid, card height */
+:root{
+    --piano-height:26vh;
+    --ui-top-offset:calc(8px + env(safe-area-inset-top,0px));
+    --ui-edge-left:calc(8px + env(safe-area-inset-left,0px));
+    --ui-edge-right:calc(8px + env(safe-area-inset-right,0px));
+    /* Top bar membesar mengikuti layar: 48px (phone) → ~56px (laptop) → ~75px (2560px) */
+    --ui-topbar-h:clamp(48px, 34px + 1.6vw, 84px);
+    --ui-btn-h:clamp(36px, 26px + 0.95vw, 58px);
+    --ui-btn-font:clamp(12px, 10.4px + 0.21vw, 17px);
+    --ui-logo-clear:clamp(128px, 98px + 2.9vw, 196px);
+    --ui-pill-h:clamp(36px, 27px + 0.8vw, 54px);
+    --ui-pill-font:clamp(11px, 9.6px + 0.18vw, 15px);
+    /* Baris pill player selalu di bawah top bar — tidak boleh menabrak */
+    --ui-strip-top:calc(var(--ui-top-offset) + var(--ui-topbar-h) + 8px);
+    --ui-below-strip:calc(var(--ui-strip-top) + var(--ui-pill-h) + 10px);
+    --ui-chat-w:clamp(300px, 120px + 12vw, 420px);
+}
+/* Phone landscape pendek: rapatkan semuanya supaya stage tetap lega */
+@media (orientation:landscape) and (max-height:520px){
+    :root{
+        --ui-top-offset:calc(4px + env(safe-area-inset-top,0px));
+        --ui-topbar-h:44px;
+        --ui-btn-h:34px;
+        --ui-btn-font:12px;
+        --ui-pill-h:32px;
+        --ui-pill-font:10.5px;
+    }
+}
+
+/* --- Top bar: satu sumber kebenaran untuk posisi & ukuran --- */
+.render-fixed .top,
+.render-fixed.papiano-fullscreen .top{
+    top:var(--ui-top-offset) !important;
+    left:var(--ui-edge-left) !important;
+    right:var(--ui-edge-right) !important;
+    width:auto !important;
+    margin:0 !important;
+    height:var(--ui-topbar-h) !important;
+    min-height:var(--ui-topbar-h) !important;
+    padding:0 clamp(10px, 0.8vw, 18px) 0 calc(var(--ui-logo-clear) + 8px) !important;
+    border-radius:calc(var(--ui-topbar-h) / 2) !important;
+    gap:clamp(8px, 0.6vw, 14px) !important;
+}
+.render-fixed #logoToggle,
+.render-fixed.papiano-fullscreen #logoToggle{
+    top:var(--ui-top-offset) !important;
+    left:var(--ui-edge-left) !important;
+    height:var(--ui-topbar-h) !important;
+    min-height:var(--ui-topbar-h) !important;
+    padding:5px clamp(12px, 0.9vw, 20px) 5px 6px !important;
+    gap:clamp(7px, 0.5vw, 12px) !important;
+    border-radius:calc(var(--ui-topbar-h) / 2) !important;
+}
+.render-fixed .brand-icon{
+    width:min(calc(var(--ui-topbar-h) - 16px), 52px) !important;
+    height:min(calc(var(--ui-topbar-h) - 16px), 52px) !important;
+}
+.render-fixed .brand-text{
+    font-size:clamp(11.5px, 10px + 0.22vw, 17px) !important;
+}
+#panel .btn,
+#panel #fsBtn{
+    height:var(--ui-btn-h) !important;
+    min-height:var(--ui-btn-h) !important;
+    line-height:calc(var(--ui-btn-h) - 2px) !important;
+    padding:0 clamp(14px, 9px + 0.5vw, 26px) !important;
+    font-size:var(--ui-btn-font) !important;
+    border-radius:999px !important;
+}
+#panel #tDown,
+#panel #tUp{
+    width:calc(var(--ui-btn-h) - 2px) !important;
+    height:calc(var(--ui-btn-h) - 2px) !important;
+    min-height:calc(var(--ui-btn-h) - 2px) !important;
+    padding:0 !important;
+    border-radius:50% !important;
+    font-size:calc(var(--ui-btn-font) + 6px) !important;
+    line-height:1 !important;
+}
+#panel #tVal{
+    font-size:calc(var(--ui-btn-font) - 1px) !important;
+    min-width:calc(var(--ui-btn-font) + 4px) !important;
+}
+
+/* --- Pill player: selalu di bawah top bar + ikut membesar di layar besar --- */
+.mp-player-strip{
+    top:var(--ui-strip-top) !important;
+}
+.mp-player-pill{
+    height:var(--ui-pill-h) !important;
+    padding:5px calc(var(--ui-pill-h) * 0.28) 5px 5px !important;
+    gap:clamp(7px, 0.4vw, 11px) !important;
+}
+.mp-player-pill .mp-avatar{
+    width:calc(var(--ui-pill-h) - 10px) !important;
+    height:calc(var(--ui-pill-h) - 10px) !important;
+}
+.mp-player-name{
+    font-size:var(--ui-pill-font) !important;
+    max-width:clamp(84px, 56px + 3vw, 180px) !important;
+}
+
+/* --- Panel melayang & HUD mengikuti tinggi top bar --- */
+.render-fixed .floating-panel{
+    top:calc(var(--ui-top-offset) + var(--ui-topbar-h) + 10px) !important;
+}
+.render-fixed .perf-hud{
+    top:var(--ui-below-strip) !important;
+}
+#recHud{
+    top:var(--ui-below-strip) !important;
+}
+#mpChordLive{
+    top:var(--ui-below-strip) !important;
+    right:calc(14px + env(safe-area-inset-right,0px)) !important;
+    left:auto !important;
+}
+
+/* --- Stage & piano full-bleed: tidak ada lagi area mati di monitor lebar --- */
+.render-fixed .stage,
+.render-fixed #pianoWrap{
+    max-width:none !important;
+    margin:0 !important;
+}
+#swipeStrip{
+    transform:none !important;
+    max-width:none !important;
+}
+
+/* --- Chat panel desktop: kolom kanan, stage & piano menyempit rapi --- */
+@media (min-width:900px){
+    .mp-chat-panel{
+        position:absolute !important;
+        top:var(--ui-below-strip) !important;
+        right:var(--ui-edge-right) !important;
+        left:auto !important;
+        transform:none !important;
+        bottom:calc(var(--piano-height,26vh) + 8px) !important;
+        width:var(--ui-chat-w) !important;
+        height:auto !important;
+        max-height:none !important;
+        min-height:200px !important;
+    }
+    body.mp-chat-open .stage,
+    body.mp-chat-open #pianoWrap,
+    body.mp-chat-open #swipeStrip{
+        right:calc(var(--ui-chat-w) + 16px) !important;
+        width:auto !important;
+        max-width:none !important;
+        margin:0 !important;
+    }
+}
+
+/* --- Chat preview: jaga agar tidak menutupi stage/piano --- */
+.mp-chat-preview{
+    left:calc(14px + env(safe-area-inset-left,0px)) !important;
+    max-height:min(
+        calc(var(--mp-chat-preview-rows,3) * 72px + (var(--mp-chat-preview-rows,3) - 1) * 6px),
+        calc(100dvh - var(--piano-height,26vh) - var(--ui-below-strip) - 14px - env(safe-area-inset-bottom,0px))
+    ) !important;
+}
+
+/* --- Home multiplayer: konsisten dengan stage di semua device --- */
 @media (min-width:900px){
     .mp-screen[data-mp-screen] .mp-room-main,
     .mp-screen[data-mp-screen] .mp-notice,
     .mp-screen[data-mp-screen] .mp-home-footer{
-        max-width:1200px;
+        max-width:min(1280px, 94vw);
         margin-left:auto;
         margin-right:auto;
+        width:100%;
     }
     .mp-room-card{ min-height:94px; }
 }
 @media (min-width:1280px){
     .mp-room-list{ grid-template-columns:repeat(3,minmax(260px,1fr)); }
 }
-
-/* 4: CSS init align — reduce flash gap (JS will override immediately) */
-:root{ --piano-height:26vh; }
-
-/* 5–6: Chat panel desktop — side column right, stage menyempit */
-@media (min-width:900px){
-    .mp-chat-panel{
-        position:absolute !important;
-        top:calc(72px + env(safe-area-inset-top,0px)) !important;
-        right:8px !important;
-        left:auto !important;
-        transform:none !important;
-        bottom:calc(var(--piano-height,26vh) + 8px) !important;
-        width:300px !important;
-        height:auto !important;
-        max-height:none !important;
-        min-height:200px !important;
-    }
-    body.mp-chat-open .stage{
-        margin-right:316px;
-        width:calc(100% - 316px) !important;
-        max-width:calc(var(--desk-stage-max,1760px) - 316px) !important;
-    }
-    body.mp-chat-open #pianoWrap{
-        margin-right:316px;
-        width:calc(100% - 316px) !important;
-        max-width:calc(var(--desk-stage-max,1760px) - 316px) !important;
-    }
-    body.mp-chat-open #swipeStrip{
-        width:calc(min(100%,var(--desk-stage-max,1760px)) - 316px) !important;
-    }
+/* Lobby ikut membesar di monitor besar */
+@media (min-width:1600px){
+    .mp-shell{ padding-top:calc(14px + env(safe-area-inset-top,0px)); }
+    .mp-head{ height:60px; grid-template-columns:54px max-content; }
+    .mp-close{ width:54px; height:54px; }
+    .mp-user-card{ height:54px; }
+    .mp-top-name{ font-size:16px; }
+    .mp-notice{ min-height:42px; font-size:13.5px; }
+    .mp-room-list{ gap:14px; }
+    .mp-room-card{ min-height:108px; }
+    .mp-room-card b{ font-size:20px; }
+    .mp-home-footer{ gap:14px; }
+    .mp-home-footer .mp-action{ min-height:54px; font-size:14px; border-radius:18px; }
+    .mp-home-footer .mp-action.compact{ font-size:15px; }
 }
 
-/* 7: Chat preview desktop — align ke piano left edge */
-@media (min-width:900px){
-    .mp-chat-preview{
-        left:max(14px, calc((100vw - 1180px) / 2 + 14px)) !important;
-    }
-}
-@media (min-width:1224px){
-    .mp-chat-preview{
-        left:calc((100vw - 1180px) / 2 + 14px) !important;
-    }
-}
-
-/* 8: Chat preview overflow protection — cap max-height based on remaining viewport */
-.mp-chat-preview{
-    max-height:min(
-        calc(var(--mp-chat-preview-rows,3) * 72px + (var(--mp-chat-preview-rows,3) - 1) * 6px),
-        calc(100dvh - var(--piano-height,26vh) - 84px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px))
-    ) !important;
-}
-
-/* 9: Player strip — align ke piano boundary di desktop */
-@media (min-width:900px){
-    .mp-player-strip{
-        left:max(clamp(130px,17vw,174px), calc((100vw - 1180px) / 2 + 174px)) !important;
-        right:max(calc(14px + env(safe-area-inset-right,0px)), calc((100vw - 1180px) / 2 + 14px)) !important;
-    }
-}
-
-/* 10: Floating panel width normalisasi — jangan mengecil di tablet */
+/* --- Floating panel: jangan mengecil di tablet/laptop kecil --- */
 @media (min-width:900px) and (max-width:1599px){
-    .floating-panel{ width:min(340px,calc(100vw - 28px)) !important; }
-    #settingsPanel{ width:min(360px,calc(100vw - 28px)) !important; }
-    #colorPanel{ width:min(350px,calc(100vw - 28px)) !important; }
+    .floating-panel{ width:min(380px,calc(100vw - 28px)) !important; }
+    #settingsPanel{ width:min(400px,calc(100vw - 28px)) !important; }
+    #colorPanel{ width:min(380px,calc(100vw - 28px)) !important; }
 }
 </style>
 </head>
@@ -6297,9 +6417,9 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                                 <input class="ui-full" type="range" id="blackKeyHeightRange" min="45" max="75" value="60" aria-label="Black Key Height">
                                 <div class="ui-setting-head-divided">
                                     <span class="ui-label">Piano Visibility</span>
-                                    <span class="ui-value" id="pianoVisibilityVal">80%</span>
+                                    <span class="ui-value" id="pianoVisibilityVal">100%</span>
                                 </div>
-                                <input class="ui-full" type="range" id="pianoVisibilityRange" min="40" max="100" value="80" aria-label="Piano Visibility">
+                                <input class="ui-full" type="range" id="pianoVisibilityRange" min="40" max="100" value="100" aria-label="Piano Visibility">
                             </div>
         <div class="height-stepper perf-setting-block" style="margin-top:12px;">
             <div class="ui-setting-head">
@@ -7476,7 +7596,7 @@ let labelMode = 'off';
 let pianoScalePercent = 100;
 let blackKeyWidthPercent = 120;
 let blackKeyHeightPercent = 60;
-let pianoVisibilityPercent = 80;
+let pianoVisibilityPercent = 100;
 
 function getPianoVisualScaleRatio(){
     return 1;
@@ -9634,7 +9754,7 @@ function applyFactoryDefaults(clearSavedState){
     setPianoScalePercent();
     setBlackKeyWidthPercent(120);
     setBlackKeyHeightPercent(60);
-    setPianoVisibilityPercent(80);
+    setPianoVisibilityPercent(100);
     document.getElementById('sizeRange').value = 18;
     animSize = 18;
     setAnimColor('#ffffff');
@@ -10085,7 +10205,7 @@ function applySettings(s) {
         setPianoScalePercent();
         setBlackKeyWidthPercent(s.blackKeyWidthPercent !== undefined ? s.blackKeyWidthPercent : 120);
         setBlackKeyHeightPercent(s.blackKeyHeightPercent !== undefined ? s.blackKeyHeightPercent : 60);
-        setPianoVisibilityPercent(s.pianoVisibilityPercent !== undefined ? s.pianoVisibilityPercent : 80);
+        setPianoVisibilityPercent(s.pianoVisibilityPercent !== undefined ? s.pianoVisibilityPercent : 100);
         setWhiteKeyColor(s.accentWhite !== undefined ? s.accentWhite : NO_COLOR);
         setBlackKeyColor(s.accentBlack !== undefined ? s.accentBlack : NO_COLOR);
         setKeyGlowEnabled(s.keyGlowEnabled !== undefined ? !!s.keyGlowEnabled : false);
@@ -10235,8 +10355,8 @@ function applySaberSaturation(hex, percent){
 function resetWhiteKeyBaseColor(){
     const root=document.documentElement.style;
     root.setProperty('--piano-white-top','#ffffff');
-    root.setProperty('--piano-white-mid','#f7f8f6');
-    root.setProperty('--piano-white-bottom','#e4e8e6');
+    root.setProperty('--piano-white-mid','#f7f8fa');
+    root.setProperty('--piano-white-bottom','#e9ecef');
 }
 function resetBlackKeyBaseColor(){
     const root=document.documentElement.style;
@@ -13872,7 +13992,11 @@ midiBtn.onclick = (e) => {
         else if(landscape && height < 430) quota = 2;
         const piano = document.getElementById('pianoWrap');
         const pianoHeight = piano ? piano.getBoundingClientRect().height : Math.round(height * 0.25);
-        const topReserve = width <= 767 ? 104 : 116;
+        const strip = document.getElementById('mpPlayerStrip');
+        const stripRect = strip ? strip.getBoundingClientRect() : null;
+        const topReserve = (stripRect && stripRect.bottom > 0)
+            ? Math.round(stripRect.bottom + 10)
+            : (width <= 767 ? 104 : 116);
         const available = Math.max(42, height - pianoHeight - topReserve - 20);
         const fit = Math.max(1, Math.floor(available / (width >= 768 ? 74 : 68)));
         return Math.max(1, Math.min(quota, fit));
