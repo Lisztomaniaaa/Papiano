@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Papiano Admin</title>
+<style>
+:root{
+  --bg:#060b14;--surface:#0d1526;--surface-2:#131e30;--surface-3:#1b2840;
+  --border:rgba(100,150,220,.10);--border-2:rgba(100,150,220,.18);
+  --accent:#4d90ff;--accent-dark:#2770e0;
+  --green:#00D66B;--red:#FB3F5C;--amber:#f59e0b;--purple:#8b5cf6;
+  --text:#e2eaf8;--muted:rgba(226,234,248,.55);--faint:rgba(226,234,248,.28);
+  --radius:12px;--sidebar:220px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased}
+button{cursor:pointer;font-family:inherit;font-size:13px}
+input,select,textarea{font-family:inherit;font-size:13px}
+a{color:var(--accent);text-decoration:none}
+
+/* ── OVERLAY SCREENS ── */
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:100}
+.screen.hidden{display:none}
+.screen-card{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;padding:36px 32px;width:min(380px,92vw);display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center}
+.screen-logo{font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--text)}
+.screen-logo span{color:var(--accent)}
+.screen-sub{color:var(--muted);font-size:13px;line-height:1.5}
+.screen-btn{width:100%;padding:13px;border-radius:10px;border:none;font-weight:700;font-size:14px;cursor:pointer;transition:opacity .15s}
+.screen-btn:hover{opacity:.85}
+.screen-btn.primary{background:var(--accent);color:#fff}
+.screen-btn.danger{background:var(--red);color:#fff}
+.screen-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px}
+.screen-icon.blue{background:rgba(77,144,255,.18)}
+.screen-icon.red{background:rgba(251,63,92,.18)}
+.screen-spinner{width:36px;height:36px;border:3px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100vh;hidden}
+#app.visible{display:flex}
+.topbar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:12px;flex-shrink:0;z-index:10}
+.topbar-logo{font-weight:900;font-size:15px;letter-spacing:-.5px}
+.topbar-logo span{color:var(--accent)}
+.topbar-badge{font-size:10px;font-weight:700;background:var(--red);color:#fff;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:.05em}
+.topbar-user{margin-left:auto;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+.topbar-user img,.topbar-user .avatar-fallback{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.topbar-logout{background:transparent;border:1px solid var(--border-2);color:var(--muted);padding:5px 12px;border-radius:7px;transition:all .15s}
+.topbar-logout:hover{border-color:var(--red);color:var(--red)}
+
+.main-layout{display:flex;flex:1;overflow:hidden}
+
+.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:12px 10px;gap:4px;flex-shrink:0}
+.sidebar-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);padding:6px 8px 4px;margin-top:6px}
+.nav-btn{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:none;background:transparent;color:var(--muted);font-weight:600;text-align:left;transition:all .15s;width:100%}
+.nav-btn svg{flex-shrink:0;opacity:.7}
+.nav-btn:hover{background:var(--surface-3);color:var(--text)}
+.nav-btn.active{background:rgba(77,144,255,.14);color:var(--accent)}
+.nav-btn.active svg{opacity:1}
+
+.content{flex:1;overflow-y:auto;padding:24px}
+.page{display:none}
+.page.active{display:block}
+
+/* ── COMPONENTS ── */
+.page-header{margin-bottom:24px}
+.page-title{font-size:20px;font-weight:800;letter-spacing:-.3px}
+.page-sub{color:var(--muted);font-size:13px;margin-top:4px}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.card+.card{margin-top:14px}
+.card-title{font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}
+
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.stat-value{font-size:28px;font-weight:900;letter-spacing:-1px;line-height:1}
+.stat-label{font-size:12px;color:var(--muted);margin-top:5px;font-weight:500}
+
+.form-row{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.form-row label{font-size:12px;font-weight:600;color:var(--muted)}
+.form-control{background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;color:var(--text);padding:9px 12px;outline:none;width:100%;transition:border-color .15s}
+.form-control:focus{border-color:var(--accent)}
+.form-control::placeholder{color:var(--faint)}
+select.form-control option{background:var(--surface-2)}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-actions{display:flex;gap:8px;margin-top:14px}
+
+.btn{padding:9px 16px;border-radius:8px;border:none;font-weight:700;font-size:13px;transition:opacity .15s;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{opacity:.82}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-success{background:var(--green);color:#06111f}
+.btn-ghost{background:var(--surface-3);color:var(--text);border:1px solid var(--border-2)}
+.btn-sm{padding:5px 11px;font-size:12px;border-radius:6px}
+
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface-2)}
+.td-actions{display:flex;gap:6px;justify-content:flex-end}
+
+.badge-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:6px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;border:1.1px solid;white-space:nowrap}
+.badge-member{background:#fff;color:#06111f;border-color:rgba(6,17,31,.22)}
+.badge-supporter{background:#00D66B;color:#06111f;border-color:#06111f}
+.badge-creator{background:#005BFF;color:#fff;border-color:#06111f}
+.badge-papioneer{background:#7C3AED;color:#fff;border-color:#06111f}
+.badge-dev{background:#FB3F5C;color:#fff;border-color:#06111f}
+.badge-unknown{background:var(--surface-3);color:var(--muted);border-color:var(--border-2)}
+
+.user-card{display:flex;align-items:center;gap:14px;padding:16px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--radius);margin-bottom:14px}
+.user-card-avatar{width:44px;height:44px;border-radius:50%;object-fit:cover;background:var(--surface-3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;flex-shrink:0}
+.user-card-info{flex:1;min-width:0}
+.user-card-name{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-card-id{font-size:12px;color:var(--muted);margin-top:2px}
+.user-card-actions{display:flex;gap:8px;flex-wrap:wrap}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-state svg{margin-bottom:12px;opacity:.3}
+
+.toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--surface);border:1px solid var(--border-2);border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;pointer-events:auto;animation:slideIn .2s ease;max-width:300px}
+.toast.toast-success{border-color:var(--green);color:var(--green)}
+.toast.toast-error{border-color:var(--red);color:var(--red)}
+.toast.toast-info{border-color:var(--accent);color:var(--accent)}
+@keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border-2);border-radius:16px;padding:24px;width:min(420px,100%);max-height:90vh;overflow-y:auto}
+.modal-title{font-size:16px;font-weight:800;margin-bottom:16px}
+.modal-actions{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
+
+.divider{height:1px;background:var(--border);margin:16px 0}
+.tag{display:inline-flex;align-items:center;gap:4px;background:var(--surface-3);border:1px solid var(--border-2);border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;color:var(--muted)}
+.search-bar{display:flex;gap:8px;margin-bottom:20px}
+.search-bar .form-control{flex:1}
+.loading-row{text-align:center;padding:20px;color:var(--faint)}
+
+@media(max-width:680px){
+  .sidebar{display:none}
+  .content{padding:16px}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .form-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="screen" id="screenLoad">
+  <div class="screen-card">
+    <div class="screen-spinner"></div>
+    <p style="color:var(--muted);font-size:13px">Connecting…</p>
+  </div>
+</div>
+
+<!-- Login -->
+<div class="screen hidden" id="screenLogin">
+  <div class="screen-card">
+    <div class="screen-icon blue">🎹</div>
+    <div>
+      <div class="screen-logo"><span>Papiano</span> Admin</div>
+      <p class="screen-sub" style="margin-top:6px">Admin access only. Sign in with your Google account.</p>
+    </div>
+    <button class="screen-btn primary" onclick="signInGoogle()">Continue with Google</button>
+  </div>
+</div>
+
+<!-- Access Denied -->
+<div class="screen hidden" id="screenDenied">
+  <div class="screen-card">
+    <div class="screen-icon red">🚫</div>
+    <div>
+      <div class="screen-logo">Access Denied</div>
+      <p class="screen-sub" style="margin-top:6px" id="deniedMsg">Your account does not have admin access.</p>
+    </div>
+    <button class="screen-btn danger" onclick="signOut()">Sign out</button>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <header class="topbar">
+    <div class="topbar-logo"><span>Papiano</span> Admin</div>
+    <div class="topbar-badge">DEV</div>
+    <div class="topbar-user">
+      <div class="avatar-fallback" id="topAvatar">—</div>
+      <span id="topName">—</span>
+      <button class="topbar-logout" onclick="signOut()">Sign out</button>
+    </div>
+  </header>
+
+  <div class="main-layout">
+    <nav class="sidebar">
+      <div class="sidebar-section">Main</div>
+      <button class="nav-btn active" onclick="showPage('dashboard',this)">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-btn" onclick="showPage('roles',this)">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>
+        Roles
+      </button>
+      <button class="nav-btn" onclick="showPage('users',this)">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Users
+      </button>
+      <div class="sidebar-section">Finance</div>
+      <button class="nav-btn" onclick="showPage('donations',this)">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        Donations
+      </button>
+    </nav>
+
+    <main class="content">
+      <!-- DASHBOARD -->
+      <div class="page active" id="pageDashboard">
+        <div class="page-header">
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub">Overview of Papiano's community.</div>
+        </div>
+        <div class="stats-grid" id="dashStats">
+          <div class="stat-card"><div class="stat-value" id="statRoles">—</div><div class="stat-label">Roles Defined</div></div>
+          <div class="stat-card"><div class="stat-value" id="statDonors">—</div><div class="stat-label">Total Donors</div></div>
+          <div class="stat-card"><div class="stat-value" id="statTotal">—</div><div class="stat-label">Total Raised (USD)</div></div>
+          <div class="stat-card"><div class="stat-value" id="statGoal">—</div><div class="stat-label">Goal Progress</div></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Default Role System</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px" id="dashRoles"></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="card-title">Recent Donors</div>
+          <div id="dashDonors"><div class="loading-row">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- ROLES -->
+      <div class="page" id="pageRoles">
+        <div class="page-header">
+          <div class="page-title">Roles</div>
+          <div class="page-sub">Create, edit, and delete roles. Changes apply instantly across all users.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">All Roles</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>ID</th><th>Label</th><th>Rarity</th><th>Color</th><th>Users</th><th style="text-align:right">Actions</th></tr></thead>
+              <tbody id="rolesTable"><tr><td colspan="6" class="loading-row">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="card-title">Create New Role</div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Role ID (lowercase, no spaces)</label>
+              <input class="form-control" id="newRoleId" placeholder="e.g. moderator" maxlength="30">
+            </div>
+            <div class="form-row">
+              <label>Display Label</label>
+              <input class="form-control" id="newRoleLabel" placeholder="e.g. MODERATOR" maxlength="28">
+            </div>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Rarity (controls color)</label>
+              <select class="form-control" id="newRoleRarity">
+                <option value="member">member — white (default)</option>
+                <option value="supporter">supporter — green</option>
+                <option value="creator">creator — blue</option>
+                <option value="papioneer">papioneer — purple</option>
+                <option value="dev">dev — red</option>
+                <option value="moderator">moderator — dark+green</option>
+                <option value="legendary">legendary — gold</option>
+                <option value="system">system — dark</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Description (optional)</label>
+              <input class="form-control" id="newRoleDesc" placeholder="Brief description" maxlength="80">
+            </div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" onclick="createRole()">Create Role</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- USERS -->
+      <div class="page" id="pageUsers">
+        <div class="page-header">
+          <div class="page-title">Users</div>
+          <div class="page-sub">Search users to view or manage their roles.</div>
+        </div>
+        <div class="search-bar">
+          <input class="form-control" id="userSearchInput" placeholder="Search by display name or User ID (e.g. #1)" maxlength="60" onkeydown="if(event.key==='Enter')searchUser()">
+          <button class="btn btn-primary" onclick="searchUser()">Search</button>
+        </div>
+        <div id="userResults"></div>
+      </div>
+
+      <!-- DONATIONS -->
+      <div class="page" id="pageDonations">
+        <div class="page-header">
+          <div class="page-title">Donations</div>
+          <div class="page-sub">Manage donation records. Adding a donation automatically gifts the Supporter role.</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Donor List</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Name</th><th>User ID</th><th>Amount (USD)</th><th>Date</th><th>Note</th><th style="text-align:right">Actions</th></tr></thead>
+              <tbody id="donationsTable"><tr><td colspan="6" class="loading-row">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <div class="card-title">Add Donation Record</div>
+          <p style="color:var(--muted);font-size:12px;margin-bottom:12px">Search a user first, then fill in the donation details. The Supporter role will be gifted automatically.</p>
+          <div class="search-bar">
+            <input class="form-control" id="donorSearchInput" placeholder="Search user by name or ID…" maxlength="60" onkeydown="if(event.key==='Enter')searchDonor()">
+            <button class="btn btn-ghost" onclick="searchDonor()">Find</button>
+          </div>
+          <div id="donorFound" style="display:none" class="user-card" style="margin-bottom:14px">
+            <div class="user-card-avatar" id="donorAvatar">?</div>
+            <div class="user-card-info">
+              <div class="user-card-name" id="donorName">—</div>
+              <div class="user-card-id" id="donorId">—</div>
+            </div>
+            <span id="donorRoleBadge"></span>
+          </div>
+          <div class="form-grid">
+            <div class="form-row">
+              <label>Amount (USD)</label>
+              <input class="form-control" id="donationAmount" type="number" min="0.01" step="0.01" placeholder="e.g. 5.00">
+            </div>
+            <div class="form-row">
+              <label>Currency</label>
+              <select class="form-control" id="donationCurrency">
+                <option value="USD">USD</option>
+                <option value="IDR">IDR</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Note (optional)</label>
+            <input class="form-control" id="donationNote" placeholder="e.g. via PayPal, GoPay…" maxlength="120">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-success" onclick="addDonation()" id="addDonationBtn" disabled>Add Donation &amp; Gift Supporter</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- Gift Role Modal -->
+<div class="modal-overlay" id="giftModal">
+  <div class="modal">
+    <div class="modal-title">Gift Role</div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:14px">Select a role to gift to <strong id="giftTargetName">this user</strong>.</p>
+    <div class="form-row">
+      <label>Role</label>
+      <select class="form-control" id="giftRoleSelect"></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('giftModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmGiftRole()">Gift Role</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove Role Modal -->
+<div class="modal-overlay" id="removeRoleModal">
+  <div class="modal">
+    <div class="modal-title">Remove Role</div>
+    <p style="color:var(--muted);font-size:13px">Remove role from <strong id="removeTargetName">this user</strong>? They will revert to <strong>MEMBER</strong>.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('removeRoleModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmRemoveRole()">Remove Role</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Role Modal -->
+<div class="modal-overlay" id="deleteRoleModal">
+  <div class="modal">
+    <div class="modal-title">Delete Role</div>
+    <p style="color:var(--muted);font-size:13px">Delete role <strong id="deleteRoleName">—</strong>? This only removes the role definition — users who have it will still show it until updated.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteRoleModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDeleteRole()">Delete Role</button>
+    </div>
+  </div>
+</div>
+
+<!-- Remove Donation Modal -->
+<div class="modal-overlay" id="deleteDonModal">
+  <div class="modal">
+    <div class="modal-title">Remove Donation Record</div>
+    <p style="color:var(--muted);font-size:13px">Remove donation record for <strong id="deleteDonName">—</strong>? This will NOT automatically remove their Supporter role.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('deleteDonModal')">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmDeleteDonation()">Remove</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script type="module">
+const FIREBASE_VERSION = '10.12.5';
+const FB_BASE = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}`;
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY',
+  authDomain: 'papianoverse.firebaseapp.com',
+  databaseURL: 'https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'papianoverse',
+  storageBucket: 'papianoverse.appspot.com'
+};
+const RTDB_ROOT = 'papianoOnlineBeta';
+const DONATION_GOAL_USD = 100;
+
+// Role color map for badges in admin panel
+const RARITY_CLASS = {
+  member:'badge-member', supporter:'badge-supporter', creator:'badge-creator',
+  papioneer:'badge-papioneer', dev:'badge-dev',
+  common:'badge-member', uncommon:'badge-supporter', rare:'badge-creator',
+  epic:'badge-papioneer', mythic:'badge-dev', legendary:'badge-papioneer',
+  moderator:'badge-member', system:'badge-unknown'
+};
+
+let auth, db, rtdb, currentUser;
+let allRoles = {};
+let pendingGiftUid = null;
+let pendingRemoveUid = null;
+let pendingDeleteRoleId = null;
+let pendingDeleteDonUid = null;
+let selectedDonorUid = null;
+let selectedDonorData = null;
+
+async function init() {
+  try {
+    const [appMod, authMod, dbMod, rtdbMod] = await Promise.all([
+      import(`${FB_BASE}/firebase-app.js`),
+      import(`${FB_BASE}/firebase-auth.js`),
+      import(`${FB_BASE}/firebase-database.js`),
+      import(`${FB_BASE}/firebase-firestore.js`)
+    ]);
+
+    const app = appMod.initializeApp(FIREBASE_CONFIG);
+    auth = authMod.getAuth(app);
+    db = rtdbMod.getDatabase(app);
+    const firestore = dbMod.getFirestore(app);
+
+    // Attach all Firebase functions to window for later use
+    window._fb = { appMod, authMod, dbMod, rtdbMod, firestore };
+
+    authMod.onAuthStateChanged(auth, async user => {
+      if (!user) { showScreen('login'); return; }
+      showScreen('loading');
+      try {
+        // Check role via Firestore profiles
+        const profileRef = dbMod.doc(firestore, 'profiles', user.uid);
+        const snap = await dbMod.getDoc(profileRef);
+        const profile = snap.data() || {};
+        const role = profile.badgeId || profile.roleId || 'member';
+        if (role !== 'dev') {
+          document.getElementById('deniedMsg').textContent =
+            `Your account (${user.email}) has role "${role.toUpperCase()}" — admin requires DEV.`;
+          showScreen('denied');
+          return;
+        }
+        currentUser = { ...user, profile };
+        initApp();
+      } catch(e) {
+        document.getElementById('deniedMsg').textContent = 'Failed to verify role: ' + e.message;
+        showScreen('denied');
+      }
+    });
+  } catch(e) {
+    showScreen('login');
+    toast('Firebase failed to load: ' + e.message, 'error');
+  }
+}
+
+function initApp() {
+  const { authMod } = window._fb;
+  // Topbar
+  document.getElementById('topName').textContent = currentUser.displayName || currentUser.email;
+  const av = document.getElementById('topAvatar');
+  if (currentUser.photoURL) {
+    av.outerHTML = `<img class="avatar-fallback" src="${currentUser.photoURL}" alt="avatar" id="topAvatar">`;
+  } else {
+    av.textContent = (currentUser.displayName || 'A')[0].toUpperCase();
+  }
+  document.getElementById('app').classList.add('visible');
+  showScreen(null);
+  loadRoles();
+  loadDonations();
+}
+
+function showScreen(name) {
+  ['screenLoad','screenLogin','screenDenied'].forEach(id => {
+    document.getElementById(id).classList.toggle('hidden', id !== ('screen' + (name ? name[0].toUpperCase() + name.slice(1) : '')));
+  });
+  if (!name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+  }
+}
+
+async function signInGoogle() {
+  const { authMod } = window._fb;
+  try {
+    await authMod.signInWithPopup(auth, new authMod.GoogleAuthProvider());
+  } catch(e) { toast(e.message, 'error'); }
+}
+
+async function signOut() {
+  const { authMod } = window._fb;
+  try { await authMod.signOut(auth); showScreen('login'); } catch(e) {}
+}
+window.signOut = signOut;
+window.signInGoogle = signInGoogle;
+
+// ── NAVIGATION ──
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page' + name[0].toUpperCase() + name.slice(1)).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+window.showPage = showPage;
+
+// ── ROLES ──
+async function loadRoles() {
+  const { rtdbMod } = window._fb;
+  const snap = await rtdbMod.get(rtdbMod.ref(db, 'roles'));
+  allRoles = snap.val() || {};
+  renderRolesTable();
+  renderDashRoles();
+  renderGiftSelect();
+  updateDashStats();
+}
+
+function renderRolesTable() {
+  const tbody = document.getElementById('rolesTable');
+  const keys = Object.keys(allRoles);
+  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="6" class="loading-row">No roles in Firebase yet.</td></tr>'; return; }
+  tbody.innerHTML = keys.sort().map(id => {
+    const r = allRoles[id];
+    const rarity = r.rarity || 'member';
+    const cls = RARITY_CLASS[rarity] || 'badge-unknown';
+    const label = r.label || id.toUpperCase();
+    return `<tr>
+      <td><code style="font-size:12px;color:var(--accent)">${esc(id)}</code></td>
+      <td><span class="badge-pill ${cls}">${esc(label)}</span></td>
+      <td><span class="tag">${esc(rarity)}</span></td>
+      <td><div style="display:flex;align-items:center;gap:6px"><div style="width:14px;height:14px;border-radius:3px;background:${rarityColor(rarity)}"></div><span style="font-size:12px;color:var(--muted)">${rarityColor(rarity)}</span></div></td>
+      <td><button class="btn btn-ghost btn-sm" onclick="viewRoleUsers('${esc(id)}')">View users</button></td>
+      <td class="td-actions"><button class="btn btn-danger btn-sm" onclick="openDeleteRole('${esc(id)}')">Delete</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDashRoles() {
+  const el = document.getElementById('dashRoles');
+  const DEFAULT_ROLES = ['member','supporter','creator','papioneer','dev'];
+  el.innerHTML = DEFAULT_ROLES.map(id => {
+    const r = allRoles[id];
+    const rarity = r?.rarity || id;
+    const label = r?.label || id.toUpperCase();
+    const exists = !!r;
+    const cls = RARITY_CLASS[rarity] || 'badge-unknown';
+    return `<span class="badge-pill ${cls}" style="opacity:${exists?1:.4}">${esc(label)}${exists?'':' (missing)'}</span>`;
+  }).join('');
+}
+
+function renderGiftSelect() {
+  const sel = document.getElementById('giftRoleSelect');
+  sel.innerHTML = Object.keys(allRoles).sort().map(id => {
+    const r = allRoles[id];
+    return `<option value="${esc(id)}">${esc(r.label || id.toUpperCase())} (${esc(r.rarity||'member')})</option>`;
+  }).join('');
+}
+
+function rarityColor(rarity) {
+  const MAP = { member:'#ffffff', supporter:'#00D66B', creator:'#005BFF', papioneer:'#7C3AED', dev:'#FB3F5C',
+    common:'#ffffff', uncommon:'#00D66B', rare:'#005BFF', epic:'#7C3AED', mythic:'#FB3F5C',
+    legendary:'#FFB000', moderator:'#06111f', system:'#1A1A1A' };
+  return MAP[rarity] || '#888';
+}
+
+async function createRole() {
+  const id = document.getElementById('newRoleId').value.trim().toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'');
+  const label = document.getElementById('newRoleLabel').value.trim().toUpperCase();
+  const rarity = document.getElementById('newRoleRarity').value;
+  const desc = document.getElementById('newRoleDesc').value.trim();
+  if (!id) { toast('Role ID is required', 'error'); return; }
+  if (!label) { toast('Label is required', 'error'); return; }
+  try {
+    const { rtdbMod } = window._fb;
+    await rtdbMod.set(rtdbMod.ref(db, `roles/${id}`), { label, rarity, description: desc || null, createdAt: Date.now() });
+    toast(`Role "${label}" created`, 'success');
+    document.getElementById('newRoleId').value = '';
+    document.getElementById('newRoleLabel').value = '';
+    document.getElementById('newRoleDesc').value = '';
+    await loadRoles();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+window.createRole = createRole;
+
+function openDeleteRole(id) {
+  pendingDeleteRoleId = id;
+  const r = allRoles[id];
+  document.getElementById('deleteRoleName').textContent = (r?.label || id.toUpperCase()) + ` (${id})`;
+  openModal('deleteRoleModal');
+}
+window.openDeleteRole = openDeleteRole;
+
+async function confirmDeleteRole() {
+  if (!pendingDeleteRoleId) return;
+  try {
+    const { rtdbMod } = window._fb;
+    await rtdbMod.remove(rtdbMod.ref(db, `roles/${pendingDeleteRoleId}`));
+    toast('Role deleted', 'success');
+    closeModal('deleteRoleModal');
+    await loadRoles();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+window.confirmDeleteRole = confirmDeleteRole;
+
+async function viewRoleUsers(roleId) {
+  const { dbMod } = window._fb;
+  showPage('users', document.querySelector('.nav-btn:nth-child(4)'));
+  document.getElementById('userSearchInput').value = '';
+  const resultsEl = document.getElementById('userResults');
+  resultsEl.innerHTML = '<div class="loading-row">Loading users with role "' + esc(roleId) + '"…</div>';
+  try {
+    const q = dbMod.query(dbMod.collection(window._fb.firestore,'profiles'), dbMod.where('badgeId','==',roleId), dbMod.limit(50));
+    const snap = await dbMod.getDocs(q);
+    renderUserCards(snap.docs.map(d => ({ uid: d.id, ...d.data() })), resultsEl);
+  } catch(e) { resultsEl.innerHTML = `<div class="loading-row" style="color:var(--red)">${esc(e.message)}</div>`; }
+}
+window.viewRoleUsers = viewRoleUsers;
+
+// ── USERS ──
+async function searchUser() {
+  const query = document.getElementById('userSearchInput').value.trim();
+  if (!query) return;
+  const resultsEl = document.getElementById('userResults');
+  resultsEl.innerHTML = '<div class="loading-row">Searching…</div>';
+  const users = await queryUsers(query);
+  renderUserCards(users, resultsEl);
+}
+window.searchUser = searchUser;
+
+async function queryUsers(query) {
+  const { dbMod, firestore } = window._fb;
+  const results = new Map();
+  try {
+    // By userId
+    const q1 = dbMod.query(dbMod.collection(firestore,'profiles'), dbMod.where('userId','==',query), dbMod.limit(10));
+    const s1 = await dbMod.getDocs(q1);
+    s1.docs.forEach(d => results.set(d.id, { uid: d.id, ...d.data() }));
+  } catch(e) {}
+  try {
+    // By name prefix
+    const q2 = dbMod.query(dbMod.collection(firestore,'profiles'), dbMod.orderBy('name'), dbMod.startAt(query), dbMod.endAt(query + ''), dbMod.limit(15));
+    const s2 = await dbMod.getDocs(q2);
+    s2.docs.forEach(d => results.set(d.id, { uid: d.id, ...d.data() }));
+  } catch(e) {}
+  return [...results.values()];
+}
+
+function renderUserCards(users, container) {
+  if (!users.length) { container.innerHTML = '<div class="empty-state"><svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><p>No users found.</p></div>'; return; }
+  container.innerHTML = users.map(u => {
+    const role = u.badgeId || 'member';
+    const rarity = allRoles[role]?.rarity || role;
+    const cls = RARITY_CLASS[rarity] || 'badge-unknown';
+    const label = allRoles[role]?.label || role.toUpperCase();
+    const avatarHtml = u.photoURL
+      ? `<img class="user-card-avatar" src="${esc(u.photoURL)}" alt="avatar" onerror="this.style.display='none'">`
+      : `<div class="user-card-avatar">${(u.name||'?')[0].toUpperCase()}</div>`;
+    return `<div class="user-card" data-uid="${esc(u.uid)}">
+      ${avatarHtml}
+      <div class="user-card-info">
+        <div class="user-card-name">${esc(u.name||'Unknown')}</div>
+        <div class="user-card-id">${esc(u.userId||u.uid)} · <span style="color:var(--muted)">${esc(u.uid)}</span></div>
+      </div>
+      <div class="user-card-actions">
+        <span class="badge-pill ${cls}">${esc(label)}</span>
+        <button class="btn btn-primary btn-sm" onclick="openGiftRole('${esc(u.uid)}','${esc(u.name||'User')}')">Gift Role</button>
+        <button class="btn btn-danger btn-sm" onclick="openRemoveRole('${esc(u.uid)}','${esc(u.name||'User')}')">Remove Role</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openGiftRole(uid, name) {
+  pendingGiftUid = uid;
+  document.getElementById('giftTargetName').textContent = name;
+  renderGiftSelect();
+  openModal('giftModal');
+}
+window.openGiftRole = openGiftRole;
+
+async function confirmGiftRole() {
+  if (!pendingGiftUid) return;
+  const roleId = document.getElementById('giftRoleSelect').value;
+  if (!roleId) { toast('Select a role', 'error'); return; }
+  try {
+    await setUserRole(pendingGiftUid, roleId, 'add');
+    toast('Role gifted!', 'success');
+    closeModal('giftModal');
+    searchUser();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+window.confirmGiftRole = confirmGiftRole;
+
+function openRemoveRole(uid, name) {
+  pendingRemoveUid = uid;
+  document.getElementById('removeTargetName').textContent = name;
+  openModal('removeRoleModal');
+}
+window.openRemoveRole = openRemoveRole;
+
+async function confirmRemoveRole() {
+  if (!pendingRemoveUid) return;
+  try {
+    await setUserRole(pendingRemoveUid, 'member', 'reset');
+    toast('Role removed, reverted to MEMBER', 'success');
+    closeModal('removeRoleModal');
+    searchUser();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+window.confirmRemoveRole = confirmRemoveRole;
+
+async function setUserRole(uid, roleId, mode) {
+  const { dbMod, rtdbMod, firestore } = window._fb;
+  const profileRef = dbMod.doc(firestore, 'profiles', uid);
+  if (mode === 'reset') {
+    await dbMod.updateDoc(profileRef, { badgeId: 'member' });
+  } else {
+    await dbMod.updateDoc(profileRef, { badgeId: roleId, ownedRoles: dbMod.arrayUnion(roleId) });
+  }
+  // Also update RTDB presence data
+  try {
+    await rtdbMod.update(rtdbMod.ref(db, `${RTDB_ROOT}/users/${uid}`), { badgeId: roleId });
+  } catch(e) {} // RTDB may not have entry, ok
+}
+
+// ── DONATIONS ──
+async function loadDonations() {
+  const { rtdbMod } = window._fb;
+  const snap = await rtdbMod.get(rtdbMod.ref(db, `${RTDB_ROOT}/donations`));
+  const donations = snap.val() || {};
+  renderDonationsTable(donations);
+  updateDashStats(donations);
+  renderDashDonors(donations);
+}
+
+function renderDonationsTable(donations) {
+  const tbody = document.getElementById('donationsTable');
+  const entries = Object.entries(donations).sort((a,b) => (b[1].total||0) - (a[1].total||0));
+  if (!entries.length) { tbody.innerHTML = '<tr><td colspan="6" class="loading-row">No donations yet.</td></tr>'; return; }
+  tbody.innerHTML = entries.map(([uid, d]) => `<tr>
+    <td><strong>${esc(d.name||'Unknown')}</strong></td>
+    <td><span style="color:var(--muted)">${esc(d.userId||'—')}</span></td>
+    <td><strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong>${d.currency&&d.currency!=='USD'?`<span style="font-size:11px;color:var(--muted)"> (${esc(d.currency)})</span>`:''}</td>
+    <td style="color:var(--muted);font-size:12px">${esc(d.date ? new Date(d.date).toLocaleDateString() : '—')}</td>
+    <td style="color:var(--muted);font-size:12px">${esc(d.note||'—')}</td>
+    <td class="td-actions"><button class="btn btn-danger btn-sm" onclick="openDeleteDon('${esc(uid)}','${esc(d.name||'Unknown')}')">Remove</button></td>
+  </tr>`).join('');
+}
+
+function renderDashDonors(donations) {
+  const el = document.getElementById('dashDonors');
+  const entries = Object.entries(donations).sort((a,b) => (b[1].total||0)-(a[1].total||0)).slice(0,5);
+  if (!entries.length) { el.innerHTML = '<div class="empty-state" style="padding:16px"><p>No donors yet.</p></div>'; return; }
+  el.innerHTML = entries.map(([uid,d]) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:700;font-size:13px">${esc(d.name||'Unknown')}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(d.userId||uid)}</div>
+      </div>
+      <strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong>
+    </div>`).join('');
+}
+
+function updateDashStats(donations) {
+  const roles = Object.keys(allRoles);
+  document.getElementById('statRoles').textContent = roles.length;
+  if (!donations) return;
+  const entries = Object.values(donations);
+  const total = entries.reduce((s,d) => s + Number(d.total||0), 0);
+  document.getElementById('statDonors').textContent = entries.length;
+  document.getElementById('statTotal').textContent = '$' + total.toFixed(2);
+  document.getElementById('statGoal').textContent = Math.min(100, Math.round(total / DONATION_GOAL_USD * 100)) + '%';
+}
+
+async function searchDonor() {
+  const query = document.getElementById('donorSearchInput').value.trim();
+  if (!query) return;
+  const users = await queryUsers(query);
+  if (!users.length) { toast('No user found', 'error'); return; }
+  const u = users[0];
+  selectedDonorUid = u.uid;
+  selectedDonorData = u;
+  const el = document.getElementById('donorFound');
+  el.style.display = 'flex';
+  document.getElementById('donorName').textContent = u.name || 'Unknown';
+  document.getElementById('donorId').textContent = u.userId || u.uid;
+  const role = u.badgeId || 'member';
+  const rarity = allRoles[role]?.rarity || role;
+  const cls = RARITY_CLASS[rarity] || 'badge-unknown';
+  const label = allRoles[role]?.label || role.toUpperCase();
+  document.getElementById('donorRoleBadge').innerHTML = `<span class="badge-pill ${cls}">${esc(label)}</span>`;
+  const av = document.getElementById('donorAvatar');
+  av.textContent = (u.name||'?')[0].toUpperCase();
+  document.getElementById('addDonationBtn').disabled = false;
+}
+window.searchDonor = searchDonor;
+
+async function addDonation() {
+  if (!selectedDonorUid) { toast('Search for a user first', 'error'); return; }
+  const amount = parseFloat(document.getElementById('donationAmount').value);
+  if (!amount || amount <= 0) { toast('Enter a valid amount', 'error'); return; }
+  const currency = document.getElementById('donationCurrency').value;
+  const note = document.getElementById('donationNote').value.trim();
+  try {
+    const { rtdbMod, dbMod, firestore } = window._fb;
+    const uid = selectedDonorUid;
+    const u = selectedDonorData;
+    const existSnap = await rtdbMod.get(rtdbMod.ref(db, `${RTDB_ROOT}/donations/${uid}`));
+    const existing = existSnap.val() || {};
+    const total = Number(existing.total || 0) + amount;
+    await rtdbMod.set(rtdbMod.ref(db, `${RTDB_ROOT}/donations/${uid}`), {
+      uid, name: u.name || 'Unknown', userId: u.userId || null,
+      total, currency, date: new Date().toISOString(), note: note || null
+    });
+    // Gift supporter role
+    await setUserRole(uid, 'supporter', 'add');
+    toast(`Donation recorded. $${total.toFixed(2)} total. Supporter role gifted!`, 'success');
+    document.getElementById('donationAmount').value = '';
+    document.getElementById('donationNote').value = '';
+    document.getElementById('donorFound').style.display = 'none';
+    document.getElementById('addDonationBtn').disabled = true;
+    selectedDonorUid = null;
+    selectedDonorData = null;
+    await loadDonations();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+window.addDonation = addDonation;
+
+function openDeleteDon(uid, name) {
+  pendingDeleteDonUid = uid;
+  document.getElementById('deleteDonName').textContent = name;
+  openModal('deleteDonModal');
+}
+window.openDeleteDon = openDeleteDon;
+
+async function confirmDeleteDonation() {
+  if (!pendingDeleteDonUid) return;
+  try {
+    const { rtdbMod } = window._fb;
+    await rtdbMod.remove(rtdbMod.ref(db, `${RTDB_ROOT}/donations/${pendingDeleteDonUid}`));
+    toast('Donation record removed', 'success');
+    closeModal('deleteDonModal');
+    await loadDonations();
+  } catch(e) { toast('Failed: ' + e.message, 'error'); }
+}
+window.confirmDeleteDonation = confirmDeleteDonation;
+
+// ── MODALS ──
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+window.openModal = openModal; window.closeModal = closeModal;
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if(e.target === el) el.classList.remove('open'); });
+});
+
+// ── TOAST ──
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  const icons = { success:'✓', error:'✕', info:'ℹ' };
+  t.innerHTML = `<span>${icons[type]||'•'}</span><span>${esc(msg)}</span>`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+// ── UTIL ──
+function esc(str) {
+  return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>
