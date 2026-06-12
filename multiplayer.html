@@ -10038,6 +10038,7 @@ function setChordDisplayColors(colors){
     document.documentElement.style.setProperty('--chord-glow', hexToRgbaString(primary, 0.36));
     updateColorPadValue('chordPrimaryColor', primary);
     updateColorPadValue('chordSecondaryColor', secondary);
+    syncColorPadsToEffectiveColors();
 }
 function bindChordColorControls(){
     mountColorPad('chordPrimaryColor', 'Primary', chordDisplayColors.primary, color => setChordDisplayColors(Object.assign({}, chordDisplayColors, { primary: color })), DEFAULT_CHORD_COLORS.primary);
@@ -10421,6 +10422,24 @@ function selfSeatNoteOpts(){
 function userCustomChordColor(){
     return customChordColor || '';
 }
+// Sinkronkan TAMPILAN color pad ke warna efektif saat ini:
+// custom user kalau ada, kalau tidak warna seat di room, kalau tidak default.
+// Display-only (updateColorPadValue tidak memanggil handler), jadi tidak
+// pernah mengubah state custom.
+function syncColorPadsToEffectiveColors(){
+    try{
+        const seat = _mpSelfSeatColor || '';
+        updateColorPadValue('gridWhiteTuts', customWhiteKey || seat || '#ffffff');
+        updateColorPadValue('gridBlackTuts', customBlackKey || seat || '#ffffff');
+        if(typeof animStyle === 'undefined' || !animStyle || animStyle === 'default'){
+            const cssAnim = getComputedStyle(document.documentElement).getPropertyValue('--anim-color').trim();
+            updateColorPadValue('gridAnim', customAnimNote || seat || cssAnim || '#ffffff');
+        }
+        const chordBase = (typeof chordDisplayColors !== 'undefined' && chordDisplayColors) ? chordDisplayColors : { primary:'#ffffff', secondary:'#ffffff' };
+        updateColorPadValue('chordPrimaryColor', customChordColor || seat || chordBase.primary || '#ffffff');
+        updateColorPadValue('chordSecondaryColor', customChordColor ? chordBase.secondary : (seat || chordBase.secondary || '#ffffff'));
+    }catch(e){}
+}
 function setWhiteKeyColor(color){
     const root=document.documentElement.style;
     resetWhiteKeyBaseColor();
@@ -10444,6 +10463,7 @@ function setWhiteKeyColor(color){
         root.setProperty('--piano-white-active-mid','#ffffff');
         root.setProperty('--piano-white-active-bottom','#ffffff');
         refreshKeyDustColorCache();
+        syncColorPadsToEffectiveColors();
         return;
     }
     const c=normalizeHexColor(color) || '#ffffff';
@@ -10453,6 +10473,7 @@ function setWhiteKeyColor(color){
     root.setProperty('--piano-white-active-mid',c);
     root.setProperty('--piano-white-active-bottom',c);
     refreshKeyDustColorCache();
+    syncColorPadsToEffectiveColors();
 }
 function setBlackKeyColor(color){
     const root=document.documentElement.style;
@@ -10472,6 +10493,7 @@ function setBlackKeyColor(color){
         root.setProperty('--piano-black-active-mid','#ffffff');
         root.setProperty('--piano-black-active-bottom','#ffffff');
         refreshKeyDustColorCache();
+        syncColorPadsToEffectiveColors();
         return;
     }
     const c=normalizeHexColor(color) || '#ffffff';
@@ -10481,6 +10503,7 @@ function setBlackKeyColor(color){
     root.setProperty('--piano-black-active-mid',c);
     root.setProperty('--piano-black-active-bottom',c);
     refreshKeyDustColorCache();
+    syncColorPadsToEffectiveColors();
 }
 function populateGrid(id, handler){
     const labels = { gridWhiteTuts:'White Key Color', gridBlackTuts:'Black Key Color' };
@@ -10745,6 +10768,7 @@ function setAnimColor(color){
     currentGlassColor = nextColor;
     syncFallingNoteVisualState();
     updateColorPadValue('gridAnim', nextColor);
+    syncColorPadsToEffectiveColors();
 }
 function setAnimDoubleLeftColor(color){
     animDoubleLeftColor = normalizeHexColor(color) || '#ffffff';
@@ -15868,6 +15892,7 @@ midiBtn.onclick = (e) => {
         _playerSeatCache.clear(); // reset seat cache on room leave
         _playerColorLock.clear(); // reset color lock on room leave
         _mpSelfSeatColor = '';
+        if(typeof syncColorPadsToEffectiveColors === 'function') syncColorPadsToEffectiveColors();
     }
 
     function subscribeRoomData(roomId){
@@ -15904,7 +15929,10 @@ midiBtn.onclick = (e) => {
                         const seatIdx = playerSeatColorIndex(seat);
                         if(seatIdx >= 0){
                             _playerColorLock.set(pid, MP_PLAYER_COLORS[seatIdx]);
-                            if(pid === String(mpSelfId || '')) _mpSelfSeatColor = MP_PLAYER_COLORS[seatIdx];
+                            if(pid === String(mpSelfId || '')){
+                            _mpSelfSeatColor = MP_PLAYER_COLORS[seatIdx];
+                            if(typeof syncColorPadsToEffectiveColors === 'function') syncColorPadsToEffectiveColors();
+                        }
                         }
                     }
                 });
