@@ -2435,19 +2435,21 @@ body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKe
     box-shadow:inset 0 1px 0 rgba(255,255,255,0.34);
 }
 .color-pad-reset{
-    height:28px;
-    padding:0 12px;
+    height:30px;
+    padding:0 14px;
     border-radius:999px;
-    border:1px solid rgba(255,255,255,0.12);
-    background:rgba(255,255,255,0.075);
-    color:rgba(245,248,252,0.84);
-    font-size:0;
-    font-weight:900;
-    color:transparent;
-    overflow:hidden;
+    border:1px solid rgba(255,255,255,0.16);
+    background:rgba(255,255,255,0.085);
+    color:rgba(245,248,252,0.92);
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.06em;
+    text-transform:uppercase;
     cursor:pointer;
     font-family:'Quicksand',sans-serif;
+    transition:background .16s ease, transform .08s ease;
 }
+.color-pad-reset:hover{ background:rgba(255,255,255,0.13); }
 .color-pad-reset:active{ transform:scale(.94); }
 .chord-color-grid{
     display:grid;
@@ -9891,8 +9893,8 @@ function mountColorPad(id, label, initialColor, handler, resetColor){
         <div class="color-pad-widget">
             <div class="color-pad-head"><span>${label}</span><span class="color-pad-value"></span></div>
             <div class="color-pad-sv" role="slider" aria-label="${label}" tabindex="0"><div class="color-pad-dot"></div></div>
-            <div class="color-pad-hue"><div class="color-pad-hue-dot"></div></div>
-            <div class="color-pad-actions"><span class="color-pad-chip"></span><button class="color-pad-reset" type="button">White</button></div>
+            <div class="color-pad-hue" role="slider" aria-label="${label} hue" tabindex="0"><div class="color-pad-hue-dot"></div></div>
+            <div class="color-pad-actions"><span class="color-pad-chip"></span><button class="color-pad-reset" type="button">Reset</button></div>
         </div>`;
     const pad = host.querySelector('.color-pad-sv');
     const dot = host.querySelector('.color-pad-dot');
@@ -9903,7 +9905,6 @@ function mountColorPad(id, label, initialColor, handler, resetColor){
     const instance = { host, pad, dot, hueBar, hueDot, value, hue:0, sat:0, val:1, color:startColor, handler };
     colorPadInstances.set(id, instance);
     const renderSvBackground = () => {
-
         const hueHex = colorPadRgbToHex(colorPadHslToRgb(instance.hue, 1, 0.5));
         pad.style.background =
             `linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 100%),`+
@@ -9919,7 +9920,10 @@ function mountColorPad(id, label, initialColor, handler, resetColor){
         hueDot.style.left = `${(instance.hue / 360) * 100}%`;
         renderSvBackground();
         value.textContent = color;
-        if(emit && typeof handler === 'function') handler(color);
+        if(emit && typeof handler === 'function'){
+            _activeColorPadIntent = 'user';
+            try { handler(color); } finally { _activeColorPadIntent = null; }
+        }
     };
     const applySV = (x, y, emit) => {
         instance.sat = clampColorPadValue(x, 0, 1);
@@ -9936,36 +9940,45 @@ function mountColorPad(id, label, initialColor, handler, resetColor){
         instance.val = clampColorPadValue(v, 0, 1);
         syncUI(emit);
     };
-    const setSvFromEvent = event => {
+    // === Standar pro: pointer-driven drag dengan global capture ===
+    // Gunakan window-level listener saat aktif supaya gerakan jari yang
+    // keluar dari area pad (kasus paling sering "tidak bisa digeser") tetap
+    // terlacak; selalu preventDefault agar browser tidak men-cancel jadi scroll.
+    const makeDragger = (target, applyFromXY) => {
+        let pid = -1;
+        const onDown = event => {
+            if(event.button !== undefined && event.button !== 0) return;
+            pid = event.pointerId;
+            try { target.setPointerCapture(pid); } catch(e){}
+            event.preventDefault();
+            applyFromXY(event.clientX, event.clientY);
+            window.addEventListener('pointermove', onMove, { passive:false });
+            window.addEventListener('pointerup', onUp, true);
+            window.addEventListener('pointercancel', onUp, true);
+        };
+        const onMove = event => {
+            if(event.pointerId !== pid) return;
+            event.preventDefault();
+            applyFromXY(event.clientX, event.clientY);
+        };
+        const onUp = event => {
+            if(event.pointerId !== pid) return;
+            try { target.releasePointerCapture(pid); } catch(e){}
+            pid = -1;
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp, true);
+            window.removeEventListener('pointercancel', onUp, true);
+        };
+        target.addEventListener('pointerdown', onDown);
+    };
+    makeDragger(pad, (cx, cy) => {
         const rect = pad.getBoundingClientRect();
-        applySV((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height, true);
-    };
-    const setHueFromEvent = event => {
+        applySV((cx - rect.left) / rect.width, (cy - rect.top) / rect.height, true);
+    });
+    makeDragger(hueBar, (cx) => {
         const rect = hueBar.getBoundingClientRect();
-        applyHue((event.clientX - rect.left) / rect.width, true);
-    };
-    let activePointer = false;
-    pad.addEventListener('pointerdown', event => {
-        activePointer = true;
-        pad.setPointerCapture(event.pointerId);
-        setSvFromEvent(event);
+        applyHue((cx - rect.left) / rect.width, true);
     });
-    pad.addEventListener('pointermove', event => {
-        if(activePointer) setSvFromEvent(event);
-    });
-    pad.addEventListener('pointerup', () => { activePointer = false; });
-    pad.addEventListener('pointercancel', () => { activePointer = false; });
-    let activeHue = false;
-    hueBar.addEventListener('pointerdown', event => {
-        activeHue = true;
-        hueBar.setPointerCapture(event.pointerId);
-        setHueFromEvent(event);
-    });
-    hueBar.addEventListener('pointermove', event => {
-        if(activeHue) setHueFromEvent(event);
-    });
-    hueBar.addEventListener('pointerup', () => { activeHue = false; });
-    hueBar.addEventListener('pointercancel', () => { activeHue = false; });
     pad.addEventListener('keydown', event => {
         const step = event.shiftKey ? 0.08 : 0.03;
         let s = instance.sat;
@@ -9982,12 +9995,28 @@ function mountColorPad(id, label, initialColor, handler, resetColor){
         instance.val = clampColorPadValue(v, 0, 1);
         syncUI(true);
     });
+    hueBar.addEventListener('keydown', event => {
+        const step = event.shiftKey ? 18 : 6;
+        let h = instance.hue;
+        if(event.key === 'ArrowLeft') h -= step;
+        else if(event.key === 'ArrowRight') h += step;
+        else return;
+        event.preventDefault();
+        instance.hue = ((h % 360) + 360) % 360;
+        syncUI(true);
+    });
     reset.addEventListener('click', () => {
         updateColorPadValue(id, resetValue);
-        if(typeof handler === 'function') handler(resetValue);
+        if(typeof handler === 'function'){
+            _activeColorPadIntent = 'reset';
+            try { handler(resetValue); } finally { _activeColorPadIntent = null; }
+        }
     });
     updateColorPadValue(id, startColor);
 }
+// Global intent indicator. null saat programmatic (load settings, defaults),
+// 'user' saat user drag/click/keyboard di color pad, 'reset' saat user klik Reset.
+var _activeColorPadIntent = null;
 
 const DEFAULT_CHORD_COLORS = { primary:'#ffffff', secondary:'#ffffff' };
 let chordDisplayColors = Object.assign({}, DEFAULT_CHORD_COLORS);
@@ -9996,6 +10025,14 @@ function setChordDisplayColors(colors){
     const primary = normalizeHexColor(source.primary) || DEFAULT_CHORD_COLORS.primary;
     const secondary = normalizeHexColor(source.secondary) || DEFAULT_CHORD_COLORS.secondary;
     chordDisplayColors = { primary, secondary };
+    if(_activeColorPadIntent === 'user'){
+        customChordColor = primary;
+    } else if(_activeColorPadIntent === 'reset'){
+        customChordColor = null;
+    } else {
+        // restore: dianggap custom kalau bukan putih default
+        customChordColor = (primary.toLowerCase() !== '#ffffff' || secondary.toLowerCase() !== '#ffffff') ? primary : null;
+    }
     document.documentElement.style.setProperty('--chord-primary', primary);
     document.documentElement.style.setProperty('--chord-secondary', secondary);
     document.documentElement.style.setProperty('--chord-glow', hexToRgbaString(primary, 0.36));
@@ -10359,40 +10396,46 @@ function resetBlackKeyBaseColor(){
 }
 // === Warna custom user vs warna seat (multiplayer) =========================
 // Warna seat hanyalah DEFAULT identitas di dalam room. Begitu user memilih
-// warna sendiri di panel Visual, pilihan user MENANG untuk tampilan lokalnya
-// (pemain lain tetap melihat warna seat user ini di layar mereka).
-var userWhiteKeyChoice = '__none';
-var userBlackKeyChoice = '__none';
-function userHasCustomKeyColor(){
-    return userWhiteKeyChoice !== '__none' || userBlackKeyChoice !== '__none';
-}
+// warna sendiri di panel Visual (TERMASUK PUTIH), pilihan user MENANG untuk
+// tampilan lokalnya. Reset/preset mengembalikan ke warna seat.
+// Pemain lain tetap melihat warna seat user ini di layar mereka.
+//
+// Standar pro: bedakan "default state" dengan "user explicitly chose color".
+// Putih juga bisa dipilih sebagai custom. Cara satu-satunya untuk kembali ke
+// warna seat adalah tombol Reset (yang men-set NO_COLOR).
+var customWhiteKey = null;   // null = belum custom (pakai seat) ; string hex = warna pilihan user
+var customBlackKey = null;
+var customAnimNote = null;
+var customChordColor = null;
 function selfSeatKeyColor(){
-    return userHasCustomKeyColor() ? '' : (_mpSelfSeatColor || '');
-}
-function userHasCustomNoteColor(){
-    if(typeof animStyle !== 'undefined' && animStyle && animStyle !== 'default') return true;
-    const c = (typeof cachedAnimColor !== 'undefined' && cachedAnimColor ? cachedAnimColor : '#ffffff').toLowerCase();
-    return c !== '#ffffff' && c !== '#fff' && c !== 'rgb(255, 255, 255)';
+    if(customWhiteKey || customBlackKey) return ''; // user sudah custom → tampilan ikut --accent-white global
+    return _mpSelfSeatColor || '';
 }
 function selfSeatNoteOpts(){
-    return (!userHasCustomNoteColor() && _mpSelfSeatColor) ? { color: _mpSelfSeatColor } : {};
+    // Hanya overlay seat color jika user belum custom anim color
+    // (animStyle non-default seperti rainbow/double juga dihormati: bukan override seat)
+    if(customAnimNote) return {};
+    if(typeof animStyle !== 'undefined' && animStyle && animStyle !== 'default') return {};
+    return _mpSelfSeatColor ? { color: _mpSelfSeatColor } : {};
 }
 function userCustomChordColor(){
-    try{
-        if(typeof chordDisplayColors === 'undefined' || !chordDisplayColors) return '';
-        const p = String(chordDisplayColors.primary || '').toLowerCase();
-        const s = String(chordDisplayColors.secondary || '').toLowerCase();
-        if(p !== '#ffffff' || s !== '#ffffff') return chordDisplayColors.primary || '';
-    }catch(e){}
-    return '';
+    return customChordColor || '';
 }
 function setWhiteKeyColor(color){
     const root=document.documentElement.style;
     resetWhiteKeyBaseColor();
-    {
-        const picked = (color === NO_COLOR || color === null) ? '' : (normalizeHexColor(color) || '');
-        // '#ffffff' identik dengan tampilan default — jangan dianggap custom
-        userWhiteKeyChoice = (picked && picked.toLowerCase() !== '#ffffff') ? picked : '__none';
+    // Update custom flag berdasarkan intent (sumber panggilan):
+    //   'user'  -> user pilih warna di color pad (termasuk putih)  -> custom
+    //   'reset' -> klik tombol Reset                                -> kembali seat
+    //   null    -> load settings / factory defaults                 -> jangan ubah
+    if(_activeColorPadIntent === 'user'){
+        customWhiteKey = (color === NO_COLOR || color === null) ? null : (normalizeHexColor(color) || null);
+    } else if(_activeColorPadIntent === 'reset' || color === NO_COLOR || color === null){
+        customWhiteKey = null;
+    } else {
+        // restore: hex != putih → custom; putih/null → bukan custom
+        const n = (color === NO_COLOR || color === null) ? null : (normalizeHexColor(color) || null);
+        customWhiteKey = (n && n.toLowerCase() !== '#ffffff') ? n : null;
     }
     if(color === NO_COLOR || color === null){
         root.setProperty('--accent-white','#ffffff');
@@ -10414,9 +10457,13 @@ function setWhiteKeyColor(color){
 function setBlackKeyColor(color){
     const root=document.documentElement.style;
     resetBlackKeyBaseColor();
-    {
-        const picked = (color === NO_COLOR || color === null) ? '' : (normalizeHexColor(color) || '');
-        userBlackKeyChoice = (picked && picked.toLowerCase() !== '#ffffff') ? picked : '__none';
+    if(_activeColorPadIntent === 'user'){
+        customBlackKey = (color === NO_COLOR || color === null) ? null : (normalizeHexColor(color) || null);
+    } else if(_activeColorPadIntent === 'reset' || color === NO_COLOR || color === null){
+        customBlackKey = null;
+    } else {
+        const n = (color === NO_COLOR || color === null) ? null : (normalizeHexColor(color) || null);
+        customBlackKey = (n && n.toLowerCase() !== '#ffffff') ? n : null;
     }
     if(color === NO_COLOR || color === null){
         root.setProperty('--accent-black','#ffffff');
@@ -10684,6 +10731,15 @@ function setKeyGlowIntensity(v){
 }
 function setAnimColor(color){
     const nextColor = normalizeHexColor(color) || '#ffffff';
+    if(_activeColorPadIntent === 'user'){
+        customAnimNote = nextColor;
+    } else if(_activeColorPadIntent === 'reset'){
+        customAnimNote = null;
+    } else if(color === null || color === undefined){
+        customAnimNote = null;
+    } else {
+        customAnimNote = (nextColor.toLowerCase() === '#ffffff') ? null : nextColor;
+    }
     document.documentElement.style.setProperty('--anim-color', nextColor);
     refreshAnimColor();
     currentGlassColor = nextColor;
