@@ -2591,21 +2591,23 @@
         loaded.forEach((profile, uid) => messageProfiles.set(uid, profile));
     }
 
-    // Absolute day + time stamp for chat (no relative "x ago"):
+    // Absolute day + time stamp for chat — always English ("Yesterday", "Mon",
+    // "12 Jun") regardless of browser/OS locale, for global UX consistency.
     // today -> "14:30" · yesterday -> "Yesterday 14:30" · this week -> "Mon 14:30"
     // older -> "12 Jun, 14:30" (adds year when different year)
+    const CHAT_LOCALE = 'en-US';
     function formatChatDayTime(value) {
         const date = value?.toDate ? value.toDate() : value instanceof Date ? value : (typeof value === 'number' && value > 0 ? new Date(value) : null);
         if (!date || Number.isNaN(date.getTime())) return '';
         const now = new Date();
-        const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const time = date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
         const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
         const dayDiff = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
         if (dayDiff <= 0) return time;
         if (dayDiff === 1) return 'Yesterday ' + time;
-        if (dayDiff < 7) return date.toLocaleDateString([], { weekday: 'short' }) + ' ' + time;
+        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'short' }) + ' ' + time;
         const sameYear = date.getFullYear() === now.getFullYear();
-        const dateLabel = date.toLocaleDateString([], sameYear
+        const dateLabel = date.toLocaleDateString(CHAT_LOCALE, sameYear
             ? { day: 'numeric', month: 'short' }
             : { day: 'numeric', month: 'short', year: 'numeric' });
         return dateLabel + ', ' + time;
