@@ -5509,6 +5509,26 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     .mp-home-footer .mp-action{ min-height:54px; font-size:14px; border-radius:18px; }
     .mp-home-footer .mp-action.compact{ font-size:15px; }
 }
+@media (min-width:1920px){
+    .mp-screen[data-mp-screen] .mp-room-main,
+    .mp-screen[data-mp-screen] .mp-notice,
+    .mp-screen[data-mp-screen] .mp-home-footer{
+        max-width:min(1400px, 88vw);
+    }
+    .mp-head{ height:66px; grid-template-columns:58px max-content; }
+    .mp-close{ width:58px; height:58px; border-radius:18px; }
+    .mp-user-card{ height:58px; border-radius:18px; }
+    .mp-top-name{ font-size:17px; }
+    .mp-notice{ min-height:48px; font-size:14.5px; border-radius:17px; }
+    .mp-room-list{ gap:18px; }
+    .mp-room-card{ min-height:122px; padding:18px 20px; border-radius:24px; }
+    .mp-room-card b{ font-size:22px; }
+    .mp-home-footer{ gap:18px; }
+    .mp-home-footer .mp-action{ min-height:60px; font-size:15px; border-radius:20px; }
+    .mp-home-footer .mp-action.compact{ font-size:16px; }
+    .mp-card{ border-radius:26px; }
+    .mp-card-title{ font-size:17px; }
+}
 
 /* --- Floating panel: jangan mengecil di tablet/laptop kecil --- */
 @media (min-width:900px) and (max-width:1599px){
@@ -12644,7 +12664,17 @@ midiBtn.onclick = (e) => {
     function timeLabel(value){
         const date = value ? new Date(value) : new Date();
         if(Number.isNaN(date.getTime())) return '--:--';
-        return String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0');
+        const time = String(date.getHours()).padStart(2,'0') + ':' + String(date.getMinutes()).padStart(2,'0');
+        const now = new Date();
+        const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        const dayDiff = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
+        if(dayDiff <= 0) return time;
+        if(dayDiff === 1) return 'Yesterday ' + time;
+        if(dayDiff < 7) return date.toLocaleDateString([], { weekday:'short' }) + ' ' + time;
+        const sameYear = date.getFullYear() === now.getFullYear();
+        return date.toLocaleDateString([], sameYear
+            ? { day:'numeric', month:'short' }
+            : { day:'numeric', month:'short', year:'numeric' }) + ', ' + time;
     }
 
     const MP_PIANO_SOUNDFONTS = {
@@ -15823,7 +15853,7 @@ midiBtn.onclick = (e) => {
                 id,
                 playerId:value.playerId,
                 text:value.text || '',
-                time:value.time || timeLabel(value.createdAt),
+                time:value.createdAt ? timeLabel(value.createdAt) : (value.time || timeLabel()),
                 replyTo:value.replyTo || null,
                 createdAt:value.createdAt || 0
             })).sort((a,b) => (a.createdAt || 0) - (b.createdAt || 0)));
