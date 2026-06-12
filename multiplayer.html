@@ -5070,6 +5070,9 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 
 /* === Chat popup: ONE absolute card size for every device and orientation (never widens) === */
 .mp-chat-panel{position:fixed !important;top:calc(64px + env(safe-area-inset-top,0px)) !important;bottom:auto !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(340px,calc(100vw - 24px)) !important;max-width:none !important;height:auto !important;min-height:0 !important;max-height:calc(100dvh - 84px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)) !important;border-radius:28px !important;}
+/* When the keyboard is open: dock the card just above it so the input (typed text) stays visible; never stretch full height */
+body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 8px) !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(340px,calc(100vw - 24px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 16px) !important;border-radius:24px !important;}
+@media (orientation:landscape){body.mp-chat-keyboard .mp-chat-head{display:none !important;}}
 
 /* --- Home multiplayer: konsisten dengan stage di semua device --- */
 @media (min-width:900px){
@@ -8682,7 +8685,7 @@ function lockUiLayout(ms=500){
     uiLayoutLockUntil = performance.now() + ms;
 }
 function isUiLayoutLocked(){
-    return performance.now() < uiLayoutLockUntil;
+    return performance.now() < uiLayoutLockUntil || document.body.classList.contains('mp-chat-keyboard');
 }
 let cachedStageW = 0, cachedStageH = 0;
 let stageGeomDirty = true;
