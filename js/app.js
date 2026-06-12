@@ -1579,7 +1579,7 @@
         // requireSignedInFeature() pops the themed auth gate ("Sign in to use
         // Multiplayer.") and we bail out. Otherwise head to the rooms page.
         if (!requireSignedInFeature('Multiplayer')) return;
-        window.location.href = 'homemultiplayer.html';
+        window.location.href = 'multiplayer.html';
     }
 
     function launchSubPageReferenceNode(id) {

@@ -3,6 +3,28 @@
   "trailingSlash": false,
   "buildCommand": "node stamp-version.js",
   "outputDirectory": ".",
+  "redirects": [
+    {
+      "source": "/homemultiplayer",
+      "destination": "/multiplayer",
+      "permanent": true
+    },
+    {
+      "source": "/homemultiplayer.html",
+      "destination": "/multiplayer",
+      "permanent": true
+    },
+    {
+      "source": "/stagepiano",
+      "destination": "/multiplayer",
+      "permanent": true
+    },
+    {
+      "source": "/stagepiano.html",
+      "destination": "/multiplayer",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/version.json",
@@ -42,42 +64,6 @@
     },
     {
       "source": "/multiplayer.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/homemultiplayer",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/homemultiplayer.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/stagepiano",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, must-revalidate"
-        }
-      ]
-    },
-    {
-      "source": "/stagepiano.html",
       "headers": [
         {
           "key": "Cache-Control",
