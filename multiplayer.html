@@ -9232,7 +9232,7 @@ function ensurePianoBootVisible(){
     const h = wrap.getBoundingClientRect().height;
     if(!h || h < 24){
         currentPianoHeightPx = '';
-        applyPianoHeight(50, true);
+        applyPianoHeight(getDefaultPianoHeightPercent(), true);
     }
     if(!piano.children.length && typeof build === 'function') build();
     else if(typeof updateKeyLayout === 'function') updateKeyLayout();
