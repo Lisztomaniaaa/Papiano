@@ -2585,30 +2585,40 @@
         loaded.forEach((profile, uid) => messageProfiles.set(uid, profile));
     }
 
-    // Absolute day + time stamp for chat — always English ("Yesterday", "Mon",
-    // "12 Jun") regardless of browser/OS locale, for global UX consistency.
-    // today -> "14:30" · yesterday -> "Yesterday 14:30" · this week -> "Mon 14:30"
-    // older -> "12 Jun, 14:30" (adds year when different year)
     const CHAT_LOCALE = 'en-US';
-    function formatChatDayTime(value) {
-        const date = value?.toDate ? value.toDate() : value instanceof Date ? value : (typeof value === 'number' && value > 0 ? new Date(value) : null);
-        if (!date || Number.isNaN(date.getTime())) return '';
+
+    function chatTimestampToDate(value) {
+        return value?.toDate ? value.toDate() : value instanceof Date ? value : (typeof value === 'number' && value > 0 ? new Date(value) : null);
+    }
+
+    function startOfChatDay(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    }
+
+    function getChatDateKey(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'pending';
+        return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    }
+
+    function formatChatDateLabel(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'Sending';
         const now = new Date();
-        const time = date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
-        const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        const dayDiff = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
-        if (dayDiff <= 0) return time;
-        if (dayDiff === 1) return 'Yesterday ' + time;
-        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'short' }) + ' ' + time;
+        const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
+        if (dayDiff <= 0) return 'Today';
+        if (dayDiff === 1) return 'Yesterday';
+        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'long' });
         const sameYear = date.getFullYear() === now.getFullYear();
-        const dateLabel = date.toLocaleDateString(CHAT_LOCALE, sameYear
+        return date.toLocaleDateString(CHAT_LOCALE, sameYear
             ? { day: 'numeric', month: 'short' }
             : { day: 'numeric', month: 'short', year: 'numeric' });
-        return dateLabel + ', ' + time;
     }
 
     function formatMessageTime(value) {
-        return formatChatDayTime(value) || 'Sending';
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'Sending';
+        return date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
     }
 
     function getMessageSenderProfile(message) {
@@ -2642,21 +2652,26 @@
         }
         activeMessagesCache.clear();
         messages.forEach(message => activeMessagesCache.set(message.id, message));
+        let lastDateKey = '';
         chatMessagesScrollArea.innerHTML = messages.map(message => {
             const mine = message.senderId === currentUser?.uid;
             const rowClass = mine ? 'row-outgoing msg-outgoing' : 'row-incoming msg-incoming';
             const profile = getMessageSenderProfile(message);
             const image = message.imageURL ? `<img class="chat-image-preview" src="${escapeHtml(message.imageURL)}" alt="Chat image">` : '';
             const text = message.text ? linkifyText(message.text) : '';
-            const edited = message.editedAt ? `<span class="msg-edited-label">Edited</span>` : '';
-            const status = mine ? (message.createdAt ? 'Sent' : 'Sending') : '';
             const announcementLocked = isAnnouncementRoom() && !isAnnouncementOwner();
             const replyButton = announcementLocked
                 ? ''
                 : `<button class="msg-reply-icon-btn" type="button" aria-label="Reply" title="Reply" onclick="event.stopPropagation(); beginReplyToMessage('${message.id}')"><span class="material-symbols-rounded">reply</span></button>`;
             const actions = buildMessageActionStrip(message, mine, announcementLocked);
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
+            const dateKey = getChatDateKey(message.createdAt);
+            const dateSeparator = dateKey !== lastDateKey
+                ? `<div class="chat-day-separator"><span>${escapeHtml(formatChatDateLabel(message.createdAt))}</span></div>`
+                : '';
+            lastDateKey = dateKey;
             return `
+                ${dateSeparator}
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
                     <div class="msg-container-with-avatar">
                         ${renderMessageAvatar(profile)}
@@ -2665,7 +2680,7 @@
                             ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
-                            <div class="msg-meta-line"><span>${formatMessageTime(message.createdAt)}</span>${edited}<span class="msg-status-label">${status}</span></div>
+                            <div class="msg-meta-line"><time>${formatMessageTime(message.createdAt)}</time></div>
                         </div>
                     </div>
                     ${actions}
