@@ -3436,6 +3436,9 @@ body.mp-chat-keyboard .mp-chat-panel{bottom:calc(8px + env(safe-area-inset-botto
 .mp-profile-role[data-rarity="creator"]{ --mp-role-bg:#005BFF; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#00358f; }
 .mp-profile-role[data-rarity="papioneer"]{ --mp-role-bg:#7C3AED; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#4C1D95; }
 .mp-profile-role[data-rarity="dev"]{ --mp-role-bg:#FB3F5C; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#9f1831; }
+.mp-profile-chips{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:5px; min-width:0; }
+.mp-profile-chips .mp-profile-role{ margin-top:0; }
+.mp-profile-hours-pill{ display:inline-flex; align-items:center; justify-content:center; gap:4px; width:max-content; max-width:100%; padding:3px 9px; border-radius:999px; border:1px solid rgba(157,235,255,.22); background:rgba(157,235,255,.09); color:#d9f8ff; box-shadow:inset 0 1px 0 rgba(255,255,255,.06); font-size:10px; font-weight:950; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
 .mp-profile-row{
     display:flex;
     justify-content:space-between;
@@ -3754,6 +3757,7 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
 .mp-lobby-badge-creator{ --lbadge-bg:#005BFF; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#00358f; }
 .mp-lobby-badge-papioneer{ --lbadge-bg:#7C3AED; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#4C1D95; }
 .mp-lobby-badge-dev{ --lbadge-bg:#FB3F5C; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#9f1831; }
+.mp-lobby-hours-pill{ flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; padding:2px 8px; border-radius:999px; border:1px solid rgba(6,17,31,.14); background:#06111f; color:#e7f4ff; box-shadow:1.5px 1.5px 0 rgba(6,17,31,.24); font-size:10px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
 .mp-lobby-profile-flag{
     font-size:13px;
     font-weight:600;
@@ -5311,7 +5315,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     <div id="mpProfile" class="mp-profile" role="dialog" aria-modal="false" aria-label="Player profile">
         <div class="mp-profile-top">
             <div id="mpProfileAvatar" class="mp-avatar"></div>
-            <div><div id="mpProfileName" class="mp-profile-name"></div><div id="mpProfileRole" class="mp-profile-role"></div></div>
+            <div><div id="mpProfileName" class="mp-profile-name"></div><div class="mp-profile-chips"><div id="mpProfileRole" class="mp-profile-role"></div><span id="mpProfilePlayTime" class="mp-profile-hours-pill">0H</span></div></div>
             <button id="mpProfileClose" class="mp-chat-close" type="button" aria-label="Close profile"><svg class="mp-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
         <div class="mp-profile-row"><span>User ID</span><b id="mpProfileId"></b></div>
@@ -5349,6 +5353,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                     <div class="mp-lobby-name-big" id="mpLobbyProfileName">Player</div>
                     <div class="mp-lobby-profile-chips">
                         <span class="mp-lobby-badge-pill" id="mpLobbyProfileBadge">PLAYER</span>
+                        <span class="mp-lobby-hours-pill" id="mpLobbyProfilePlayTime">0H</span>
                         <span class="mp-lobby-profile-flag" id="mpLobbyProfileFlag" style="display:none;"></span>
                     </div>
                 </div>
@@ -11903,6 +11908,7 @@ midiBtn.onclick = (e) => {
     const profileAvatar = document.getElementById('mpProfileAvatar');
     const profileName = document.getElementById('mpProfileName');
     const profileRole = document.getElementById('mpProfileRole');
+    const profilePlayTime = document.getElementById('mpProfilePlayTime');
     const profileId = document.getElementById('mpProfileId');
     const profileInstrument = document.getElementById('mpProfileInstrument');
     const profileLayerInstrument = document.getElementById('mpProfileLayerInstrument');
@@ -12504,6 +12510,7 @@ midiBtn.onclick = (e) => {
             bio:profile.desc,
             likes:profile.likes,
             dislikes:profile.dislikes,
+            playTimeSeconds:profile.playTimeSeconds,
             countryCode:profile.countryCode,
             online:data.online !== false,
             room:data.room || null,
@@ -12529,6 +12536,7 @@ midiBtn.onclick = (e) => {
         player.bio = profile.desc;
         player.likes = profile.likes;
         player.dislikes = profile.dislikes;
+        player.playTimeSeconds = profile.playTimeSeconds;
         player.countryCode = profile.countryCode;
         return player;
     }
@@ -13984,6 +13992,17 @@ midiBtn.onclick = (e) => {
         }catch(e){ return cc; }
     }
 
+    function profilePlayHours(player){
+        let seconds = Math.max(0, Number(player?.playTimeSeconds || 0));
+        if(player?.id === mpSelfId){
+            seconds = Math.max(seconds, Number(mpPlayTimeBaseSeconds || 0) + Number(mpPlayTimePending || 0));
+        }
+        const hours = seconds / 3600;
+        if(hours < 0.05) return '0H';
+        if(hours < 10) return (Math.round(hours * 10) / 10).toFixed(1).replace(/\.0$/, '') + 'H';
+        return Math.round(hours).toLocaleString('en-US') + 'H';
+    }
+
     function profileCountryText(player){
         const cc = String(player?.countryCode || '').trim().toUpperCase();
         if(!cc) return 'Not set';
@@ -14191,6 +14210,7 @@ midiBtn.onclick = (e) => {
         if(profileLikes) profileLikes.textContent = Number(player.likes || 0);
         if(profileDislikes) profileDislikes.textContent = Number(player.dislikes || 0);
         if(profileCountry) profileCountry.textContent = profileCountryText(player);
+        if(profilePlayTime) profilePlayTime.textContent = profilePlayHours(player);
         syncFriendAction(player);
         syncSafetyActions(player);
         const s = getState(player.id);
@@ -14248,6 +14268,7 @@ midiBtn.onclick = (e) => {
         const avatarEl = document.getElementById('mpLobbyProfileAvatar');
         const nameEl = document.getElementById('mpLobbyProfileName');
         const badgeEl = document.getElementById('mpLobbyProfileBadge');
+        const playTimeEl = document.getElementById('mpLobbyProfilePlayTime');
         const flagEl = document.getElementById('mpLobbyProfileFlag');
         const idEl = document.getElementById('mpLobbyProfileId');
         const bioEl = document.getElementById('mpLobbyProfileBio');
@@ -14289,6 +14310,7 @@ midiBtn.onclick = (e) => {
         }
         if(idEl) idEl.textContent = player.displayUserId || player.userId || '—';
         if(bioEl) bioEl.textContent = player.bio || '—';
+        if(playTimeEl) playTimeEl.textContent = profilePlayHours(player);
         if(likeVal) likeVal.textContent = Number(player.likes || 0);
         if(dislikeVal) dislikeVal.textContent = Number(player.dislikes || 0);
 
@@ -14358,6 +14380,7 @@ midiBtn.onclick = (e) => {
                 }
                 if(idEl) idEl.textContent = fresh.displayUserId || fresh.userId || '—';
                 if(bioEl) bioEl.textContent = fresh.bio || '—';
+                if(playTimeEl) playTimeEl.textContent = profilePlayHours(fresh);
                 if(likeVal) likeVal.textContent = Number(fresh.likes || 0);
                 if(dislikeVal) dislikeVal.textContent = Number(fresh.dislikes || 0);
                 if(flagEl){
