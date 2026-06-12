@@ -6097,8 +6097,13 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                         <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Low = Performance · Medium = Balanced · High = Full Visuals</div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
-                        <div class="section-title ui-mb8">Chord Detector</div>
-                        <button class="btn active ui-flex-1" id="chordToggleBtn" style="width:100%;">On</button>
+                        <div class="ui-setting-head-gap">
+                            <div>
+                                <div class="ui-label-strong">Chord Detector</div>
+                                <div class="ui-muted-caption">Detect chords while playing</div>
+                            </div>
+                            <div class="toggle-switch" id="chordToggle"><div class="toggle-track active" id="chordTrack"><div class="toggle-thumb"></div></div></div>
+                        </div>
                     </div>
                 </div>
                 <div class="settings-section" data-settings-section="piano">
@@ -6149,10 +6154,12 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                         <input class="ui-full" type="range" id="settingsStringVolRange" min="0" max="100" value="75" aria-label="Layer Vol">
                     </div>
 <div class="perf-setting-block ui-mt8">
-                        <div class="section-title ui-mb8">Layer</div>
-                        <div class="sf-layer-toggle">
-                            <button class="btn sf-toggle-btn active" id="settingsStringOffBtn">Layer Off</button>
-                            <button class="btn sf-toggle-btn" id="settingsStringOnBtn">Layer On</button>
+                        <div class="ui-setting-head-gap">
+                            <div>
+                                <div class="ui-label-strong">Layer</div>
+                                <div class="ui-muted-caption">Second sound layer</div>
+                            </div>
+                            <div class="toggle-switch" id="settingsStringToggle"><div class="toggle-track" id="settingsStringTrack"><div class="toggle-thumb"></div></div></div>
                         </div>
                         <div class="sf-effect-head"><span>Layer Fade</span><span id="settingsSustainSf2Val">5.0s</span></div>
                         <input class="ui-full" type="range" id="settingsSustainSf2Range" min="0.1" max="10" step="0.1" value="5" aria-label="Layer Fade">
@@ -6163,7 +6170,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                     <div class="perf-setting-block">
                         <div class="ui-setting-head-gap">
                             <div><div class="ui-label-strong">Falling Notes</div><div class="ui-muted-caption">Toggle falling notes visibility</div></div>
-                            <div class="ui-inline-actions"><button class="btn ui-pad-x-12" id="settingsAnimOff">OFF</button><button class="btn active ui-pad-x-12" id="settingsAnimOn">ON</button></div>
+                            <div class="toggle-switch" id="settingsAnimToggle"><div class="toggle-track active" id="settingsAnimTrack"><div class="toggle-thumb"></div></div></div>
                         </div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
@@ -6191,9 +6198,13 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="section-title ui-mb8">Strike Line & Particles</div>
-                        <div class="anim-style-grid">
-                            <button class="btn saber-fx-btn active" type="button" id="settingsSaberEnabledBtn">Strike On</button>
-                            <button class="btn saber-fx-btn active" type="button" id="saberDustBtn">Particles On</button>
+                        <div class="ui-setting-head-gap">
+                            <div class="ui-label-strong">Strike Line</div>
+                            <div class="toggle-switch" id="settingsSaberToggle"><div class="toggle-track active" id="settingsSaberTrack"><div class="toggle-thumb"></div></div></div>
+                        </div>
+                        <div class="ui-setting-head-gap ui-mt8">
+                            <div class="ui-label-strong">Particles</div>
+                            <div class="toggle-switch" id="settingsDustToggle"><div class="toggle-track active" id="settingsDustTrack"><div class="toggle-thumb"></div></div></div>
                         </div>
                         <div class="ui-setting-head-divided-soft">
                             <span class="ui-label">Particle Count</span>
@@ -7264,12 +7275,10 @@ function setStringLayerEnabled(on, skipConfirm=false) {
     }
     const onBtn = document.getElementById('stringOnBtn');
     const offBtn = document.getElementById('stringOffBtn');
-    const settingsOnBtn = document.getElementById('settingsStringOnBtn');
-    const settingsOffBtn = document.getElementById('settingsStringOffBtn');
+    const settingsTrack = document.getElementById('settingsStringTrack');
     if (onBtn) onBtn.classList.toggle('active', stringEnabled);
     if (offBtn) offBtn.classList.toggle('active', !stringEnabled);
-    if (settingsOnBtn) settingsOnBtn.classList.toggle('active', stringEnabled);
-    if (settingsOffBtn) settingsOffBtn.classList.toggle('active', !stringEnabled);
+    if (settingsTrack) settingsTrack.classList.toggle('active', stringEnabled);
     updateSoundfontPickerUI();
     if (stringEnabled && currentStringSf !== stringLoadedSfKey && SF_URLS[currentStringSf]) {
         const overlay = document.getElementById('sfLoadingOverlay');
@@ -7278,8 +7287,7 @@ function setStringLayerEnabled(on, skipConfirm=false) {
         const syncBtns = () => {
             if (onBtn) onBtn.classList.toggle('active', stringEnabled);
             if (offBtn) offBtn.classList.toggle('active', !stringEnabled);
-            if (settingsOnBtn) settingsOnBtn.classList.toggle('active', stringEnabled);
-            if (settingsOffBtn) settingsOffBtn.classList.toggle('active', !stringEnabled);
+            if (settingsTrack) settingsTrack.classList.toggle('active', stringEnabled);
         };
         if (alreadyCached) {
             syncBtns();
@@ -7385,10 +7393,8 @@ document.querySelectorAll('.sf-option[data-layer][data-sf-key]').forEach(btn => 
 });
 document.getElementById('stringOnBtn').onclick = () => setStringLayerEnabled(true);
 document.getElementById('stringOffBtn').onclick = () => setStringLayerEnabled(false);
-const settingsStringOnBtn = document.getElementById('settingsStringOnBtn');
-const settingsStringOffBtn = document.getElementById('settingsStringOffBtn');
-if(settingsStringOnBtn) settingsStringOnBtn.onclick = () => setStringLayerEnabled(true);
-if(settingsStringOffBtn) settingsStringOffBtn.onclick = () => setStringLayerEnabled(false);
+const settingsStringTrack = document.getElementById('settingsStringTrack');
+if(settingsStringTrack) settingsStringTrack.onclick = () => setStringLayerEnabled(!stringEnabled);
 bindStringRangeSliders();
 setStringLayerEnabled(stringEnabled, true);
 updateStringRangeUI();
@@ -9612,16 +9618,12 @@ function setAnimationEnabled(value){
     isAnimOn = !!value;
     const track = document.getElementById('animTrack');
     if(track) track.classList.toggle('active', isAnimOn);
-    const onBtn = document.getElementById('settingsAnimOn');
-    const offBtn = document.getElementById('settingsAnimOff');
-    if(onBtn) onBtn.classList.toggle('active', isAnimOn);
-    if(offBtn) offBtn.classList.toggle('active', !isAnimOn);
+    const settingsTrack = document.getElementById('settingsAnimTrack');
+    if(settingsTrack) settingsTrack.classList.toggle('active', isAnimOn);
 }
 const animTrack=document.getElementById('animTrack'); animTrack.onclick=()=>setAnimationEnabled(!isAnimOn);
-const settingsAnimOn = document.getElementById('settingsAnimOn');
-const settingsAnimOff = document.getElementById('settingsAnimOff');
-if(settingsAnimOn) settingsAnimOn.onclick=()=>setAnimationEnabled(true);
-if(settingsAnimOff) settingsAnimOff.onclick=()=>setAnimationEnabled(false);
+const settingsAnimTrack = document.getElementById('settingsAnimTrack');
+if(settingsAnimTrack) settingsAnimTrack.onclick=()=>setAnimationEnabled(!isAnimOn);
 function setAnimRoundness(value){
     animRoundness = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
     animShape = 'rounded';
@@ -10653,14 +10655,14 @@ function setDustColor(color){
 }
 function syncSaberFxButtons(){
     const saberBtn = document.getElementById('saberEnabledBtn');
-    const dustBtn = document.getElementById('saberDustBtn');
     const particleBtn = document.getElementById('particleEnabledBtn');
-    const settingsSaberBtn = document.getElementById('settingsSaberEnabledBtn');
+    const settingsSaberTrack = document.getElementById('settingsSaberTrack');
+    const settingsDustTrack = document.getElementById('settingsDustTrack');
     const amountRange = document.getElementById('settingsDustAmountRange');
     const amountVal = document.getElementById('settingsDustAmountVal');
     if(saberBtn){ saberBtn.classList.toggle('active', saberEnabled); saberBtn.textContent = saberEnabled ? 'Strike On' : 'Strike Off'; }
-    if(settingsSaberBtn){ settingsSaberBtn.classList.toggle('active', saberEnabled); settingsSaberBtn.textContent = saberEnabled ? 'Strike On' : 'Strike Off'; }
-    if(dustBtn){ dustBtn.classList.toggle('active', saberDustEnabled); dustBtn.textContent = saberDustEnabled ? 'Particles On' : 'Dust OFF'; }
+    if(settingsSaberTrack){ settingsSaberTrack.classList.toggle('active', saberEnabled); }
+    if(settingsDustTrack){ settingsDustTrack.classList.toggle('active', saberDustEnabled); }
     if(particleBtn){ particleBtn.classList.toggle('active', saberDustEnabled); particleBtn.textContent = saberDustEnabled ? 'Particle ON' : 'Particle OFF'; }
     const amountRangeMain = document.getElementById('dustAmountRange');
     const amountValMain = document.getElementById('dustAmountVal');
@@ -10820,8 +10822,8 @@ setAnimDoubleSplitTuts(animDoubleSplitTuts);
 updateAnimModeControls();
 document.getElementById('animDoubleSplitRange')?.addEventListener('input', e => setAnimDoubleSplitTuts(e.target.value));
 document.getElementById('saberEnabledBtn')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
-document.getElementById('settingsSaberEnabledBtn')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
-document.getElementById('saberDustBtn')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
+document.getElementById('settingsSaberTrack')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
+document.getElementById('settingsDustTrack')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
 document.getElementById('particleEnabledBtn')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
 document.getElementById('dustBlendGlow')?.addEventListener('click', () => setDustBlendMode('glow'));
 document.getElementById('dustBlendSolid')?.addEventListener('click', () => setDustBlendMode('solid'));
@@ -11584,11 +11586,11 @@ function formatChord(match){ const rootName=NOTE_NAMES[match.root]; const chordN
 // Chord toggle On/Off (persisted)
 var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordOn') !== '0'; }catch(e){ return true; } })();
 (function initChordToggle(){
-    var btn = document.getElementById('chordToggleBtn');
-    if(!btn) return;
-    function sync(){ btn.classList.toggle('active', _chordEnabled); btn.textContent = _chordEnabled ? 'On' : 'Off'; }
+    var track = document.getElementById('chordTrack');
+    if(!track) return;
+    function sync(){ track.classList.toggle('active', _chordEnabled); }
     sync();
-    btn.onclick = function(){ _chordEnabled = !_chordEnabled; try{ localStorage.setItem('papianoChordOn', _chordEnabled ? '1' : '0'); }catch(e){} sync(); if(!_chordEnabled){ var el1=document.getElementById('chordPrimary'); var el2=document.getElementById('chordSecondary'); if(el1){el1.classList.remove('show');el1.textContent='';} if(el2){el2.classList.remove('show');el2.textContent='';} } };
+    track.onclick = function(){ _chordEnabled = !_chordEnabled; try{ localStorage.setItem('papianoChordOn', _chordEnabled ? '1' : '0'); }catch(e){} sync(); if(!_chordEnabled){ var el1=document.getElementById('chordPrimary'); var el2=document.getElementById('chordSecondary'); if(el1){el1.classList.remove('show');el1.textContent='';} if(el2){el2.classList.remove('show');el2.textContent='';} } };
 })();
 
 let midiAccess = null;
