@@ -22,6 +22,7 @@
     const displayProfileRole = document.getElementById('displayProfileRole');
     const displayProfileId = document.getElementById('displayProfileId');
     const displayTotalPlayTrack = document.getElementById('displayTotalPlayTrack');
+    const displayProfilePlayPill = document.getElementById('displayProfilePlayPill');
     const displayAuthStatus = document.getElementById('displayAuthStatus');
     const formInputName = document.getElementById('formInputName');
     const accountLockedUserId = document.getElementById('accountLockedUserId');
@@ -802,6 +803,11 @@
         return `${hours}h ${String(minutes).padStart(2, '0')}m`;
     }
 
+    function formatPlayTimeHours(seconds) {
+        const hours = Math.max(0, Math.floor((Number(seconds) || 0) / 3600));
+        return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    }
+
     function normalizeProfile(uid, data = {}) {
         const publicId = Number(data.publicId || 0);
         const playTimeSeconds = parsePlayTimeSeconds(data);
@@ -1015,7 +1021,9 @@
         if (!playTimeStartedAt || document.hidden) return;
         const totalSeconds = getLivePlayTimeSeconds();
         const label = formatPlayTime(totalSeconds);
+        const hourLabel = formatPlayTimeHours(totalSeconds);
         if (displayTotalPlayTrack) displayTotalPlayTrack.textContent = label;
+        if (displayProfilePlayPill) displayProfilePlayPill.textContent = hourLabel;
         if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = label;
     }
 
@@ -1249,6 +1257,7 @@
         selectedBadgeId = normalizeRoleId(profile.roleId || profile.roleId || profile.badgeId || 'common');
         const badge = getBadge(selectedBadgeId);
         const playTimeLabel = formatPlayTime(profile.playTimeSeconds);
+        const playTimeHourLabel = formatPlayTimeHours(profile.playTimeSeconds);
         updateTopBarProfile(profile);
         document.querySelector('.account-layout')?.classList.toggle('access-locked', !currentUser?.uid);
 
@@ -1256,6 +1265,7 @@
         if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
         if (displayProfileId) displayProfileId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (displayTotalPlayTrack) animateCountUp(displayTotalPlayTrack, playTimeLabel);
+        if (displayProfilePlayPill) displayProfilePlayPill.textContent = playTimeHourLabel;
         if (displayAuthStatus) displayAuthStatus.textContent = currentUser ? 'Online' : '—';
         if (accountLockedUserId) accountLockedUserId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = playTimeLabel;
@@ -2600,13 +2610,13 @@
         if (!date || Number.isNaN(date.getTime())) return 'Sending';
         const now = new Date();
         const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
-        if (dayDiff <= 0) return 'Today';
-        if (dayDiff === 1) return 'Yesterday';
-        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'long' });
+        if (dayDiff <= 0) return 'Tdy';
+        if (dayDiff === 1) return 'Yday';
+        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'short' });
         const sameYear = date.getFullYear() === now.getFullYear();
         return date.toLocaleDateString(CHAT_LOCALE, sameYear
             ? { day: 'numeric', month: 'short' }
-            : { day: 'numeric', month: 'short', year: 'numeric' });
+            : { day: 'numeric', month: 'short', year: '2-digit' });
     }
 
     function formatMessageTime(value) {
@@ -3170,6 +3180,7 @@
         const fpBadgeContainer = document.getElementById('fpBadgeContainer');
         const fpId = document.getElementById('fpId');
         const fpDesc = document.getElementById('fpDesc');
+        const fpPlayTime = document.getElementById('fpPlayTime');
         const fpLikeVal = document.getElementById('fpLikeVal');
         const fpDislikeVal = document.getElementById('fpDislikeVal');
         const fpAddFriendBtn = document.getElementById('fpAddFriendBtn');
@@ -3190,6 +3201,7 @@
         renderFlagRow(profile.countryCode, document.getElementById('fpFlagRow'));
         if (fpId) fpId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (fpDesc) fpDesc.textContent = profile.desc || '—';
+        if (fpPlayTime) fpPlayTime.textContent = formatPlayTimeHours(profile.playTimeSeconds);
         if (fpLikeVal) fpLikeVal.textContent = profile.likes || 0;
         if (fpDislikeVal) fpDislikeVal.textContent = profile.dislikes || 0;
 
