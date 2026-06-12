@@ -649,20 +649,6 @@ body.hide-ui #logoToggle{ opacity:.55 !important; }
     .mpc-name { font-size: 9px; max-width: 50px; }
 }
 
-.chord-mode-grid { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-.chord-mode-row { display: flex; gap: 6px; }
-
-.btn-crazy {
-    background: linear-gradient(135deg, #7c00ff, #ff006e) !important;
-    border-color: rgba(255,0,110,0.4) !important;
-    box-shadow: 0 0 10px rgba(255,0,110,0.25);
-    transition: box-shadow 0.2s, transform 0.1s !important;
-}
-.btn-crazy.active {
-    background: linear-gradient(135deg, #9d2fff, #ff3d8a) !important;
-    border-color: #ff006e !important;
-    box-shadow: 0 0 16px rgba(255,0,110,0.6), 0 0 32px rgba(124,0,255,0.3) !important;
-}
 
 :root{
     --accent-white:#ffffff;
@@ -940,8 +926,8 @@ body,button,input,select,textarea{ font-family:'Plus Jakarta Sans','Nunito',sans
 :root{
     --bg-stage:#090d12;
     --piano-white-top:#ffffff;
-    --piano-white-mid:#f7f8fa;
-    --piano-white-bottom:#e9ecef;
+    --piano-white-mid:#fdfdfe;
+    --piano-white-bottom:#f1f3f5;
     --piano-black-top:#2d333d;
     --piano-black-mid:#151a22;
     --piano-black-bottom:#040506;
@@ -985,7 +971,7 @@ body,button,input,select,textarea{ font-family:'Plus Jakarta Sans','Nunito',sans
     background-color:var(--piano-white-mid) !important;
     background-image:linear-gradient(180deg,var(--piano-white-top) 0%,var(--piano-white-mid) 52%,var(--piano-white-bottom) 100%) !important;
     border-radius:0 0 2px 2px !important;
-    box-shadow:inset 0 -5px 9px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.85) !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(6,17,31,0.10) !important;
 }
 .white::after,
 #piano .white::after{
@@ -1056,24 +1042,6 @@ body.key-glow-on #piano .black.active{
 .label-selector-vertical{ display:grid !important; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px !important; }
 .label-option-vertical{ justify-content:center; }
 .label-option-vertical .label-text{ font-size:10px !important; font-weight:800 !important; line-height:1.15 !important; text-align:center !important; }
-.btn-crazy{
-    color:#fff !important;
-    background:linear-gradient(120deg,#ff3d81,#ffb84d,#7cff6b,#61dcff,#8c5cff,#ff3d81) !important;
-    background-size:280% 280% !important;
-    border-color:rgba(255,255,255,0.28) !important;
-    text-shadow:0 1px 8px rgba(0,0,0,0.35);
-    box-shadow:0 0 12px rgba(120,220,255,0.12), inset 0 1px 0 rgba(255,255,255,0.20) !important;
-}
-.btn-crazy.active{
-    color:#fff !important;
-    animation:crazyRainbowFlow 3.2s linear infinite;
-    box-shadow:0 0 18px rgba(120,220,255,0.28), 0 0 28px rgba(255,90,180,0.16), inset 0 1px 0 rgba(255,255,255,0.28) !important;
-}
-@keyframes crazyRainbowFlow{
-    0%{ background-position:0% 50%; }
-    50%{ background-position:100% 50%; }
-    100%{ background-position:0% 50%; }
-}
 .perf-setting-block{
     background:rgba(255,255,255,0.045);
     border:1px solid rgba(255,255,255,0.075);
@@ -1761,7 +1729,7 @@ body.papiano-fullscreen #fsBtn,
     background:linear-gradient(180deg,var(--piano-white-top) 0%,var(--piano-white-mid) 52%,var(--piano-white-bottom) 100%) !important;
     background-color:var(--piano-white-mid) !important;
     background-image:linear-gradient(180deg,var(--piano-white-top) 0%,var(--piano-white-mid) 52%,var(--piano-white-bottom) 100%) !important;
-    box-shadow:inset 0 -5px 9px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.85) !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(6,17,31,0.10) !important;
     filter:none !important;
 }
 #piano > .white.active,
@@ -1835,9 +1803,9 @@ body.layout-changing #piano .black.active{
 
 @media (pointer: coarse) {
     #piano .white:not(.active){
-        background: #f2f3f1 !important;
+        background: #f8fafb !important;
         background-image: none !important;
-        background-color: #f2f3f1 !important;
+        background-color: #f8fafb !important;
         box-shadow: none !important;
     }
     .white::after,
@@ -1892,35 +1860,42 @@ body.layout-changing #piano .black.active{
 }
 
 @media (pointer: fine) {
+/* Tuts putih realistis: putih terang merata seperti piano akrilik asli,
+   dengan bibir depan (front lip) halus di ujung bawah — tanpa gradasi
+   abu-abu lebar yang membuat tuts terlihat pucat/kusam. */
 #piano .white:not(.active){
-    background:linear-gradient(180deg,#ffffff 0%,#f5f7f9 52%,#e7eaee 100%) !important;
-    background-color:#f5f7f9 !important;
-    background-image:linear-gradient(180deg,#ffffff 0%,#f5f7f9 52%,#e7eaee 100%) !important;
-    box-shadow:inset 0 -5px 9px rgba(0,0,0,.10), inset 0 1px 0 rgba(255,255,255,.85) !important;
+    background:linear-gradient(180deg,#ffffff 0%,#fdfdfe 62%,#f7f8fa 88%,#e9ebee 95%,#f5f6f8 100%) !important;
+    background-color:#fdfdfe !important;
+    background-image:linear-gradient(180deg,#ffffff 0%,#fdfdfe 62%,#f7f8fa 88%,#e9ebee 95%,#f5f6f8 100%) !important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(6,17,31,.10) !important;
     filter:none !important;
 }
+/* Tuts hitam glossy: highlight atas + bevel sisi seperti ebony piano asli */
 #piano .black:not(.active){
     background:linear-gradient(
         180deg,
-        #2e333b 0%,
-        #1a1d23 8%,
-        #0e1015 40%,
-        #0a0c10 72%,
-        #141720 100%
+        #41464e 0%,
+        #23272d 10%,
+        #121419 42%,
+        #0a0c0f 78%,
+        #181b20 92%,
+        #2c3138 100%
     ) !important;
-    background-color:#0e1015 !important;
+    background-color:#121419 !important;
     background-image:linear-gradient(
         180deg,
-        #2e333b 0%,
-        #1a1d23 8%,
-        #0e1015 40%,
-        #0a0c10 72%,
-        #141720 100%
+        #41464e 0%,
+        #23272d 10%,
+        #121419 42%,
+        #0a0c0f 78%,
+        #181b20 92%,
+        #2c3138 100%
     ) !important;
     box-shadow:
-        2px 4px 10px rgba(0,0,0,.65),
-        1px 0 0 rgba(255,255,255,.04) inset,
-        -1px 0 0 rgba(255,255,255,.03) inset !important;
+        inset 0 2px 1px rgba(255,255,255,.16),
+        inset 1px 0 1px rgba(255,255,255,.05),
+        inset -1px 0 1px rgba(0,0,0,.45),
+        2px 5px 9px rgba(0,0,0,.60) !important;
     filter:none !important;
 }
 }
@@ -3768,10 +3743,10 @@ body.mp-chat-keyboard .mp-chat-panel{
 .mp-profile .mp-avatar{ width:38px; height:38px; font-size:0; }
 .mp-profile-name{ font-size:14px; font-weight:900; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .mp-profile-role{ margin-top:5px; display:inline-flex; align-items:center; width:max-content; max-width:100%; padding:3px 10px; border-radius:6px; font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.08em; border:1.1px solid var(--mp-role-border,rgba(6,17,31,.22)); background:var(--mp-role-bg,#fff); color:var(--mp-role-ink,#06111f); box-shadow:1.5px 1.5px 0 var(--mp-role-shadow,rgba(6,17,31,.24)); }
-.mp-profile-role[data-rarity="member"],[data-rarity="common"]{ --mp-role-bg:#fff; --mp-role-ink:#06111f; --mp-role-border:rgba(6,17,31,.22); --mp-role-shadow:rgba(6,17,31,.24); }
-.mp-profile-role[data-rarity="supporter"],[data-rarity="uncommon"]{ --mp-role-bg:#00D66B; --mp-role-ink:#06111f; --mp-role-border:#06111f; --mp-role-shadow:#008844; }
-.mp-profile-role[data-rarity="creator"],[data-rarity="rare"]{ --mp-role-bg:#005BFF; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#00358f; }
-.mp-profile-role[data-rarity="papioneer"],[data-rarity="epic"]{ --mp-role-bg:#7C3AED; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#4C1D95; }
+.mp-profile-role[data-rarity="common"]{ --mp-role-bg:#fff; --mp-role-ink:#06111f; --mp-role-border:rgba(6,17,31,.22); --mp-role-shadow:rgba(6,17,31,.24); }
+.mp-profile-role[data-rarity="supporter"]{ --mp-role-bg:#00D66B; --mp-role-ink:#06111f; --mp-role-border:#06111f; --mp-role-shadow:#008844; }
+.mp-profile-role[data-rarity="creator"]{ --mp-role-bg:#005BFF; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#00358f; }
+.mp-profile-role[data-rarity="papioneer"]{ --mp-role-bg:#7C3AED; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#4C1D95; }
 .mp-profile-role[data-rarity="dev"]{ --mp-role-bg:#FB3F5C; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#9f1831; }
 .mp-profile-row{
     display:flex;
@@ -4087,11 +4062,10 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
     max-width:100%;
 }
 .mp-lobby-badge-common{ --lbadge-bg:#ffffff; --lbadge-ink:#06111f; --lbadge-border:rgba(6,17,31,0.22); --lbadge-shadow:rgba(6,17,31,0.24); }
-.mp-lobby-badge-uncommon{ --lbadge-bg:#00D66B; --lbadge-ink:#06111f; --lbadge-border:#06111f; --lbadge-shadow:#008844; }
-.mp-lobby-badge-rare{ --lbadge-bg:#005BFF; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#00358f; }
-.mp-lobby-badge-epic{ --lbadge-bg:#7C3AED; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#4C1D95; }
-.mp-lobby-badge-legendary{ --lbadge-bg:#FFB000; --lbadge-ink:#06111f; --lbadge-border:#06111f; --lbadge-shadow:#B36E00; }
-.mp-lobby-badge-mythic{ --lbadge-bg:#FB3F5C; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#9f1831; }
+.mp-lobby-badge-supporter{ --lbadge-bg:#00D66B; --lbadge-ink:#06111f; --lbadge-border:#06111f; --lbadge-shadow:#008844; }
+.mp-lobby-badge-creator{ --lbadge-bg:#005BFF; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#00358f; }
+.mp-lobby-badge-papioneer{ --lbadge-bg:#7C3AED; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#4C1D95; }
+.mp-lobby-badge-dev{ --lbadge-bg:#FB3F5C; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#9f1831; }
 .mp-lobby-profile-flag{
     font-size:13px;
     font-weight:600;
@@ -8143,7 +8117,6 @@ noteXFast.fill(NaN);
 const keyElFast = new Array(128);
 let currentPianoTransformPx = viewOffset * whiteKeyWidth;
 let noteCacheTransformPx = viewOffset * whiteKeyWidth;
-let lastChordUpdateAt = 0;
 function _detectDefaultGraphicQuality(){
     try {
         const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
@@ -9381,10 +9354,6 @@ document.querySelectorAll('.settings-cat-btn').forEach(btn => {
 document.querySelectorAll('[data-close-panel]').forEach(btn => {
     btn.addEventListener('click', () => toggle(btn.dataset.closePanel));
 });
-document.querySelectorAll('[data-chord-mode]').forEach(btn => {
-    btn.addEventListener('click', () => setChordMode(btn.dataset.chordMode));
-});
-
 document.getElementById('colBtn').onclick=()=>{ setVisualPanelPage('hub'); toggle('colorPanel'); };
 document.getElementById('metroBtn').onclick=()=>toggle('metronomePanel');
 document.getElementById('sfBtn').onclick=()=>openSfPanelTab('main');
@@ -9759,8 +9728,14 @@ function getDefaultPianoHeightPercent(){
     const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
     const vw = window.innerWidth;
     const isTouch = window.matchMedia('(pointer:coarse)').matches;
-    if(!isTouch) return Math.min(28, Math.max(18, Math.round(230 / vh * 100)));
-    if(vw > vh) return 28;
+    // CATATAN: persen ini relatif terhadap getPianoMaxHeightPx() = 50% viewport,
+    // jadi 48 berarti piano ~24% tinggi layar (standar Synthesia/See Music ~20-25%).
+    if(!isTouch){
+        const maxPx = Math.max(1, vh * 0.5);
+        // 24% viewport, dengan lantai 220px supaya tidak pendek di layar laptop kecil
+        return Math.min(60, Math.max(48, Math.round(220 / maxPx * 100)));
+    }
+    if(vw > vh) return 52; // landscape phone/tablet: ~26% viewport (selaras CSS boot 26vh)
     return Math.min(42, Math.max(32, Math.round(340 / vh * 100)));
 }
 function applyFactoryDefaults(clearSavedState){
@@ -10092,7 +10067,6 @@ function getCurrentSettings() {
         animDoubleSplitTuts,
         visualTheme,
         currentSf,
-        chordMode,
         perfHudEnabled,
         performanceMode,
         graphicQuality,
@@ -10230,7 +10204,6 @@ function applySettings(s) {
         setBlackKeyColor(s.accentBlack !== undefined ? s.accentBlack : NO_COLOR);
         setKeyGlowEnabled(s.keyGlowEnabled !== undefined ? !!s.keyGlowEnabled : false);
         setKeyGlowIntensity(s.keyGlowIntensity !== undefined ? s.keyGlowIntensity : 50);
-        if (s.chordMode !== undefined) setChordMode(s.chordMode);
         if (s.chordDisplayColors) setChordDisplayColors(s.chordDisplayColors);
         if (s.perfHudEnabled !== undefined) setPerformanceMonitor(!!s.perfHudEnabled);
         if (s.performanceMode === 'auto') performanceMode = 'auto';
@@ -11209,7 +11182,7 @@ strip.addEventListener('pointercancel', e => {
     swipeSnapToNearest();
 });
 
-const NOTE_NAMES=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B']; let chordMode='medium';
+const NOTE_NAMES=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B']; const chordMode='crazy'; // mode tunggal: deteksi beta/crazy
 const CHORD_DB=[
 {s:[0,4,7,10,21],n:'13',m:'pro'},
 {s:[0,3,7,10,21],n:'m13',m:'pro'},
@@ -11490,28 +11463,6 @@ function matchChords(midiArr){
     return filterReadableChordResults(deduped, pcs).slice(0,2);
 }
 function formatChord(match){ const rootName=NOTE_NAMES[match.root]; const chordName=rootName+match.suffix; if(match.isInversion&&match.bassNote!==match.root) return chordName+'/'+NOTE_NAMES[match.bassNote]; return chordName; }
-const _chordMidiScratch = new Int16Array(32);
-let _chordMidiScratchLen = 0;
-let _chordKeyHash = 0;
-function _buildChordKeyHash(){
-    let h = 2166136261;
-    for(let i=0;i<_chordMidiScratchLen;i++){
-        h = (h ^ _chordMidiScratch[i]) >>> 0;
-        h = (h * 16777619) >>> 0;
-    }
-    return h;
-}
-function clearChordLine(el){
-    if(!el) return;
-    el.classList.remove('show');
-    el.textContent = '';
-}
-function updateChordDisplay(){
-    // Local chord disabled — remote-only chord display active
-}
-function setChordMode(mode){
-    chordMode=mode;
-}
 // Chord toggle On/Off (persisted)
 var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordOn') !== '0'; }catch(e){ return true; } })();
 (function initChordToggle(){
@@ -11520,8 +11471,6 @@ var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordO
     function sync(){ btn.classList.toggle('active', _chordEnabled); btn.textContent = _chordEnabled ? 'On' : 'Off'; }
     sync();
     btn.onclick = function(){ _chordEnabled = !_chordEnabled; try{ localStorage.setItem('papianoChordOn', _chordEnabled ? '1' : '0'); }catch(e){} sync(); if(!_chordEnabled){ var el1=document.getElementById('chordPrimary'); var el2=document.getElementById('chordSecondary'); if(el1){el1.classList.remove('show');el1.textContent='';} if(el2){el2.classList.remove('show');el2.textContent='';} } };
-    // Set chordMode to crazy so matchChords uses beta/all detection
-    chordMode = 'crazy';
 })();
 
 let midiAccess = null;
@@ -11691,15 +11640,6 @@ midiBtn.onclick = (e) => {
         if(!el) return;
         el.style.display = visible ? '' : 'none';
     }
-    function setHeavyButtonVisibility(id, visible){
-        const b = document.getElementById(id);
-        if(!b) return;
-        b.style.display = visible ? '' : 'none';
-        if(!visible && b.classList.contains('active')){
-            if(id === 'chordModeCrazy') setChordMode('pro');
-            else if(id === 'chordModePro') setChordMode('simple');
-        }
-    }
     function applyGraphicModeDefaults(q){
         const cfg = GRAPHIC_MODE_DEFAULTS[q] || GRAPHIC_MODE_DEFAULTS.medium;
         setKeyGlowEnabled(false);
@@ -11739,9 +11679,6 @@ midiBtn.onclick = (e) => {
         if(destructive){
             lowHiddenRows.forEach(id => setDisplayById(id, !isLow));
             mediumHiddenRows.forEach(id => setDisplayById(id, !isLow && !isMed));
-            setHeavyButtonVisibility('chordModePro', !isLow);
-            setHeavyButtonVisibility('chordModeCrazy', !isLow);
-            if(isLow && (chordMode === 'pro' || chordMode === 'crazy')) setChordMode('simple');
         }
         const root = document.documentElement;
         if(q === 'low'){
@@ -15671,10 +15608,6 @@ midiBtn.onclick = (e) => {
     const _remoteActiveNotes = new Map(); // playerId → Set<midi>
     let _mpChordDecayTimer = 0;
 
-    function _mpEffectiveMode(){
-        return 'crazy'; // always beta/all detection
-    }
-
     var _lastChordSource = ''; // 'self' or playerId — tracks who triggered last
 
     function _detectAndRenderChords(){
@@ -15715,11 +15648,8 @@ midiBtn.onclick = (e) => {
         }
 
         var midiArr = bestMidi.sort(function(a,b){ return a - b; });
-        var savedMode = chordMode;
-        chordMode = 'crazy';
         var matches = [];
         try{ matches = matchChords(midiArr) || []; }catch(e){ matches = []; }
-        chordMode = savedMode;
 
         if(matches.length === 0){
             el1.classList.remove('show'); el1.textContent = ''; el1.style.color = '';

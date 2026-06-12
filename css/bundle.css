@@ -93,12 +93,6 @@ button:focus-visible,.nav-tab-action:focus-visible,.friend-nav-btn:focus-visible
 .chat-user-name>.badge-role-pill{flex-shrink:0}
 .badge-role-pill{--badge-bg:#ffffff;--badge-ink:#06111f;--badge-border:rgba(6,17,31,0.20);--badge-shadow:rgba(6,17,31,0.26);font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;text-transform:uppercase;border:1.1px solid var(--badge-border);background:var(--badge-bg);color:var(--badge-ink);box-shadow:1.5px 1.5px 0 var(--badge-shadow);display:inline-flex;align-items:center;justify-content:center;gap:4px;max-width:100%}
 .badge-rarity-common{--badge-bg:#ffffff;--badge-ink:#06111f;--badge-border:rgba(6,17,31,0.22);--badge-shadow:rgba(6,17,31,0.24)}
-.badge-rarity-uncommon{--badge-bg:#00D66B;--badge-ink:#06111f;--badge-border:#06111f;--badge-shadow:#008844}
-.badge-rarity-rare,.badge-rarity-verified{--badge-bg:#005BFF;--badge-ink:#ffffff;--badge-border:#06111f;--badge-shadow:#00358f}
-.badge-rarity-epic,.badge-rarity-vip{--badge-bg:#7C3AED;--badge-ink:#ffffff;--badge-border:#06111f;--badge-shadow:#4C1D95}
-.badge-rarity-legendary,.badge-rarity-donator{--badge-bg:#FFB000;--badge-ink:#06111f;--badge-border:#06111f;--badge-shadow:#B36E00}
-.badge-rarity-mythic,.badge-rarity-founder,.badge-rarity-owner{--badge-bg:#FB3F5C;--badge-ink:#ffffff;--badge-border:#06111f;--badge-shadow:#9f1831}
-.badge-rarity-moderator{--badge-bg:#06111f;--badge-ink:#ffffff;--badge-border:#00D66B;--badge-shadow:#00D66B}
 .badge-rarity-system{--badge-bg:#1A1A1A;--badge-ink:#FFFFFF;--badge-border:#06111f;--badge-shadow:#020812}
 .badge-rarity-member{--badge-bg:#ffffff;--badge-ink:#06111f;--badge-border:rgba(6,17,31,0.22);--badge-shadow:rgba(6,17,31,0.24)}
 .badge-rarity-supporter{--badge-bg:#00D66B;--badge-ink:#06111f;--badge-border:#06111f;--badge-shadow:#008844}
@@ -1398,3 +1392,24 @@ select.form-input-control::-ms-expand{display:none}
   .nav-tab-action{height:60px}
   .nav-tab-action .nav-text-label{font-size:16px}
 }
+
+/* === Chat meta polish (2026-06-12): timestamp pojok kanan-bawah bubble === */
+.msg-meta-line{
+  display:flex;
+  width:fit-content;
+  margin-left:auto;
+  margin-top:4px;
+  justify-content:flex-end;
+  align-items:baseline;
+  gap:5px;
+  font-size:9.5px;
+  font-weight:800;
+  letter-spacing:.02em;
+  text-transform:none;
+  opacity:.58;
+  line-height:1;
+  white-space:nowrap;
+}
+.msg-bubble .msg-meta-line{ max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+/* Baris daftar chat: stamp tidak boleh mendesak nama sampai hilang */
+.chat-timestamp{ max-width:45%; overflow:hidden; text-overflow:ellipsis; }
