@@ -22,6 +22,7 @@
     const displayProfileRole = document.getElementById('displayProfileRole');
     const displayProfileId = document.getElementById('displayProfileId');
     const displayTotalPlayTrack = document.getElementById('displayTotalPlayTrack');
+    const displayProfilePlayPill = document.getElementById('displayProfilePlayPill');
     const displayAuthStatus = document.getElementById('displayAuthStatus');
     const formInputName = document.getElementById('formInputName');
     const accountLockedUserId = document.getElementById('accountLockedUserId');
@@ -134,10 +135,6 @@
     let unsubscribeSystemRooms = [];
     let privateUnreadTotal = 0;
     let friendRequestUnreadTotal = 0;
-    // Local "I just read this room" tracker keyed by roomId -> local epoch ms.
-    // Persisted to localStorage so a read room's badge does NOT reappear after
-    // a page refresh (the previous in-memory-only version lost this on reload,
-    // which is why the unread badge kept coming back).
     const LOCAL_READ_STORE_KEY_PREFIX = 'papiano_locally_read_rooms_';
     function getLocalReadStoreKey() {
         const uid = currentUser?.uid || '';
@@ -806,6 +803,11 @@
         return `${hours}h ${String(minutes).padStart(2, '0')}m`;
     }
 
+    function formatPlayTimeHours(seconds) {
+        const hours = Math.max(0, Math.floor((Number(seconds) || 0) / 3600));
+        return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+    }
+
     function normalizeProfile(uid, data = {}) {
         const publicId = Number(data.publicId || 0);
         const playTimeSeconds = parsePlayTimeSeconds(data);
@@ -1019,7 +1021,9 @@
         if (!playTimeStartedAt || document.hidden) return;
         const totalSeconds = getLivePlayTimeSeconds();
         const label = formatPlayTime(totalSeconds);
+        const hourLabel = formatPlayTimeHours(totalSeconds);
         if (displayTotalPlayTrack) displayTotalPlayTrack.textContent = label;
+        if (displayProfilePlayPill) displayProfilePlayPill.textContent = hourLabel;
         if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = label;
     }
 
@@ -1253,6 +1257,7 @@
         selectedBadgeId = normalizeRoleId(profile.roleId || profile.roleId || profile.badgeId || 'common');
         const badge = getBadge(selectedBadgeId);
         const playTimeLabel = formatPlayTime(profile.playTimeSeconds);
+        const playTimeHourLabel = formatPlayTimeHours(profile.playTimeSeconds);
         updateTopBarProfile(profile);
         document.querySelector('.account-layout')?.classList.toggle('access-locked', !currentUser?.uid);
 
@@ -1260,6 +1265,7 @@
         if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
         if (displayProfileId) displayProfileId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (displayTotalPlayTrack) animateCountUp(displayTotalPlayTrack, playTimeLabel);
+        if (displayProfilePlayPill) displayProfilePlayPill.textContent = playTimeHourLabel;
         if (displayAuthStatus) displayAuthStatus.textContent = currentUser ? 'Online' : '—';
         if (accountLockedUserId) accountLockedUserId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = playTimeLabel;
@@ -1573,7 +1579,7 @@
         // requireSignedInFeature() pops the themed auth gate ("Sign in to use
         // Multiplayer.") and we bail out. Otherwise head to the rooms page.
         if (!requireSignedInFeature('Multiplayer')) return;
-        window.location.href = 'multiplayer.html';
+        window.location.href = 'homemultiplayer.html';
     }
 
     function launchSubPageReferenceNode(id) {
@@ -2520,25 +2526,23 @@
 
     async function markActiveRoomRead() {
         if (!currentUser?.uid || !activeChatRoomId || !firestoreDb) return;
-        // Mark locally read immediately (persisted) so the unread badge clears
-        // without waiting for serverTimestamp, and stays cleared after refresh.
         markRoomLocallyRead(activeChatRoomId);
-        // Update local UI instantly
         if (activeChatRoomType === 'dm' && activeChatTargetUid && directChatProfiles.has(activeChatTargetUid)) {
             directChatProfiles.set(activeChatTargetUid, { ...directChatProfiles.get(activeChatTargetUid), unreadForMe: 0 });
             syncDirectUnreadFromProfiles();
         }
-        // Debounce Firestore write — only 1 write per room per 5 seconds
         if (lastMarkedRoomId === activeChatRoomId && markReadTimer) return;
         lastMarkedRoomId = activeChatRoomId;
         clearTimeout(markReadTimer);
         const roomId = activeChatRoomId;
+        const readerUid = currentUser.uid;
         markReadTimer = setTimeout(async () => {
             markReadTimer = null;
+            if (!readerUid || !firestoreDb) return;
             try {
                 await firestoreDb.collection('chatRooms').doc(roomId).set({
-                    [`unreadCount.${currentUser.uid}`]: 0,
-                    [`lastReadAt.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
+                    [`unreadCount.${readerUid}`]: 0,
+                    [`lastReadAt.${readerUid}`]: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
                 if (roomId === getGroupRoomId('announcements')) {
                     localStorage.setItem(getAnnouncementReadStorageKey(), String(Date.now()));
@@ -2591,30 +2595,35 @@
         loaded.forEach((profile, uid) => messageProfiles.set(uid, profile));
     }
 
-    // Absolute day + time stamp for chat — always English ("Yesterday", "Mon",
-    // "12 Jun") regardless of browser/OS locale, for global UX consistency.
-    // today -> "14:30" · yesterday -> "Yesterday 14:30" · this week -> "Mon 14:30"
-    // older -> "12 Jun, 14:30" (adds year when different year)
     const CHAT_LOCALE = 'en-US';
-    function formatChatDayTime(value) {
-        const date = value?.toDate ? value.toDate() : value instanceof Date ? value : (typeof value === 'number' && value > 0 ? new Date(value) : null);
-        if (!date || Number.isNaN(date.getTime())) return '';
+
+    function chatTimestampToDate(value) {
+        return value?.toDate ? value.toDate() : value instanceof Date ? value : (typeof value === 'number' && value > 0 ? new Date(value) : null);
+    }
+
+    function startOfChatDay(date) {
+        return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    }
+
+    function formatChatDateLabel(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'Sending';
         const now = new Date();
-        const time = date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
-        const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        const dayDiff = Math.round((startOfDay(now) - startOfDay(date)) / 86400000);
-        if (dayDiff <= 0) return time;
-        if (dayDiff === 1) return 'Yesterday ' + time;
-        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'short' }) + ' ' + time;
+        const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
+        if (dayDiff <= 0) return 'Tdy';
+        if (dayDiff === 1) return 'Yday';
+        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'short' });
         const sameYear = date.getFullYear() === now.getFullYear();
-        const dateLabel = date.toLocaleDateString(CHAT_LOCALE, sameYear
+        return date.toLocaleDateString(CHAT_LOCALE, sameYear
             ? { day: 'numeric', month: 'short' }
-            : { day: 'numeric', month: 'short', year: 'numeric' });
-        return dateLabel + ', ' + time;
+            : { day: 'numeric', month: 'short', year: '2-digit' });
     }
 
     function formatMessageTime(value) {
-        return formatChatDayTime(value) || 'Sending';
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'Sending';
+        const time = date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+        return `${formatChatDateLabel(value)} - ${time}`;
     }
 
     function getMessageSenderProfile(message) {
@@ -2654,8 +2663,6 @@
             const profile = getMessageSenderProfile(message);
             const image = message.imageURL ? `<img class="chat-image-preview" src="${escapeHtml(message.imageURL)}" alt="Chat image">` : '';
             const text = message.text ? linkifyText(message.text) : '';
-            const edited = message.editedAt ? `<span class="msg-edited-label">Edited</span>` : '';
-            const status = mine ? (message.createdAt ? 'Sent' : 'Sending') : '';
             const announcementLocked = isAnnouncementRoom() && !isAnnouncementOwner();
             const replyButton = announcementLocked
                 ? ''
@@ -2671,7 +2678,7 @@
                             ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
-                            <div class="msg-meta-line"><span>${formatMessageTime(message.createdAt)}</span>${edited}<span class="msg-status-label">${status}</span></div>
+                            <div class="msg-meta-line"><time>${formatMessageTime(message.createdAt)}</time></div>
                         </div>
                     </div>
                     ${actions}
@@ -3173,6 +3180,7 @@
         const fpBadgeContainer = document.getElementById('fpBadgeContainer');
         const fpId = document.getElementById('fpId');
         const fpDesc = document.getElementById('fpDesc');
+        const fpPlayTime = document.getElementById('fpPlayTime');
         const fpLikeVal = document.getElementById('fpLikeVal');
         const fpDislikeVal = document.getElementById('fpDislikeVal');
         const fpAddFriendBtn = document.getElementById('fpAddFriendBtn');
@@ -3193,6 +3201,7 @@
         renderFlagRow(profile.countryCode, document.getElementById('fpFlagRow'));
         if (fpId) fpId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (fpDesc) fpDesc.textContent = profile.desc || '—';
+        if (fpPlayTime) fpPlayTime.textContent = formatPlayTimeHours(profile.playTimeSeconds);
         if (fpLikeVal) fpLikeVal.textContent = profile.likes || 0;
         if (fpDislikeVal) fpDislikeVal.textContent = profile.dislikes || 0;
 
@@ -3680,13 +3689,7 @@
         });
     }
 
-    let topBarAutoHideBound = false;
-    let topBarLastScrollY = 0;
-    let topBarScrollQueued = false;
-
     function setupTopBarAutoHide() {
-        // No-op: top bar is a real top bar now (sibling of <main>),
-        // so we don't auto-hide it on scroll anymore.
         const bar = document.getElementById('appTopBar');
         if (bar) bar.classList.remove('is-scroll-hidden');
     }
