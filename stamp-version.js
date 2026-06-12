@@ -1,4 +1,5 @@
-// Writes build version to version.json and stamps CSS/JS URLs (runs on Vercel build)
+// Vercel build step: write the build version to version.json and refresh the
+// ?v= cache-bust query on every local asset referenced by the HTML entry points.
 const fs = require('fs');
 
 const raw =
@@ -10,16 +11,24 @@ const version = raw.slice(0, 12);
 fs.writeFileSync('version.json', JSON.stringify({ version }) + '\n');
 console.log(`version.json -> ${version}`);
 
-// Stamp cache-bust in index.html and multiplayer.html
+// Assets stamped with ?v= in the HTML entry points below.
+const STAMPED_ASSETS = [
+  'bundle.min.css',
+  'sdk-loader.min.js',
+  'edit-modal.js',
+  'app.min.js',
+  'auth-email.js',
+  'updater.min.js',
+];
+
+const escapeRegExp = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 ['index.html', 'multiplayer.html'].forEach(file => {
   if (!fs.existsSync(file)) return;
   let html = fs.readFileSync(file, 'utf8');
-  html = html.replace(/(bundle\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(sdk-loader\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(edit-modal\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(app\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(auth-email\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(updater\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
+  for (const asset of STAMPED_ASSETS) {
+    html = html.replace(new RegExp(`(${escapeRegExp(asset)})\\?v=[^"']*`, 'g'), `$1?v=${version}`);
+  }
   fs.writeFileSync(file, html);
   console.log(`${file} stamped -> ?v=${version}`);
 });

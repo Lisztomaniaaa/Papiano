@@ -1252,7 +1252,7 @@ select.form-input-control::-ms-expand{display:none}
 .ann-poll-q{font-size:14px;font-weight:700;color:#06111f;margin-bottom:10px;line-height:1.35}
 .ann-poll-opt{display:flex;align-items:center;position:relative;width:100%;text-align:left;padding:9px 12px;border-radius:8px;border:1.5px solid rgba(6,17,31,0.14);background:#fff;cursor:pointer;margin-bottom:7px;overflow:hidden;font-size:13px;font-weight:600;color:#06111f;transition:border-color .15s}
 .ann-poll-opt:hover{border-color:rgba(0,91,255,0.4)}
-.ann-poll-opted,.ann-poll-voted{border-color:#005BFF;background:rgba(0,91,255,0.06)}
+.ann-poll-voted{border-color:#005BFF;background:rgba(0,91,255,0.06)}
 .ann-poll-bar{position:absolute;left:0;top:0;bottom:0;background:rgba(0,91,255,0.12);border-radius:8px;transition:width .4s ease;z-index:0}
 .ann-poll-otext{flex:1;position:relative;z-index:1}
 .ann-poll-pct{font-size:11px;color:rgba(6,17,31,0.55);font-weight:700;position:relative;z-index:1;min-width:32px;text-align:right}

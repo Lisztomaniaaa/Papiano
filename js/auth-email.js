@@ -1,19 +1,12 @@
-// === Papiano — Email Auth Extension ===
-// Requires: app.min.js (firebaseAuth, firestoreDb, ensureUserProfile,
-//           closeAuthEntryPopup, showToast, friendlyError)
-// Requires: EmailJS CDN loaded before this file
-
-// ── EmailJS config — set these after creating your emailjs.com account ─────────
-// 1. Sign up at https://www.emailjs.com
-// 2. Add an Email Service (Gmail / Outlook / etc.) → copy Service ID
-// 3. Create an Email Template with variables: {{to_email}} {{to_name}} {{otp_code}} {{expiry_min}}
-//    Copy Template ID
-// 4. Go to Account → API Keys → copy Public Key
+// Papiano — email/password auth with EmailJS OTP verification.
+// Depends on app.min.js globals (firebaseAuth, firestoreDb, ensureUserProfile,
+// closeAuthEntryPopup, showToast, friendlyError) and the EmailJS browser SDK.
+// EmailJS template variables: {{to_email}} {{to_name}} {{otp_code}} {{expiry_min}}
 const _EJS_SERVICE_ID  = 'service_r2zj9dn';
 const _EJS_TEMPLATE_ID = 'template_yxhiqyo';
 const _EJS_PUBLIC_KEY  = '8sOe4jrGJCBwHhx06';
 
-// ── Allowed email domains ──────────────────────────────────────────────────────
+// Email providers accepted on sign-up.
 const _ALLOWED_DOMAINS = new Set([
     'gmail.com','googlemail.com',
     'outlook.com','outlook.co.id','hotmail.com','hotmail.co.uk','hotmail.fr',
@@ -39,19 +32,26 @@ function _isDomainAllowed(email) {
     return _ALLOWED_DOMAINS.has(email.slice(at + 1).toLowerCase().trim());
 }
 
-// ── State ──────────────────────────────────────────────────────────────────────
+// Returns the sign-in providers for an email, or [] if the lookup fails.
+async function _fetchSignInMethods(email) {
+    if (!firebaseAuth) return [];
+    try { return await firebaseAuth.fetchSignInMethodsForEmail(email); }
+    catch (_) { return []; }
+}
+
+// State
 let _authCurrentScreen = 'signin';
 let _authBusy = false;
 let _otpTimerHandle = null;
 let _otpExpiry = 0;
 
-// ── SessionStorage helpers ─────────────────────────────────────────────────────
+// SessionStorage helpers
 const _SS = 'papiano_auth_';
 function _ssSet(k, v) { try { sessionStorage.setItem(_SS + k, JSON.stringify(v)); } catch (_) {} }
 function _ssGet(k)    { try { return JSON.parse(sessionStorage.getItem(_SS + k)); } catch (_) { return null; } }
 function _ssDel(...keys) { keys.forEach(k => { try { sessionStorage.removeItem(_SS + k); } catch (_) {} }); }
 
-// ── OTP core ───────────────────────────────────────────────────────────────────
+// OTP core
 function _genOTP() {
     const buf = new Uint8Array(6);
     crypto.getRandomValues(buf);
@@ -94,7 +94,11 @@ function _clearOTPSession() {
     _ssDel('otp_hash', 'otp_expiry', 'otp_attempts', 'pending_name', 'pending_email');
 }
 
-// ── EmailJS init ───────────────────────────────────────────────────────────────
+// EmailJS
+function _emailConfigured() {
+    return [_EJS_SERVICE_ID, _EJS_TEMPLATE_ID, _EJS_PUBLIC_KEY].every(v => v && !v.startsWith('YOUR_'));
+}
+
 (function () {
     function tryInit() {
         if (typeof emailjs === 'undefined') return;
@@ -108,11 +112,7 @@ function _clearOTPSession() {
 
 async function _sendOTPEmail(toEmail, toName, otp) {
     if (typeof emailjs === 'undefined') throw new Error('Email service not loaded. Please refresh.');
-    if (!_EJS_SERVICE_ID  || _EJS_SERVICE_ID.startsWith('YOUR_') ||
-        !_EJS_TEMPLATE_ID || _EJS_TEMPLATE_ID.startsWith('YOUR_') ||
-        !_EJS_PUBLIC_KEY  || _EJS_PUBLIC_KEY.startsWith('YOUR_')) {
-        throw new Error('Email service not configured. Contact the site owner.');
-    }
+    if (!_emailConfigured()) throw new Error('Email service not configured. Contact the site owner.');
     await emailjs.send(_EJS_SERVICE_ID, _EJS_TEMPLATE_ID, {
         to_email:   toEmail,
         to_name:    toName || 'Papiano User',
@@ -121,7 +121,7 @@ async function _sendOTPEmail(toEmail, toName, otp) {
     });
 }
 
-// ── OTP Timer ──────────────────────────────────────────────────────────────────
+// OTP timer
 function _startOtpTimer() {
     _stopOtpTimer();
     const saved = _ssGet('otp_expiry');
@@ -153,7 +153,7 @@ function _updateOtpTimer() {
     el.style.color = '';
 }
 
-// ── OTP box helpers ────────────────────────────────────────────────────────────
+// OTP input boxes
 function _getOtpValue() {
     let code = '';
     for (let i = 0; i < 6; i++) code += document.getElementById('authOtp' + i)?.value || '';
@@ -174,18 +174,22 @@ function _clearOtpBoxes(markError) {
     if (!markError) document.getElementById('authOtp0')?.focus();
 }
 
+// Spreads a run of digits across the OTP boxes starting at `idx`, then either
+// focuses the last filled box or auto-submits when all six are present.
+function _fillOtpFrom(idx, digits) {
+    for (let i = 0; i < digits.length; i++) {
+        const box = document.getElementById('authOtp' + (idx + i));
+        if (box) { box.value = digits[i]; box.classList.remove('otp-error'); box.classList.add('otp-filled'); }
+    }
+    const lastIdx = Math.min(idx + digits.length - 1, 5);
+    document.getElementById('authOtp' + lastIdx)?.focus();
+    if (idx + digits.length >= 6) setTimeout(authCheckOtp, 80);
+}
+
 function authOtpInput(el, idx) {
     const raw = el.value.replace(/\D/g, '');
     if (raw.length > 1) {
-        // Paste: fill from current position
-        const digits = raw.slice(0, 6 - idx);
-        for (let i = 0; i < digits.length; i++) {
-            const box = document.getElementById('authOtp' + (idx + i));
-            if (box) { box.value = digits[i]; box.classList.remove('otp-error'); box.classList.add('otp-filled'); }
-        }
-        const lastIdx = Math.min(idx + digits.length - 1, 5);
-        document.getElementById('authOtp' + lastIdx)?.focus();
-        if (idx + digits.length >= 6) { setTimeout(authCheckOtp, 80); }
+        _fillOtpFrom(idx, raw.slice(0, 6 - idx));
         return;
     }
     el.value = raw ? raw[0] : '';
@@ -199,14 +203,7 @@ function authOtpPaste(e, el, idx) {
     e.preventDefault();
     const text = (e.clipboardData || window.clipboardData).getData('text');
     const digits = text.replace(/\D/g, '').slice(0, 6 - idx);
-    if (!digits) return;
-    for (let i = 0; i < digits.length; i++) {
-        const box = document.getElementById('authOtp' + (idx + i));
-        if (box) { box.value = digits[i]; box.classList.remove('otp-error'); box.classList.add('otp-filled'); }
-    }
-    const lastIdx = Math.min(idx + digits.length - 1, 5);
-    document.getElementById('authOtp' + lastIdx)?.focus();
-    if (idx + digits.length >= 6) setTimeout(authCheckOtp, 80);
+    if (digits) _fillOtpFrom(idx, digits);
 }
 
 function authOtpKey(e, el, idx) {
@@ -218,7 +215,7 @@ function authOtpKey(e, el, idx) {
     if (e.key === 'ArrowRight' && idx < 5) document.getElementById('authOtp' + (idx + 1))?.focus();
 }
 
-// ── Overlay observer ───────────────────────────────────────────────────────────
+// Re-sync the visible screen whenever the auth overlay is shown/hidden.
 (function () {
     function attach() {
         const ov = document.getElementById('authEntryOverlay');
@@ -236,7 +233,7 @@ function authOtpKey(e, el, idx) {
     else attach();
 })();
 
-// ── Screen management ──────────────────────────────────────────────────────────
+// Screen management
 function authShowScreen(screen) {
     _authCurrentScreen = screen;
     ['signin', 'signup', 'verify', 'forgot'].forEach(s => {
@@ -269,7 +266,7 @@ function authShowScreen(screen) {
     }
 }
 
-// ── Generic helpers ────────────────────────────────────────────────────────────
+// Error + loading helpers
 function _showErr(id, msg) { const e = document.getElementById(id); if (e) e.textContent = msg; }
 function _authClearErr() {
     ['authSigninErr','authSignupErr','authForgotErr','authVerifyErr'].forEach(id => _showErr(id, ''));
@@ -294,7 +291,7 @@ function _friendly(err) {
     return err?.message || 'Something went wrong.';
 }
 
-// ── Password strength ──────────────────────────────────────────────────────────
+// Password strength
 function _validPass(p) {
     return { length: p.length >= 8, upper: /[A-Z]/.test(p), symbol: /[^A-Za-z0-9\s]/.test(p) };
 }
@@ -314,7 +311,7 @@ function authTogglePwd(inputId, btn) {
     if (icon) icon.textContent = show ? 'visibility_off' : 'visibility';
 }
 
-// ── Sign In / Sign Up entry point ──────────────────────────────────────────────
+// Sign in / sign up
 async function authEntryWithEmail(mode) {
     if (_authBusy) return;
     if (!firebaseAuth) {
@@ -323,7 +320,6 @@ async function authEntryWithEmail(mode) {
         return;
     }
 
-    // ── SIGN IN ──────────────────────────────────────────────────────────────
     if (mode === 'signin') {
         const email = (document.getElementById('authSigninEmail')?.value  || '').trim();
         const pass  =  document.getElementById('authSigninPassword')?.value || '';
@@ -332,8 +328,7 @@ async function authEntryWithEmail(mode) {
 
         _setLoading(true); _authClearErr();
         try {
-            let methods = [];
-            try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
+            const methods = await _fetchSignInMethods(email);
             if (methods.includes('google.com') && !methods.includes('password')) {
                 _showErr('authSigninErr', 'This email is linked to Google. Use "Continue with Google" to sign in.');
                 return;
@@ -350,7 +345,6 @@ async function authEntryWithEmail(mode) {
         return;
     }
 
-    // ── SIGN UP ──────────────────────────────────────────────────────────────
     if (mode === 'signup') {
         const name    = (document.getElementById('authSignupName')?.value    || '').trim();
         const email   = (document.getElementById('authSignupEmail')?.value   || '').trim();
@@ -373,8 +367,7 @@ async function authEntryWithEmail(mode) {
 
         _setLoading(true); _authClearErr();
         try {
-            let methods = [];
-            try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
+            const methods = await _fetchSignInMethods(email);
             if (methods.length > 0) {
                 _showErr('authSignupErr', methods.includes('google.com')
                     ? 'This email is already linked to a Google account. Use "Continue with Google".'
@@ -383,7 +376,6 @@ async function authEntryWithEmail(mode) {
                 return;
             }
 
-            // Generate OTP and send via EmailJS
             const otp = _genOTP();
             await _storeOTP(otp, email);
             _ssSet('pending_name',  name);
@@ -391,7 +383,6 @@ async function authEntryWithEmail(mode) {
 
             await _sendOTPEmail(email, name, otp);
 
-            // Show verify screen
             const addr = document.getElementById('authVerifyEmailAddr');
             if (addr) addr.textContent = email;
             authShowScreen('verify');
@@ -408,7 +399,7 @@ async function authEntryWithEmail(mode) {
     }
 }
 
-// ── OTP verification ───────────────────────────────────────────────────────────
+// OTP verification — creates the Firebase account once the code matches.
 async function authCheckOtp() {
     if (_authBusy) return;
     const code = _getOtpValue();
@@ -440,7 +431,6 @@ async function authCheckOtp() {
             return;
         }
 
-        // OTP correct — create Firebase account
         const name = _ssGet('pending_name') || '';
         const pass = document.getElementById('authSignupPassword')?.value || '';
         if (!pass) {
@@ -451,10 +441,9 @@ async function authCheckOtp() {
         }
 
         const cred = await firebaseAuth.createUserWithEmailAndPassword(email, pass);
-        // updateProfile immediately to set displayName before ensureUserProfile race
+        // Set displayName before ensureUserProfile runs, so the profile is named correctly.
         await cred.user.updateProfile({ displayName: name });
 
-        // Write name to Firestore profiles collection — overwrites any 'Papiano User' from race
         if (typeof firestoreDb !== 'undefined' && firestoreDb && name) {
             try {
                 await firestoreDb.collection('profiles').doc(cred.user.uid).set(
@@ -484,6 +473,7 @@ async function authCheckOtp() {
 }
 
 async function authResendOtp() {
+    if (_authBusy) return;
     const email = _ssGet('pending_email');
     const name  = _ssGet('pending_name') || '';
     if (!email) {
@@ -492,6 +482,7 @@ async function authResendOtp() {
         return;
     }
 
+    _setLoading(true);
     try {
         const otp = _genOTP();
         await _storeOTP(otp, email);
@@ -499,19 +490,18 @@ async function authResendOtp() {
         _clearOtpBoxes(false);
         _stopOtpTimer(); _startOtpTimer();
         _showErr('authVerifyErr', '');
-        const btn = document.getElementById('authVerifyBtn');
-        if (btn) btn.disabled = false;
         if (typeof showToast === 'function') showToast('New code sent! Check your inbox.', 'Resent');
     } catch (err) {
         _showErr('authVerifyErr', err.message || _friendly(err));
+    } finally {
+        _setLoading(false);
     }
 }
 
-// ── Delete account — complete override ────────────────────────────────────────
-// Replaces deletePapianoAccount() entirely to fix:
-// 1. closeDeleteAccountModal won't close when accountDeleteBusy=true (original bug)
-// 2. email/password users need reauthenticateWithCredential before user.delete()
-// 3. Google users also re-auth if needed (catches auth/requires-recent-login)
+// Account deletion — overrides the app.min.js implementation to:
+// 1. always close the modal (the original stayed open while busy),
+// 2. re-authenticate email/password users before delete(),
+// 3. handle Google users hitting auth/requires-recent-login.
 (function () {
     function install() {
         window.deletePapianoAccount = async function () {
@@ -521,7 +511,7 @@ async function authResendOtp() {
                 return;
             }
 
-            // Verify account ID
+            // Confirm the typed account ID matches the signed-in user.
             const expectedId = (typeof getCurrentPublicIdNumber === 'function') ? getCurrentPublicIdNumber() : null;
             const idInput    = document.getElementById('accountDeleteIdInput');
             const enteredId  = (typeof parsePublicIdInput === 'function') ? parsePublicIdInput(idInput?.value || '') : null;
@@ -531,10 +521,9 @@ async function authResendOtp() {
                 return;
             }
 
-            // Email/password users: require password re-auth
+            // Email/password users must re-enter their password.
             if (user.email) {
-                let methods = [];
-                try { methods = await firebaseAuth.fetchSignInMethodsForEmail(user.email); } catch (_) {}
+                const methods = await _fetchSignInMethods(user.email);
                 if (methods.includes('password')) {
                     const wrap   = document.getElementById('accountDeletePasswordWrap');
                     const passEl = document.getElementById('accountDeletePasswordInput');
@@ -556,19 +545,17 @@ async function authResendOtp() {
                 }
             }
 
-            // Set busy UI
             const btn = document.getElementById('accountDeleteConfirmBtn');
             if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
 
             const uid = user.uid;
             try {
-                // Stop background workers
+                // Stop background workers (non-fatal).
                 ['stopCommunityListeners','stopLeaderboardListeners','stopDeletedAccountWatcher'].forEach(fn => {
                     if (typeof window[fn] === 'function') try { window[fn](); } catch (_) {}
                 });
                 if (typeof pausePlayTimeTracker === 'function') try { pausePlayTimeTracker(true); } catch (_) {}
 
-                // Mark deleted in Realtime DB (non-fatal)
                 if (typeof realtimeDb !== 'undefined' && realtimeDb) {
                     await realtimeDb.ref('deletedAccounts/' + uid).set({
                         deleted: true,
@@ -576,7 +563,6 @@ async function authResendOtp() {
                     }).catch(() => {});
                 }
 
-                // Wipe Firestore profile (non-fatal)
                 if (typeof firestoreDb !== 'undefined' && firestoreDb) {
                     await firestoreDb.collection('profiles').doc(uid).set({
                         deleted: true,
@@ -587,15 +573,13 @@ async function authResendOtp() {
                     }, { merge: true }).catch(() => {});
                 }
 
-                // Delete Firebase Auth user (the critical step)
+                // The critical step — remove the Firebase Auth user.
                 await user.delete();
 
-                // Clear local caches
                 try { localStorage.removeItem('papiano_profile_cache_v2'); } catch (_) {}
                 try { localStorage.removeItem('papiano_access_session'); } catch (_) {}
                 try { sessionStorage.clear(); } catch (_) {}
 
-                // Force close modal directly (bypass accountDeleteBusy check)
                 const overlay = document.getElementById('accountDeleteOverlay');
                 if (overlay) { overlay.classList.remove('active', 'is-verify'); overlay.setAttribute('aria-hidden', 'true'); }
 
@@ -615,7 +599,7 @@ async function authResendOtp() {
     else setTimeout(install, 300);
 })();
 
-// ── Password reset ─────────────────────────────────────────────────────────────
+// Password reset
 async function authSendReset() {
     if (_authBusy || !firebaseAuth) return;
     const email = (document.getElementById('authForgotEmail')?.value || '').trim();
@@ -623,8 +607,7 @@ async function authSendReset() {
 
     _setLoading(true); _authClearErr();
     try {
-        let methods = [];
-        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
+        const methods = await _fetchSignInMethods(email);
         if (methods.includes('google.com') && !methods.includes('password')) {
             _showErr('authForgotErr', 'This account uses Google sign-in. Use "Continue with Google" — there is no password to reset.');
             return;
