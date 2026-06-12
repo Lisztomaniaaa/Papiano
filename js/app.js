@@ -134,10 +134,6 @@
     let unsubscribeSystemRooms = [];
     let privateUnreadTotal = 0;
     let friendRequestUnreadTotal = 0;
-    // Local "I just read this room" tracker keyed by roomId -> local epoch ms.
-    // Persisted to localStorage so a read room's badge does NOT reappear after
-    // a page refresh (the previous in-memory-only version lost this on reload,
-    // which is why the unread badge kept coming back).
     const LOCAL_READ_STORE_KEY_PREFIX = 'papiano_locally_read_rooms_';
     function getLocalReadStoreKey() {
         const uid = currentUser?.uid || '';
@@ -1573,7 +1569,7 @@
         // requireSignedInFeature() pops the themed auth gate ("Sign in to use
         // Multiplayer.") and we bail out. Otherwise head to the rooms page.
         if (!requireSignedInFeature('Multiplayer')) return;
-        window.location.href = 'multiplayer.html';
+        window.location.href = 'homemultiplayer.html';
     }
 
     function launchSubPageReferenceNode(id) {
@@ -2520,25 +2516,23 @@
 
     async function markActiveRoomRead() {
         if (!currentUser?.uid || !activeChatRoomId || !firestoreDb) return;
-        // Mark locally read immediately (persisted) so the unread badge clears
-        // without waiting for serverTimestamp, and stays cleared after refresh.
         markRoomLocallyRead(activeChatRoomId);
-        // Update local UI instantly
         if (activeChatRoomType === 'dm' && activeChatTargetUid && directChatProfiles.has(activeChatTargetUid)) {
             directChatProfiles.set(activeChatTargetUid, { ...directChatProfiles.get(activeChatTargetUid), unreadForMe: 0 });
             syncDirectUnreadFromProfiles();
         }
-        // Debounce Firestore write — only 1 write per room per 5 seconds
         if (lastMarkedRoomId === activeChatRoomId && markReadTimer) return;
         lastMarkedRoomId = activeChatRoomId;
         clearTimeout(markReadTimer);
         const roomId = activeChatRoomId;
+        const readerUid = currentUser.uid;
         markReadTimer = setTimeout(async () => {
             markReadTimer = null;
+            if (!readerUid || !firestoreDb) return;
             try {
                 await firestoreDb.collection('chatRooms').doc(roomId).set({
-                    [`unreadCount.${currentUser.uid}`]: 0,
-                    [`lastReadAt.${currentUser.uid}`]: firebase.firestore.FieldValue.serverTimestamp()
+                    [`unreadCount.${readerUid}`]: 0,
+                    [`lastReadAt.${readerUid}`]: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
                 if (roomId === getGroupRoomId('announcements')) {
                     localStorage.setItem(getAnnouncementReadStorageKey(), String(Date.now()));
@@ -3680,13 +3674,7 @@
         });
     }
 
-    let topBarAutoHideBound = false;
-    let topBarLastScrollY = 0;
-    let topBarScrollQueued = false;
-
     function setupTopBarAutoHide() {
-        // No-op: top bar is a real top bar now (sibling of <main>),
-        // so we don't auto-hide it on scroll anymore.
         const bar = document.getElementById('appTopBar');
         if (bar) bar.classList.remove('is-scroll-hidden');
     }

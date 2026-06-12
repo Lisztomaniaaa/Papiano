@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Papiano Online — Stage Piano</title>
+<meta name="description" content="Papiano Online stage piano for live multiplayer rooms.">
+<meta name="theme-color" content="#05132e">
+<link rel="canonical" href="https://papiano.fun/stagepiano">
+<style>html,body{width:100%;height:100%;margin:0;background:#000;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:grid;place-items:center}.boot{display:grid;gap:12px;text-align:center}.bar{width:min(260px,70vw);height:4px;border-radius:999px;background:rgba(255,255,255,.14);overflow:hidden}.bar i{display:block;width:42%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#78dcff,#00e5ff);animation:load 1s ease-in-out infinite}@keyframes load{50%{transform:translateX(140%)}}</style>
+</head>
+<body>
+<div class="boot"><strong>Opening Stage Piano…</strong><span class="bar"><i></i></span></div>
+<script>
+(function(){
+  function fail(){ location.replace('homemultiplayer.html'); }
+  fetch('homemultiplayer.html?_=' + Date.now(), { cache:'no-store' })
+    .then(function(res){ if(!res.ok) throw new Error('stage-shell'); return res.text(); })
+    .then(function(html){
+      html = html
+        .replace('data-mp-page="home"', 'data-mp-page="stage"')
+        .replace("window.PAPIANO_MULTIPLAYER_PAGE='home';", "window.PAPIANO_MULTIPLAYER_PAGE='stage';")
+        .replace('<title>Papiano Online — Multiplayer Piano Rooms</title>', '<title>Papiano Online — Stage Piano</title>');
+      document.open();
+      document.write(html);
+      document.close();
+    })
+    .catch(fail);
+})();
+</script>
+</body>
+</html>

@@ -10,8 +10,8 @@ const version = raw.slice(0, 12);
 fs.writeFileSync('version.json', JSON.stringify({ version }) + '\n');
 console.log(`version.json -> ${version}`);
 
-// Stamp cache-bust in index.html and multiplayer.html
-['index.html', 'multiplayer.html'].forEach(file => {
+// Stamp cache-bust in every HTML entry served by Vercel.
+['index.html', 'multiplayer.html', 'homemultiplayer.html', 'stagepiano.html'].forEach(file => {
   if (!fs.existsSync(file)) return;
   let html = fs.readFileSync(file, 'utf8');
   html = html.replace(/(bundle\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
