@@ -6650,8 +6650,11 @@ function clearPianoEntryVisualState(){
         if(typeof neonDustEmitters !== 'undefined' && neonDustEmitters) neonDustEmitters.clear();
         if(typeof pressStartTimes !== 'undefined' && pressStartTimes) pressStartTimes.clear();
         if(typeof pointerNoteMap !== 'undefined' && pointerNoteMap) pointerNoteMap.clear();
+        if(typeof pointerNoteHoldCounts !== 'undefined' && pointerNoteHoldCounts) pointerNoteHoldCounts.clear();
         if(typeof qwertyHeldByCode !== 'undefined' && qwertyHeldByCode) qwertyHeldByCode.clear();
         if(typeof midiPedalHeldNotes !== 'undefined' && midiPedalHeldNotes) midiPedalHeldNotes.clear();
+        if(typeof midiActiveNoteCounts !== 'undefined' && midiActiveNoteCounts) midiActiveNoteCounts.clear();
+        if(typeof midiHeldByInputNote !== 'undefined' && midiHeldByInputNote) midiHeldByInputNote.clear();
         if(typeof pendingActiveAdds !== 'undefined' && pendingActiveAdds) pendingActiveAdds.clear();
         if(typeof pendingActiveRemoves !== 'undefined' && pendingActiveRemoves) pendingActiveRemoves.clear();
         if(typeof _keyColorMap !== 'undefined' && _keyColorMap) _keyColorMap.clear();
@@ -7250,6 +7253,10 @@ function stopAllNotes() {
     for(let i=0;i<falling.length;i++){ if(falling[i]) falling[i].growing = false; }
     fallingByMidi.clear();
     if(typeof neonDustEmitters !== 'undefined') neonDustEmitters.clear();
+    if(typeof pointerNoteHoldCounts !== 'undefined' && pointerNoteHoldCounts) pointerNoteHoldCounts.clear();
+    if(typeof midiActiveNoteCounts !== 'undefined' && midiActiveNoteCounts) midiActiveNoteCounts.clear();
+    if(typeof midiHeldByInputNote !== 'undefined' && midiHeldByInputNote) midiHeldByInputNote.clear();
+    if(typeof midiPedalHeldNotes !== 'undefined' && midiPedalHeldNotes) midiPedalHeldNotes.clear();
     if(typeof saberLine !== 'undefined' && saberLine) saberLine.classList.remove('saber-hit');
 }
 
@@ -11012,6 +11019,17 @@ applyBgImageSettings();
 const QWERTY_INPUT_MAP = new Map(Object.entries(QWERTY_LABEL_MAP).map(([midi, raw]) => [raw, Number(midi)]));
 const qwertyHeldByCode = new Map();
 const qwertyIgnoreTargets = new Set(['INPUT','TEXTAREA','SELECT']);
+const PIANO_INPUT_MIN_MIDI = 21;
+const PIANO_INPUT_MAX_MIDI = 108;
+const MIDI_PERCUSSION_CHANNEL = 9;
+
+function isPlayablePianoMidi(midi) {
+    return Number.isFinite(midi) && midi >= PIANO_INPUT_MIN_MIDI && midi <= PIANO_INPUT_MAX_MIDI;
+}
+
+function isModifierOnlyKey(e) {
+    return e && (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta');
+}
 
 function getKeyboardBaseKey(e) {
     if (!e || !e.code) return '';
@@ -11035,12 +11053,15 @@ function shouldSkipQwertyInput(e) {
 }
 
 window.addEventListener('keydown', e => {
-    if (!isPianoInputAllowed() || shouldSkipQwertyInput(e) || e.repeat) return;
+    if (!isPianoInputAllowed() || shouldSkipQwertyInput(e) || e.repeat || isModifierOnlyKey(e)) return;
+    if (qwertyHeldByCode.has(e.code)) {
+        e.preventDefault();
+        return;
+    }
     const raw = getQwertyRawFromEvent(e);
     const midi = QWERTY_INPUT_MAP.get(raw);
-    if (!midi) return;
+    if (!isPlayablePianoMidi(midi)) return;
     e.preventDefault();
-    if (qwertyHeldByCode.has(e.code)) return;
     const el = noteElementMap.get(midi);
     qwertyHeldByCode.set(e.code, { midi, el });
     press(midi, el);
@@ -11061,6 +11082,31 @@ window.addEventListener('blur', () => {
 
 const pianoWrap = document.getElementById('pianoWrap');
 const pointerNoteMap = new Map();
+const pointerNoteHoldCounts = new Map();
+
+function pointerPressNote(pointerId, hit) {
+    if (!hit || !isPlayablePianoMidi(hit.midi)) return;
+    const previous = pointerNoteMap.get(pointerId);
+    if (previous === hit.midi) return;
+    if (previous !== undefined) pointerReleaseNote(pointerId);
+    const currentCount = pointerNoteHoldCounts.get(hit.midi) || 0;
+    pointerNoteMap.set(pointerId, hit.midi);
+    pointerNoteHoldCounts.set(hit.midi, currentCount + 1);
+    if (currentCount === 0) press(hit.midi, hit.el);
+}
+
+function pointerReleaseNote(pointerId) {
+    const note = pointerNoteMap.get(pointerId);
+    if (note === undefined) return;
+    pointerNoteMap.delete(pointerId);
+    const nextCount = Math.max(0, (pointerNoteHoldCounts.get(note) || 1) - 1);
+    if (nextCount > 0) {
+        pointerNoteHoldCounts.set(note, nextCount);
+        return;
+    }
+    pointerNoteHoldCounts.delete(note);
+    release(note, keyElFast[note] || noteElementMap.get(note));
+}
 
 function hitTestPiano(clientX, clientY) {
     const localY = clientY - keyHitCache.wrapTop;
@@ -11092,8 +11138,7 @@ pianoWrap.addEventListener('pointerdown', e => {
     const hit = hitTestPiano(e.clientX, e.clientY);
     if (!hit) return;
 
-    pointerNoteMap.set(e.pointerId, hit.midi);
-    press(hit.midi, hit.el);
+    pointerPressNote(e.pointerId, hit);
     try { pianoWrap.setPointerCapture(e.pointerId); } catch(_){}
 }, { passive: false });
 
@@ -11106,14 +11151,12 @@ function _flushGlissandoPointerMoves(){
         const prevNote = pointerNoteMap.get(pid);
         const hit = hitTestPiano(pos.clientX, pos.clientY);
         if (!hit) {
-            release(prevNote, keyElFast[prevNote] || noteElementMap.get(prevNote));
-            pointerNoteMap.delete(pid);
+            pointerReleaseNote(pid);
             return;
         }
         if (hit.midi !== prevNote) {
-            release(prevNote, keyElFast[prevNote] || noteElementMap.get(prevNote));
-            pointerNoteMap.set(pid, hit.midi);
-            press(hit.midi, hit.el);
+            pointerReleaseNote(pid);
+            pointerPressNote(pid, hit);
         }
     });
     _glissandoPendingPointers.clear();
@@ -11130,11 +11173,7 @@ pianoWrap.addEventListener('pointermove', e => {
 }, { passive: false });
 
 function pianoPointerEnd(e) {
-    const note = pointerNoteMap.get(e.pointerId);
-    if (note !== undefined) {
-        release(note, keyElFast[note] || noteElementMap.get(note));
-        pointerNoteMap.delete(e.pointerId);
-    }
+    pointerReleaseNote(e.pointerId);
     _glissandoPendingPointers.delete(e.pointerId);
 }
 pianoWrap.addEventListener('pointerup', pianoPointerEnd, { passive: true });
@@ -11594,6 +11633,61 @@ var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordO
 })();
 
 let midiAccess = null;
+const midiActiveNoteCounts = new Map();
+const midiHeldByInputNote = new Map();
+
+function midiInputKey(input, channel, note) {
+    const inputId = input && (input.id || input.name || input.manufacturer) ? String(input.id || input.name || input.manufacturer) : 'midi';
+    return inputId + ':' + channel + ':' + note;
+}
+
+function clearMidiInputState() {
+    midiActiveNoteCounts.clear();
+    midiHeldByInputNote.clear();
+    midiPedalHeldNotes.clear();
+}
+
+function handleMidiNoteOn(input, channel, note, velocity) {
+    const visualNote = note + transpose;
+    if (channel === MIDI_PERCUSSION_CHANNEL || !isPlayablePianoMidi(note) || !isPlayablePianoMidi(visualNote)) return;
+    const heldKey = midiInputKey(input, channel, note);
+    const currentKeyCount = midiActiveNoteCounts.get(heldKey) || 0;
+    midiActiveNoteCounts.set(heldKey, currentKeyCount + 1);
+    midiHeldByInputNote.set(note, (midiHeldByInputNote.get(note) || 0) + 1);
+
+    const burst = markInputBurst();
+    midiPedalHeldNotes.delete(note);
+    const keyEl = keyElCache.get(visualNote);
+    playNote(note, transpose, velocity / 127);
+    playPressVisual(visualNote, keyEl, burst);
+    if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(visualNote, velocity / 127);
+}
+
+function handleMidiNoteOff(input, channel, note) {
+    const visualNote = note + transpose;
+    if (channel === MIDI_PERCUSSION_CHANNEL || !isPlayablePianoMidi(note) || !isPlayablePianoMidi(visualNote)) return;
+    const heldKey = midiInputKey(input, channel, note);
+    const currentKeyCount = midiActiveNoteCounts.get(heldKey) || 0;
+    if (currentKeyCount <= 0) return;
+    if (currentKeyCount > 1) midiActiveNoteCounts.set(heldKey, currentKeyCount - 1);
+    else midiActiveNoteCounts.delete(heldKey);
+
+    const currentNoteCount = midiHeldByInputNote.get(note) || 0;
+    const nextNoteCount = Math.max(0, currentNoteCount - 1);
+    if (nextNoteCount > 0) {
+        midiHeldByInputNote.set(note, nextNoteCount);
+        return;
+    }
+    midiHeldByInputNote.delete(note);
+
+    markInputBurst();
+    if (midiSustainPedalDown) midiPedalHeldNotes.add(note);
+    else stopNote(note);
+    const keyEl = keyElCache.get(visualNote);
+    playReleaseVisual(visualNote, keyEl);
+    if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOff === 'function') window.PapianoMultiplayer.sendNoteOff(visualNote);
+}
+
 const midiBtn = document.getElementById('midiBtn');
 midiBtn.onclick = (e) => {
     const isOn = e.target.classList.toggle('active');
@@ -11606,8 +11700,9 @@ midiBtn.onclick = (e) => {
                     input.onmidimessage = (msg) => {
                         const [statusByte, data1, data2] = msg.data;
                         const status = statusByte & 0xF0;
-                        const note = data1;
-                        const velocity = data2 || 0;
+                        const channel = statusByte & 0x0F;
+                        const note = Number(data1);
+                        const velocity = Number(data2) || 0;
                         if(!isPianoInputAllowed()) return;
                         if (status === 0xB0 && data1 === 64) {
                             setMidiSustainPedal(velocity >= 64);
@@ -11616,21 +11711,9 @@ midiBtn.onclick = (e) => {
                             return;
                         }
                         if (status === 0x90 && velocity > 0) {
-                            const burst = markInputBurst();
-                            midiPedalHeldNotes.delete(note);
-                            const visualNote = note + transpose;
-                            const keyEl = keyElCache.get(visualNote);
-                            playNote(note, transpose, velocity / 127);
-                            playPressVisual(visualNote, keyEl, burst);
-                            if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(visualNote, velocity / 127);
+                            handleMidiNoteOn(input, channel, note, velocity);
                         } else if ((status === 0x80) || (status === 0x90 && velocity === 0)) {
-                            markInputBurst();
-                            const visualNote = note + transpose;
-                            if (midiSustainPedalDown) midiPedalHeldNotes.add(note);
-                            else stopNote(note);
-                            const keyEl = keyElCache.get(visualNote);
-                            playReleaseVisual(visualNote, keyEl);
-                            if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOff === 'function') window.PapianoMultiplayer.sendNoteOff(visualNote);
+                            handleMidiNoteOff(input, channel, note);
                         }
                     };
                 }
@@ -11648,6 +11731,7 @@ midiBtn.onclick = (e) => {
             const inputs = midiAccess.inputs.values();
             for (let input of inputs) input.onmidimessage = null;
             setMidiSustainPedal(false);
+            clearMidiInputState();
             midiAccess = null;
         }
         stopAllNotes();
