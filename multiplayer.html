@@ -8407,7 +8407,7 @@ function scheduleKeyVisual(el, active){
     });
 }
 function playPressVisual(n,k,burst){
-    if(Number.isFinite(n)) _trackKeyColor(n, _KEY_SELF, _mpSelfSeatColor || '', k);
+    if(Number.isFinite(n)) _trackKeyColor(n, _KEY_SELF, selfSeatKeyColor(), k);
     scheduleKeyVisual(k, true);
     startNeonDust(n, k);
     pressStartTimes.set(n,performance.now());
@@ -8700,7 +8700,7 @@ function addFallingNote(n, options = {}){
     ensureAnimLoop();
 }
 function addAnim(n){
-    addFallingNote(n, _mpSelfSeatColor ? { color: _mpSelfSeatColor } : {});
+    addFallingNote(n, selfSeatNoteOpts());
 }
 function addRemoteAnim(n, playerId, level, color){
     if(!isAnimOn) return;
@@ -10357,9 +10357,43 @@ function resetBlackKeyBaseColor(){
     root.setProperty('--piano-black-mid','#151a22');
     root.setProperty('--piano-black-bottom','#040506');
 }
+// === Warna custom user vs warna seat (multiplayer) =========================
+// Warna seat hanyalah DEFAULT identitas di dalam room. Begitu user memilih
+// warna sendiri di panel Visual, pilihan user MENANG untuk tampilan lokalnya
+// (pemain lain tetap melihat warna seat user ini di layar mereka).
+var userWhiteKeyChoice = '__none';
+var userBlackKeyChoice = '__none';
+function userHasCustomKeyColor(){
+    return userWhiteKeyChoice !== '__none' || userBlackKeyChoice !== '__none';
+}
+function selfSeatKeyColor(){
+    return userHasCustomKeyColor() ? '' : (_mpSelfSeatColor || '');
+}
+function userHasCustomNoteColor(){
+    if(typeof animStyle !== 'undefined' && animStyle && animStyle !== 'default') return true;
+    const c = (typeof cachedAnimColor !== 'undefined' && cachedAnimColor ? cachedAnimColor : '#ffffff').toLowerCase();
+    return c !== '#ffffff' && c !== '#fff' && c !== 'rgb(255, 255, 255)';
+}
+function selfSeatNoteOpts(){
+    return (!userHasCustomNoteColor() && _mpSelfSeatColor) ? { color: _mpSelfSeatColor } : {};
+}
+function userCustomChordColor(){
+    try{
+        if(typeof chordDisplayColors === 'undefined' || !chordDisplayColors) return '';
+        const p = String(chordDisplayColors.primary || '').toLowerCase();
+        const s = String(chordDisplayColors.secondary || '').toLowerCase();
+        if(p !== '#ffffff' || s !== '#ffffff') return chordDisplayColors.primary || '';
+    }catch(e){}
+    return '';
+}
 function setWhiteKeyColor(color){
     const root=document.documentElement.style;
     resetWhiteKeyBaseColor();
+    {
+        const picked = (color === NO_COLOR || color === null) ? '' : (normalizeHexColor(color) || '');
+        // '#ffffff' identik dengan tampilan default — jangan dianggap custom
+        userWhiteKeyChoice = (picked && picked.toLowerCase() !== '#ffffff') ? picked : '__none';
+    }
     if(color === NO_COLOR || color === null){
         root.setProperty('--accent-white','#ffffff');
         updateColorPadValue('gridWhiteTuts', '#ffffff');
@@ -10380,6 +10414,10 @@ function setWhiteKeyColor(color){
 function setBlackKeyColor(color){
     const root=document.documentElement.style;
     resetBlackKeyBaseColor();
+    {
+        const picked = (color === NO_COLOR || color === null) ? '' : (normalizeHexColor(color) || '');
+        userBlackKeyChoice = (picked && picked.toLowerCase() !== '#ffffff') ? picked : '__none';
+    }
     if(color === NO_COLOR || color === null){
         root.setProperty('--accent-black','#ffffff');
         updateColorPadValue('gridBlackTuts', '#ffffff');
@@ -15658,8 +15696,12 @@ midiBtn.onclick = (e) => {
             return;
         }
 
-        // Color: self = own seat color, remote = their seat color
+        // Color: self = warna custom user (jika ada) atau warna seat; remote = warna seat mereka
         var color = playerColor(mpSelfId);
+        if(bestSource === 'self'){
+            var customChord = (typeof userCustomChordColor === 'function') ? userCustomChordColor() : '';
+            if(customChord) color = customChord;
+        }
         if(bestSource !== 'self'){
             var remotePlayer = null;
             if(currentRoom && roomPlayersByRoom[currentRoom.id] && roomPlayersByRoom[currentRoom.id][bestSource]){
