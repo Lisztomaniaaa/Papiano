@@ -2595,12 +2595,6 @@
         return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
     }
 
-    function getChatDateKey(value) {
-        const date = chatTimestampToDate(value);
-        if (!date || Number.isNaN(date.getTime())) return 'pending';
-        return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-    }
-
     function formatChatDateLabel(value) {
         const date = chatTimestampToDate(value);
         if (!date || Number.isNaN(date.getTime())) return 'Sending';
@@ -2618,7 +2612,8 @@
     function formatMessageTime(value) {
         const date = chatTimestampToDate(value);
         if (!date || Number.isNaN(date.getTime())) return 'Sending';
-        return date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+        const time = date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+        return `${formatChatDateLabel(value)} - ${time}`;
     }
 
     function getMessageSenderProfile(message) {
@@ -2652,7 +2647,6 @@
         }
         activeMessagesCache.clear();
         messages.forEach(message => activeMessagesCache.set(message.id, message));
-        let lastDateKey = '';
         chatMessagesScrollArea.innerHTML = messages.map(message => {
             const mine = message.senderId === currentUser?.uid;
             const rowClass = mine ? 'row-outgoing msg-outgoing' : 'row-incoming msg-incoming';
@@ -2665,13 +2659,7 @@
                 : `<button class="msg-reply-icon-btn" type="button" aria-label="Reply" title="Reply" onclick="event.stopPropagation(); beginReplyToMessage('${message.id}')"><span class="material-symbols-rounded">reply</span></button>`;
             const actions = buildMessageActionStrip(message, mine, announcementLocked);
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
-            const dateKey = getChatDateKey(message.createdAt);
-            const dateSeparator = dateKey !== lastDateKey
-                ? `<div class="chat-day-separator"><span>${escapeHtml(formatChatDateLabel(message.createdAt))}</span></div>`
-                : '';
-            lastDateKey = dateKey;
             return `
-                ${dateSeparator}
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
                     <div class="msg-container-with-avatar">
                         ${renderMessageAvatar(profile)}

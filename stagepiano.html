@@ -3330,10 +3330,12 @@ body.mp-room-active .mp-player-strip{ display:flex; }
     font-weight:900;
 }
 .mp-player-pill.is-muted{ opacity:.58; }
-#mpRoomBtn.active{
-    background:linear-gradient(135deg,rgba(91,198,242,.94),rgba(127,226,255,.74)) !important;
-    border-color:rgba(157,235,255,.70) !important;
-    color:#061117 !important;
+#mpRoomBtn.active,
+body.mp-chat-open #mpRoomBtn{
+    background:#00D66B !important;
+    border-color:#06111f !important;
+    color:#06111f !important;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.24),inset 0 -5px 0 rgba(0,86,43,.32),0 4px 0 #008844,0 12px 20px rgba(0,214,107,.22) !important;
 }
 /* Professional room chat */
 :root{
@@ -3437,7 +3439,7 @@ body.mp-chat-keyboard .mp-chat-panel{bottom:calc(8px + env(safe-area-inset-botto
 .mp-profile-role[data-rarity="dev"]{ --mp-role-bg:#FB3F5C; --mp-role-ink:#fff; --mp-role-border:#06111f; --mp-role-shadow:#9f1831; }
 .mp-profile-chips{ display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:5px; min-width:0; }
 .mp-profile-chips .mp-profile-role{ margin-top:0; }
-.mp-profile-hours-pill{ display:inline-flex; align-items:center; justify-content:center; gap:4px; width:max-content; max-width:100%; padding:3px 9px; border-radius:999px; border:1px solid rgba(157,235,255,.22); background:rgba(157,235,255,.09); color:#d9f8ff; box-shadow:inset 0 1px 0 rgba(255,255,255,.06); font-size:10px; font-weight:950; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+.mp-profile-hours-pill{ display:inline-flex; align-items:center; justify-content:center; gap:4px; width:max-content; max-width:100%; padding:3px 9px; border-radius:999px; border:1px solid #06111f; background:#00D66B; color:#06111f; box-shadow:1.5px 1.5px 0 #008844; font-size:10px; font-weight:950; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
 .mp-profile-row{
     display:flex;
     justify-content:space-between;
@@ -3756,7 +3758,7 @@ body.mp-profile-open #swipeStrip{ pointer-events:none !important; }
 .mp-lobby-badge-creator{ --lbadge-bg:#005BFF; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#00358f; }
 .mp-lobby-badge-papioneer{ --lbadge-bg:#7C3AED; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#4C1D95; }
 .mp-lobby-badge-dev{ --lbadge-bg:#FB3F5C; --lbadge-ink:#ffffff; --lbadge-border:#06111f; --lbadge-shadow:#9f1831; }
-.mp-lobby-hours-pill{ flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; padding:2px 8px; border-radius:999px; border:1px solid rgba(6,17,31,.14); background:#06111f; color:#e7f4ff; box-shadow:1.5px 1.5px 0 rgba(6,17,31,.24); font-size:10px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
+.mp-lobby-hours-pill{ flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; padding:2px 8px; border-radius:999px; border:1px solid #06111f; background:#00D66B; color:#06111f; box-shadow:1.5px 1.5px 0 #008844; font-size:10px; font-weight:900; letter-spacing:.04em; text-transform:uppercase; white-space:nowrap; }
 .mp-lobby-profile-flag{
     font-size:13px;
     font-weight:600;
@@ -5061,7 +5063,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 
 /* Professional chat placement across screen sizes */
 @media (min-width:900px){.mp-chat-panel{position:absolute !important;top:var(--ui-below-strip) !important;right:var(--ui-edge-right) !important;left:auto !important;transform:none !important;bottom:calc(var(--piano-height,26vh) + 8px) !important;width:min(440px,30dvw) !important;height:auto !important;max-height:none !important;min-height:240px !important;}body.mp-chat-open .stage,body.mp-chat-open #pianoWrap,body.mp-chat-open #swipeStrip{right:calc(min(440px,30dvw) + 16px) !important;width:auto !important;max-width:none !important;margin:0 !important;}}
-@media (orientation:landscape) and (max-height:560px) and (max-width:899px){body.mp-chat-open .stage,body.mp-chat-open #pianoWrap,body.mp-chat-open #swipeStrip{display:block !important;}body.mp-chat-open .stage,body.mp-chat-open #pianoWrap,body.mp-chat-open #swipeStrip{right:calc(min(420px,44dvw) + 12px) !important;width:auto !important;}.mp-chat-preview{left:calc(10px + env(safe-area-inset-left,0px)) !important;}}
+@media (orientation:landscape) and (max-height:560px) and (max-width:899px){body.mp-chat-open .stage,body.mp-chat-open #pianoWrap,body.mp-chat-open #swipeStrip{display:block !important;right:0 !important;left:0 !important;width:100% !important;max-width:none !important;margin:0 !important;}body.mp-chat-open .piano-container,body.mp-chat-open .piano-scroll-wrapper{width:100% !important;max-width:none !important;}.mp-chat-panel{top:calc(var(--ui-below-strip,64px) + 8px) !important;right:calc(10px + env(safe-area-inset-right,0px)) !important;bottom:calc(var(--piano-height,26vh) + 12px + env(safe-area-inset-bottom,0px)) !important;left:auto !important;transform:none !important;width:min(390px,46dvw) !important;min-width:min(300px,46dvw) !important;height:auto !important;max-height:none !important;min-height:0 !important;border-radius:20px;background:#080a0f !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}.mp-chat-form{grid-template-columns:minmax(0,1fr) 72px !important;align-items:end !important;}.mp-chat-input{min-height:40px !important;height:auto !important;max-height:76px !important;color:#fff !important;-webkit-text-fill-color:#fff !important;caret-color:#9defff !important;opacity:1 !important;}.mp-chat-preview{left:calc(10px + env(safe-area-inset-left,0px)) !important;}}
 .mp-chat-preview{left:calc(14px + env(safe-area-inset-left,0px)) !important;max-height:min(calc(var(--mp-chat-preview-rows,3) * 76px + (var(--mp-chat-preview-rows,3) - 1) * 8px),calc(100dvh - var(--piano-height,26vh) - var(--ui-below-strip) - 14px - env(safe-area-inset-bottom,0px))) !important;}
 
 /* --- Home multiplayer: konsisten dengan stage di semua device --- */
@@ -5314,7 +5316,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     <div id="mpProfile" class="mp-profile" role="dialog" aria-modal="false" aria-label="Player profile">
         <div class="mp-profile-top">
             <div id="mpProfileAvatar" class="mp-avatar"></div>
-            <div><div id="mpProfileName" class="mp-profile-name"></div><div class="mp-profile-chips"><div id="mpProfileRole" class="mp-profile-role"></div><span id="mpProfilePlayTime" class="mp-profile-hours-pill">0H</span></div></div>
+            <div><div id="mpProfileName" class="mp-profile-name"></div><div class="mp-profile-chips"><div id="mpProfileRole" class="mp-profile-role"></div><span id="mpProfilePlayTime" class="mp-profile-hours-pill">0 hours</span></div></div>
             <button id="mpProfileClose" class="mp-chat-close" type="button" aria-label="Close profile"><svg class="mp-icon-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
         </div>
         <div class="mp-profile-row"><span>User ID</span><b id="mpProfileId"></b></div>
@@ -5352,7 +5354,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
                     <div class="mp-lobby-name-big" id="mpLobbyProfileName">Player</div>
                     <div class="mp-lobby-profile-chips">
                         <span class="mp-lobby-badge-pill" id="mpLobbyProfileBadge">PLAYER</span>
-                        <span class="mp-lobby-hours-pill" id="mpLobbyProfilePlayTime">0H</span>
+                        <span class="mp-lobby-hours-pill" id="mpLobbyProfilePlayTime">0 hours</span>
                         <span class="mp-lobby-profile-flag" id="mpLobbyProfileFlag" style="display:none;"></span>
                     </div>
                 </div>
@@ -13996,10 +13998,8 @@ midiBtn.onclick = (e) => {
         if(player?.id === mpSelfId){
             seconds = Math.max(seconds, Number(mpPlayTimeBaseSeconds || 0) + Number(mpPlayTimePending || 0));
         }
-        const hours = seconds / 3600;
-        if(hours < 0.05) return '0H';
-        if(hours < 10) return (Math.round(hours * 10) / 10).toFixed(1).replace(/\.0$/, '') + 'H';
-        return Math.round(hours).toLocaleString('en-US') + 'H';
+        const hours = Math.max(0, Math.floor(seconds / 3600));
+        return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
     }
 
     function profileCountryText(player){
