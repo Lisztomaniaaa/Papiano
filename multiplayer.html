@@ -7281,16 +7281,13 @@ function clearActiveKeyOverlay(midi){
     activeKeyOverlayMap.delete(midi);
 }
 function shouldUseLightKeyVisual(){
-    // The CSS `.active` class already colors the key. The overlay layer adds a
-    // polish (top taper / glow shell / bottom highlight) costing 2–4 div mounts
-    // per press. During heavy passages (input burst > 8, or already 12+ keys
-    // held, or the perf governor cut us back), drop the overlay so the press
-    // stays purely CSS — no DOM mutation on the hot path.
-    if(activeOverlayNotes.size >= 24) return true;
-    const pressure = getPerfPressureLevel();
-    if(pressure >= 2 && activeOverlayNotes.size >= 10) return true;
-    if(pressure >= 3) return true;
-    return typeof inputBurstScore !== 'undefined' && inputBurstScore >= 8 && activeOverlayNotes.size >= 6;
+    // Only drop the overlay when the perf governor is genuinely under pressure
+    // AND many keys are held at once. Burst-/count-based flip-flopping here
+    // caused the overlay to render on some keys and skip others mid-passage,
+    // which read as inconsistent glow and jank. A single stable threshold keeps
+    // the visual uniform; the real per-press savings come from emitting fewer
+    // pieces per key (see renderActiveKeyOverlay), not from skipping keys.
+    return getPerfPressureLevel() >= 3 && activeOverlayNotes.size >= 18;
 }
 function appendActiveKeyPiece(className, left, width, config){
     const piece = document.createElement('div');
@@ -7317,13 +7314,22 @@ function renderActiveKeyOverlay(midi, keyEl, color){
     const pieces = [];
     const black = keyEl ? keyEl.classList.contains('black') : isBlack(midi);
     const bw = getBlackKeyWidthPx();
+    // The `.active-key-light` and `.active-key-glow-shell` pieces are opacity:0
+    // unless `key-glow-on` is active, so when the Light effect is off (the
+    // default) they are invisible DOM that still costs a create/layout/remove
+    // on every press. Skipping them roughly halves overlay DOM churn — the
+    // dominant per-press cost during glissandos and chord spam — with zero
+    // visual change.
+    const wantGlowPieces = (typeof keyGlowEnabled !== 'undefined') && keyGlowEnabled;
     if(black){
         const wIdx = whiteIndexMap.get(midi - 1);
         if(wIdx === undefined) return;
         const left = getBlackKeyLeftPx(wIdx);
-        const lightPad = Math.max(3, bw * 0.34);
         pieces.push(appendActiveKeyPiece('active-key-piece active-key-black', left, bw));
-        pieces.push(appendActiveKeyPiece('active-key-light active-key-black-light', left - lightPad, bw + lightPad * 2));
+        if(wantGlowPieces){
+            const lightPad = Math.max(3, bw * 0.34);
+            pieces.push(appendActiveKeyPiece('active-key-light active-key-black-light', left - lightPad, bw + lightPad * 2));
+        }
     } else {
         const wIdx = whiteIndexMap.get(midi);
         if(wIdx === undefined) return;
@@ -7341,8 +7347,8 @@ function renderActiveKeyOverlay(midi, keyEl, color){
         const taperRight = rightCut > 0 ? rightCut * 0.78 : 0;
         const taperDepthPct = (taperLeft || taperRight) ? 18 : 0;
         if(topWidth > 0) pieces.push(appendActiveKeyPiece('active-key-piece active-key-white-top', topLeft, topWidth));
-        if(topWidth > 0) pieces.push(appendActiveKeyPiece('active-key-light active-key-white-light', topLeft, topWidth));
-        pieces.push(appendActiveKeyPiece('active-key-glow-shell active-key-white-bottom-glow', left, width));
+        if(topWidth > 0 && wantGlowPieces) pieces.push(appendActiveKeyPiece('active-key-light active-key-white-light', topLeft, topWidth));
+        if(wantGlowPieces) pieces.push(appendActiveKeyPiece('active-key-glow-shell active-key-white-bottom-glow', left, width));
         pieces.push(appendActiveKeyPiece('active-key-piece active-key-white-bottom', left, width, {
             whiteBottomTaper: taperLeft > 0 || taperRight > 0,
             leftCutPx: taperLeft,
