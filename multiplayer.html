@@ -176,6 +176,8 @@ canvas{
     pointer-events: none;
     z-index: 20;
 }
+#fx{ z-index:20; }
+#note3d{ z-index:24; mix-blend-mode:normal; }
 #saberLine{
     position:absolute;
     left:0;
@@ -6023,7 +6025,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
         </div>
         <button class="metro-start-btn" id="metroStartBtn">Start</button>
     </div>
-    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
+    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><canvas id="note3d" aria-hidden="true"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
     <div id="swipeStrip"></div>
     <div id="pianoWrap"><div id="pianoViewport"><div id="piano"></div><div id="activeKeyLayer"></div></div></div>
 </div>
@@ -6966,6 +6968,8 @@ const pianoEl = document.getElementById('piano');
 const activeKeyLayer = document.getElementById('activeKeyLayer');
 const canvas = document.getElementById('fx');
 const ctx2d = canvas.getContext('2d', { alpha: true });
+const note3dCanvas = document.getElementById('note3d');
+const note3dGl = note3dCanvas ? (note3dCanvas.getContext('webgl', { alpha:true, antialias:true, depth:true, premultipliedAlpha:false }) || note3dCanvas.getContext('experimental-webgl', { alpha:true, antialias:true, depth:true, premultipliedAlpha:false })) : null;
 ctx2d.imageSmoothingEnabled = true;
 ctx2d.imageSmoothingQuality = 'high';
 ctx2d.globalCompositeOperation = 'source-over';
@@ -7025,6 +7029,8 @@ function getAnimRiseSpeed(){
 const DT_MAX = 0.042;
 let cachedAnimColor = '#ffffff';
 const _solidRgbCache = new Map();
+const TRUE_3D_NOTE_STYLES = ['glassCeramic','pearlCeramic','opalIridescent','liquidNeon'];
+function isTrue3DNoteStyle(style){ return TRUE_3D_NOTE_STYLES.includes(style); }
 let rainbowV2Seq = 0, renderNow = 0;
 let animDoubleLeftColor = '#ffffff';
 let animDoubleRightColor = '#ffffff';
@@ -7040,6 +7046,7 @@ function getAnimBaseColorForMidi(midi){
 function resolveAnimStyle(style){
     const raw = style === 'double' ? 'default' : style;
     if(typeof getGraphicProfile === 'function' && !getGraphicProfile().heavyFx){
+        if(isTrue3DNoteStyle(raw)) return raw;
         return raw === 'rainbow' ? 'rainbow' : 'default';
     }
     return raw;
@@ -8623,6 +8630,196 @@ function tuneRgbForFalling(rgb){
     return _tunedRgbScratch;
 }
 
+const True3DNoteRenderer = (() => {
+    const gl = note3dGl;
+    if(!gl) return null;
+    const vs = `
+        attribute vec3 a_pos;
+        attribute vec3 a_normal;
+        attribute float a_layer;
+        uniform vec2 u_resolution;
+        uniform float u_depthScale;
+        varying vec3 v_normal;
+        varying float v_layer;
+        varying vec3 v_world;
+        void main(){
+            float perspective = 1.0 / (1.0 + max(a_pos.z, 0.0) * 0.0022);
+            vec2 p = vec2(
+                (a_pos.x - u_resolution.x * 0.5) * perspective + u_resolution.x * 0.5 + a_pos.z * 0.42,
+                (a_pos.y - u_resolution.y * 0.5) * perspective + u_resolution.y * 0.5 - a_pos.z * 0.30
+            );
+            vec2 clip = (p / u_resolution) * 2.0 - 1.0;
+            gl_Position = vec4(clip.x, -clip.y, 0.10 - a_pos.z * u_depthScale, 1.0);
+            v_normal = normalize(a_normal);
+            v_layer = a_layer;
+            v_world = a_pos;
+        }`;
+    const fs = `
+        precision mediump float;
+        uniform vec3 u_color;
+        uniform float u_alpha;
+        uniform float u_time;
+        uniform float u_material;
+        varying vec3 v_normal;
+        varying float v_layer;
+        varying vec3 v_world;
+        void main(){
+            vec3 n = normalize(v_normal);
+            vec3 lightA = normalize(vec3(-0.42,-0.72,0.88));
+            vec3 lightB = normalize(vec3(0.75,0.28,0.48));
+            float key = max(dot(n, lightA), 0.0);
+            float fill = max(dot(n, lightB), 0.0);
+            float fresnel = pow(1.0 - clamp(abs(n.z), 0.0, 1.0), 2.35);
+            float vertical = fract((v_world.y * 0.017) + (u_time * 0.00010));
+            vec3 base = u_color;
+            vec3 c = base * (0.34 + key * 0.54 + fill * 0.18);
+            float a = u_alpha;
+            if(u_material < 0.5){
+                vec3 milky = mix(base, vec3(1.0), 0.52);
+                c = mix(c, milky, 0.42) + vec3(0.38,0.46,0.52) * fresnel;
+                c += vec3(1.0) * smoothstep(0.78, 1.0, key) * 0.32;
+                a *= 0.66;
+            }else if(u_material < 1.5){
+                vec3 pearl = vec3(1.0,0.92,0.78) * (0.18 + 0.16 * sin(v_world.x * 0.08 + v_world.y * 0.018));
+                c = mix(c, mix(base, vec3(1.0), 0.18), 0.30) + pearl + fresnel * vec3(0.24,0.28,0.34);
+                a *= 0.98;
+            }else if(u_material < 2.5){
+                vec3 opal = 0.5 + 0.5 * cos(vec3(0.0,2.2,4.4) + v_world.x * 0.055 + v_world.y * 0.022 + u_time * 0.0012);
+                c = mix(c, opal, 0.30) + opal * fresnel * 0.42 + vec3(1.0) * smoothstep(0.86, 1.0, key) * 0.18;
+                a *= 0.90;
+            }else{
+                float flow = smoothstep(0.36,0.52,vertical) * (1.0 - smoothstep(0.68,0.86,vertical));
+                vec3 hot = mix(base, vec3(1.0), 0.42);
+                c = base * (0.52 + key * 0.46) + hot * (0.45 + flow * 0.72) + fresnel * base * 1.25;
+                a *= 0.88;
+            }
+            gl_FragColor = vec4(clamp(c, 0.0, 1.0), a);
+        }`;
+    function compile(type, src){
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) return null;
+        return sh;
+    }
+    const vShader = compile(gl.VERTEX_SHADER, vs);
+    const fShader = compile(gl.FRAGMENT_SHADER, fs);
+    if(!vShader || !fShader) return null;
+    const program = gl.createProgram();
+    gl.attachShader(program, vShader);
+    gl.attachShader(program, fShader);
+    gl.linkProgram(program);
+    if(!gl.getProgramParameter(program, gl.LINK_STATUS)) return null;
+    const buffer = gl.createBuffer();
+    const loc = {
+        pos: gl.getAttribLocation(program, 'a_pos'),
+        normal: gl.getAttribLocation(program, 'a_normal'),
+        layer: gl.getAttribLocation(program, 'a_layer'),
+        resolution: gl.getUniformLocation(program, 'u_resolution'),
+        depthScale: gl.getUniformLocation(program, 'u_depthScale'),
+        color: gl.getUniformLocation(program, 'u_color'),
+        alpha: gl.getUniformLocation(program, 'u_alpha'),
+        time: gl.getUniformLocation(program, 'u_time'),
+        material: gl.getUniformLocation(program, 'u_material')
+    };
+    function normalize3(x,y,z){
+        const l = Math.hypot(x,y,z) || 1;
+        return [x/l,y/l,z/l];
+    }
+    function emit(out, p, n, layer){
+        out.push(p[0],p[1],p[2], n[0],n[1],n[2], layer);
+    }
+    function tri(out, a,b,c, n, layer){
+        emit(out,a,n,layer); emit(out,b,n,layer); emit(out,c,n,layer);
+    }
+    function roundedLoop(x, y, w, h, r, z){
+        const seg = 5;
+        const rr = Math.max(0, Math.min(r, w * 0.5, h * 0.5));
+        if(rr <= 0) return [[x,y,z],[x+w,y,z],[x+w,y+h,z],[x,y+h,z]];
+        const pts = [];
+        const corners = [
+            [x+w-rr, y+rr, -Math.PI/2, 0],
+            [x+w-rr, y+h-rr, 0, Math.PI/2],
+            [x+rr, y+h-rr, Math.PI/2, Math.PI],
+            [x+rr, y+rr, Math.PI, Math.PI*1.5]
+        ];
+        for(const c of corners){
+            for(let i=0;i<=seg;i++){
+                const t = c[2] + (c[3]-c[2]) * (i/seg);
+                pts.push([c[0] + Math.cos(t) * rr, c[1] + Math.sin(t) * rr, z]);
+            }
+        }
+        return pts;
+    }
+    function buildRoundedBevelBar(x,y,w,h,r,depth){
+        const d = Math.max(5, Math.min(22, depth));
+        const bevel = Math.max(1.4, Math.min(d * 0.38, w * 0.22, h * 0.08));
+        const front = roundedLoop(x, y, w, h, r, d);
+        const inset = roundedLoop(x+bevel, y+bevel, Math.max(1,w-bevel*2), Math.max(1,h-bevel*2), Math.max(0,r-bevel), d + bevel * 0.25);
+        const back = roundedLoop(x + d*0.34, y - d*0.24, w, h, r, 0);
+        const out = [];
+        const center = [x+w*0.5, y+h*0.5, d + bevel * 0.25];
+        const nFront = [0,0,1];
+        for(let i=0;i<inset.length;i++) tri(out, center, inset[i], inset[(i+1)%inset.length], nFront, 0.86);
+        for(let i=0;i<front.length;i++){
+            const a = front[i], b = front[(i+1)%front.length], c = inset[(i+1)%inset.length], dd = inset[i];
+            const n = normalize3(((a[0]+b[0])*0.5)-(x+w*0.5), ((a[1]+b[1])*0.5)-(y+h*0.5), 1.8);
+            tri(out, a,b,c,n,0.70); tri(out,a,c,dd,n,0.76);
+        }
+        for(let i=0;i<front.length;i++){
+            const a = back[i], b = back[(i+1)%back.length], c = front[(i+1)%front.length], dd = front[i];
+            const n = normalize3(((dd[0]+c[0])*0.5)-(x+w*0.5), ((dd[1]+c[1])*0.5)-(y+h*0.5), -0.48);
+            tri(out, a,b,c,n,0.30); tri(out,a,c,dd,n,0.38);
+        }
+        return new Float32Array(out);
+    }
+    return {
+        clear(){
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            gl.clearColor(0,0,0,0);
+            gl.clearDepth(1);
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        },
+        draw(x,y,w,h,r,alpha,rgb,style){
+            const verts = buildRoundedBevelBar(x, y, w, h, r, Math.max(8, w * 0.9));
+            gl.useProgram(program);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+            gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+            gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STREAM_DRAW);
+            const stride = 7 * 4;
+            gl.enableVertexAttribArray(loc.pos);
+            gl.vertexAttribPointer(loc.pos, 3, gl.FLOAT, false, stride, 0);
+            gl.enableVertexAttribArray(loc.normal);
+            gl.vertexAttribPointer(loc.normal, 3, gl.FLOAT, false, stride, 3 * 4);
+            gl.enableVertexAttribArray(loc.layer);
+            gl.vertexAttribPointer(loc.layer, 1, gl.FLOAT, false, stride, 6 * 4);
+            gl.uniform2f(loc.resolution, Math.max(1, canvasCssW), Math.max(1, canvasCssH));
+            gl.uniform1f(loc.depthScale, 0.00012);
+            gl.uniform3f(loc.color, rgb[0]/255, rgb[1]/255, rgb[2]/255);
+            gl.uniform1f(loc.alpha, alpha);
+            gl.uniform1f(loc.time, renderNow || performance.now());
+            gl.uniform1f(loc.material, style === 'pearlCeramic' ? 1 : style === 'opalIridescent' ? 2 : style === 'liquidNeon' ? 3 : 0);
+            gl.drawArrays(gl.TRIANGLES, 0, verts.length / 7);
+        }
+    };
+})();
+function clearTrue3DNotes(){ if(True3DNoteRenderer) True3DNoteRenderer.clear(); }
+function drawTrue3DFallingNote(f, x0, y, w, h, rv, noteAlpha, drawStyle){
+    if(!True3DNoteRenderer) return false;
+    const baseHex = f.base || cachedAnimColor || '#ffffff';
+    let rgb = _solidRgbCache.get(baseHex);
+    if(rgb === undefined){
+        const rgb0 = safeHex(baseHex, '#78dcff');
+        rgb = _isNearWhiteRgb(rgb0) ? [240,248,255] : tuneRgbForFalling(rgb0).slice();
+        if(_solidRgbCache.size > 64) _solidRgbCache.clear();
+        _solidRgbCache.set(baseHex, rgb);
+    }
+    True3DNoteRenderer.draw(x0, y, w, h, rv, noteAlpha, rgb, drawStyle);
+    return true;
+}
 function drawFallingNote(f){
     const fastX = noteXFast[f.midi];
     const cachedX = Number.isFinite(fastX) ? fastX : noteXCache.get(f.midi);
@@ -8646,6 +8843,9 @@ function drawFallingNote(f){
     const rv = isRounded ? Math.min(8, w*0.45, h*0.35) * (roundPct / 100) : 0;
     const drawStyleRaw = f.styleResolved || f.style;
     const drawStyle = (drawStyleRaw === 'rainbowV2' || drawStyleRaw === 'crystal3d') ? 'rainbow' : drawStyleRaw;
+    if(isTrue3DNoteStyle(drawStyle) && drawTrue3DFallingNote(f, x0, y, w, h, rv, noteAlpha, drawStyle)){
+        return;
+    }
     ctx2d.globalAlpha = noteAlpha;
     ctx2d.globalCompositeOperation = 'source-over';
 
@@ -8730,6 +8930,7 @@ function anim(now){
     ctx2d.globalCompositeOperation = 'source-over';
     ctx2d.clearRect(0, 0, canvas.width, canvas.height);
     if(currentDPR !== 1) ctx2d.setTransform(currentDPR, 0, 0, currentDPR, 0, 0);
+    clearTrue3DNotes();
 
     let hasLive = false;
     // Particle layer: V1 ('glow') draws dust BEHIND the falling notes, V2
@@ -8828,9 +9029,15 @@ function syncCanvasSize(forceReadStage){
     currentDPR = dpr;
     if(canvas.width !== physW) canvas.width = physW;
     if(canvas.height !== physH) canvas.height = physH;
+    if(note3dCanvas){
+        if(note3dCanvas.width !== physW) note3dCanvas.width = physW;
+        if(note3dCanvas.height !== physH) note3dCanvas.height = physH;
+    }
     const cssW = nextW + 'px', cssH = nextH + 'px';
     if(canvas.style.width !== cssW) canvas.style.width = cssW;
     if(canvas.style.height !== cssH) canvas.style.height = cssH;
+    if(note3dCanvas && note3dCanvas.style.width !== cssW) note3dCanvas.style.width = cssW;
+    if(note3dCanvas && note3dCanvas.style.height !== cssH) note3dCanvas.style.height = cssH;
     ctx2d.imageSmoothingEnabled = true;
     ctx2d.imageSmoothingQuality = 'high';
     ctx2d.globalAlpha = 1;
