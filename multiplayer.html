@@ -7718,10 +7718,10 @@ function getPressureScale(){
 }
 const GRAPHIC_PROFILES = {
     low: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
-    medium: { dust:0.55, dustMax:92, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
-    high: { dust:1, dustMax:180, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
+    medium: { dust:0.55, dustMax:276, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
+    high: { dust:1, dustMax:540, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
     // PC tier — everything maxed for fast desktops.
-    ultra: { dust:1, dustMax:320, fallingMax:1600, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    ultra: { dust:1, dustMax:960, fallingMax:1600, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
     low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
@@ -7863,11 +7863,12 @@ function getSmokeSprite(color, shape){
         grad.addColorStop(0.82, `rgba(${r},${g},${b},0.65)`);
         grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
     } else {
-        // "Smoke": very soft and diffuse — low opacity with a long feathered
-        // tail so many overlapping puffs build a gentle, billowing haze.
-        grad.addColorStop(0,    'rgba(255,255,255,0.42)');
-        grad.addColorStop(0.16, `rgba(${Math.min(255,r+34)},${Math.min(255,g+34)},${Math.min(255,b+34)},0.30)`);
-        grad.addColorStop(0.42, `rgba(${r},${g},${b},0.15)`);
+        // "Smoke": very soft and diffuse — pure smoke colour (no white-hot /
+        // neon core), low opacity with a long feathered tail so many
+        // overlapping puffs build a gentle, billowing haze.
+        grad.addColorStop(0,    `rgba(${r},${g},${b},0.40)`);
+        grad.addColorStop(0.16, `rgba(${r},${g},${b},0.28)`);
+        grad.addColorStop(0.42, `rgba(${r},${g},${b},0.14)`);
         grad.addColorStop(0.72, `rgba(${r},${g},${b},0.05)`);
         grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
     }
@@ -8050,7 +8051,7 @@ function refreshStageHeight(){
     }
 }
 
-const NEON_DUST_MAX = 320;
+const NEON_DUST_MAX = 960;
 // Even, hold-independent emission: same initial puff per press, same steady
 // trickle while held. Density never escalates with hold time.
 const DUST_PRESS_BURST = 8;
@@ -8104,8 +8105,11 @@ function spawnNeonDust(geom, count){
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     if(countLevel <= 0.005 || opacityLevel <= 0.005 || sizeLevel <= 0.005) return;
-    const countMul = countLevel * 1.85 * dustScale;
-    const sizeMul = 0.08 + sizeLevel * 1.76;
+    // Count tripled (1.85 -> 5.55) for a much denser field; caps raised to match.
+    const countMul = countLevel * 5.55 * dustScale;
+    // Max particle size reduced so 100% slider == the old 70% size
+    // (old: 0.08 + 1.76; old 70% ≈ 1.28 -> new 100% slope 1.20). Slider stays 0-100%.
+    const sizeMul = 0.08 + sizeLevel * 1.20;
     const speedMul = 0.18 + speedLevel * 2.12;
     const turbEase = turbulenceLevel;
     const fadeLevel = sliderCurve(particleFade, 1.02);
@@ -8288,10 +8292,14 @@ function addFallingNote(n, options = {}){
     // O(n) per press, turning a 100-note glissando into 10k array ops.
     const resolvedStyle = resolveAnimStyle(animStyle);
     const colorOverride = normalizeFallingOverrideColor(options.color);
+    // seatColor tints a LOCAL styled note with the player's identity colour
+    // without forcing it to plain solid (unlike colorOverride, which remote
+    // notes use to render flat).
+    const seatTint = (!remote && !colorOverride) ? normalizeFallingOverrideColor(options.seatColor) : '';
     const style = colorOverride ? 'default' : (remote ? 'default' : animStyle);
     const styleResolved = colorOverride ? 'default' : (remote ? 'default' : resolvedStyle);
     const opacity = remote ? Math.min(noteOpacity, remoteLevel === 'light' ? 88 : 96) : noteOpacity;
-    const base = colorOverride || getAnimBaseColorForMidi(n);
+    const base = colorOverride || seatTint || getAnimBaseColorForMidi(n);
 
     const f = {midi:n, bottomY:bottomY, y:bottomY-6, height:6, style, styleResolved, shape:animShape, roundness:animRoundness, opacity, base, colorOverride, rainbowHue:noteHue, growing:true, ownerId:options.ownerId || null, remote};
 
@@ -8554,7 +8562,11 @@ function drawFallingNote(f){
             if(isRounded && rv > 0 && ctx2d.roundRect) ctx2d.roundRect(ix, iy, iw, ih, Math.max(0, rv - lw / 2));
             else ctx2d.rect(ix, iy, iw, ih);
             ctx2d.stroke();
-        } else if(drawStyle === 'solid'){
+        } else if(drawStyle === 'solid' || drawStyle === 'default'){
+            // 'default' (Single/Double/remote) renders as a plain solid fill.
+            // Route it through the exact-colour 'solid' sprite key — NOT the
+            // generic branch, whose coarse 4-bit colour bucket would collide
+            // two nearby seat/custom colours onto one cached sprite.
             if(isRounded && rv > 0){
                 const sprite = getEffectSprite('solid', rgb, w, h, isRounded, 0, roundPct);
                 ctx2d.drawImage(sprite, x0, y, w, h);
@@ -8563,7 +8575,7 @@ function drawFallingNote(f){
                 ctx2d.fillRect(x0, y, w, h);
             }
         } else {
-            // glass / midnight / gradient / neon / glow — baked, cached sprites.
+            // glass / midnight / gradient — baked, cached sprites.
             const sprite = getEffectSprite(drawStyle, rgb, w, h, isRounded, 0, roundPct);
             ctx2d.drawImage(sprite, x0, y, w, h);
         }
@@ -10011,11 +10023,15 @@ function selfSeatKeyColor(){
     return _mpSelfSeatColor || '';
 }
 function selfSeatNoteOpts(){
-    // Hanya overlay seat color jika user belum custom anim color
-    // (animStyle non-default seperti rainbow/double juga dihormati: bukan override seat)
+    // Apply the player's seat colour to all SINGLE-COLOUR styles (Single/Glass/
+    // Outline/Midnight/Gradient), not just Single — so a styled note still
+    // carries the player's identity colour in a room. Rainbow/Double bring
+    // their own colours; a user-chosen custom Note Color also wins.
     if(customAnimNote) return {};
-    if(typeof animStyle !== 'undefined' && animStyle && animStyle !== 'default') return {};
-    return _mpSelfSeatColor ? { color: _mpSelfSeatColor } : {};
+    if(typeof animStyle !== 'undefined' && !SINGLE_COLOR_STYLES.includes(animStyle)) return {};
+    // Passed as seatColor (a base tint that keeps the chosen style) rather than
+    // `color` (which would force the note to plain solid).
+    return _mpSelfSeatColor ? { seatColor: _mpSelfSeatColor } : {};
 }
 function userCustomChordColor(){
     return customChordColor || '';
@@ -11115,22 +11131,18 @@ var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordO
 let midiAccess = null;
 const midiBtn = document.getElementById('midiBtn');
 
-// Web MIDI is channel-aware, but a note message only carries a note NUMBER —
-// nothing about it says "drum" except the channel it arrives on. A MIDI file
-// player marks percussion by sending it on GM channel 10 (status low nibble 9).
-// If we honour those events they get misrouted into the piano: note 81 on
-// channel 10 (a percussion hit) becomes a press of piano key A5 and a lookup
-// of the A5 buffer from the *piano* soundfont — no drum soundfont is involved.
-// That is the "A5 keeps pressing itself" symptom. Dropping channel 10 entirely
-// (standard for every piano playback chain) is the fix.
+// Web MIDI handler, extracted so the dispatch logic is unit-testable. Note: we
+// deliberately do NOT filter GM channel 10 here. A live controller or DAW track
+// can legitimately transmit piano notes on channel 10, and dropping it makes
+// such keyboards appear dead; phantom-note problems from a specific MIDI FILE
+// are the player's file/router config, not something the web app should mask by
+// discarding a whole channel.
 function _handleMidiMessage(data){
     if(!data || data.length < 1) return;
     const statusByte = data[0];
     const data1 = data[1];
     const data2 = data[2];
     const status = statusByte & 0xF0;
-    const channel = statusByte & 0x0F;
-    if (channel === 9) return; // GM drum/percussion channel
     const note = data1;
     const velocity = data2 || 0;
     if(!isPianoInputAllowed()) return;
