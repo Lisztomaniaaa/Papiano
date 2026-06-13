@@ -7281,8 +7281,16 @@ function clearActiveKeyOverlay(midi){
     activeKeyOverlayMap.delete(midi);
 }
 function shouldUseLightKeyVisual(){
+    // The CSS `.active` class already colors the key. The overlay layer adds a
+    // polish (top taper / glow shell / bottom highlight) costing 2–4 div mounts
+    // per press. During heavy passages (input burst > 8, or already 12+ keys
+    // held, or the perf governor cut us back), drop the overlay so the press
+    // stays purely CSS — no DOM mutation on the hot path.
+    if(activeOverlayNotes.size >= 24) return true;
     const pressure = getPerfPressureLevel();
-    return pressure >= 3 && activeOverlayNotes.size >= 18;
+    if(pressure >= 2 && activeOverlayNotes.size >= 10) return true;
+    if(pressure >= 3) return true;
+    return typeof inputBurstScore !== 'undefined' && inputBurstScore >= 8 && activeOverlayNotes.size >= 6;
 }
 function appendActiveKeyPiece(className, left, width, config){
     const piece = document.createElement('div');
@@ -7648,9 +7656,9 @@ function getPressureScale(){
     return pressure >= 3 ? 0.34 : pressure === 2 ? 0.56 : pressure === 1 ? 0.78 : 1;
 }
 const GRAPHIC_PROFILES = {
-    low: { dust:0, dustMax:0, fallingMax:260, chordDebounce:140, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
-    medium: { dust:0.55, dustMax:92, fallingMax:520, chordDebounce:82, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
-    high: { dust:1, dustMax:180, fallingMax:900, chordDebounce:56, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    low: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
+    medium: { dust:0.55, dustMax:92, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
+    high: { dust:1, dustMax:180, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
     low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
@@ -7676,7 +7684,6 @@ function isWideKeyMode(){ return wCount > 12; }
 function refreshWideKeyModeClass(){
     document.body.classList.toggle('wide-key-mode', isWideKeyMode());
 }
-const CHORD_DEBOUNCE_MS = 50;
 let inputBurstScore = 0;
 let lastInputBurstAt = 0;
 let inputBurstFrame = 0;
@@ -7811,8 +7818,19 @@ function refreshKeyDustColorCache(){
     cachedDustBlack = css.getPropertyValue('--accent-black').trim() || css.getPropertyValue('--piano-black-active-mid').trim() || '#ff7f66';
     _smokeSpriteCache.clear();
 }
+// Chord detection ran synchronously on every press/release. During glissandos
+// and arpeggio storms (Etude Op.10/25, La Campanella) that's hundreds of
+// detections per second, each iterating ~100 chord patterns. Coalesce to one
+// run per animation frame — at 60fps that's a max ~16ms delay, well below the
+// perceptual threshold for the chord readout but eliminates the per-note cost.
+let _chordUpdateRaf = 0;
 function requestChordUpdate(){
-    if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function') window.PapianoMultiplayer._detectChords();
+    if(_chordUpdateRaf) return;
+    if(!(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function')) return;
+    _chordUpdateRaf = requestAnimationFrame(() => {
+        _chordUpdateRaf = 0;
+        try { window.PapianoMultiplayer._detectChords(); } catch(_){}
+    });
 }
 
 const pendingActiveRemoves = new Set();
@@ -7844,10 +7862,20 @@ function _resolveKeyColor(midi){
 }
 
 function _trackKeyColor(midi, holderId, color, el){
+    // Offline / no custom color — nothing to track. Avoids per-press Map
+    // allocation during heavy passages where _mpSelfSeatColor is empty.
+    if(!color){
+        const existing = _keyColorMap.get(midi);
+        if(existing && existing.has(holderId)){
+            existing.delete(holderId);
+            if(existing.size === 0) _keyColorMap.delete(midi);
+            if(el) _applyKeyColor(el, _resolveKeyColor(midi));
+        }
+        return;
+    }
     let holders = _keyColorMap.get(midi);
     if(!holders){ holders = new Map(); _keyColorMap.set(midi, holders); }
-    holders.set(holderId, color || '');
-    // Apply color immediately
+    holders.set(holderId, color);
     if(el) _applyKeyColor(el, _resolveKeyColor(midi));
 }
 
@@ -8155,17 +8183,8 @@ function addFallingNote(n, options = {}){
 
     const noteHue = (rainbowV2Seq * 37 + n * 11) % 360;
     rainbowV2Seq = (rainbowV2Seq + 1) % 3600;
-    if(falling.length > 0){
-        let w=0, removed=false;
-        for(let i=0;i<falling.length;i++){
-            if(!falling[i].dead) falling[w++]=falling[i];
-            else removed=true;
-        }
-        if(removed){
-            falling.length=w;
-            unregisterDeadFalling();
-        }
-    }
+    // anim() already compacts dead notes; doing it here too made addFallingNote
+    // O(n) per press, turning a 100-note glissando into 10k array ops.
     const profile = getGraphicProfile();
     const rawStyle = animStyle === 'double' ? 'default' : animStyle;
     const resolvedStyle = profile.heavyFx ? rawStyle : (rawStyle === 'rainbow' ? 'rainbow' : 'default');
