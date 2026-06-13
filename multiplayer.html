@@ -5369,6 +5369,12 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                 <div class="section-title">Note Style</div>
                 <div class="anim-style-grid">
                     <button class="btn active" id="mDef">Single</button>
+                    <button class="btn" id="mGlass">Glass</button>
+                    <button class="btn" id="mOutline">Outline</button>
+                    <button class="btn" id="mMidnight">Midnight</button>
+                    <button class="btn" id="mGradient">Gradient</button>
+                    <button class="btn" id="mGlow">Glow</button>
+                    <button class="btn" id="mNeon">Neon</button>
                     <button class="btn" id="mRainbow">Rainbow</button>
                     <button class="btn" id="mDouble">Double</button>
                 </div>
@@ -5620,11 +5626,11 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <div class="perf-setting-block ui-mt8">
                         <div class="section-title ui-mb8">Graphics Quality</div>
                         <div class="graphic-grid">
-                            <button class="graphic-btn" id="gfxLow">Low</button>
-                            <button class="graphic-btn" id="gfxMed">Medium</button>
-                            <button class="graphic-btn" id="gfxHigh">High</button>
+                            <button class="graphic-btn" id="gfxLow">Potato</button>
+                            <button class="graphic-btn" id="gfxMed">Mobile</button>
+                            <button class="graphic-btn" id="gfxHigh">PC</button>
                         </div>
-                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Low = Performance · Medium = Balanced · High = Full Visuals</div>
+                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Performance · Mobile = Full Visuals · PC = Maxed Out</div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="ui-setting-head-gap">
@@ -5718,6 +5724,12 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                         <div class="section-title ui-mb8">Note Style</div>
                         <div class="anim-style-grid">
                             <button class="btn settings-anim-style active" data-style-target="mDef">Single</button>
+                            <button class="btn settings-anim-style" data-style-target="mGlass">Glass</button>
+                            <button class="btn settings-anim-style" data-style-target="mOutline">Outline</button>
+                            <button class="btn settings-anim-style" data-style-target="mMidnight">Midnight</button>
+                            <button class="btn settings-anim-style" data-style-target="mGradient">Gradient</button>
+                            <button class="btn settings-anim-style" data-style-target="mGlow">Glow</button>
+                            <button class="btn settings-anim-style" data-style-target="mNeon">Neon</button>
                             <button class="btn settings-anim-style" data-style-target="mRainbow">Rainbow</button>
                             <button class="btn settings-anim-style" data-style-target="mDouble">Double</button>
                         </div>
@@ -6964,7 +6976,8 @@ function getRenderDPR(){
         const q = typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality;
         if(q === 'low') cap = 1;
         else if(q === 'medium') cap = Math.min(native, 1.5);
-        else cap = Math.min(native, 2.0);
+        else if(q === 'ultra') cap = Math.min(native, 3.0); // PC tier: sharpest
+        else cap = Math.min(native, 2.0); // high / Mobile tier
     } catch(e){ cap = Math.min(native, 2.0); }
     const scaled = cap * (perfGovScale > 0 ? perfGovScale : 1);
     return scaled < PERF_DPR_FLOOR ? PERF_DPR_FLOOR : scaled;
@@ -7018,6 +7031,16 @@ function getAnimBaseColorForMidi(midi){
     if(animStyle === 'double') return midiToTuts(midi) < animDoubleSplitTuts ? animDoubleLeftColor : animDoubleRightColor;
     return cachedAnimColor || '#ffffff';
 }
+// Resolve the requested anim style against the active graphics profile: heavy
+// fill styles collapse to plain 'solid' when heavy FX are off (Potato tier), so
+// new notes and resynced in-flight notes stay consistent and cheap there.
+function resolveAnimStyle(style){
+    const raw = style === 'double' ? 'default' : style;
+    if(typeof getGraphicProfile === 'function' && !getGraphicProfile().heavyFx){
+        return raw === 'rainbow' ? 'rainbow' : 'default';
+    }
+    return raw;
+}
 function syncFallingNoteVisualState(){
     if(Array.isArray(falling)) falling.forEach(f => {
         if(f.remote){
@@ -7027,7 +7050,7 @@ function syncFallingNoteVisualState(){
             return;
         }
         f.style = animStyle;
-        f.styleResolved = animStyle === 'double' ? 'default' : animStyle;
+        f.styleResolved = resolveAnimStyle(animStyle);
         f.base = getAnimBaseColorForMidi(f.midi);
     });
     if(typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
@@ -7668,12 +7691,12 @@ function _detectDefaultGraphicQuality(){
         const ua = (navigator.userAgent || '').toLowerCase();
         const isMobileUA = /android|iphone|ipad|ipod|mobile|webview/i.test(ua);
 
+        // Tiers exposed in the UI: low = Potato, high = Mobile, ultra = PC.
         if (cores <= 2 || mem <= 2) return 'low';
-        if (lowCores || lowMem) return 'medium';
-        if (isMobileUA && cores >= 8 && mem >= 6) return 'high';
-        if (isMobileUA || (isCoarse && smallScreen)) return 'medium';
-        return 'high';
-    } catch(e) { return 'medium'; }
+        if (isMobileUA || (isCoarse && smallScreen)) return 'high';   // Mobile
+        if (lowCores || lowMem) return 'high';                        // weak desktop
+        return 'ultra';                                               // capable desktop -> PC
+    } catch(e) { return 'high'; }
 }
 let graphicQuality = _detectDefaultGraphicQuality();
 let performanceMode = 'manual';
@@ -7700,17 +7723,21 @@ function getPressureScale(){
 const GRAPHIC_PROFILES = {
     low: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
     medium: { dust:0.55, dustMax:92, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
-    high: { dust:1, dustMax:180, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    high: { dust:1, dustMax:180, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
+    // PC tier — everything maxed for fast desktops.
+    ultra: { dust:1, dustMax:320, fallingMax:1600, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
     low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
     medium: { dust:true, particleCount:45, particleSize:52, particleOpacity:74, particleSpeed:26, particleTurbulence:24, particleSaturation:88, particleFade:52, saberAuraSize:44, saberBrightness:64, saberOpacity:100, saberSaturation:100 },
-    high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 }
+    high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 },
+    ultra: { dust:true, particleCount:100, particleSize:76, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:38, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
 };
 const REMOTE_VISUAL_PROFILES = {
     low: { level:'light' },
     medium: { level:'light' },
-    high: { level:'full' }
+    high: { level:'full' },
+    ultra: { level:'full' }
 };
 function getRemoteVisualLevel(){
     const q = getEffectiveGraphicQuality();
@@ -8014,7 +8041,7 @@ function refreshStageHeight(){
     }
 }
 
-const NEON_DUST_MAX = 180;
+const NEON_DUST_MAX = 320;
 const neonDustX = new Float32Array(NEON_DUST_MAX);
 const neonDustY = new Float32Array(NEON_DUST_MAX);
 const neonDustVX = new Float32Array(NEON_DUST_MAX);
@@ -8244,9 +8271,7 @@ function addFallingNote(n, options = {}){
     rainbowV2Seq = (rainbowV2Seq + 1) % 3600;
     // anim() already compacts dead notes; doing it here too made addFallingNote
     // O(n) per press, turning a 100-note glissando into 10k array ops.
-    const profile = getGraphicProfile();
-    const rawStyle = animStyle === 'double' ? 'default' : animStyle;
-    const resolvedStyle = profile.heavyFx ? rawStyle : (rawStyle === 'rainbow' ? 'rainbow' : 'default');
+    const resolvedStyle = resolveAnimStyle(animStyle);
     const colorOverride = normalizeFallingOverrideColor(options.color);
     const style = colorOverride ? 'default' : (remote ? 'default' : animStyle);
     const styleResolved = colorOverride ? 'default' : (remote ? 'default' : resolvedStyle);
@@ -8355,6 +8380,77 @@ function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
         sctx.fillStyle = g;
         _spriteRoundPath(sctx, wB, hB, r);
         sctx.fill();
+    } else {
+        const R = rgb[0]|0, G = rgb[1]|0, B = rgb[2]|0;
+        const lite = (m) => `rgb(${Math.round(R+(255-R)*m)},${Math.round(G+(255-G)*m)},${Math.round(B+(255-B)*m)})`;
+        const dark = (m) => `rgb(${Math.round(R*m)},${Math.round(G*m)},${Math.round(B*m)})`;
+        if(style === 'gradient'){
+            // Clean vertical gradient: light at the top, full colour at the bottom.
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.55));
+            g.addColorStop(0.5, `rgb(${R},${G},${B})`);
+            g.addColorStop(1, dark(0.78));
+            sctx.fillStyle = g; _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
+        } else if(style === 'midnight'){
+            // Deep, moody column: near-black base glowing up into the colour.
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.25));
+            g.addColorStop(0.32, `rgb(${R},${G},${B})`);
+            g.addColorStop(0.72, dark(0.42));
+            g.addColorStop(1, dark(0.14));
+            sctx.fillStyle = g; _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
+        } else if(style === 'glass'){
+            // Frosted glass: translucent body, bright top sheen, glassy edges.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const body = sctx.createLinearGradient(0, 0, 0, hB);
+            body.addColorStop(0, `rgba(${R},${G},${B},0.34)`);
+            body.addColorStop(1, `rgba(${R},${G},${B},0.18)`);
+            sctx.fillStyle = body; sctx.fillRect(0, 0, wB, hB);
+            const sheen = sctx.createLinearGradient(0, 0, 0, hB);
+            sheen.addColorStop(0, 'rgba(255,255,255,0.55)');
+            sheen.addColorStop(0.28, 'rgba(255,255,255,0.08)');
+            sheen.addColorStop(1, 'rgba(255,255,255,0)');
+            sctx.fillStyle = sheen; sctx.fillRect(0, 0, wB, hB);
+            const edge = sctx.createLinearGradient(0, 0, wB, 0);
+            edge.addColorStop(0, 'rgba(255,255,255,0.40)');
+            edge.addColorStop(0.18, 'rgba(255,255,255,0)');
+            edge.addColorStop(0.82, 'rgba(255,255,255,0)');
+            edge.addColorStop(1, `rgba(${R},${G},${B},0.45)`);
+            sctx.fillStyle = edge; sctx.fillRect(0, 0, wB, hB);
+            sctx.restore();
+            // crisp bright rim
+            sctx.lineWidth = Math.max(1, wB * 0.06);
+            sctx.strokeStyle = `rgba(${Math.min(255,R+60)},${Math.min(255,G+60)},${Math.min(255,B+60)},0.7)`;
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'neon'){
+            // White-hot core column with saturated colour at the sides.
+            const g = sctx.createLinearGradient(0, 0, wB, 0);
+            g.addColorStop(0, `rgba(${R},${G},${B},0.55)`);
+            g.addColorStop(0.30, `rgb(${R},${G},${B})`);
+            g.addColorStop(0.5, lite(0.85));
+            g.addColorStop(0.70, `rgb(${R},${G},${B})`);
+            g.addColorStop(1, `rgba(${R},${G},${B},0.55)`);
+            sctx.fillStyle = g; _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
+        } else if(style === 'glow'){
+            // Soft bloom: feathered edges so overlapping notes build light.
+            const g = sctx.createLinearGradient(0, 0, wB, 0);
+            g.addColorStop(0, `rgba(${R},${G},${B},0)`);
+            g.addColorStop(0.5, lite(0.30));
+            g.addColorStop(1, `rgba(${R},${G},${B},0)`);
+            sctx.fillStyle = g; sctx.fillRect(0, 0, wB, hB);
+            const core = sctx.createLinearGradient(0, 0, wB, 0);
+            core.addColorStop(0, `rgba(${R},${G},${B},0)`);
+            core.addColorStop(0.42, `rgba(${R},${G},${B},0.92)`);
+            core.addColorStop(0.5, lite(0.5));
+            core.addColorStop(0.58, `rgba(${R},${G},${B},0.92)`);
+            core.addColorStop(1, `rgba(${R},${G},${B},0)`);
+            sctx.fillStyle = core;
+            sctx.fillRect(wB*0.2, 0, wB*0.6, hB);
+        } else {
+            // unknown style -> solid fallback
+            sctx.fillStyle = `rgb(${R},${G},${B})`;
+            _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
+        }
     }
 
     _spriteCache.set(key, sprite);
@@ -8450,12 +8546,28 @@ function drawFallingNote(f){
             if(_solidRgbCache.size > 64) _solidRgbCache.clear();
             _solidRgbCache.set(baseHex, rgb);
         }
-        if(isRounded && rv > 0){
-            const sprite = getEffectSprite('solid', rgb, w, h, isRounded, 0, roundPct);
-            ctx2d.drawImage(sprite, x0, y, w, h);
+        if(drawStyle === 'outline'){
+            // Transparent center, coloured rounded border.
+            const lw = Math.max(1.5, Math.min(w * 0.16, 4));
+            ctx2d.lineWidth = lw;
+            ctx2d.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            const ix = x0 + lw / 2, iy = y + lw / 2, iw = Math.max(1, w - lw), ih = Math.max(1, h - lw);
+            ctx2d.beginPath();
+            if(isRounded && rv > 0 && ctx2d.roundRect) ctx2d.roundRect(ix, iy, iw, ih, Math.max(0, rv - lw / 2));
+            else ctx2d.rect(ix, iy, iw, ih);
+            ctx2d.stroke();
+        } else if(drawStyle === 'solid'){
+            if(isRounded && rv > 0){
+                const sprite = getEffectSprite('solid', rgb, w, h, isRounded, 0, roundPct);
+                ctx2d.drawImage(sprite, x0, y, w, h);
+            } else {
+                ctx2d.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+                ctx2d.fillRect(x0, y, w, h);
+            }
         } else {
-            ctx2d.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-            ctx2d.fillRect(x0, y, w, h);
+            // glass / midnight / gradient / neon / glow — baked, cached sprites.
+            const sprite = getEffectSprite(drawStyle, rgb, w, h, isRounded, 0, roundPct);
+            ctx2d.drawImage(sprite, x0, y, w, h);
         }
     }
 
@@ -9219,7 +9331,10 @@ const PRESET_STORAGE_KEY = 'papiano_memory_preset_v2';
 const STORAGE_RESET_KEYS = ['papiano_memory_autosave_v2', 'papiano_memory_options_v2', 'papiano_settings'];
 const STORAGE_SCHEMA_VERSION = 2;
 
-const animModeBtns = { mDef:'default', mRainbow:'rainbow', mDouble:'double' };
+const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mGlow:'glow', mNeon:'neon', mRainbow:'rainbow', mDouble:'double' };
+// Single-colour fill styles (use the chosen Note Color). Excludes rainbow
+// (per-note hue) and double (split colours).
+const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient','glow','neon'];
 const NO_COLOR="__none";
 const colors=[NO_COLOR,"#ffffff","#00e5ff","#38bdf8","#2979ff","#651fff","#8b5cf6","#ff4081","#ff2d75","#ff1744","#ff6d00","#f7b733","#ffea00","#b2ff59","#00e676"];
 function getDefaultPianoHeightPercent(){
@@ -9683,7 +9798,12 @@ function applySettings(s) {
         setAnimDoubleRightColor(s.animDoubleRightColor !== undefined ? s.animDoubleRightColor : '#ffffff');
         setAnimDoubleSplitTuts(s.animDoubleSplitTuts !== undefined ? s.animDoubleSplitTuts : 44);
         if (typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
-        if (s.animStyle !== undefined) { animStyle = s.animStyle === 'single' ? 'default' : (s.animStyle === 'metalic' || s.animStyle === 'crystal3d' || s.animStyle === 'clean' || s.animStyle === 'cleanNeon' ? 'default' : (s.animStyle === 'rainbow2' ? 'rainbow' : (s.animStyle === 'glass' ? 'rainbow' : (s.animStyle === 'rainbowV2' ? 'rainbow' : s.animStyle)))); const styleMap = {default:'mDef',rainbow:'mRainbow',double:'mDouble'}; if (styleMap[animStyle]) setAnimModeById(styleMap[animStyle]); else setAnimModeById('mDef'); }
+        if (s.animStyle !== undefined) {
+            const LEGACY_STYLE = { single:'default', metalic:'default', crystal3d:'default', clean:'default', cleanNeon:'default', rainbow2:'rainbow', rainbowV2:'rainbow' };
+            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', glow:'mGlow', neon:'mNeon', rainbow:'mRainbow', double:'mDouble' };
+            const resolved = LEGACY_STYLE[s.animStyle] || s.animStyle;
+            setAnimModeById(styleMap[resolved] || 'mDef');
+        }
         if (s.animShape !== undefined) setAnimShape(s.animShape);
         if (s.animRoundness !== undefined) setAnimRoundness(s.animRoundness); else setAnimRoundness(animRoundness);
         if (s.noteOpacity !== undefined) setNoteOpacity(s.noteOpacity); else setNoteOpacity(noteOpacity);
@@ -10248,12 +10368,12 @@ function setAnimDoubleSplitTuts(value){
     if(animStyle === 'double') syncFallingNoteVisualState();
 }
 function updateAnimModeControls(){
-    const isSingle = animStyle === 'default';
+    const showColor = SINGLE_COLOR_STYLES.includes(animStyle);
     const isDouble = animStyle === 'double';
     const rowAnimColor = document.getElementById('rowAnimColor');
     const rowAnimDoubleSplit = document.getElementById('rowAnimDoubleSplit');
     const rowAnimDoubleColors = document.getElementById('rowAnimDoubleColors');
-    if(rowAnimColor) rowAnimColor.style.display = isSingle ? '' : 'none';
+    if(rowAnimColor) rowAnimColor.style.display = showColor ? '' : 'none';
     if(rowAnimDoubleSplit){
         rowAnimDoubleSplit.style.display = isDouble ? '' : 'none';
         rowAnimDoubleSplit.classList.toggle('active', isDouble);
@@ -10324,7 +10444,7 @@ updateSaberLine();
 currentGlassColor = currentGlassColor || '#ffffff';
 if(animStyle === 'crystal3d' || animStyle === 'cleanNeon' || animStyle === 'clean' || animStyle === 'rainbowV2') animStyle = animStyle === 'rainbowV2' ? 'rainbow' : 'default';
 function updateAnimMode(id){
-    ['mDef','mRainbow','mDouble'].forEach(b=>{ const el=document.getElementById(b); if(el) el.classList.toggle('active',b===id); });
+    Object.keys(animModeBtns).forEach(b=>{ const el=document.getElementById(b); if(el) el.classList.toggle('active',b===id); });
     document.querySelectorAll('.settings-anim-style').forEach(btn => btn.classList.toggle('active', btn.dataset.styleTarget === id));
     updateAnimModeControls();
 }
@@ -11162,7 +11282,7 @@ midiBtn.onclick = (e) => {
 })();
 
 (function(){
-    const btns = { gfxLow:'low', gfxMed:'medium', gfxHigh:'high' };
+    const btns = { gfxLow:'low', gfxMed:'high', gfxHigh:'ultra' };
     const lowHiddenRows = ['rowAnimEffect','rowAnimTone'];
     const mediumHiddenRows = [];
     function effectiveQuality(){ return typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality; }
