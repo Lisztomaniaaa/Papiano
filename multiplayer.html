@@ -7797,10 +7797,11 @@ function _parseColorToRgb(color){
     }
     return [120, 220, 255];
 }
-function getSmokeSprite(color, shape){
+function getSmokeSprite(color, shape, solid){
     const _shape = shape === 'dot' ? 'dot' : 'smoke';
+    const _solid = !!solid;
     const dpr = currentDPR || 1;
-    const cacheKey = color + '@' + (Math.round(dpr * 100) | 0) + '#' + _shape;
+    const cacheKey = color + '@' + (Math.round(dpr * 100) | 0) + '#' + _shape + (_solid ? '#s' : '');
     if(_smokeSpriteCache.has(cacheKey)) return _smokeSpriteCache.get(cacheKey);
     const SIZE = 192;
     const physSize = Math.max(1, Math.round(SIZE * dpr));
@@ -7814,7 +7815,18 @@ function getSmokeSprite(color, shape){
     const rgb = _parseColorToRgb(color);
     const r = rgb[0], g = rgb[1], b = rgb[2];
     const grad = c.createRadialGradient(cx, cy, 0, cx, cy, SIZE/2);
-    if(_shape === 'dot'){
+    if(_solid){
+        // V2 "Solid": an opaque, crisp-edged particle. Combined with the
+        // source-over composite it reads as distinct solid specks at any
+        // density — visibly different from V1's soft additive bloom even when
+        // particles do not overlap (where the two composites alone look alike).
+        grad.addColorStop(0,    'rgba(255,255,255,1)');
+        grad.addColorStop(0.34, `rgba(${Math.min(255,r+30)},${Math.min(255,g+30)},${Math.min(255,b+30)},1)`);
+        grad.addColorStop(0.52, `rgba(${r},${g},${b},0.95)`);
+        grad.addColorStop(0.66, `rgba(${r},${g},${b},0.55)`);
+        grad.addColorStop(0.80, `rgba(${r},${g},${b},0.18)`);
+        grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
+    } else if(_shape === 'dot'){
 
         grad.addColorStop(0,    'rgba(255,255,255,1)');
         grad.addColorStop(0.06, `rgba(${Math.min(255,r+50)},${Math.min(255,g+50)},${Math.min(255,b+50)},1)`);
@@ -8112,10 +8124,11 @@ function updateDrawNeonDust(dt, now){
 
     if(!neonDustCount) return neonDustEmitters.size > 0;
 
-    const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation + '|' + particleShape;
+    const _solidDust = dustBlendMode === 'solid';
+    const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation + '|' + particleShape + '|' + (_solidDust ? 's' : 'g');
     if(_dustColorKey !== _dustSpriteKey){
         _dustSpriteKey = _dustColorKey;
-        _dustSprite = getSmokeSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation), particleShape);
+        _dustSprite = getSmokeSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation), particleShape, _solidDust);
     }
     const sprite = _dustSprite;
     const speedLevel = sliderRatio(particleSpeed);
