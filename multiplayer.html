@@ -85,22 +85,17 @@
     --btn-color: #2a2a35;
     --bg-stage: #000000;
     --saber-color: #ffffff;
-    --fixed-glow-mult: 1;
     --saber-thickness: 3px;
     --saber-aura-height: 20px;
     --saber-aura-blur: 5px;
     --saber-shadow-height: 8px;
     --saber-shadow-blur: 4px;
     --saber-smoke-motion: 2.8s;
-    --saber-wave-x: 28%;
-    --saber-wave-soft: 10%;
-    --saber-wave-size: 132%;
     --black-key-height: 60%;
     --piano-visibility: 1;
     --key-glow-intensity: 0.88;
     --key-glow-opacity: 0.88;
     --key-glow-spread: 1.75;
-    --white-key-separator-width: clamp(0.35px, 0.055vw, 0.8px);
 }
 
 *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -194,11 +189,16 @@ canvas{
     pointer-events:none;
     z-index:25;
     border-radius:0;
+    /* Neon: a white-hot core tight against the line, then a saturated multi-stop
+       bloom — closer to a real neon tube than the old single soft halo. */
     box-shadow:
-        0 0 10px var(--saber-color),
-        0 0 24px var(--saber-color),
-        0 0 44px rgba(0,229,255,0.42);
-    filter:brightness(1.18);
+        0 0 2px #ffffff,
+        0 0 6px #ffffff,
+        0 0 14px var(--saber-color),
+        0 0 30px var(--saber-color),
+        0 0 56px var(--saber-color),
+        0 0 92px color-mix(in srgb, var(--saber-color) 52%, transparent);
+    filter:brightness(1.35) saturate(1.28);
     overflow:visible;
 }
 #saberLine::before{
@@ -210,20 +210,25 @@ canvas{
     height:var(--saber-aura-height, 34px);
     pointer-events:none;
     z-index:-1;
+    /* Flowing horizontal waves (ombak): two repeating soft "crest" bands of
+       different widths scroll sideways in opposite directions, so the humps
+       travel and cross like abstract waves rather than a rigid block sliding.
+       A static base glow underneath. Kept thin/low-opacity so it's subtle. */
     background:
-        radial-gradient(ellipse at 50% 100%, var(--saber-smoke-a, rgba(0,229,255,0.24)) 0%, var(--saber-smoke-b, rgba(0,229,255,0.13)) 28%, transparent 70%),
-        radial-gradient(ellipse at 50% 92%, var(--saber-smoke-b, rgba(0,229,255,0.18)) 0%, transparent 62%),
-        radial-gradient(ellipse at 50% 112%, var(--saber-smoke-a, rgba(0,229,255,0.17)) 0%, transparent 66%),
-        linear-gradient(to top, var(--saber-shadow-a, rgba(0,229,255,0.18)) 0%, var(--saber-shadow-b, rgba(0,229,255,0.08)) 38%, transparent 86%);
-    background-repeat:repeat-x,repeat-x,repeat-x,no-repeat;
-    background-size:var(--saber-wave-cell-a, 190px) 100%, var(--saber-wave-cell-b, 260px) 92%, var(--saber-wave-cell-c, 145px) 110%, 100% 100%;
-    background-position:0 100%, 0 100%, 0 100%, 50% 100%;
+        radial-gradient(ellipse 22% 150% at 50% 118%, var(--saber-smoke-a, rgba(0,229,255,0.24)) 0%, transparent 60%),
+        radial-gradient(ellipse 17% 135% at 50% 124%, var(--saber-smoke-b, rgba(0,229,255,0.16)) 0%, transparent 58%),
+        linear-gradient(to top, var(--saber-shadow-a, rgba(0,229,255,0.16)) 0%, var(--saber-shadow-b, rgba(0,229,255,0.07)) 40%, transparent 88%);
+    background-repeat:repeat-x, repeat-x, no-repeat;
+    background-size:190px 100%, 300px 100%, 100% 100%;
+    background-position:0 100%, 0 100%, 50% 100%;
     -webkit-mask-image:linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 42%, rgba(0,0,0,.28) 78%, transparent 100%);
     mask-image:linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 42%, rgba(0,0,0,.28) 78%, transparent 100%);
     filter:blur(var(--saber-aura-blur, 8px));
-    opacity:.72;
-    transform-origin:50% 100%;
+    opacity:.5;
+    animation:saberWaveFlow var(--saber-smoke-motion, 2.8s) linear infinite;
 }
+body.saber-motion-off #saberLine::before,
+body.saber-motion-off #saberLine::after{ animation:none !important; }
 #saberLine::after{
     content:'';
     position:absolute;
@@ -234,17 +239,17 @@ canvas{
     pointer-events:none;
     z-index:-1;
     background:
-        radial-gradient(ellipse at 50% 100%, var(--saber-shadow-a, rgba(0,229,255,0.18)) 0%, var(--saber-shadow-b, rgba(0,229,255,0.08)) 34%, transparent 72%),
-        radial-gradient(ellipse at 50% 96%, var(--saber-shadow-b, rgba(0,229,255,0.10)) 0%, transparent 64%),
-        radial-gradient(ellipse at 50% 104%, var(--saber-shadow-a, rgba(0,229,255,0.14)) 0%, transparent 68%);
-    background-repeat:repeat-x,repeat-x,repeat-x;
-    background-size:var(--saber-wave-cell-d, 210px) 100%, var(--saber-wave-cell-e, 290px) 100%, var(--saber-wave-cell-f, 165px) 100%;
-    background-position:0 100%, 0 100%, 0 100%;
+        radial-gradient(ellipse 26% 130% at 50% 120%, var(--saber-shadow-a, rgba(0,229,255,0.16)) 0%, transparent 60%),
+        linear-gradient(to top, var(--saber-shadow-b, rgba(0,229,255,0.08)) 0%, transparent 80%);
+    background-repeat:repeat-x, no-repeat;
+    background-size:240px 100%, 100% 100%;
+    background-position:0 100%, 50% 100%;
     -webkit-mask-image:linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.45) 58%, transparent 100%);
     mask-image:linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.45) 58%, transparent 100%);
     filter:blur(var(--saber-shadow-blur, 8px));
-    opacity:.62;
-    transform-origin:50% 100%;
+    opacity:.4;
+    /* Scrolls opposite the top crests for an abstract, layered wave. */
+    animation:saberWaveFlowB var(--saber-smoke-motion, 2.8s) linear infinite;
 }
 body.saber-off #saberLine{
     opacity:0 !important;
@@ -256,15 +261,18 @@ html[data-graphic-quality="low"] #saberLine::after{
     display:none !important;
 }
 #saberLine.saber-hit{
-    filter:brightness(1.28);
+    filter:brightness(1.55) saturate(1.35);
 }
-@keyframes saberSmokeDrift{
-    0%{ background-position:0 100%, 0 100%, 0 100%, 50% 100%; }
-    100%{ background-position:var(--saber-wave-cell-a, 190px) 100%, var(--saber-wave-cell-b, 260px) 100%, var(--saber-wave-cell-c, 145px) 100%, 50% 100%; }
+/* Continuous horizontal flow: scroll each repeating crest band by exactly one
+   tile so it loops seamlessly. The two crest layers move opposite ways at
+   different widths, so the humps travel and interfere like abstract waves. */
+@keyframes saberWaveFlow{
+    from{ background-position:0 100%, 0 100%, 50% 100%; }
+    to{ background-position:190px 100%, -300px 100%, 50% 100%; }
 }
-@keyframes saberSmokeBase{
-    0%{ background-position:0 100%, 0 100%, 0 100%; }
-    100%{ background-position:var(--saber-wave-cell-d, 210px) 100%, var(--saber-wave-cell-e, 290px) 100%, var(--saber-wave-cell-f, 165px) 100%; }
+@keyframes saberWaveFlowB{
+    from{ background-position:0 100%, 50% 100%; }
+    to{ background-position:-240px 100%, 50% 100%; }
 }
 
 @media (pointer: coarse) {
@@ -372,17 +380,6 @@ html[data-graphic-quality="low"] #pianoWrap::before{ display:none !important; }
     flex-shrink: 0;
     contain: layout paint style;
 }
-.white::after {
-    content: '';
-    position: absolute;
-    right: 0; top: 0; bottom: 0;
-    width: var(--white-key-separator-width, 1px);
-    background: rgba(15,18,22,var(--white-key-separator-alpha,0.34));
-    box-shadow: -1px 0 0 rgba(255,255,255,var(--white-key-separator-highlight,0.06));
-    z-index: 2;
-    pointer-events: none;
-}
-#piano .white[data-last-white="1"]::after { display: none !important; }
 .white.active{ background: var(--accent-white) !important; }
 .key-label {
     position: absolute;
@@ -972,12 +969,6 @@ body,button,input,select,textarea{ font-family:'Plus Jakarta Sans','Nunito',sans
     background-image:linear-gradient(180deg,var(--piano-white-top) 0%,var(--piano-white-mid) 52%,var(--piano-white-bottom) 100%) !important;
     border-radius:0 0 2px 2px !important;
     box-shadow:inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(6,17,31,0.10) !important;
-}
-.white::after,
-#piano .white::after{
-    width:var(--white-key-separator-width, 1px) !important;
-    background:rgba(15,18,22,var(--white-key-separator-alpha,0.34)) !important;
-    box-shadow:-1px 0 0 rgba(255,255,255,var(--white-key-separator-highlight,0.06)) !important;
 }
 .white.active,
 #piano .white.active{
@@ -1808,12 +1799,6 @@ body.layout-changing #piano .black.active{
         background-color: #f8fafb !important;
         box-shadow: none !important;
     }
-    .white::after,
-    #piano .white::after{
-        width:var(--white-key-separator-width, 1px) !important;
-        background:rgba(15,18,22,var(--white-key-separator-alpha,0.36)) !important;
-        box-shadow:-1px 0 0 rgba(255,255,255,var(--white-key-separator-highlight,0.05)) !important;
-    }
     #piano .black:not(.active){
         background: #1a1a1a !important;
         background-image: none !important;
@@ -1926,29 +1911,6 @@ body.layout-changing #piano .black.active{
 }
 #piano .white.active .key-label{ opacity:1 !important; }
 #piano .black.active .black-label{ opacity:1 !important; }
-
-body.keys-bloom-on #piano .white.active{
-    contain: none !important;
-    z-index: 4 !important;
-}
-body.keys-bloom-on #piano .black.active{
-    contain: none !important;
-    z-index: 50 !important;
-}
-body.keys-bloom-on #piano .white.active,
-body.keys-bloom-on #piano > .white.active,
-body.keys-bloom-on.wide-key-mode #piano .white.active,
-body.keys-bloom-on.input-burst-mode #piano .white.active,
-body.keys-bloom-on.layout-changing #piano .white.active{
-    box-shadow:0 0 calc(20px * var(--fixed-glow-mult, 1)) 0 var(--accent-white), 0 0 calc(52px * var(--fixed-glow-mult, 1)) 0 var(--accent-white) !important;
-}
-body.keys-bloom-on #piano .black.active,
-body.keys-bloom-on #piano > .black.active,
-body.keys-bloom-on.wide-key-mode #piano .black.active,
-body.keys-bloom-on.input-burst-mode #piano .black.active,
-body.keys-bloom-on.layout-changing #piano .black.active{
-    box-shadow:0 0 calc(20px * var(--fixed-glow-mult, 1)) 0 var(--accent-black), 0 0 calc(50px * var(--fixed-glow-mult, 1)) 0 var(--accent-black) !important;
-}
 
 #piano .white.active,
 #piano > .white.active,
@@ -2109,83 +2071,26 @@ body.key-glow-on .active-key-white-bottom-glow{
         0 0 calc(22px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 60%, transparent),
         0 0 calc(38px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-outer) 40%, transparent);
 }
-body.keys-bloom-on .active-key-piece{
-    box-shadow:
-        0 0 calc(20px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 90%, transparent),
-        0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 66%, transparent);
-}
-body.keys-bloom-on .active-key-white-bottom-tapered{
-    box-shadow:none !important;
-    filter:
-        drop-shadow(0 0 calc(20px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 90%, transparent))
-        drop-shadow(0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 66%, transparent)) !important;
-}
-body.keys-bloom-on .active-key-white-bottom-glow{
-    opacity:1;
-    box-shadow:
-        0 0 calc(18px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 78%, transparent),
-        0 0 calc(44px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 52%, transparent);
-}
-body.key-glow-on.keys-bloom-on .active-key-piece{
-    box-shadow:
-        0 0 calc(12px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 95%, transparent),
-        0 0 calc(28px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 78%, transparent),
-        0 0 calc(20px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 90%, transparent),
-        0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 66%, transparent);
-}
-body.key-glow-on.keys-bloom-on .active-key-white-bottom-tapered{
-    box-shadow:none !important;
-    filter:
-        drop-shadow(0 0 calc(12px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 95%, transparent))
-        drop-shadow(0 0 calc(28px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 78%, transparent))
-        drop-shadow(0 0 calc(20px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 90%, transparent))
-        drop-shadow(0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 66%, transparent)) !important;
-}
-body.key-glow-on.keys-bloom-on .active-key-white-bottom-glow{
-    opacity:calc(0.9 * var(--key-glow-opacity, 0.5));
-    box-shadow:
-        0 0 calc(10px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 84%, transparent),
-        0 0 calc(22px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 62%, transparent),
-        0 0 calc(18px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 72%, transparent),
-        0 0 calc(44px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 48%, transparent);
-}
 body.key-glow-on .active-key-light{
     opacity:calc(0.72 * var(--key-glow-opacity, 0.5));
     box-shadow:
         0 -2px calc(14px * var(--key-glow-spread, 1)) var(--active-key-light-color, #ffffff),
         0 0 calc(28px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 76%, transparent);
 }
-body.keys-bloom-on .active-key-light{
-    opacity:.66;
-    filter:blur(calc(7px + 10px * var(--fixed-glow-mult, 1)));
-    box-shadow:
-        0 -3px calc(18px * var(--fixed-glow-mult, 1)) var(--active-key-light-color, #ffffff),
-        0 0 calc(44px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 78%, transparent);
-}
-body.key-glow-on.keys-bloom-on .active-key-light{
-    opacity:calc(0.78 * var(--key-glow-opacity, 0.5));
-    filter:blur(calc(14px * var(--key-glow-spread, 1)));
-    box-shadow:
-        0 -3px calc(18px * var(--key-glow-spread, 1)) var(--active-key-light-color, #ffffff),
-        0 0 calc(42px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 78%, transparent),
-        0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 72%, transparent);
-}
-
-
-body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-light{
+body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-light{
     filter:none !important;
     opacity:calc(0.82 * var(--key-glow-opacity, 0.5)) !important;
     box-shadow:
         0 0 calc(14px * var(--key-glow-spread, 1)) var(--active-key-light-color, #ffffff),
         0 0 calc(28px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 70%, transparent) !important;
 }
-body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKeyLayer :is(.active-key-piece, .active-key-white-bottom-tapered){
+body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer :is(.active-key-piece, .active-key-white-bottom-tapered){
     filter:none !important;
     box-shadow:
         0 0 calc(15px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 88%, transparent),
         0 0 calc(30px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 64%, transparent) !important;
 }
-body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-white-bottom-glow{
+body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-white-bottom-glow{
     opacity:calc(0.92 * var(--key-glow-opacity, 0.5)) !important;
     box-shadow:
         0 0 calc(13px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 78%, transparent),
@@ -4895,9 +4800,6 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 }
 
 
-#piano .white::after{
-    display:none !important;
-}
 #pianoSeparatorLayer{
     position:absolute;
     left:0;
@@ -5467,6 +5369,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                 <div class="section-title">Note Style</div>
                 <div class="anim-style-grid">
                     <button class="btn active" id="mDef">Single</button>
+                    <button class="btn" id="mGlass">Glass</button>
+                    <button class="btn" id="mOutline">Outline</button>
+                    <button class="btn" id="mMidnight">Midnight</button>
+                    <button class="btn" id="mGradient">Gradient</button>
                     <button class="btn" id="mRainbow">Rainbow</button>
                     <button class="btn" id="mDouble">Double</button>
                 </div>
@@ -5633,6 +5539,13 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                 </div>
                 <input class="ui-full" type="range" id="saberAuraRange" min="0" max="100" value="50" aria-label="Saber Aura">
             </div>
+            <div class="color-row compact-color-row" id="rowSaberMotion">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Motion Speed</span>
+                    <span class="ui-value-sm" id="saberMotionVal">50%</span>
+                </div>
+                <input class="ui-full" type="range" id="saberMotionRange" min="0" max="100" value="50" aria-label="Aura motion speed">
+            </div>
             <div class="color-row compact-color-row" id="rowSaberColor">
                 <div class="section-title">Strike Color</div>
                 <div class="color-pad-host" id="gridSaber"></div>
@@ -5711,11 +5624,11 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <div class="perf-setting-block ui-mt8">
                         <div class="section-title ui-mb8">Graphics Quality</div>
                         <div class="graphic-grid">
-                            <button class="graphic-btn" id="gfxLow">Low</button>
-                            <button class="graphic-btn" id="gfxMed">Medium</button>
-                            <button class="graphic-btn" id="gfxHigh">High</button>
+                            <button class="graphic-btn" id="gfxLow">Potato</button>
+                            <button class="graphic-btn" id="gfxMed">Mobile</button>
+                            <button class="graphic-btn" id="gfxHigh">PC</button>
                         </div>
-                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Low = Performance · Medium = Balanced · High = Full Visuals</div>
+                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Performance · Mobile = Full Visuals · PC = Maxed Out</div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="ui-setting-head-gap">
@@ -5809,6 +5722,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                         <div class="section-title ui-mb8">Note Style</div>
                         <div class="anim-style-grid">
                             <button class="btn settings-anim-style active" data-style-target="mDef">Single</button>
+                            <button class="btn settings-anim-style" data-style-target="mGlass">Glass</button>
+                            <button class="btn settings-anim-style" data-style-target="mOutline">Outline</button>
+                            <button class="btn settings-anim-style" data-style-target="mMidnight">Midnight</button>
+                            <button class="btn settings-anim-style" data-style-target="mGradient">Gradient</button>
                             <button class="btn settings-anim-style" data-style-target="mRainbow">Rainbow</button>
                             <button class="btn settings-anim-style" data-style-target="mDouble">Double</button>
                         </div>
@@ -6252,7 +6169,6 @@ async function preparePianoEntryRuntime(){
             getSmokeSprite(color, 'dot');
             getSmokeSprite(color, 'smoke');
         }
-        if(typeof refreshFrameFx === 'function') refreshFrameFx();
         if(typeof ctx2d !== 'undefined' && ctx2d){
             ctx2d.save();
             ctx2d.globalAlpha = 0;
@@ -6273,7 +6189,6 @@ function clearPianoEntryVisualState(){
         if(typeof pointerNoteMap !== 'undefined' && pointerNoteMap) pointerNoteMap.clear();
         if(typeof qwertyHeldByCode !== 'undefined' && qwertyHeldByCode) qwertyHeldByCode.clear();
         if(typeof midiPedalHeldNotes !== 'undefined' && midiPedalHeldNotes) midiPedalHeldNotes.clear();
-        if(typeof pendingActiveAdds !== 'undefined' && pendingActiveAdds) pendingActiveAdds.clear();
         if(typeof pendingActiveRemoves !== 'undefined' && pendingActiveRemoves) pendingActiveRemoves.clear();
         if(typeof _keyColorMap !== 'undefined' && _keyColorMap) _keyColorMap.clear();
         document.querySelectorAll('#piano .active').forEach(el => {
@@ -6724,7 +6639,7 @@ function playSfBuffer(soundMidi, vel, activeKey, layer='piano') {
         key,
         layer,
         sustain: layer === 'string' ? 0 : (fx.sustain || 0),
-        fadeSec: layer === 'string' ? (fx.fadeSec || 10.0) : 0,
+        fadeSec: layer === 'string' ? (fx.fadeSec || STRING_FADE_DEFAULT) : 0,
         masterGain: gainNode,
         oscillators: [],
         released: false,
@@ -6741,10 +6656,22 @@ function playSfBuffer(soundMidi, vel, activeKey, layer='piano') {
 }
 
 let activeVoices = [];
-const MAX_ACTIVE_VOICES = 42;
+// Strings double the voice count (piano + string per key) and their tails ring
+// for the whole fade, so 42 was reclaimed constantly during normal play. 64
+// gives string tails room to finish; buffer-source voices live on the audio
+// thread so this does not touch main-thread FPS.
+const MAX_ACTIVE_VOICES = 64;
 const MAX_RELEASE_SECONDS = 18.00;
 const PIANO_MIN_RELEASE_TC = 0.22;
 const PIANO_MIN_RELEASE_DELAY = 0.65;
+// Shared so local playback and remote (RTDB) playback use identical values.
+const STRING_VEL_SCALE = 0.82;   // strings sit slightly under the piano
+const STRING_FADE_DEFAULT = 5.0; // matches sfEffectSettings.sf2 default + snapshot
+// When the cap forces us to reclaim a voice, fade it out smoothly instead of
+// slamming it in 14ms — the slam was the audible string cutoff.
+const VOICE_STEAL_TC = 0.05;
+const VOICE_STEAL_DELAY = 0.16;
+function _isStringVoice(v){ return v && (v.layer === 'string' || v.layer === 'remoteString'); }
 
 function cleanupVoiceRef(voice){
     if (!voice) return;
@@ -6787,18 +6714,25 @@ function enforceVoiceLimit() {
 
     const needKill = activeVoices.length - burstLimit;
     let killed = 0;
-    for (let pass = 0; pass < 2 && killed < needKill; pass++) {
+    // Victim priority, oldest-first within each tier:
+    //   pass 0: already-released voices (fading out anyway)
+    //   pass 1: still-held piano voices
+    //   pass 2: still-held string voices (protected last — these are the tails
+    //           whose abrupt removal was the audible cutoff)
+    for (let pass = 0; pass < 3 && killed < needKill; pass++) {
         let victimIndex = -1;
         let victimAge = Infinity;
         for (let i = 0; i < activeVoices.length; i++) {
             const v = activeVoices[i];
             if (!v || v.ended) continue;
             if (pass === 0 && !v.released) continue;
+            if (pass === 1 && (v.released || _isStringVoice(v))) continue;
+            if (pass === 2 && v.released) continue;
             const age = v.startedAt || 0;
             if (age < victimAge) { victimAge = age; victimIndex = i; }
         }
         if (victimIndex < 0) continue;
-        releaseVoice(activeVoices[victimIndex], 0.014, 0.055);
+        releaseVoice(activeVoices[victimIndex], VOICE_STEAL_TC, VOICE_STEAL_DELAY);
         activeVoices[victimIndex].ended = true;
         killed++;
         pass = -1;
@@ -6822,7 +6756,7 @@ function getReleaseProfile(isFastGliss=false, sustainPct=sustainLevel) {
 }
 function getStringFadeProfile(fadeSec, isFast=false) {
     if (isFast) return { tc: 0.014, delay: 0.055 };
-    const sec = Math.max(0.1, Math.min(10.0, Number(fadeSec) || 10.0));
+    const sec = Math.max(0.1, Math.min(10.0, Number(fadeSec) || STRING_FADE_DEFAULT));
     return { tc: Math.max(0.018, Math.min(1.15, sec / 5.2)), delay: sec };
 }
 
@@ -6844,7 +6778,7 @@ function playNote(midi, transposeVal, velocity) {
     if (hasLayerBuffers('piano')) playSfBuffer(soundMidi, vel, midi, 'piano');
     if (stringEnabled && isMidiInStringRange(midi) && hasLayerBuffers('string')) {
         fastReleaseActiveKey('str:' + midi);
-        playSfBuffer(soundMidi, vel * 0.82, 'str:' + midi, 'string');
+        playSfBuffer(soundMidi, vel * STRING_VEL_SCALE, 'str:' + midi, 'string');
     }
 }
 
@@ -7038,7 +6972,8 @@ function getRenderDPR(){
         const q = typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality;
         if(q === 'low') cap = 1;
         else if(q === 'medium') cap = Math.min(native, 1.5);
-        else cap = Math.min(native, 2.0);
+        else if(q === 'ultra') cap = Math.min(native, 3.0); // PC tier: sharpest
+        else cap = Math.min(native, 2.0); // high / Mobile tier
     } catch(e){ cap = Math.min(native, 2.0); }
     const scaled = cap * (perfGovScale > 0 ? perfGovScale : 1);
     return scaled < PERF_DPR_FLOOR ? PERF_DPR_FLOOR : scaled;
@@ -7074,8 +7009,7 @@ function _applyPerfGovScale(now){
     if(document.body) document.body.classList.toggle('perf-lite', perfGovScale < 0.78);
     try { if(typeof markStageGeomDirty === 'function') markStageGeomDirty(); syncCanvasSize(true); } catch(e){}
 }
-let transpose=0, falling=[], isAnimOn=true, isSus=true, animStyle='default', animShape='rounded', animSize=18, animRoundness=100, noteOpacity=100, noteSpeed=75, visualTheme='default', wCount=52, lastFrameTime=0, viewOffset=0, whiteKeyWidth=0;
-let glossMix=35, colorBlend=25, edgeGlow=40, hitLineGlow=55, bloomSoftness=20, motionSmoothness=70, noteGlow=45, noteGloss=35, noteColorFlow=25, hitLinePulse=0;
+let transpose=0, falling=[], isAnimOn=true, isSus=true, animStyle='default', animShape='rounded', animSize=18, animRoundness=100, noteOpacity=100, noteSpeed=75, wCount=52, lastFrameTime=0, viewOffset=0, whiteKeyWidth=0;
 const RISE_SPEED=200, MAX_NOTE_HEIGHT=400;
 function getAnimRiseSpeed(){
     const speed = sliderRatio(noteSpeed, 100);
@@ -7093,6 +7027,16 @@ function getAnimBaseColorForMidi(midi){
     if(animStyle === 'double') return midiToTuts(midi) < animDoubleSplitTuts ? animDoubleLeftColor : animDoubleRightColor;
     return cachedAnimColor || '#ffffff';
 }
+// Resolve the requested anim style against the active graphics profile: heavy
+// fill styles collapse to plain 'solid' when heavy FX are off (Potato tier), so
+// new notes and resynced in-flight notes stay consistent and cheap there.
+function resolveAnimStyle(style){
+    const raw = style === 'double' ? 'default' : style;
+    if(typeof getGraphicProfile === 'function' && !getGraphicProfile().heavyFx){
+        return raw === 'rainbow' ? 'rainbow' : 'default';
+    }
+    return raw;
+}
 function syncFallingNoteVisualState(){
     if(Array.isArray(falling)) falling.forEach(f => {
         if(f.remote){
@@ -7102,7 +7046,7 @@ function syncFallingNoteVisualState(){
             return;
         }
         f.style = animStyle;
-        f.styleResolved = animStyle === 'double' ? 'default' : animStyle;
+        f.styleResolved = resolveAnimStyle(animStyle);
         f.base = getAnimBaseColorForMidi(f.midi);
     });
     if(typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
@@ -7216,17 +7160,12 @@ function updateKeyLabelStyle(labelEl, mode, blackKey) {
 }
 
 let labelMode = 'off';
-let pianoScalePercent = 100;
 let blackKeyWidthPercent = 120;
 let blackKeyHeightPercent = 60;
 let pianoVisibilityPercent = 100;
 
-function getPianoVisualScaleRatio(){
-    return 1;
-}
 function getEffectiveVisibleWhiteCount(){
-    const visibleWhiteCount = Math.max(1, Math.min(ALL_WHITE.length, Math.round(Number(wCount) || 52)));
-    return Math.max(1, Math.min(ALL_WHITE.length, visibleWhiteCount / getPianoVisualScaleRatio()));
+    return Math.max(1, Math.min(ALL_WHITE.length, Math.round(Number(wCount) || 52)));
 }
 function getSwipeMaxOffset(){
     return Math.max(0, ALL_WHITE.length - getEffectiveVisibleWhiteCount());
@@ -7243,7 +7182,9 @@ function getBlackKeyWidthRatio(){
 function formatLayoutPx(value){
     const n = Number(value);
     if(!Number.isFinite(n)) return '0px';
-    const v = Math.abs(n) < 0.0005 ? 0 : Math.round(n * 1000) / 1000;
+    // 1e5 precision keeps device-pixel-snapped values (multiples of 1/3, 1/1.5 ...)
+    // intact; coarser rounding would knock them off the device-pixel grid.
+    const v = Math.abs(n) < 0.000005 ? 0 : Math.round(n * 100000) / 100000;
     return v + 'px';
 }
 function getLayoutDpr(){
@@ -7257,26 +7198,6 @@ function snapLayoutValue(value){
     if(!Number.isFinite(n)) return 0;
     const dpr = getLayoutDpr();
     return Math.round(n * dpr) / dpr;
-}
-function syncKeyVisualScale(){
-    const root = document.documentElement;
-    const width = Math.max(1, whiteKeyWidth || 1);
-    let separatorWidth = 1;
-    let separatorAlpha = 0.31;
-    let separatorHighlight = 0.06;
-    if(width < 15){
-        separatorWidth = 0.75;
-        separatorAlpha = 0.36;
-        separatorHighlight = 0.04;
-    } else if(width < 24){
-        separatorWidth = 0.9;
-        separatorAlpha = 0.34;
-        separatorHighlight = 0.05;
-    }
-    root.style.setProperty('--white-key-width', formatLayoutPx(width));
-    root.style.setProperty('--white-key-separator-width', formatLayoutPx(separatorWidth));
-    root.style.setProperty('--white-key-separator-alpha', separatorAlpha.toFixed(2));
-    root.style.setProperty('--white-key-separator-highlight', separatorHighlight.toFixed(2));
 }
 function getBlackKeyBaseRatio(){
     const width = Math.max(1, whiteKeyWidth || 1);
@@ -7311,7 +7232,6 @@ function syncWhiteKeyGeometry(viewportWidth){
     for(let i=0; i<total; i++){
         whiteKeyWidths[i] = Math.max(getDevicePixelCssSize(), whiteKeyEdges[i + 1] - whiteKeyEdges[i]);
     }
-    syncKeyVisualScale();
 }
 function getWhiteKeyLeftPx(whiteIndex){
     const idx = Math.max(0, Math.min(ALL_WHITE.length, Math.round(Number(whiteIndex) || 0)));
@@ -7347,7 +7267,7 @@ function getBlackKeyCenterPx(whiteIndex){
     return getWhiteKeyLeftPx((Math.round(Number(whiteIndex) || 0)) + 1);
 }
 function getBlackKeyLeftPx(whiteIndex){
-    return getBlackKeyCenterPx(whiteIndex) - (getBlackKeyWidthPx() / 2);
+    return snapLayoutValue(getBlackKeyCenterPx(whiteIndex) - (getBlackKeyWidthPx() / 2));
 }
 function getBlackKeyBoundsForWhiteIndex(whiteIndex){
     if(whiteIndex < 0 || whiteIndex >= ALL_WHITE.length - 1) return null;
@@ -7369,7 +7289,10 @@ function renderPianoSeparators(){
     for(let i=1; i<ALL_WHITE.length; i++){
         const line = document.createElement('i');
         line.className = 'piano-separator';
-        line.style.left = formatLayoutPx(snapLayoutValue(getWhiteKeyLeftPx(i) - lineWidth / 2));
+        // Edges are device-pixel-snapped, so edge minus one device pixel stays on
+        // the grid; centering on the boundary instead would tie-break between two
+        // device pixels and rasterize inconsistently across boundaries.
+        line.style.left = formatLayoutPx(getWhiteKeyLeftPx(i) - lineWidth);
         line.style.width = formatLayoutPx(lineWidth);
         frag.appendChild(line);
     }
@@ -7387,7 +7310,6 @@ function setBlackKeyWidthPercent(value){
     updateKeyLayout();
 }
 function setPianoScalePercent(){
-    pianoScalePercent = 100;
     clampOffset();
     updateKeyLayout();
     if(typeof updateKeyHitCache === 'function') updateKeyHitCache();
@@ -7414,8 +7336,13 @@ function clearActiveKeyOverlay(midi){
     activeKeyOverlayMap.delete(midi);
 }
 function shouldUseLightKeyVisual(){
-    const pressure = getPerfPressureLevel();
-    return pressure >= 3 && activeOverlayNotes.size >= 18;
+    // Only drop the overlay when the perf governor is genuinely under pressure
+    // AND many keys are held at once. Burst-/count-based flip-flopping here
+    // caused the overlay to render on some keys and skip others mid-passage,
+    // which read as inconsistent glow and jank. A single stable threshold keeps
+    // the visual uniform; the real per-press savings come from emitting fewer
+    // pieces per key (see renderActiveKeyOverlay), not from skipping keys.
+    return getPerfPressureLevel() >= 3 && activeOverlayNotes.size >= 18;
 }
 function appendActiveKeyPiece(className, left, width, config){
     const piece = document.createElement('div');
@@ -7442,13 +7369,22 @@ function renderActiveKeyOverlay(midi, keyEl, color){
     const pieces = [];
     const black = keyEl ? keyEl.classList.contains('black') : isBlack(midi);
     const bw = getBlackKeyWidthPx();
+    // The `.active-key-light` and `.active-key-glow-shell` pieces are opacity:0
+    // unless `key-glow-on` is active, so when the Light effect is off (the
+    // default) they are invisible DOM that still costs a create/layout/remove
+    // on every press. Skipping them roughly halves overlay DOM churn — the
+    // dominant per-press cost during glissandos and chord spam — with zero
+    // visual change.
+    const wantGlowPieces = (typeof keyGlowEnabled !== 'undefined') && keyGlowEnabled;
     if(black){
         const wIdx = whiteIndexMap.get(midi - 1);
         if(wIdx === undefined) return;
         const left = getBlackKeyLeftPx(wIdx);
-        const lightPad = Math.max(3, bw * 0.34);
         pieces.push(appendActiveKeyPiece('active-key-piece active-key-black', left, bw));
-        pieces.push(appendActiveKeyPiece('active-key-light active-key-black-light', left - lightPad, bw + lightPad * 2));
+        if(wantGlowPieces){
+            const lightPad = Math.max(3, bw * 0.34);
+            pieces.push(appendActiveKeyPiece('active-key-light active-key-black-light', left - lightPad, bw + lightPad * 2));
+        }
     } else {
         const wIdx = whiteIndexMap.get(midi);
         if(wIdx === undefined) return;
@@ -7466,8 +7402,8 @@ function renderActiveKeyOverlay(midi, keyEl, color){
         const taperRight = rightCut > 0 ? rightCut * 0.78 : 0;
         const taperDepthPct = (taperLeft || taperRight) ? 18 : 0;
         if(topWidth > 0) pieces.push(appendActiveKeyPiece('active-key-piece active-key-white-top', topLeft, topWidth));
-        if(topWidth > 0) pieces.push(appendActiveKeyPiece('active-key-light active-key-white-light', topLeft, topWidth));
-        pieces.push(appendActiveKeyPiece('active-key-glow-shell active-key-white-bottom-glow', left, width));
+        if(topWidth > 0 && wantGlowPieces) pieces.push(appendActiveKeyPiece('active-key-light active-key-white-light', topLeft, topWidth));
+        if(wantGlowPieces) pieces.push(appendActiveKeyPiece('active-key-glow-shell active-key-white-bottom-glow', left, width));
         pieces.push(appendActiveKeyPiece('active-key-piece active-key-white-bottom', left, width, {
             whiteBottomTaper: taperLeft > 0 || taperRight > 0,
             leftCutPx: taperLeft,
@@ -7526,14 +7462,11 @@ function buildDOM() {
     blackKeyEls = [];
     noteElementMap.clear();
 
-    const whiteFS = Math.max(7, Math.min(whiteKeyWidth*0.28, 18));
-    const blackFS = Math.max(5, Math.min(getBlackKeyWidthPx() * 0.30, 13));
     const totalWhiteWidth = getPianoTotalWidthPx();
     const bw = getBlackKeyWidthPx();
 
     ALL_WHITE.forEach((n,i) => {
         const k = document.createElement('div'); k.className='white note-tone-' + (n % 12); k.dataset.note=n;
-        if(i === ALL_WHITE.length - 1) k.dataset.lastWhite = '1';
         const wPx = getWhiteKeyWidthPx(i);
         k.style.cssText = `left:${formatLayoutPx(getWhiteKeyLeftPx(i))};width:${formatLayoutPx(wPx)};`;
         const lbl = document.createElement('div'); lbl.className='key-label';
@@ -7576,7 +7509,6 @@ function buildDOM() {
     pianoEl.style.left = '0px';
     pianoEl.innerHTML = '';
     pianoEl.appendChild(frag);
-    renderPianoSeparators();
     refreshActiveKeyLayerGeometry();
 
     refreshKeyPresetUI();
@@ -7597,8 +7529,6 @@ function updateKeyLayout() {
 
         syncWhiteKeyGeometry(vpW);
         clampOffset();
-        const whiteFS = Math.max(7, Math.min(whiteKeyWidth*0.28, 18));
-        const blackFS = Math.max(5, Math.min(getBlackKeyWidthPx() * 0.30, 13));
         const totalWhiteWidth = getPianoTotalWidthPx();
         const bw = getBlackKeyWidthPx();
 
@@ -7757,12 +7687,12 @@ function _detectDefaultGraphicQuality(){
         const ua = (navigator.userAgent || '').toLowerCase();
         const isMobileUA = /android|iphone|ipad|ipod|mobile|webview/i.test(ua);
 
+        // Tiers exposed in the UI: low = Potato, high = Mobile, ultra = PC.
         if (cores <= 2 || mem <= 2) return 'low';
-        if (lowCores || lowMem) return 'medium';
-        if (isMobileUA && cores >= 8 && mem >= 6) return 'high';
-        if (isMobileUA || (isCoarse && smallScreen)) return 'medium';
-        return 'high';
-    } catch(e) { return 'medium'; }
+        if (isMobileUA || (isCoarse && smallScreen)) return 'high';   // Mobile
+        if (lowCores || lowMem) return 'high';                        // weak desktop
+        return 'ultra';                                               // capable desktop -> PC
+    } catch(e) { return 'high'; }
 }
 let graphicQuality = _detectDefaultGraphicQuality();
 let performanceMode = 'manual';
@@ -7787,19 +7717,23 @@ function getPressureScale(){
     return pressure >= 3 ? 0.34 : pressure === 2 ? 0.56 : pressure === 1 ? 0.78 : 1;
 }
 const GRAPHIC_PROFILES = {
-    low: { dust:0, dustMax:0, fallingMax:260, chordDebounce:140, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
-    medium: { dust:0.55, dustMax:92, fallingMax:520, chordDebounce:82, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
-    high: { dust:1, dustMax:180, fallingMax:900, chordDebounce:56, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    low: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
+    medium: { dust:0.55, dustMax:276, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
+    high: { dust:1, dustMax:540, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
+    // PC tier — everything maxed for fast desktops.
+    ultra: { dust:1, dustMax:960, fallingMax:1600, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
-    low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, noteGlow:0, noteGloss:0, noteColorFlow:10, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
-    medium: { dust:true, particleCount:45, particleSize:52, particleOpacity:74, particleSpeed:26, particleTurbulence:24, particleSaturation:88, particleFade:52, noteGlow:18, noteGloss:14, noteColorFlow:18, saberAuraSize:44, saberBrightness:64, saberOpacity:100, saberSaturation:100 },
-    high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, noteGlow:45, noteGloss:35, noteColorFlow:25, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 }
+    low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
+    medium: { dust:true, particleCount:45, particleSize:52, particleOpacity:74, particleSpeed:26, particleTurbulence:24, particleSaturation:88, particleFade:52, saberAuraSize:44, saberBrightness:64, saberOpacity:100, saberSaturation:100 },
+    high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 },
+    ultra: { dust:true, particleCount:100, particleSize:76, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:38, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
 };
 const REMOTE_VISUAL_PROFILES = {
     low: { level:'light' },
     medium: { level:'light' },
-    high: { level:'full' }
+    high: { level:'full' },
+    ultra: { level:'full' }
 };
 function getRemoteVisualLevel(){
     const q = getEffectiveGraphicQuality();
@@ -7812,13 +7746,9 @@ function remoteFallingOwnerId(playerId){ return `remote:${playerId || 'unknown'}
 function getGraphicProfile(){ const q=getEffectiveGraphicQuality(); return GRAPHIC_PROFILES[q] || GRAPHIC_PROFILES.high; }
 function isLowGraphic(){ return getEffectiveGraphicQuality() === 'low'; }
 function isWideKeyMode(){ return wCount > 12; }
-function isExtremeRenderBurst(){
-    return isWideKeyMode() && (frameBurstLevel > 10 || falling.length > 180);
-}
 function refreshWideKeyModeClass(){
     document.body.classList.toggle('wide-key-mode', isWideKeyMode());
 }
-const CHORD_DEBOUNCE_MS = 50;
 let inputBurstScore = 0;
 let lastInputBurstAt = 0;
 let inputBurstFrame = 0;
@@ -7925,19 +7855,21 @@ function getSmokeSprite(color, shape){
     const r = rgb[0], g = rgb[1], b = rgb[2];
     const grad = c.createRadialGradient(cx, cy, 0, cx, cy, SIZE/2);
     if(_shape === 'dot'){
-
-        grad.addColorStop(0,    'rgba(255,255,255,1)');
-        grad.addColorStop(0.06, `rgba(${Math.min(255,r+50)},${Math.min(255,g+50)},${Math.min(255,b+50)},1)`);
-        grad.addColorStop(0.12, `rgba(${r},${g},${b},0.95)`);
-        grad.addColorStop(0.16, `rgba(${r},${g},${b},0.55)`);
-        grad.addColorStop(0.22, `rgba(${r},${g},${b},0.18)`);
-        grad.addColorStop(0.35, `rgba(${r},${g},${b},0.05)`);
+        // "Dust": a tiny FLAT dot in the dust colour — no white-hot core, no
+        // glow halo. Solid to ~0.6 radius then a 1px-ish antialiased edge, so
+        // scaled down it reads as a small plain speck, not a neon mote.
+        grad.addColorStop(0,    `rgba(${r},${g},${b},1)`);
+        grad.addColorStop(0.6,  `rgba(${r},${g},${b},1)`);
+        grad.addColorStop(0.82, `rgba(${r},${g},${b},0.65)`);
         grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
     } else {
-        grad.addColorStop(0,    'rgba(255,255,255,0.96)');
-        grad.addColorStop(0.10, `rgba(${Math.min(255,r+70)},${Math.min(255,g+70)},${Math.min(255,b+70)},0.82)`);
-        grad.addColorStop(0.28, `rgba(${r},${g},${b},0.46)`);
-        grad.addColorStop(0.60, `rgba(${r},${g},${b},0.14)`);
+        // "Smoke": very soft and diffuse — pure smoke colour (no white-hot /
+        // neon core), low opacity with a long feathered tail so many
+        // overlapping puffs build a gentle, billowing haze.
+        grad.addColorStop(0,    `rgba(${r},${g},${b},0.40)`);
+        grad.addColorStop(0.16, `rgba(${r},${g},${b},0.28)`);
+        grad.addColorStop(0.42, `rgba(${r},${g},${b},0.14)`);
+        grad.addColorStop(0.72, `rgba(${r},${g},${b},0.05)`);
         grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
     }
     c.fillStyle = grad;
@@ -7953,11 +7885,35 @@ function refreshKeyDustColorCache(){
     cachedDustBlack = css.getPropertyValue('--accent-black').trim() || css.getPropertyValue('--piano-black-active-mid').trim() || '#ff7f66';
     _smokeSpriteCache.clear();
 }
+// Chord detection is throttled on a wall-clock timer (leading + trailing edge)
+// rather than coalesced into requestAnimationFrame. rAF coupling meant that at
+// fast tempo / under heavy render load the frames stretch past 16ms and the
+// chord readout visibly lagged the keys. A time throttle decouples detection
+// from render load: it fires immediately on the first event, then at most once
+// per CHORD_MIN_INTERVAL ms, with a trailing run so the final held set is
+// always reflected. matchChords iterates ~100 cheap bitmask patterns, so ~36
+// detections/sec is negligible even during glissandos.
+const CHORD_MIN_INTERVAL = 28;
+let _chordLastRun = 0;
+let _chordTrailingTimer = 0;
+function _runChordDetect(){
+    _chordLastRun = performance.now();
+    try { window.PapianoMultiplayer._detectChords(); } catch(_){}
+}
 function requestChordUpdate(){
-    if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function') window.PapianoMultiplayer._detectChords();
+    if(!(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function')) return;
+    const since = performance.now() - _chordLastRun;
+    if(since >= CHORD_MIN_INTERVAL){
+        if(_chordTrailingTimer){ clearTimeout(_chordTrailingTimer); _chordTrailingTimer = 0; }
+        _runChordDetect();
+    } else if(!_chordTrailingTimer){
+        _chordTrailingTimer = setTimeout(() => {
+            _chordTrailingTimer = 0;
+            _runChordDetect();
+        }, Math.max(1, CHORD_MIN_INTERVAL - since));
+    }
 }
 
-const pendingActiveAdds = new Set();
 const pendingActiveRemoves = new Set();
 const keyVisualDesired = new WeakMap();
 let keyVisualRaf = null;
@@ -7987,10 +7943,20 @@ function _resolveKeyColor(midi){
 }
 
 function _trackKeyColor(midi, holderId, color, el){
+    // Offline / no custom color — nothing to track. Avoids per-press Map
+    // allocation during heavy passages where _mpSelfSeatColor is empty.
+    if(!color){
+        const existing = _keyColorMap.get(midi);
+        if(existing && existing.has(holderId)){
+            existing.delete(holderId);
+            if(existing.size === 0) _keyColorMap.delete(midi);
+            if(el) _applyKeyColor(el, _resolveKeyColor(midi));
+        }
+        return;
+    }
     let holders = _keyColorMap.get(midi);
     if(!holders){ holders = new Map(); _keyColorMap.set(midi, holders); }
-    holders.set(holderId, color || '');
-    // Apply color immediately
+    holders.set(holderId, color);
     if(el) _applyKeyColor(el, _resolveKeyColor(midi));
 }
 
@@ -8013,7 +7979,6 @@ function scheduleKeyVisual(el, active){
     if(active){
         // Apply press immediately — no rAF delay for key-down
         pendingActiveRemoves.delete(el);
-        pendingActiveAdds.delete(el);
         if(!el.classList.contains('active')) el.classList.add('active');
         const m = Number(el.dataset.note);
         const color = Number.isFinite(m) ? _resolveKeyColor(m) : '';
@@ -8021,7 +7986,7 @@ function scheduleKeyVisual(el, active){
         setActiveKeyOverlay(el, true, color);
         return;
     }
-    pendingActiveAdds.delete(el); pendingActiveRemoves.add(el);
+    pendingActiveRemoves.add(el);
     if(keyVisualRaf) return;
     keyVisualRaf = requestAnimationFrame(() => {
         keyVisualRaf = null;
@@ -8086,7 +8051,12 @@ function refreshStageHeight(){
     }
 }
 
-const NEON_DUST_MAX = 180;
+const NEON_DUST_MAX = 960;
+// Even, hold-independent emission: same initial puff per press, same steady
+// trickle while held. Density never escalates with hold time.
+const DUST_PRESS_BURST = 8;
+const DUST_EMIT_INTERVAL = 60; // ms between trickle spawns while held
+const DUST_EMIT_COUNT = 2;     // particles per trickle
 const neonDustX = new Float32Array(NEON_DUST_MAX);
 const neonDustY = new Float32Array(NEON_DUST_MAX);
 const neonDustVX = new Float32Array(NEON_DUST_MAX);
@@ -8135,8 +8105,11 @@ function spawnNeonDust(geom, count){
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     if(countLevel <= 0.005 || opacityLevel <= 0.005 || sizeLevel <= 0.005) return;
-    const countMul = countLevel * 1.85 * dustScale;
-    const sizeMul = 0.08 + sizeLevel * 1.76;
+    // Count tripled (1.85 -> 5.55) for a much denser field; caps raised to match.
+    const countMul = countLevel * 5.55 * dustScale;
+    // Max particle size reduced so 100% slider == the old 70% size
+    // (old: 0.08 + 1.76; old 70% ≈ 1.28 -> new 100% slope 1.20). Slider stays 0-100%.
+    const sizeMul = 0.08 + sizeLevel * 1.20;
     const speedMul = 0.18 + speedLevel * 2.12;
     const turbEase = turbulenceLevel;
     const fadeLevel = sliderCurve(particleFade, 1.02);
@@ -8145,7 +8118,8 @@ function spawnNeonDust(geom, count){
     if(n <= 0) return;
     const bx = geom.x + geom.w * 0.5;
     const by = stageH - 1;
-    const spread = Math.max(0.8, Math.min(3.2, geom.w * 0.045));
+    // Wider emission base so the column reads as a soft cloud, not a thin line.
+    const spread = Math.max(2.0, Math.min(8.0, geom.w * 0.10));
     for(let i=0;i<n;i++){
         const idx = neonDustCount++;
         const localX = bx + (Math.random() - 0.5) * spread;
@@ -8156,11 +8130,14 @@ function spawnNeonDust(geom, count){
         neonDustSeedB[idx] = Math.random() * Math.PI * 2;
         neonDustSpin[idx] = direction;
         neonDustAnchorX[idx] = localX;
-        neonDustVX[idx] = turbEase > 0 ? ((Math.random() - 0.5) * 0.014 + direction * (0.004 + Math.random() * 0.010)) * turbEase : 0;
-        neonDustVY[idx] = -(0.04 + Math.random() * 0.095) * speedMul;
-        neonDustR[idx] = (1.4 + Math.random() * 3.8) * sizeMul;
-        neonDustA[idx] = opacityLevel * (0.82 + Math.random() * 0.14);
-        neonDustLife[idx] = ((920 + Math.random() * 760) / (speedMul * (0.48 + speedLevel * 1.55))) * fadeMul;
+        // Gentle lateral start + a soft buoyant rise. The rise decelerates and
+        // the puff spreads & expands with age (see draw loop) so it behaves like
+        // real smoke rather than a straight jet.
+        neonDustVX[idx] = turbEase > 0 ? ((Math.random() - 0.5) * 0.010) * turbEase : 0;
+        neonDustVY[idx] = -(0.030 + Math.random() * 0.060) * speedMul;
+        neonDustR[idx] = (2.2 + Math.random() * 4.6) * sizeMul;
+        neonDustA[idx] = opacityLevel * (0.46 + Math.random() * 0.20);
+        neonDustLife[idx] = ((1500 + Math.random() * 1150) / (speedMul * (0.5 + speedLevel * 1.25))) * fadeMul;
         neonDustAge[idx] = 0;
     }
 }
@@ -8170,7 +8147,7 @@ function startNeonDust(midi, key){
     if(!geom) return;
 
     neonDustEmitters.set(midi, { geom, midi, start: performance.now(), last: 0 });
-    spawnNeonDust(geom, geom.isBlack ? 7 : 9);
+    spawnNeonDust(geom, DUST_PRESS_BURST);
     if(saberLine) saberLine.classList.add('saber-hit');
     ensureAnimLoop();
 }
@@ -8187,17 +8164,17 @@ function updateDrawNeonDust(dt, now){
         neonDustEmitters.clear();
         return false;
     }
+    // Holding a key only MAINTAINS the stream — it does NOT thicken it. Every
+    // held note emits at the same steady rate/amount, so density is even across
+    // all presses and no single long-held note hogs the particle budget.
     neonDustEmitters.forEach(em => {
         if(em.midi != null){
             const g = getKeyStageGeom(em.midi);
             if(g) em.geom = g;
         }
-        const hold = now - em.start;
-        const interval = hold > 850 ? 44 : hold > 420 ? 54 : hold > 150 ? 64 : 78;
-        const count = hold > 850 ? 5 : hold > 420 ? 4 : hold > 150 ? 3 : 2;
-        if(now - em.last >= interval){
+        if(now - em.last >= DUST_EMIT_INTERVAL){
             em.last = now;
-            spawnNeonDust(em.geom, count);
+            spawnNeonDust(em.geom, DUST_EMIT_COUNT);
         }
     });
 
@@ -8213,42 +8190,52 @@ function updateDrawNeonDust(dt, now){
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     const moveDt = dt * 1000 * (0.18 + speedLevel * 1.85);
     const turbEase = turbulenceLevel;
-    const wind = 0.000026 * turbEase;
-    const biasWind = 0.000006 * turbEase;
-    const maxVX = 0.006 + 0.052 * turbEase;
+    const isDot = particleShape === 'dot';
+    // Smoke billows into a cloud as it rises; dust stays as drifting points.
+    const wind = (isDot ? 0.000022 : 0.000050) * turbEase;
+    const biasWind = (isDot ? 0.000006 : 0.000017) * turbEase;
+    const maxVX = (isDot ? 0.006 : 0.011) + (isDot ? 0.030 : 0.080) * turbEase;
     ctx2d.save();
-    ctx2d.globalCompositeOperation = dustBlendMode === 'glow' ? 'lighter' : 'source-over';
-    const _pI = window.LightEngine ? window.LightEngine.intensityFor('particle') : 0;
-    const _pE = window.LightEngine ? window.LightEngine.energy(0.0, _pI) : 0;
-    const _pbAlpha = 1.08 + _pE * 1.02;
-    const _pbSize  = 1.02 + _pE * 0.56;
+    // Smoke is additive ('lighter') so soft puffs build a glowing haze. Dust
+    // must NOT be additive — with 'lighter', overlapping specks accumulate into
+    // a bright smoky blob (worse at high counts). 'source-over' keeps each dust
+    // grain a discrete point that never merges into smoke.
+    ctx2d.globalCompositeOperation = isDot ? 'source-over' : 'lighter';
     let alive = 0;
     for(let i=0;i<neonDustCount;i++){
         neonDustAge[i] += dt * 1000;
+        const tLife = neonDustLife[i] > 0 ? neonDustAge[i] / neonDustLife[i] : 1;
         if(turbEase > 0){
             const age = neonDustAge[i];
-            const phaseA = age * (0.0016 + neonDustSeedB[i] * 0.00016) + neonDustSeedA[i];
-            const phaseB = age * 0.0031 + neonDustSeedB[i] * 1.91;
-            const wander = Math.sin(phaseA) * 0.62 + Math.sin(phaseB) * 0.38;
-            const bias = neonDustSpin[i] * (0.35 + Math.sin(age * 0.0011 + neonDustSeedB[i]) * 0.25);
-            neonDustVX[i] += (wander * wind + bias * biasWind) * moveDt;
+            const phaseA = age * (0.0014 + neonDustSeedB[i] * 0.00012) + neonDustSeedA[i];
+            const phaseB = age * 0.0026 + neonDustSeedB[i] * 1.7;
+            const wander = Math.sin(phaseA) * 0.66 + Math.sin(phaseB) * 0.34;
+            const bias = neonDustSpin[i] * (0.30 + Math.sin(age * 0.0009 + neonDustSeedB[i]) * 0.22);
+            // Smoke spreads with age (cloud); dust barely spreads (points).
+            const ageScale = isDot ? (0.25 + Math.min(1, tLife) * 0.35) : (0.32 + Math.min(1, tLife) * 1.55);
+            neonDustVX[i] += (wander * wind + bias * biasWind) * ageScale * moveDt;
             if(neonDustVX[i] > maxVX) neonDustVX[i] = maxVX;
             else if(neonDustVX[i] < -maxVX) neonDustVX[i] = -maxVX;
             neonDustX[i] += neonDustVX[i] * moveDt;
-            neonDustVX[i] *= 0.988;
+            neonDustVX[i] *= 0.986;
         } else {
             neonDustVX[i] = 0;
             neonDustX[i] = neonDustAnchorX[i];
         }
         neonDustY[i] += neonDustVY[i] * moveDt;
-        neonDustVY[i] -= 0.000012 * moveDt;
+        // Drag decelerates the rise (smoke slows & lingers) with a faint residual
+        // buoyancy, instead of the old constant upward acceleration.
+        neonDustVY[i] *= 0.993;
+        neonDustVY[i] -= 0.0000034 * moveDt;
 
         if(neonDustAge[i] < neonDustLife[i] && neonDustY[i] > -40){
-            const t = neonDustAge[i] / neonDustLife[i];
-            const fade = t < 0.12 ? t / 0.12 : Math.max(0, 1 - Math.pow((t - 0.12) / 0.88, 2.2));
-            const alpha = Math.min(1, neonDustA[i] * fade * _pbAlpha);
+            const t = tLife;
+            const fade = t < 0.14 ? t / 0.14 : Math.max(0, 1 - Math.pow((t - 0.14) / 0.86, 1.9));
+            const alpha = Math.min(1, neonDustA[i] * fade * (isDot ? 1.4 : 1));
             if(alpha > 0.02){
-                const sz = neonDustR[i] * 3.2 * _pbSize;
+                // Smoke expands into a cloud; dust stays a tiny fixed-size point.
+                const grow = isDot ? 1 : (1 + t * 1.9);
+                const sz = isDot ? Math.max(1.5, neonDustR[i] * 0.5) : (neonDustR[i] * 3.0 * grow);
                 ctx2d.globalAlpha = alpha;
                 ctx2d.drawImage(sprite, neonDustX[i] - sz * 0.5, neonDustY[i] - sz * 0.5, sz, sz);
             }
@@ -8291,7 +8278,6 @@ function addFallingNote(n, options = {}){
             }
         }
     }
-    const now = performance.now();
     const remote = !!options.remote;
     const remoteLevel = options.remoteLevel === 'full' ? 'full' : 'light';
     ensureStageCanvasFresh();
@@ -8302,27 +8288,20 @@ function addFallingNote(n, options = {}){
 
     const noteHue = (rainbowV2Seq * 37 + n * 11) % 360;
     rainbowV2Seq = (rainbowV2Seq + 1) % 3600;
-    if(falling.length > 0){
-        let w=0, removed=false;
-        for(let i=0;i<falling.length;i++){
-            if(!falling[i].dead) falling[w++]=falling[i];
-            else removed=true;
-        }
-        if(removed){
-            falling.length=w;
-            unregisterDeadFalling();
-        }
-    }
-    const profile = getGraphicProfile();
-    const rawStyle = animStyle === 'double' ? 'default' : animStyle;
-    const resolvedStyle = profile.heavyFx ? rawStyle : (rawStyle === 'rainbow' ? 'rainbow' : 'default');
+    // anim() already compacts dead notes; doing it here too made addFallingNote
+    // O(n) per press, turning a 100-note glissando into 10k array ops.
+    const resolvedStyle = resolveAnimStyle(animStyle);
     const colorOverride = normalizeFallingOverrideColor(options.color);
+    // seatColor tints a LOCAL styled note with the player's identity colour
+    // without forcing it to plain solid (unlike colorOverride, which remote
+    // notes use to render flat).
+    const seatTint = (!remote && !colorOverride) ? normalizeFallingOverrideColor(options.seatColor) : '';
     const style = colorOverride ? 'default' : (remote ? 'default' : animStyle);
     const styleResolved = colorOverride ? 'default' : (remote ? 'default' : resolvedStyle);
     const opacity = remote ? Math.min(noteOpacity, remoteLevel === 'light' ? 88 : 96) : noteOpacity;
-    const base = colorOverride || getAnimBaseColorForMidi(n);
+    const base = colorOverride || seatTint || getAnimBaseColorForMidi(n);
 
-    const f = {midi:n, bottomY:bottomY, y:bottomY-6, height:6, style, styleResolved, shape:animShape, roundness:animRoundness, opacity, base, colorOverride, rainbowHue:noteHue, glossSeed:((rainbowV2Seq * 0.173) + (n * 0.071) + (now * 0.00031)) % 1, born:now, growing:true, ownerId:options.ownerId || null, remote};
+    const f = {midi:n, bottomY:bottomY, y:bottomY-6, height:6, style, styleResolved, shape:animShape, roundness:animRoundness, opacity, base, colorOverride, rainbowHue:noteHue, growing:true, ownerId:options.ownerId || null, remote};
 
     falling.push(f);
     registerFallingNote(f);
@@ -8338,7 +8317,6 @@ function addRemoteAnim(n, playerId, level, color){
 function hexToRgb(hex){ hex=hex.trim().replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join(''); const n=parseInt(hex,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
 let animFrameId = null;
 let _lastAnimTs = -1;
-let frameBurstLevel = 0;
 function ensureAnimLoop(){
     if(!animFrameId){
         lastFrameTime=0;
@@ -8365,19 +8343,6 @@ function _colorBucket(rgb){
 function _isNearWhiteRgb(rgb){
     return !!rgb && rgb[0] >= 235 && rgb[1] >= 235 && rgb[2] >= 235;
 }
-function getNoteFxLevels(){
-    return {
-        gloss: sliderCurve(glossMix, 1.08),
-        blend: sliderCurve(colorBlend, 1.08),
-        edge: sliderCurve(edgeGlow, 1.06),
-        hit: 0,
-        bloom: 0,
-        smooth: sliderRatio(motionSmoothness, 70)
-    };
-}
-
-let _frameFx = null;
-function refreshFrameFx(){ _frameFx = getNoteFxLevels(); }
 function _spriteRoundPath(sctx, w, h, r){
     r = Math.max(0, Math.min(r || 0, w * 0.5, h * 0.5));
     sctx.beginPath();
@@ -8438,6 +8403,60 @@ function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
         sctx.fillStyle = g;
         _spriteRoundPath(sctx, wB, hB, r);
         sctx.fill();
+    } else {
+        const R = rgb[0]|0, G = rgb[1]|0, B = rgb[2]|0;
+        const lite = (m) => `rgb(${Math.round(R+(255-R)*m)},${Math.round(G+(255-G)*m)},${Math.round(B+(255-B)*m)})`;
+        const dark = (m) => `rgb(${Math.round(R*m)},${Math.round(G*m)},${Math.round(B*m)})`;
+        if(style === 'gradient'){
+            // Clean vertical gradient: light at the top, full colour at the bottom.
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.55));
+            g.addColorStop(0.5, `rgb(${R},${G},${B})`);
+            g.addColorStop(1, dark(0.78));
+            sctx.fillStyle = g; _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
+        } else if(style === 'midnight'){
+            // Deep, moody column: near-black base glowing up into the colour.
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.25));
+            g.addColorStop(0.32, `rgb(${R},${G},${B})`);
+            g.addColorStop(0.72, dark(0.42));
+            g.addColorStop(1, dark(0.14));
+            sctx.fillStyle = g; _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
+        } else if(style === 'glass'){
+            // Frosted glass: translucent body, bright top sheen, glassy edges.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const body = sctx.createLinearGradient(0, 0, 0, hB);
+            body.addColorStop(0, `rgba(${R},${G},${B},0.34)`);
+            body.addColorStop(1, `rgba(${R},${G},${B},0.18)`);
+            sctx.fillStyle = body; sctx.fillRect(0, 0, wB, hB);
+            const sheen = sctx.createLinearGradient(0, 0, 0, hB);
+            sheen.addColorStop(0, 'rgba(255,255,255,0.55)');
+            sheen.addColorStop(0.28, 'rgba(255,255,255,0.08)');
+            sheen.addColorStop(1, 'rgba(255,255,255,0)');
+            sctx.fillStyle = sheen; sctx.fillRect(0, 0, wB, hB);
+            const edge = sctx.createLinearGradient(0, 0, wB, 0);
+            edge.addColorStop(0, 'rgba(255,255,255,0.40)');
+            edge.addColorStop(0.18, 'rgba(255,255,255,0)');
+            edge.addColorStop(0.82, 'rgba(255,255,255,0)');
+            edge.addColorStop(1, `rgba(${R},${G},${B},0.45)`);
+            sctx.fillStyle = edge; sctx.fillRect(0, 0, wB, hB);
+            sctx.restore();
+            // crisp bright rim
+            sctx.lineWidth = Math.max(1, wB * 0.06);
+            sctx.strokeStyle = `rgba(${Math.min(255,R+60)},${Math.min(255,G+60)},${Math.min(255,B+60)},0.7)`;
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'neon' || style === 'glow'){
+            // Deprecated styles — fall back to a clean gradient if ever requested.
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.55));
+            g.addColorStop(0.5, `rgb(${R},${G},${B})`);
+            g.addColorStop(1, dark(0.78));
+            sctx.fillStyle = g; _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
+        } else {
+            // unknown style -> solid fallback
+            sctx.fillStyle = `rgb(${R},${G},${B})`;
+            _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
+        }
     }
 
     _spriteCache.set(key, sprite);
@@ -8504,7 +8523,6 @@ function drawFallingNote(f){
     if(y > canvasCssH || y + h < 0) return;
     if(x0 > canvasCssW || x0 + w < 0) return;
 
-    const extremeRenderBurst = isExtremeRenderBurst();
     const isRounded = shape === 'rounded' && roundPct > 0;
     const rv = isRounded ? Math.min(8, w*0.45, h*0.35) * (roundPct / 100) : 0;
     const drawStyleRaw = f.styleResolved || f.style;
@@ -8534,12 +8552,32 @@ function drawFallingNote(f){
             if(_solidRgbCache.size > 64) _solidRgbCache.clear();
             _solidRgbCache.set(baseHex, rgb);
         }
-        if(isRounded && rv > 0){
-            const sprite = getEffectSprite('solid', rgb, w, h, isRounded, 0, roundPct);
-            ctx2d.drawImage(sprite, x0, y, w, h);
+        if(drawStyle === 'outline'){
+            // Transparent center, coloured rounded border.
+            const lw = Math.max(1.5, Math.min(w * 0.16, 4));
+            ctx2d.lineWidth = lw;
+            ctx2d.strokeStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            const ix = x0 + lw / 2, iy = y + lw / 2, iw = Math.max(1, w - lw), ih = Math.max(1, h - lw);
+            ctx2d.beginPath();
+            if(isRounded && rv > 0 && ctx2d.roundRect) ctx2d.roundRect(ix, iy, iw, ih, Math.max(0, rv - lw / 2));
+            else ctx2d.rect(ix, iy, iw, ih);
+            ctx2d.stroke();
+        } else if(drawStyle === 'solid' || drawStyle === 'default'){
+            // 'default' (Single/Double/remote) renders as a plain solid fill.
+            // Route it through the exact-colour 'solid' sprite key — NOT the
+            // generic branch, whose coarse 4-bit colour bucket would collide
+            // two nearby seat/custom colours onto one cached sprite.
+            if(isRounded && rv > 0){
+                const sprite = getEffectSprite('solid', rgb, w, h, isRounded, 0, roundPct);
+                ctx2d.drawImage(sprite, x0, y, w, h);
+            } else {
+                ctx2d.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+                ctx2d.fillRect(x0, y, w, h);
+            }
         } else {
-            ctx2d.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
-            ctx2d.fillRect(x0, y, w, h);
+            // glass / midnight / gradient — baked, cached sprites.
+            const sprite = getEffectSprite(drawStyle, rgb, w, h, isRounded, 0, roundPct);
+            ctx2d.drawImage(sprite, x0, y, w, h);
         }
     }
 
@@ -8551,68 +8589,6 @@ function safeHex(hex, fallback){
     catch(e){ return hexToRgb(fallback); }
 }
 function _clampRgb(v){ v = Number(v) || 0; return v < 0 ? 0 : v > 255 ? 255 : (v + 0.5) | 0; }
-
-const LightEngine = (function(){
-    const state = {
-        master: 0.0,
-        manual: {
-            notes:    1.0,
-            particle: 1.0,
-            keys:     1.0
-        }
-    };
-
-    function fExp(d){ return Math.exp(-d * 4.0); }
-    function fInvSq(d){ const e = d * 3.0 + 1.0; return 1.0 / (e * e); }
-    function fGauss(d){ return Math.exp(-(d * d) * 6.0); }
-
-    const W_CORE = 0.55, W_COLOR = 0.30, W_AMBIENT = 0.15;
-
-    function energy(d, intensity){
-        if(d < 0) d = 0; else if(d > 1) d = 1;
-        const e = fExp(d) * W_CORE + fInvSq(d) * W_COLOR + fGauss(d) * W_AMBIENT;
-        return intensity * e;
-    }
-
-    function colorAt(d, intensity, baseRgb){
-        const e = Math.min(1, energy(d, intensity));
-        const t = 1 - e;
-        return [
-            255 * e + baseRgb[0] * t,
-            255 * e + baseRgb[1] * t,
-            255 * e + baseRgb[2] * t
-        ];
-    }
-
-    function intensityFor(element){
-        const m = state.manual[element];
-        return state.master * (typeof m === 'number' ? m : 1.0);
-    }
-
-    const listeners = new Set();
-
-    function notify(){ listeners.forEach(fn => { try { fn(state); } catch(_){} }); }
-    function subscribe(fn){ if(typeof fn === 'function'){ listeners.add(fn); } return () => listeners.delete(fn); }
-    function resetManual(){
-        for(const el in state.manual) state.manual[el] = 1.0;
-        notify();
-    }
-
-    return {
-        _state: state,
-        energy, colorAt, intensityFor,
-        subscribe, resetManual,
-        get master(){ return state.master; },
-        set master(v){ state.master = Math.max(0, Math.min(1, v)); notify(); },
-        setManual(el, v){ if(el in state.manual){ state.manual[el] = Math.max(0, Math.min(2, v)); notify(); } },
-        getManual(el){ return state.manual[el] ?? 1.0; }
-    };
-})();
-window.LightEngine = LightEngine;
-LightEngine.master = 0;
-
-
-
 
 function anim(now){
 
@@ -8638,7 +8614,13 @@ function anim(now){
     if(currentDPR !== 1) ctx2d.setTransform(currentDPR, 0, 0, currentDPR, 0, 0);
 
     let hasLive = false;
-    frameBurstLevel = getBurstLevel();
+    // Particle layer: V1 ('glow') draws dust BEHIND the falling notes, V2
+    // ('solid') draws it IN FRONT. Same particles either way — only the
+    // compositing order differs. The dust pass also advances particle physics,
+    // so it must run exactly once per frame.
+    const dustInFront = dustBlendMode === 'solid';
+    if(!dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
+
     const riseSpeed = getAnimRiseSpeed() * dt;
     for(let i=0;i<falling.length;i++){
         const f=falling[i];
@@ -8658,7 +8640,7 @@ function anim(now){
         drawFallingNote(f);
         hasLive = true;
     }
-    if(updateDrawNeonDust(dt, now)) hasLive = true;
+    if(dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
 
     if(falling.length > 40){
         let w=0, removed=false;
@@ -8911,7 +8893,7 @@ if(keyPanelHRange){
 document.getElementById('blackKeyWidthRange')?.addEventListener('input', e => setBlackKeyWidthPercent(e.target.value));
 document.getElementById('blackKeyHeightRange')?.addEventListener('input', e => setBlackKeyHeightPercent(e.target.value));
 document.getElementById('pianoVisibilityRange')?.addEventListener('input', e => setPianoVisibilityPercent(e.target.value));
-setPianoScalePercent(pianoScalePercent);
+setPianoScalePercent();
 setBlackKeyWidthPercent(blackKeyWidthPercent);
 setBlackKeyHeightPercent(blackKeyHeightPercent);
 setPianoVisibilityPercent(pianoVisibilityPercent);
@@ -9298,6 +9280,19 @@ let particleTurbulence = 30;
 let particleSaturation = 100;
 let particleFade = 45;
 var saberMotion = 'static';
+let motionSpeed = 50; // drives the strike aura's drift/billow speed
+// "Motion Speed": 0..100 maps to a slow..fast aura billow duration. Higher = faster.
+function setMotionSpeed(value){
+    motionSpeed = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    // aura billow duration: speed 0 -> 7.2s (slow), speed 100 -> 1.6s (fast)
+    const durSec = (7.2 - (motionSpeed / 100) * 5.6).toFixed(2);
+    document.documentElement.style.setProperty('--saber-smoke-motion', durSec + 's');
+    document.body.classList.toggle('saber-motion-off', motionSpeed <= 0);
+    const range = document.getElementById('saberMotionRange');
+    const label = document.getElementById('saberMotionVal');
+    if(range && range.value !== String(motionSpeed)) range.value = String(motionSpeed);
+    if(label) label.textContent = motionSpeed + '%';
+}
 setKeyDustIntensity(keyDustIntensity);
 refreshKeyDustColorCache();
 
@@ -9346,7 +9341,10 @@ const PRESET_STORAGE_KEY = 'papiano_memory_preset_v2';
 const STORAGE_RESET_KEYS = ['papiano_memory_autosave_v2', 'papiano_memory_options_v2', 'papiano_settings'];
 const STORAGE_SCHEMA_VERSION = 2;
 
-const animModeBtns = { mDef:'default', mRainbow:'rainbow', mDouble:'double' };
+const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mRainbow:'rainbow', mDouble:'double' };
+// Single-colour fill styles (use the chosen Note Color). Excludes rainbow
+// (per-note hue) and double (split colours).
+const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient'];
 const NO_COLOR="__none";
 const colors=[NO_COLOR,"#ffffff","#00e5ff","#38bdf8","#2979ff","#651fff","#8b5cf6","#ff4081","#ff2d75","#ff1744","#ff6d00","#f7b733","#ffea00","#b2ff59","#00e676"];
 function getDefaultPianoHeightPercent(){
@@ -9387,6 +9385,7 @@ function applyFactoryDefaults(clearSavedState){
     setSaberColor('#ffffff');
     setDustColor('#ffffff');
     setSaberMotion('static');
+    setMotionSpeed(50);
     setDustBlendMode('glow');
     setParticleShape('dot');
     setSaberAuraSize(50);
@@ -9406,9 +9405,6 @@ function applyFactoryDefaults(clearSavedState){
     setAnimRoundness(100);
     setNoteOpacity(100);
     setNoteSpeed(75);
-    setNoteGlowValue(45);
-    setNoteGlossValue(35);
-    setNoteColorFlowValue(25);
     setAnimShape('rounded');
     setWhiteKeyColor(NO_COLOR);
     setBlackKeyColor(NO_COLOR);
@@ -9429,8 +9425,6 @@ function applyFactoryDefaults(clearSavedState){
     updateSoundfontPickerUI();
     updateSfEffectUI();
     applyCurrentSfEffects();
-    if(typeof setVisualTheme === 'function') setVisualTheme('default');
-    else visualTheme = 'default';
     setLabelMode('off');
     setChordDisplayColors(DEFAULT_CHORD_COLORS);
     if(typeof window.applyGraphicQuality === 'function') window.applyGraphicQuality('auto', true);
@@ -9714,6 +9708,7 @@ function getCurrentSettings() {
         particleSaturation,
         particleFade,
         saberMotion,
+        motionSpeed,
         dustBlendMode,
         currentGlassColor,
         pianoHeight: Math.max(6, Number(document.getElementById('hRange').value) || 50),
@@ -9726,7 +9721,6 @@ function getCurrentSettings() {
         animDoubleLeftColor,
         animDoubleRightColor,
         animDoubleSplitTuts,
-        visualTheme,
         currentSf,
         perfHudEnabled,
         performanceMode,
@@ -9737,9 +9731,6 @@ function getCurrentSettings() {
         bgDim: Number(document.getElementById('bgDimRange')?.value ?? 0),
         bgBlur: Number(document.getElementById('bgBlurRange')?.value ?? 0),
         chordDisplayColors: typeof chordDisplayColors !== 'undefined' ? chordDisplayColors : null,
-        noteGlow,
-        noteGloss,
-        noteColorFlow,
         keyGlowEnabled,
         keyGlowIntensity,
     };
@@ -9817,14 +9808,16 @@ function applySettings(s) {
         setAnimDoubleRightColor(s.animDoubleRightColor !== undefined ? s.animDoubleRightColor : '#ffffff');
         setAnimDoubleSplitTuts(s.animDoubleSplitTuts !== undefined ? s.animDoubleSplitTuts : 44);
         if (typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
-        if (s.animStyle !== undefined) { animStyle = s.animStyle === 'single' ? 'default' : (s.animStyle === 'metalic' || s.animStyle === 'crystal3d' || s.animStyle === 'clean' || s.animStyle === 'cleanNeon' ? 'default' : (s.animStyle === 'rainbow2' ? 'rainbow' : (s.animStyle === 'glass' ? 'rainbow' : (s.animStyle === 'rainbowV2' ? 'rainbow' : s.animStyle)))); const styleMap = {default:'mDef',rainbow:'mRainbow',double:'mDouble'}; if (styleMap[animStyle]) setAnimModeById(styleMap[animStyle]); else setAnimModeById('mDef'); }
+        if (s.animStyle !== undefined) {
+            const LEGACY_STYLE = { single:'default', metalic:'default', crystal3d:'default', clean:'default', cleanNeon:'default', rainbow2:'rainbow', rainbowV2:'rainbow', glow:'gradient', neon:'gradient' };
+            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', rainbow:'mRainbow', double:'mDouble' };
+            const resolved = LEGACY_STYLE[s.animStyle] || s.animStyle;
+            setAnimModeById(styleMap[resolved] || 'mDef');
+        }
         if (s.animShape !== undefined) setAnimShape(s.animShape);
         if (s.animRoundness !== undefined) setAnimRoundness(s.animRoundness); else setAnimRoundness(animRoundness);
         if (s.noteOpacity !== undefined) setNoteOpacity(s.noteOpacity); else setNoteOpacity(noteOpacity);
         if (s.noteSpeed !== undefined) setNoteSpeed(s.noteSpeed); else setNoteSpeed(noteSpeed);
-        if (s.noteGlow !== undefined) setNoteGlowValue(s.noteGlow); else if (s.edgeGlow !== undefined) setNoteGlowValue(s.edgeGlow); else setNoteGlowValue(noteGlow);
-        if (s.noteGloss !== undefined) setNoteGlossValue(s.noteGloss); else if (s.glossMix !== undefined) setNoteGlossValue(s.glossMix); else setNoteGlossValue(noteGloss);
-        if (s.noteColorFlow !== undefined) setNoteColorFlowValue(s.noteColorFlow); else if (s.colorBlend !== undefined) setNoteColorFlowValue(s.colorBlend); else setNoteColorFlowValue(noteColorFlow);
         if (s.keyDustIntensity !== undefined) setKeyDustIntensity(s.keyDustIntensity); else setKeyDustIntensity(keyDustIntensity);
         if (s.saberColor !== undefined) setSaberColor(s.saberColor); else setSaberColor(saberColor);
         if (s.dustColor !== undefined) setDustColor(s.dustColor); else setDustColor(dustColor);
@@ -9846,15 +9839,9 @@ function applySettings(s) {
         setParticleSetting('fade', s.particleFade !== undefined ? s.particleFade : particleFade);
         setDustBlendMode(s.dustBlendMode === 'solid' ? 'solid' : 'glow');
         setSaberMotion('static');
+        setMotionSpeed(s.motionSpeed !== undefined ? s.motionSpeed : motionSpeed);
         syncSaberFxButtons();
         currentGlassColor = normalizeHexColor(s.currentGlassColor) || '#ffffff';
-        if (s.visualTheme !== undefined) {
-            if (typeof setVisualTheme === 'function') {
-                setVisualTheme(s.visualTheme);
-            } else {
-                visualTheme = s.visualTheme;
-            }
-        }
         const savedPianoHeight = Number(s.pianoHeight);
         if (Number.isFinite(savedPianoHeight) && savedPianoHeight > 5) { applyPianoHeight(savedPianoHeight); } else { applyPianoHeight(getDefaultPianoHeightPercent()); }
         setPianoScalePercent();
@@ -10036,11 +10023,15 @@ function selfSeatKeyColor(){
     return _mpSelfSeatColor || '';
 }
 function selfSeatNoteOpts(){
-    // Hanya overlay seat color jika user belum custom anim color
-    // (animStyle non-default seperti rainbow/double juga dihormati: bukan override seat)
+    // Apply the player's seat colour to all SINGLE-COLOUR styles (Single/Glass/
+    // Outline/Midnight/Gradient), not just Single — so a styled note still
+    // carries the player's identity colour in a room. Rainbow/Double bring
+    // their own colours; a user-chosen custom Note Color also wins.
     if(customAnimNote) return {};
-    if(typeof animStyle !== 'undefined' && animStyle && animStyle !== 'default') return {};
-    return _mpSelfSeatColor ? { color: _mpSelfSeatColor } : {};
+    if(typeof animStyle !== 'undefined' && !SINGLE_COLOR_STYLES.includes(animStyle)) return {};
+    // Passed as seatColor (a base tint that keeps the chosen style) rather than
+    // `color` (which would force the note to plain solid).
+    return _mpSelfSeatColor ? { seatColor: _mpSelfSeatColor } : {};
 }
 function userCustomChordColor(){
     return customChordColor || '';
@@ -10187,8 +10178,6 @@ function updateSaberLine(){
     const intensity = sliderCurve(saberBrightness, 1.10);
     const opacityLevel = sliderRatio(saberOpacity);
     const auraLevel = sliderCurve(saberAuraSize, 1.04);
-    const waveLevel = 0.35;
-    const waveSpeedLevel = 0.45;
     const lineColor = saturatedColor;
     const rgb = hexToRgb(lineColor);
     const coreAlpha = Math.min(1, opacityLevel);
@@ -10211,30 +10200,13 @@ function updateSaberLine(){
     const halo4px = Math.round(8 + intensity * 94);
     const halo5px = Math.round(10 + intensity * 134);
     const px = Math.max(1, Math.min(10, Math.round(Number(keyDustIntensity) || 3)));
-    const waveX = (18 + waveLevel * 42).toFixed(1) + '%';
-    const waveSoft = (6 + waveLevel * 18).toFixed(1) + '%';
-    const waveSize = (118 + waveLevel * 46).toFixed(1) + '%';
-    const waveCellA = Math.round(160 + waveLevel * 120) + 'px';
-    const waveCellB = Math.round(230 + waveLevel * 150) + 'px';
-    const waveCellC = Math.round(120 + waveLevel * 95) + 'px';
-    const waveCellD = Math.round(180 + waveLevel * 130) + 'px';
-    const waveCellE = Math.round(260 + waveLevel * 170) + 'px';
-    const waveCellF = Math.round(140 + waveLevel * 105) + 'px';
-    const motionSec = Math.max(1.2, 5.2 - waveSpeedLevel * 3.8).toFixed(2) + 's';
 
     document.documentElement.style.setProperty('--saber-color', lineColor);
     document.documentElement.style.setProperty('--saber-thickness', px + 'px');
     applySaberAuraHeight();
-    document.documentElement.style.setProperty('--saber-smoke-motion', motionSec);
-    document.documentElement.style.setProperty('--saber-wave-x', waveX);
-    document.documentElement.style.setProperty('--saber-wave-soft', waveSoft);
-    document.documentElement.style.setProperty('--saber-wave-size', waveSize);
-    document.documentElement.style.setProperty('--saber-wave-cell-a', waveCellA);
-    document.documentElement.style.setProperty('--saber-wave-cell-b', waveCellB);
-    document.documentElement.style.setProperty('--saber-wave-cell-c', waveCellC);
-    document.documentElement.style.setProperty('--saber-wave-cell-d', waveCellD);
-    document.documentElement.style.setProperty('--saber-wave-cell-e', waveCellE);
-    document.documentElement.style.setProperty('--saber-wave-cell-f', waveCellF);
+    // --saber-smoke-motion is owned by setMotionSpeed() (the Motion Speed slider).
+    // The aura is now a soft billowing haze (transform animation), so the old
+    // repeating wave-cell variables are no longer needed.
     document.body.classList.toggle('saber-off', !saberEnabled);
     document.body.classList.toggle('saber-smoke-off', !saberSmokeEnabled || auraLevel <= 0.001 || intensity <= 0.001 || opacityLevel <= 0.001);
 
@@ -10410,12 +10382,12 @@ function setAnimDoubleSplitTuts(value){
     if(animStyle === 'double') syncFallingNoteVisualState();
 }
 function updateAnimModeControls(){
-    const isSingle = animStyle === 'default';
+    const showColor = SINGLE_COLOR_STYLES.includes(animStyle);
     const isDouble = animStyle === 'double';
     const rowAnimColor = document.getElementById('rowAnimColor');
     const rowAnimDoubleSplit = document.getElementById('rowAnimDoubleSplit');
     const rowAnimDoubleColors = document.getElementById('rowAnimDoubleColors');
-    if(rowAnimColor) rowAnimColor.style.display = isSingle ? '' : 'none';
+    if(rowAnimColor) rowAnimColor.style.display = showColor ? '' : 'none';
     if(rowAnimDoubleSplit){
         rowAnimDoubleSplit.style.display = isDouble ? '' : 'none';
         rowAnimDoubleSplit.classList.toggle('active', isDouble);
@@ -10468,9 +10440,11 @@ document.getElementById('particleFadeRange')?.addEventListener('input', e => set
 document.getElementById('saberBrightnessRange')?.addEventListener('input', e => setSaberVisualSetting('brightness', e.target.value));
 document.getElementById('saberOpacityRange')?.addEventListener('input', e => setSaberVisualSetting('opacity', e.target.value));
 document.getElementById('saberSaturationRange')?.addEventListener('input', e => setSaberVisualSetting('saturation', e.target.value));
+document.getElementById('saberMotionRange')?.addEventListener('input', e => setMotionSpeed(e.target.value));
 setSaberVisualSetting('brightness', saberBrightness);
 setSaberVisualSetting('opacity', saberOpacity);
 setSaberVisualSetting('saturation', saberSaturation);
+setMotionSpeed(motionSpeed);
 setParticleSetting('count', particleCount);
 setParticleSetting('size', particleSize);
 setParticleSetting('opacity', particleOpacity);
@@ -10484,7 +10458,7 @@ updateSaberLine();
 currentGlassColor = currentGlassColor || '#ffffff';
 if(animStyle === 'crystal3d' || animStyle === 'cleanNeon' || animStyle === 'clean' || animStyle === 'rainbowV2') animStyle = animStyle === 'rainbowV2' ? 'rainbow' : 'default';
 function updateAnimMode(id){
-    ['mDef','mRainbow','mDouble'].forEach(b=>{ const el=document.getElementById(b); if(el) el.classList.toggle('active',b===id); });
+    Object.keys(animModeBtns).forEach(b=>{ const el=document.getElementById(b); if(el) el.classList.toggle('active',b===id); });
     document.querySelectorAll('.settings-anim-style').forEach(btn => btn.classList.toggle('active', btn.dataset.styleTarget === id));
     updateAnimModeControls();
 }
@@ -10513,61 +10487,6 @@ document.querySelectorAll('.settings-anim-style').forEach(btn => {
     btn.onclick = () => setAnimModeById(btn.dataset.styleTarget);
 });
 
-function setNoteFxSetting(name, value){
-    const v = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
-    const map = {
-        glossMix: ['glossMixRange','glossMixVal'],
-        colorBlend: ['colorBlendRange','colorBlendVal'],
-        edgeGlow: ['edgeGlowRange','edgeGlowVal'],
-        hitLineGlow: ['hitLineGlowRange','hitLineGlowVal'],
-        bloomSoftness: ['bloomSoftnessRange','bloomSoftnessVal'],
-        motionSmoothness: ['motionSmoothnessRange','motionSmoothnessVal']
-    };
-    if(!map[name]) return;
-    if(name === 'glossMix') glossMix = v;
-    else if(name === 'colorBlend') colorBlend = v;
-    else if(name === 'edgeGlow') edgeGlow = v;
-    else if(name === 'hitLineGlow') hitLineGlow = v;
-    else if(name === 'bloomSoftness') bloomSoftness = v;
-    else if(name === 'motionSmoothness') motionSmoothness = v;
-    const range = document.getElementById(map[name][0]);
-    const label = document.getElementById(map[name][1]);
-    if(range) range.value = v;
-    if(label) label.textContent = v + '%';
-    if(name === 'edgeGlow' || name === 'hitLineGlow') clearEffectSpriteCache();
-    if(typeof ensureAnimLoop === 'function') ensureAnimLoop();
-}
-function setNoteGlowValue(v){
-    const value = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
-    noteGlow = value;
-    edgeGlow = value;
-    const range = document.getElementById('noteGlowRange');
-    const label = document.getElementById('noteGlowVal');
-    if(range) range.value = value;
-    if(label) label.textContent = value + '%';
-    clearEffectSpriteCache();
-    if(typeof ensureAnimLoop === 'function') ensureAnimLoop();
-}
-function setNoteGlossValue(v){
-    const value = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
-    noteGloss = value;
-    setNoteFxSetting('glossMix', value);
-    const range = document.getElementById('noteGlossRange');
-    const label = document.getElementById('noteGlossVal');
-    if(range) range.value = value;
-    if(label) label.textContent = value + '%';
-}
-function setNoteColorFlowValue(v){
-    const value = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
-    noteColorFlow = value;
-    setNoteFxSetting('colorBlend', value);
-    const range = document.getElementById('noteColorFlowRange');
-    const label = document.getElementById('noteColorFlowVal');
-    if(range) range.value = value;
-    if(label) label.textContent = value + '%';
-}
-document.getElementById('noteGlowRange')?.addEventListener('input', e => setNoteGlowValue(e.target.value));
-setNoteGlowValue(noteGlow);
 const customBgLayer=document.getElementById('customBgLayer');
 const customBgDimLayer=document.getElementById('customBgDimLayer');
 const bgImgInput=document.getElementById('bgImgInput');
@@ -10764,7 +10683,6 @@ const strip = document.getElementById('swipeStrip');
 
 let swipeActive = false;
 let swipeStartX = 0;
-let swipeCurX = 0;
 let swipeVelocity = 0;
 let swipePrevX = 0;
 let swipePrevTime = 0;
@@ -10873,7 +10791,6 @@ strip.addEventListener('pointerdown', e => {
     strip.setPointerCapture(e.pointerId);
     swipeActive = true;
     swipeStartX = e.clientX;
-    swipeCurX = e.clientX;
     swipePrevX = e.clientX;
     swipePrevTime = performance.now();
     swipeVelocity = 0;
@@ -10895,11 +10812,8 @@ strip.addEventListener('pointermove', e => {
     if (dt > 0) swipeVelocity = dx * (16 / dt);
     swipePrevX = e.clientX;
     swipePrevTime = now;
-    swipeCurX = e.clientX;
 
     const totalDrag = e.clientX - swipeStartX;
-    swipeVisualOffset = totalDrag;
-
     swipeVisualOffset = swipeClampVisual(totalDrag);
 
     swipeSetTransform(swipeGetBase() - swipeVisualOffset);
@@ -11216,6 +11130,48 @@ var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordO
 
 let midiAccess = null;
 const midiBtn = document.getElementById('midiBtn');
+
+// Web MIDI handler, extracted so the dispatch logic is unit-testable. Note: we
+// deliberately do NOT filter GM channel 10 here. A live controller or DAW track
+// can legitimately transmit piano notes on channel 10, and dropping it makes
+// such keyboards appear dead; phantom-note problems from a specific MIDI FILE
+// are the player's file/router config, not something the web app should mask by
+// discarding a whole channel.
+function _handleMidiMessage(data){
+    if(!data || data.length < 1) return;
+    const statusByte = data[0];
+    const data1 = data[1];
+    const data2 = data[2];
+    const status = statusByte & 0xF0;
+    const note = data1;
+    const velocity = data2 || 0;
+    if(!isPianoInputAllowed()) return;
+    if (status === 0xB0 && data1 === 64) {
+        setMidiSustainPedal(velocity >= 64);
+        isSus = manualSustainEnabled || midiSustainPedalDown;
+        requestChordUpdate();
+        return;
+    }
+    if (status === 0x90 && velocity > 0) {
+        const burst = markInputBurst();
+        midiPedalHeldNotes.delete(note);
+        const visualNote = note + transpose;
+        const keyEl = keyElCache.get(visualNote);
+        playNote(note, transpose, velocity / 127);
+        playPressVisual(visualNote, keyEl, burst);
+        if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(visualNote, velocity / 127);
+    } else if ((status === 0x80) || (status === 0x90 && velocity === 0)) {
+        markInputBurst();
+        const visualNote = note + transpose;
+        if (midiSustainPedalDown) midiPedalHeldNotes.add(note);
+        else stopNote(note);
+        const keyEl = keyElCache.get(visualNote);
+        playReleaseVisual(visualNote, keyEl);
+        if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOff === 'function') window.PapianoMultiplayer.sendNoteOff(visualNote);
+    }
+}
+window._handleMidiMessage = _handleMidiMessage;
+
 midiBtn.onclick = (e) => {
     const isOn = e.target.classList.toggle('active');
     if (isOn) {
@@ -11224,36 +11180,7 @@ midiBtn.onclick = (e) => {
                 midiAccess = midi;
                 const inputs = midi.inputs.values();
                 for (let input of inputs) {
-                    input.onmidimessage = (msg) => {
-                        const [statusByte, data1, data2] = msg.data;
-                        const status = statusByte & 0xF0;
-                        const note = data1;
-                        const velocity = data2 || 0;
-                        if(!isPianoInputAllowed()) return;
-                        if (status === 0xB0 && data1 === 64) {
-                            setMidiSustainPedal(velocity >= 64);
-                            isSus = manualSustainEnabled || midiSustainPedalDown;
-                            requestChordUpdate();
-                            return;
-                        }
-                        if (status === 0x90 && velocity > 0) {
-                            const burst = markInputBurst();
-                            midiPedalHeldNotes.delete(note);
-                            const visualNote = note + transpose;
-                            const keyEl = keyElCache.get(visualNote);
-                            playNote(note, transpose, velocity / 127);
-                            playPressVisual(visualNote, keyEl, burst);
-                            if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(visualNote, velocity / 127);
-                        } else if ((status === 0x80) || (status === 0x90 && velocity === 0)) {
-                            markInputBurst();
-                            const visualNote = note + transpose;
-                            if (midiSustainPedalDown) midiPedalHeldNotes.add(note);
-                            else stopNote(note);
-                            const keyEl = keyElCache.get(visualNote);
-                            playReleaseVisual(visualNote, keyEl);
-                            if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOff === 'function') window.PapianoMultiplayer.sendNoteOff(visualNote);
-                        }
-                    };
+                    input.onmidimessage = (msg) => _handleMidiMessage(msg.data);
                 }
                 midi.onstatechange = () => {};
             }).catch(err => {
@@ -11365,7 +11292,7 @@ midiBtn.onclick = (e) => {
 })();
 
 (function(){
-    const btns = { gfxLow:'low', gfxMed:'medium', gfxHigh:'high' };
+    const btns = { gfxLow:'low', gfxMed:'high', gfxHigh:'ultra' };
     const lowHiddenRows = ['rowAnimEffect','rowAnimTone'];
     const mediumHiddenRows = [];
     function effectiveQuality(){ return typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality; }
@@ -11392,9 +11319,6 @@ midiBtn.onclick = (e) => {
         setParticleSetting('turbulence', cfg.particleTurbulence);
         setParticleSetting('saturation', cfg.particleSaturation);
         setParticleSetting('fade', cfg.particleFade);
-        setNoteGlowValue(cfg.noteGlow);
-        setNoteGlossValue(cfg.noteGloss);
-        setNoteColorFlowValue(cfg.noteColorFlow);
         setSaberAuraSize(cfg.saberAuraSize);
         setSaberVisualSetting('brightness', cfg.saberBrightness);
         setSaberVisualSetting('opacity', cfg.saberOpacity);
@@ -11829,38 +11753,6 @@ midiBtn.onclick = (e) => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || typeof MediaRecorder === 'undefined'){
         recBtn.style.display = 'none';
     }
-})();
-
-(function initGlowSettings(){
-    function bindSlider(rangeId, valId, getVal, onInput){
-        const range = document.getElementById(rangeId);
-        const val = document.getElementById(valId);
-        if (!range || !val) return;
-        range.value = getVal();
-        val.textContent = getVal() + '%';
-        range.addEventListener('input', () => {
-            const v = Number(range.value)|0;
-            val.textContent = v + '%';
-            onInput(v);
-        });
-    }
-
-    function applyKeysGlowFromEngine(){
-        if(!window.LightEngine) return;
-        const I = window.LightEngine.intensityFor('keys');
-        const e = window.LightEngine.energy(0.0, I);
-        const mult = e * 3.0;
-        document.documentElement.style.setProperty('--fixed-glow-mult', mult.toFixed(3));
-        document.body.classList.toggle('keys-bloom-on', I > 0.001);
-    }
-    if(window.LightEngine && window.LightEngine.subscribe){
-        window.LightEngine.subscribe(applyKeysGlowFromEngine);
-    }
-    applyKeysGlowFromEngine();
-
-    bindSlider('fixedGlowIntensityRange', 'fixedGlowIntensityVal',
-        () => Math.round((window.LightEngine ? window.LightEngine.master : 0) * 100),
-        v => { if(window.LightEngine) window.LightEngine.master = v / 100; });
 })();
 
 (function initPapianoOnline(){
@@ -13204,7 +13096,7 @@ midiBtn.onclick = (e) => {
             stringInstrumentKey:currentStringInstrumentKey(),
             stringInstrument:currentStringInstrumentName(),
             stringVolume:Math.max(0, Math.min(1, Number(stringVolume || 0))),
-            stringFade:Math.max(0.1, Math.min(10, Number(stringFx.fadeSec || 5))),
+            stringFade:Math.max(0.1, Math.min(10, Number(stringFx.fadeSec || STRING_FADE_DEFAULT))),
             stringRangeLeft:Number(stringRangeLeft || 21),
             stringRangeRight:Number(stringRangeRight || 108)
         };
@@ -15048,7 +14940,7 @@ midiBtn.onclick = (e) => {
         const voice = activeNotes.get(key);
         if(!voice) return;
         const profile = layer === 'string'
-            ? getStringFadeProfile(Number(event.stringFade || voice.fadeSec || 5), !!fast)
+            ? getStringFadeProfile(Number(event.stringFade || voice.fadeSec || STRING_FADE_DEFAULT), !!fast)
             : getReleaseProfile(!!fast, remoteSustainValue(playerId, event));
         releaseVoice(voice, profile.tc, profile.delay);
         activeNotes.delete(key);
@@ -15079,7 +14971,10 @@ midiBtn.onclick = (e) => {
         const now = audioCtx.currentTime;
         const mixerGain = getRemotePlaybackGain(player.id);
         if(mixerGain <= 0) return false;
-        const vel = Math.max(0.01, Math.min(1, Number(event.velocity) || 0.8));
+        let vel = Math.max(0.01, Math.min(1, Number(event.velocity) || 0.8));
+        // Match the local string attenuation so listeners hear the exact balance
+        // the player hears (local applies STRING_VEL_SCALE in playNote).
+        if(layer === 'string') vel *= STRING_VEL_SCALE;
         const eventVolume = layer === 'string'
             ? Math.max(0, Math.min(1, Number(event.stringVolume ?? 0.75)))
             : Math.max(0, Math.min(1, Number(event.pianoVolume ?? 1)));
@@ -15100,7 +14995,7 @@ midiBtn.onclick = (e) => {
             key,
             layer:layer === 'string' ? 'remoteString' : 'remote',
             sustain:layer === 'string' ? 0 : remoteSustainValue(player.id, event),
-            fadeSec:layer === 'string' ? Math.max(0.1, Math.min(10, Number(event.stringFade || 5))) : 0,
+            fadeSec:layer === 'string' ? Math.max(0.1, Math.min(10, Number(event.stringFade || STRING_FADE_DEFAULT))) : 0,
             masterGain:gainNode,
             oscillators:[],
             released:false,
@@ -15202,7 +15097,7 @@ midiBtn.onclick = (e) => {
             sk:snapshot.stringInstrumentKey,
             si:snapshot.stringInstrument,
             sl:Math.round(Math.max(0, Math.min(1, Number(snapshot.stringVolume || 0))) * 100) / 100,
-            sf:Math.round(Math.max(0.1, Math.min(10, Number(snapshot.stringFade || 5))) * 10) / 10,
+            sf:Math.round(Math.max(0.1, Math.min(10, Number(snapshot.stringFade || STRING_FADE_DEFAULT))) * 10) / 10,
             rl:Number(snapshot.stringRangeLeft || 21),
             rr:Number(snapshot.stringRangeRight || 108),
             pv:Math.round(Math.max(0, Math.min(1, Number(pianoVolume || 1))) * 100) / 100
@@ -15220,7 +15115,7 @@ midiBtn.onclick = (e) => {
             stringInstrumentKey:normalizeStringInstrumentKey(data.sk || fallback.stringInstrumentKey || fallback.stringInstrument || 'stringSf1'),
             stringInstrument:data.si || fallback.stringInstrument || stringInstrumentLabel(data.sk || fallback.stringInstrumentKey || 'stringSf1'),
             stringVolume:Math.max(0, Math.min(1, Number(data.sl ?? 0.75))),
-            stringFade:Math.max(0.1, Math.min(10, Number(data.sf || 5))),
+            stringFade:Math.max(0.1, Math.min(10, Number(data.sf || STRING_FADE_DEFAULT))),
             stringRangeLeft:Number(data.rl || 21),
             stringRangeRight:Number(data.rr || 108),
             pianoVolume:Math.max(0, Math.min(1, Number(data.pv ?? 1)))
