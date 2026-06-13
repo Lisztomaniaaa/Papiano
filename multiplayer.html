@@ -10937,6 +10937,52 @@ var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordO
 
 let midiAccess = null;
 const midiBtn = document.getElementById('midiBtn');
+
+// Web MIDI is channel-aware, but a note message only carries a note NUMBER —
+// nothing about it says "drum" except the channel it arrives on. A MIDI file
+// player marks percussion by sending it on GM channel 10 (status low nibble 9).
+// If we honour those events they get misrouted into the piano: note 81 on
+// channel 10 (a percussion hit) becomes a press of piano key A5 and a lookup
+// of the A5 buffer from the *piano* soundfont — no drum soundfont is involved.
+// That is the "A5 keeps pressing itself" symptom. Dropping channel 10 entirely
+// (standard for every piano playback chain) is the fix.
+function _handleMidiMessage(data){
+    if(!data || data.length < 1) return;
+    const statusByte = data[0];
+    const data1 = data[1];
+    const data2 = data[2];
+    const status = statusByte & 0xF0;
+    const channel = statusByte & 0x0F;
+    if (channel === 9) return; // GM drum/percussion channel
+    const note = data1;
+    const velocity = data2 || 0;
+    if(!isPianoInputAllowed()) return;
+    if (status === 0xB0 && data1 === 64) {
+        setMidiSustainPedal(velocity >= 64);
+        isSus = manualSustainEnabled || midiSustainPedalDown;
+        requestChordUpdate();
+        return;
+    }
+    if (status === 0x90 && velocity > 0) {
+        const burst = markInputBurst();
+        midiPedalHeldNotes.delete(note);
+        const visualNote = note + transpose;
+        const keyEl = keyElCache.get(visualNote);
+        playNote(note, transpose, velocity / 127);
+        playPressVisual(visualNote, keyEl, burst);
+        if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(visualNote, velocity / 127);
+    } else if ((status === 0x80) || (status === 0x90 && velocity === 0)) {
+        markInputBurst();
+        const visualNote = note + transpose;
+        if (midiSustainPedalDown) midiPedalHeldNotes.add(note);
+        else stopNote(note);
+        const keyEl = keyElCache.get(visualNote);
+        playReleaseVisual(visualNote, keyEl);
+        if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOff === 'function') window.PapianoMultiplayer.sendNoteOff(visualNote);
+    }
+}
+window._handleMidiMessage = _handleMidiMessage;
+
 midiBtn.onclick = (e) => {
     const isOn = e.target.classList.toggle('active');
     if (isOn) {
@@ -10945,42 +10991,7 @@ midiBtn.onclick = (e) => {
                 midiAccess = midi;
                 const inputs = midi.inputs.values();
                 for (let input of inputs) {
-                    input.onmidimessage = (msg) => {
-                        const [statusByte, data1, data2] = msg.data;
-                        const status = statusByte & 0xF0;
-                        const channel = statusByte & 0x0F;
-                        // GM channel 10 (0-indexed 9) is the drum/percussion channel.
-                        // MIDI file players regularly emit drum hits with normal velocities,
-                        // but the piano soundfont has no buffer for those note numbers, so
-                        // they manifest as silent visual flashes on random keys.
-                        if (channel === 9) return;
-                        const note = data1;
-                        const velocity = data2 || 0;
-                        if(!isPianoInputAllowed()) return;
-                        if (status === 0xB0 && data1 === 64) {
-                            setMidiSustainPedal(velocity >= 64);
-                            isSus = manualSustainEnabled || midiSustainPedalDown;
-                            requestChordUpdate();
-                            return;
-                        }
-                        if (status === 0x90 && velocity > 0) {
-                            const burst = markInputBurst();
-                            midiPedalHeldNotes.delete(note);
-                            const visualNote = note + transpose;
-                            const keyEl = keyElCache.get(visualNote);
-                            playNote(note, transpose, velocity / 127);
-                            playPressVisual(visualNote, keyEl, burst);
-                            if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(visualNote, velocity / 127);
-                        } else if ((status === 0x80) || (status === 0x90 && velocity === 0)) {
-                            markInputBurst();
-                            const visualNote = note + transpose;
-                            if (midiSustainPedalDown) midiPedalHeldNotes.add(note);
-                            else stopNote(note);
-                            const keyEl = keyElCache.get(visualNote);
-                            playReleaseVisual(visualNote, keyEl);
-                            if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOff === 'function') window.PapianoMultiplayer.sendNoteOff(visualNote);
-                        }
-                    };
+                    input.onmidimessage = (msg) => _handleMidiMessage(msg.data);
                 }
                 midi.onstatechange = () => {};
             }).catch(err => {
