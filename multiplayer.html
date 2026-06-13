@@ -221,7 +221,10 @@ canvas{
     filter:blur(var(--saber-aura-blur, 8px));
     opacity:.72;
     transform-origin:50% 100%;
+    animation:saberSmokeDrift var(--saber-smoke-motion, 2.8s) linear infinite;
 }
+body.saber-motion-off #saberLine::before,
+body.saber-motion-off #saberLine::after{ animation:none !important; }
 #saberLine::after{
     content:'';
     position:absolute;
@@ -243,6 +246,7 @@ canvas{
     filter:blur(var(--saber-shadow-blur, 8px));
     opacity:.62;
     transform-origin:50% 100%;
+    animation:saberSmokeBase var(--saber-smoke-motion, 2.8s) linear infinite;
 }
 body.saber-off #saberLine{
     opacity:0 !important;
@@ -5525,6 +5529,17 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                 </div>
                 <input class="ui-full" type="range" id="saberAuraRange" min="0" max="100" value="50" aria-label="Saber Aura">
             </div>
+            <div class="color-row compact-color-row" id="rowSaberMotion">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Motion Speed</span>
+                    <span class="ui-value-sm" id="saberMotionVal">50%</span>
+                </div>
+                <input class="ui-full" type="range" id="saberMotionRange" min="0" max="100" value="50" aria-label="Aura & spectrum motion speed">
+            </div>
+            <div class="color-row compact-color-row" id="rowSaberSpectrum">
+                <div class="section-title">Spectrum</div>
+                <button class="btn saber-fx-btn active" type="button" id="saberSpectrumBtn">Spectrum On</button>
+            </div>
             <div class="color-row compact-color-row" id="rowSaberColor">
                 <div class="section-title">Strike Color</div>
                 <div class="color-pad-host" id="gridSaber"></div>
@@ -7966,6 +7981,7 @@ function pressWithVelocity(n,k,vel){
     if(audioCtx.state==='suspended') audioCtx.resume();
     playNote(n,transpose,vel);
     playPressVisual(n,k,burst);
+    if(typeof spectrumHit === 'function') spectrumHit(n, vel);
     if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(n, vel);
 }
 function press(n,k){ pressWithVelocity(n,k,0.8); }
@@ -8437,6 +8453,61 @@ function safeHex(hex, fallback){
 }
 function _clampRgb(v){ v = Number(v) || 0; return v < 0 ? 0 : v > 255 ? 255 : (v + 0.5) | 0; }
 
+// === Strike-line spectrum: EQ spikes that rise from the hit line at the x of
+// each played note (local, MIDI, and remote) and decay back down. Height tracks
+// velocity; decay speed comes from the shared Motion Speed slider. ===
+const SPECTRUM_BINS = 96;
+const spectrumEnergy = new Float32Array(SPECTRUM_BINS);
+let _spectrumActive = false;
+function spectrumHit(midi, vel){
+    if(!spectrumEnabled || !saberEnabled) return;
+    if(typeof isLowGraphic === 'function' && isLowGraphic()) return;
+    const x = noteXFast[midi];
+    if(!Number.isFinite(x)) return;
+    const w = canvasCssW || 1;
+    const screenX = x - currentPianoTransformPx;
+    if(screenX < 0 || screenX > w) return; // off the visible stage (swiped away)
+    const bin = Math.max(0, Math.min(SPECTRUM_BINS - 1, (screenX / w * SPECTRUM_BINS) | 0));
+    const v = Math.max(0.14, Math.min(1, Number(vel) || 0.8));
+    if(v > spectrumEnergy[bin]) spectrumEnergy[bin] = v;
+    _spectrumActive = true;
+    ensureAnimLoop();
+}
+function drawSpectrum(dt){
+    if(!spectrumEnabled || !saberEnabled || !_spectrumActive) return false;
+    if(typeof isLowGraphic === 'function' && isLowGraphic()){ spectrumEnergy.fill(0); _spectrumActive = false; return false; }
+    const w = canvasCssW || 1;
+    const h = canvasCssH || 1;
+    const binW = w / SPECTRUM_BINS;
+    const maxH = Math.min(h * 0.26, 130);
+    const decay = Math.exp(-dt / Math.max(0.05, _motionDecayTau()));
+    const rgb = _parseColorToRgb(applySaberSaturation(saberColor || '#00e5ff', saberSaturation));
+    const op = sliderRatio(saberOpacity, 100);
+    let any = false;
+    ctx2d.save();
+    ctx2d.globalCompositeOperation = 'lighter';
+    for(let i=0;i<SPECTRUM_BINS;i++){
+        const e = spectrumEnergy[i];
+        if(e <= 0.014){ spectrumEnergy[i] = 0; continue; }
+        const barH = e * maxH;
+        const x = i * binW;
+        const top = h - barH;
+        const grad = ctx2d.createLinearGradient(0, h, 0, top);
+        grad.addColorStop(0,   `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${(0.60*e*op).toFixed(3)})`);
+        grad.addColorStop(0.55,`rgba(${rgb[0]},${rgb[1]},${rgb[2]},${(0.32*e*op).toFixed(3)})`);
+        grad.addColorStop(1,   `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0)`);
+        ctx2d.fillStyle = grad;
+        ctx2d.fillRect(x + binW*0.14, top, binW*0.72, barH);
+        spectrumEnergy[i] = e * decay;
+        any = true;
+    }
+    ctx2d.restore();
+    ctx2d.globalAlpha = 1;
+    ctx2d.globalCompositeOperation = 'source-over';
+    _spectrumActive = any;
+    return any;
+}
+
 function anim(now){
 
     if(_lastAnimTs >= 0 && (now - _lastAnimTs) >= 0 && (now - _lastAnimTs) < 6 && animFrameId){
@@ -8488,6 +8559,7 @@ function anim(now){
         hasLive = true;
     }
     if(dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
+    if(drawSpectrum(dt)) hasLive = true;
 
     if(falling.length > 40){
         let w=0, removed=false;
@@ -9127,6 +9199,34 @@ let particleTurbulence = 30;
 let particleSaturation = 100;
 let particleFade = 45;
 var saberMotion = 'static';
+let motionSpeed = 50;       // drives aura shimmer speed + spectrum decay
+let spectrumEnabled = true; // EQ spikes rising from the strike line on note hits
+// One combined "Motion Speed": maps 0..100 to a slow..fast aura drift duration
+// and a slow..fast spectrum-bar decay. Higher = faster.
+function _motionDecayTau(){
+    // seconds for a spectrum bar to fall ~1/e; faster speed -> shorter tau
+    return 0.62 - (Math.max(0, Math.min(100, motionSpeed)) / 100) * 0.46;
+}
+function setMotionSpeed(value){
+    motionSpeed = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    // aura drift duration: speed 0 -> 6.4s (slow), speed 100 -> 1.2s (fast)
+    const durSec = (6.4 - (motionSpeed / 100) * 5.2).toFixed(2);
+    document.documentElement.style.setProperty('--saber-smoke-motion', durSec + 's');
+    document.body.classList.toggle('saber-motion-off', motionSpeed <= 0);
+    const range = document.getElementById('saberMotionRange');
+    const label = document.getElementById('saberMotionVal');
+    if(range && range.value !== String(motionSpeed)) range.value = String(motionSpeed);
+    if(label) label.textContent = motionSpeed + '%';
+}
+function setSpectrumEnabled(on){
+    spectrumEnabled = !!on;
+    const btn = document.getElementById('saberSpectrumBtn');
+    if(btn){
+        btn.classList.toggle('active', spectrumEnabled);
+        btn.textContent = spectrumEnabled ? 'Spectrum On' : 'Spectrum Off';
+    }
+    if(!spectrumEnabled && typeof spectrumEnergy !== 'undefined') spectrumEnergy.fill(0);
+}
 setKeyDustIntensity(keyDustIntensity);
 refreshKeyDustColorCache();
 
@@ -9216,6 +9316,8 @@ function applyFactoryDefaults(clearSavedState){
     setSaberColor('#ffffff');
     setDustColor('#ffffff');
     setSaberMotion('static');
+    setMotionSpeed(50);
+    setSpectrumEnabled(true);
     setDustBlendMode('glow');
     setParticleShape('dot');
     setSaberAuraSize(50);
@@ -9538,6 +9640,8 @@ function getCurrentSettings() {
         particleSaturation,
         particleFade,
         saberMotion,
+        motionSpeed,
+        spectrumEnabled,
         dustBlendMode,
         currentGlassColor,
         pianoHeight: Math.max(6, Number(document.getElementById('hRange').value) || 50),
@@ -9663,6 +9767,8 @@ function applySettings(s) {
         setParticleSetting('fade', s.particleFade !== undefined ? s.particleFade : particleFade);
         setDustBlendMode(s.dustBlendMode === 'solid' ? 'solid' : 'glow');
         setSaberMotion('static');
+        setMotionSpeed(s.motionSpeed !== undefined ? s.motionSpeed : motionSpeed);
+        setSpectrumEnabled(s.spectrumEnabled !== undefined ? !!s.spectrumEnabled : true);
         syncSaberFxButtons();
         currentGlassColor = normalizeHexColor(s.currentGlassColor) || '#ffffff';
         const savedPianoHeight = Number(s.pianoHeight);
@@ -9998,7 +10104,6 @@ function updateSaberLine(){
     const opacityLevel = sliderRatio(saberOpacity);
     const auraLevel = sliderCurve(saberAuraSize, 1.04);
     const waveLevel = 0.35;
-    const waveSpeedLevel = 0.45;
     const lineColor = saturatedColor;
     const rgb = hexToRgb(lineColor);
     const coreAlpha = Math.min(1, opacityLevel);
@@ -10030,12 +10135,11 @@ function updateSaberLine(){
     const waveCellD = Math.round(180 + waveLevel * 130) + 'px';
     const waveCellE = Math.round(260 + waveLevel * 170) + 'px';
     const waveCellF = Math.round(140 + waveLevel * 105) + 'px';
-    const motionSec = Math.max(1.2, 5.2 - waveSpeedLevel * 3.8).toFixed(2) + 's';
 
     document.documentElement.style.setProperty('--saber-color', lineColor);
     document.documentElement.style.setProperty('--saber-thickness', px + 'px');
     applySaberAuraHeight();
-    document.documentElement.style.setProperty('--saber-smoke-motion', motionSec);
+    // --saber-smoke-motion is owned by setMotionSpeed() (the Motion Speed slider).
     document.documentElement.style.setProperty('--saber-wave-x', waveX);
     document.documentElement.style.setProperty('--saber-wave-soft', waveSoft);
     document.documentElement.style.setProperty('--saber-wave-size', waveSize);
@@ -10278,9 +10382,13 @@ document.getElementById('particleFadeRange')?.addEventListener('input', e => set
 document.getElementById('saberBrightnessRange')?.addEventListener('input', e => setSaberVisualSetting('brightness', e.target.value));
 document.getElementById('saberOpacityRange')?.addEventListener('input', e => setSaberVisualSetting('opacity', e.target.value));
 document.getElementById('saberSaturationRange')?.addEventListener('input', e => setSaberVisualSetting('saturation', e.target.value));
+document.getElementById('saberMotionRange')?.addEventListener('input', e => setMotionSpeed(e.target.value));
+document.getElementById('saberSpectrumBtn')?.addEventListener('click', () => setSpectrumEnabled(!spectrumEnabled));
 setSaberVisualSetting('brightness', saberBrightness);
 setSaberVisualSetting('opacity', saberOpacity);
 setSaberVisualSetting('saturation', saberSaturation);
+setMotionSpeed(motionSpeed);
+setSpectrumEnabled(spectrumEnabled);
 setParticleSetting('count', particleCount);
 setParticleSetting('size', particleSize);
 setParticleSetting('opacity', particleOpacity);
@@ -10999,6 +11107,7 @@ function _handleMidiMessage(data){
         const keyEl = keyElCache.get(visualNote);
         playNote(note, transpose, velocity / 127);
         playPressVisual(visualNote, keyEl, burst);
+        if(typeof spectrumHit === 'function') spectrumHit(visualNote, velocity / 127);
         if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(visualNote, velocity / 127);
     } else if ((status === 0x80) || (status === 0x90 && velocity === 0)) {
         markInputBurst();
@@ -14903,6 +15012,7 @@ midiBtn.onclick = (e) => {
                 });
             }
             playRemotePressVisual(midi, el, player.id);
+            if(typeof spectrumHit === 'function') spectrumHit(midi, event.velocity);
             pulsePlayer(player.id);
         }else if(event.type === 'noteOff'){
             updateRemoteSustainState(player.id, event);
