@@ -223,9 +223,9 @@ canvas{
     -webkit-mask-image:linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 42%, rgba(0,0,0,.28) 78%, transparent 100%);
     mask-image:linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 42%, rgba(0,0,0,.28) 78%, transparent 100%);
     filter:blur(var(--saber-aura-blur, 8px));
-    opacity:.72;
+    opacity:.5;
     transform-origin:50% 100%;
-    animation:saberBillow var(--saber-smoke-motion, 2.8s) ease-in-out infinite;
+    animation:saberDriftH var(--saber-smoke-motion, 2.8s) ease-in-out infinite;
 }
 body.saber-motion-off #saberLine::before,
 body.saber-motion-off #saberLine::after{ animation:none !important; }
@@ -246,10 +246,10 @@ body.saber-motion-off #saberLine::after{ animation:none !important; }
     -webkit-mask-image:linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.45) 58%, transparent 100%);
     mask-image:linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.45) 58%, transparent 100%);
     filter:blur(var(--saber-shadow-blur, 8px));
-    opacity:.62;
+    opacity:.4;
     transform-origin:50% 100%;
-    /* Offset timing/shape so the two haze layers don't billow in lockstep. */
-    animation:saberBillowB var(--saber-smoke-motion, 2.8s) ease-in-out infinite;
+    /* Drifts opposite the top layer so the two cross like abstract waves. */
+    animation:saberDriftHB var(--saber-smoke-motion, 2.8s) ease-in-out infinite;
     animation-delay:calc(var(--saber-smoke-motion, 2.8s) * -0.4);
 }
 body.saber-off #saberLine{
@@ -264,15 +264,16 @@ html[data-graphic-quality="low"] #saberLine::after{
 #saberLine.saber-hit{
     filter:brightness(1.55) saturate(1.35);
 }
-/* Gentle vertical billow (transform/opacity only -> GPU compositor, no per-frame
-   repaint like the old background-position scroll). Reads as rising smoke. */
-@keyframes saberBillow{
-    0%,100%{ transform:translateY(0) scaleY(1) scaleX(1); opacity:.66; }
-    50%{ transform:translateY(-9%) scaleY(1.18) scaleX(1.05); opacity:.82; }
+/* Abstract horizontal drift (transform only -> GPU compositor). The two haze
+   layers slide opposite ways and overlap, reading like soft, abstract waves
+   gliding sideways rather than a vertical plume. */
+@keyframes saberDriftH{
+    0%,100%{ transform:translateX(-4%) scaleX(1.04); }
+    50%{ transform:translateX(4%) scaleX(0.97); }
 }
-@keyframes saberBillowB{
-    0%,100%{ transform:translateY(0) scaleY(1) scaleX(1); opacity:.54; }
-    50%{ transform:translateY(-6%) scaleY(1.12) scaleX(0.97); opacity:.7; }
+@keyframes saberDriftHB{
+    0%,100%{ transform:translateX(3.5%) scaleX(0.97); }
+    50%{ transform:translateX(-3.5%) scaleX(1.05); }
 }
 
 @media (pointer: coarse) {
@@ -5373,8 +5374,6 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <button class="btn" id="mOutline">Outline</button>
                     <button class="btn" id="mMidnight">Midnight</button>
                     <button class="btn" id="mGradient">Gradient</button>
-                    <button class="btn" id="mGlow">Glow</button>
-                    <button class="btn" id="mNeon">Neon</button>
                     <button class="btn" id="mRainbow">Rainbow</button>
                     <button class="btn" id="mDouble">Double</button>
                 </div>
@@ -5728,8 +5727,6 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                             <button class="btn settings-anim-style" data-style-target="mOutline">Outline</button>
                             <button class="btn settings-anim-style" data-style-target="mMidnight">Midnight</button>
                             <button class="btn settings-anim-style" data-style-target="mGradient">Gradient</button>
-                            <button class="btn settings-anim-style" data-style-target="mGlow">Glow</button>
-                            <button class="btn settings-anim-style" data-style-target="mNeon">Neon</button>
                             <button class="btn settings-anim-style" data-style-target="mRainbow">Rainbow</button>
                             <button class="btn settings-anim-style" data-style-target="mDouble">Double</button>
                         </div>
@@ -7859,13 +7856,14 @@ function getSmokeSprite(color, shape){
     const r = rgb[0], g = rgb[1], b = rgb[2];
     const grad = c.createRadialGradient(cx, cy, 0, cx, cy, SIZE/2);
     if(_shape === 'dot'){
-        // "Dust": a small bright grain with a soft halo. Brighter core than
-        // smoke, but still feathered so it reads as a glowing mote, not a disc.
-        grad.addColorStop(0,    'rgba(255,255,255,0.92)');
-        grad.addColorStop(0.08, `rgba(${Math.min(255,r+40)},${Math.min(255,g+40)},${Math.min(255,b+40)},0.78)`);
-        grad.addColorStop(0.20, `rgba(${r},${g},${b},0.40)`);
-        grad.addColorStop(0.42, `rgba(${r},${g},${b},0.14)`);
-        grad.addColorStop(0.70, `rgba(${r},${g},${b},0.04)`);
+        // "Dust": a real, crisp point grain — solid bright core with a tight,
+        // short falloff and almost no halo, so it reads as a speck of dust, not
+        // a soft smoke puff.
+        grad.addColorStop(0,    'rgba(255,255,255,1)');
+        grad.addColorStop(0.14, `rgba(${Math.min(255,r+60)},${Math.min(255,g+60)},${Math.min(255,b+60)},1)`);
+        grad.addColorStop(0.32, `rgba(${r},${g},${b},0.92)`);
+        grad.addColorStop(0.5,  `rgba(${r},${g},${b},0.34)`);
+        grad.addColorStop(0.72, `rgba(${r},${g},${b},0.08)`);
         grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
     } else {
         // "Smoke": very soft and diffuse — low opacity with a long feathered
@@ -7889,19 +7887,33 @@ function refreshKeyDustColorCache(){
     cachedDustBlack = css.getPropertyValue('--accent-black').trim() || css.getPropertyValue('--piano-black-active-mid').trim() || '#ff7f66';
     _smokeSpriteCache.clear();
 }
-// Chord detection ran synchronously on every press/release. During glissandos
-// and arpeggio storms (Etude Op.10/25, La Campanella) that's hundreds of
-// detections per second, each iterating ~100 chord patterns. Coalesce to one
-// run per animation frame — at 60fps that's a max ~16ms delay, well below the
-// perceptual threshold for the chord readout but eliminates the per-note cost.
-let _chordUpdateRaf = 0;
+// Chord detection is throttled on a wall-clock timer (leading + trailing edge)
+// rather than coalesced into requestAnimationFrame. rAF coupling meant that at
+// fast tempo / under heavy render load the frames stretch past 16ms and the
+// chord readout visibly lagged the keys. A time throttle decouples detection
+// from render load: it fires immediately on the first event, then at most once
+// per CHORD_MIN_INTERVAL ms, with a trailing run so the final held set is
+// always reflected. matchChords iterates ~100 cheap bitmask patterns, so ~36
+// detections/sec is negligible even during glissandos.
+const CHORD_MIN_INTERVAL = 28;
+let _chordLastRun = 0;
+let _chordTrailingTimer = 0;
+function _runChordDetect(){
+    _chordLastRun = performance.now();
+    try { window.PapianoMultiplayer._detectChords(); } catch(_){}
+}
 function requestChordUpdate(){
-    if(_chordUpdateRaf) return;
     if(!(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function')) return;
-    _chordUpdateRaf = requestAnimationFrame(() => {
-        _chordUpdateRaf = 0;
-        try { window.PapianoMultiplayer._detectChords(); } catch(_){}
-    });
+    const since = performance.now() - _chordLastRun;
+    if(since >= CHORD_MIN_INTERVAL){
+        if(_chordTrailingTimer){ clearTimeout(_chordTrailingTimer); _chordTrailingTimer = 0; }
+        _runChordDetect();
+    } else if(!_chordTrailingTimer){
+        _chordTrailingTimer = setTimeout(() => {
+            _chordTrailingTimer = 0;
+            _runChordDetect();
+        }, Math.max(1, CHORD_MIN_INTERVAL - since));
+    }
 }
 
 const pendingActiveRemoves = new Set();
@@ -8042,6 +8054,11 @@ function refreshStageHeight(){
 }
 
 const NEON_DUST_MAX = 320;
+// Even, hold-independent emission: same initial puff per press, same steady
+// trickle while held. Density never escalates with hold time.
+const DUST_PRESS_BURST = 8;
+const DUST_EMIT_INTERVAL = 60; // ms between trickle spawns while held
+const DUST_EMIT_COUNT = 2;     // particles per trickle
 const neonDustX = new Float32Array(NEON_DUST_MAX);
 const neonDustY = new Float32Array(NEON_DUST_MAX);
 const neonDustVX = new Float32Array(NEON_DUST_MAX);
@@ -8129,7 +8146,7 @@ function startNeonDust(midi, key){
     if(!geom) return;
 
     neonDustEmitters.set(midi, { geom, midi, start: performance.now(), last: 0 });
-    spawnNeonDust(geom, geom.isBlack ? 7 : 9);
+    spawnNeonDust(geom, DUST_PRESS_BURST);
     if(saberLine) saberLine.classList.add('saber-hit');
     ensureAnimLoop();
 }
@@ -8146,17 +8163,17 @@ function updateDrawNeonDust(dt, now){
         neonDustEmitters.clear();
         return false;
     }
+    // Holding a key only MAINTAINS the stream — it does NOT thicken it. Every
+    // held note emits at the same steady rate/amount, so density is even across
+    // all presses and no single long-held note hogs the particle budget.
     neonDustEmitters.forEach(em => {
         if(em.midi != null){
             const g = getKeyStageGeom(em.midi);
             if(g) em.geom = g;
         }
-        const hold = now - em.start;
-        const interval = hold > 850 ? 44 : hold > 420 ? 54 : hold > 150 ? 64 : 78;
-        const count = hold > 850 ? 5 : hold > 420 ? 4 : hold > 150 ? 3 : 2;
-        if(now - em.last >= interval){
+        if(now - em.last >= DUST_EMIT_INTERVAL){
             em.last = now;
-            spawnNeonDust(em.geom, count);
+            spawnNeonDust(em.geom, DUST_EMIT_COUNT);
         }
     });
 
@@ -8172,11 +8189,11 @@ function updateDrawNeonDust(dt, now){
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     const moveDt = dt * 1000 * (0.18 + speedLevel * 1.85);
     const turbEase = turbulenceLevel;
-    // Stronger lateral forces than before so the column billows into a cloud as
-    // it rises; the per-particle amount is scaled by age in the loop.
-    const wind = 0.000050 * turbEase;
-    const biasWind = 0.000017 * turbEase;
-    const maxVX = 0.011 + 0.080 * turbEase;
+    const isDot = particleShape === 'dot';
+    // Smoke billows into a cloud as it rises; dust stays as drifting points.
+    const wind = (isDot ? 0.000022 : 0.000050) * turbEase;
+    const biasWind = (isDot ? 0.000006 : 0.000017) * turbEase;
+    const maxVX = (isDot ? 0.006 : 0.011) + (isDot ? 0.030 : 0.080) * turbEase;
     ctx2d.save();
     // Both V1 and V2 use the same additive glow look; the ONLY difference
     // between them is whether the dust is drawn behind (V1) or in front (V2)
@@ -8192,8 +8209,8 @@ function updateDrawNeonDust(dt, now){
             const phaseB = age * 0.0026 + neonDustSeedB[i] * 1.7;
             const wander = Math.sin(phaseA) * 0.66 + Math.sin(phaseB) * 0.34;
             const bias = neonDustSpin[i] * (0.30 + Math.sin(age * 0.0009 + neonDustSeedB[i]) * 0.22);
-            // Spread grows as the puff rises — narrow at the base, wide up top.
-            const ageScale = 0.32 + Math.min(1, tLife) * 1.55;
+            // Smoke spreads with age (cloud); dust barely spreads (points).
+            const ageScale = isDot ? (0.25 + Math.min(1, tLife) * 0.35) : (0.32 + Math.min(1, tLife) * 1.55);
             neonDustVX[i] += (wander * wind + bias * biasWind) * ageScale * moveDt;
             if(neonDustVX[i] > maxVX) neonDustVX[i] = maxVX;
             else if(neonDustVX[i] < -maxVX) neonDustVX[i] = -maxVX;
@@ -8214,9 +8231,9 @@ function updateDrawNeonDust(dt, now){
             const fade = t < 0.14 ? t / 0.14 : Math.max(0, 1 - Math.pow((t - 0.14) / 0.86, 1.9));
             const alpha = Math.min(1, neonDustA[i] * fade);
             if(alpha > 0.02){
-                // Puff expands as it ages — a dissipating smoke cloud.
-                const grow = 1 + t * 1.9;
-                const sz = neonDustR[i] * 3.0 * grow;
+                // Smoke expands as it dissipates; dust keeps a small fixed size.
+                const grow = isDot ? 1 : (1 + t * 1.9);
+                const sz = neonDustR[i] * (isDot ? 1.7 : 3.0) * grow;
                 ctx2d.globalAlpha = alpha;
                 ctx2d.drawImage(sprite, neonDustX[i] - sz * 0.5, neonDustY[i] - sz * 0.5, sz, sz);
             }
@@ -8422,30 +8439,13 @@ function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
             sctx.lineWidth = Math.max(1, wB * 0.06);
             sctx.strokeStyle = `rgba(${Math.min(255,R+60)},${Math.min(255,G+60)},${Math.min(255,B+60)},0.7)`;
             _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
-        } else if(style === 'neon'){
-            // White-hot core column with saturated colour at the sides.
-            const g = sctx.createLinearGradient(0, 0, wB, 0);
-            g.addColorStop(0, `rgba(${R},${G},${B},0.55)`);
-            g.addColorStop(0.30, `rgb(${R},${G},${B})`);
-            g.addColorStop(0.5, lite(0.85));
-            g.addColorStop(0.70, `rgb(${R},${G},${B})`);
-            g.addColorStop(1, `rgba(${R},${G},${B},0.55)`);
+        } else if(style === 'neon' || style === 'glow'){
+            // Deprecated styles — fall back to a clean gradient if ever requested.
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.55));
+            g.addColorStop(0.5, `rgb(${R},${G},${B})`);
+            g.addColorStop(1, dark(0.78));
             sctx.fillStyle = g; _spriteRoundPath(sctx, wB, hB, r); sctx.fill();
-        } else if(style === 'glow'){
-            // Soft bloom: feathered edges so overlapping notes build light.
-            const g = sctx.createLinearGradient(0, 0, wB, 0);
-            g.addColorStop(0, `rgba(${R},${G},${B},0)`);
-            g.addColorStop(0.5, lite(0.30));
-            g.addColorStop(1, `rgba(${R},${G},${B},0)`);
-            sctx.fillStyle = g; sctx.fillRect(0, 0, wB, hB);
-            const core = sctx.createLinearGradient(0, 0, wB, 0);
-            core.addColorStop(0, `rgba(${R},${G},${B},0)`);
-            core.addColorStop(0.42, `rgba(${R},${G},${B},0.92)`);
-            core.addColorStop(0.5, lite(0.5));
-            core.addColorStop(0.58, `rgba(${R},${G},${B},0.92)`);
-            core.addColorStop(1, `rgba(${R},${G},${B},0)`);
-            sctx.fillStyle = core;
-            sctx.fillRect(wB*0.2, 0, wB*0.6, hB);
         } else {
             // unknown style -> solid fallback
             sctx.fillStyle = `rgb(${R},${G},${B})`;
@@ -9331,10 +9331,10 @@ const PRESET_STORAGE_KEY = 'papiano_memory_preset_v2';
 const STORAGE_RESET_KEYS = ['papiano_memory_autosave_v2', 'papiano_memory_options_v2', 'papiano_settings'];
 const STORAGE_SCHEMA_VERSION = 2;
 
-const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mGlow:'glow', mNeon:'neon', mRainbow:'rainbow', mDouble:'double' };
+const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mRainbow:'rainbow', mDouble:'double' };
 // Single-colour fill styles (use the chosen Note Color). Excludes rainbow
 // (per-note hue) and double (split colours).
-const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient','glow','neon'];
+const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient'];
 const NO_COLOR="__none";
 const colors=[NO_COLOR,"#ffffff","#00e5ff","#38bdf8","#2979ff","#651fff","#8b5cf6","#ff4081","#ff2d75","#ff1744","#ff6d00","#f7b733","#ffea00","#b2ff59","#00e676"];
 function getDefaultPianoHeightPercent(){
@@ -9799,8 +9799,8 @@ function applySettings(s) {
         setAnimDoubleSplitTuts(s.animDoubleSplitTuts !== undefined ? s.animDoubleSplitTuts : 44);
         if (typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
         if (s.animStyle !== undefined) {
-            const LEGACY_STYLE = { single:'default', metalic:'default', crystal3d:'default', clean:'default', cleanNeon:'default', rainbow2:'rainbow', rainbowV2:'rainbow' };
-            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', glow:'mGlow', neon:'mNeon', rainbow:'mRainbow', double:'mDouble' };
+            const LEGACY_STYLE = { single:'default', metalic:'default', crystal3d:'default', clean:'default', cleanNeon:'default', rainbow2:'rainbow', rainbowV2:'rainbow', glow:'gradient', neon:'gradient' };
+            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', rainbow:'mRainbow', double:'mDouble' };
             const resolved = LEGACY_STYLE[s.animStyle] || s.animStyle;
             setAnimModeById(styleMap[resolved] || 'mDef');
         }
