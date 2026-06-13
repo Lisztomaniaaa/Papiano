@@ -10923,6 +10923,12 @@ midiBtn.onclick = (e) => {
                     input.onmidimessage = (msg) => {
                         const [statusByte, data1, data2] = msg.data;
                         const status = statusByte & 0xF0;
+                        const channel = statusByte & 0x0F;
+                        // GM channel 10 (0-indexed 9) is the drum/percussion channel.
+                        // MIDI file players regularly emit drum hits with normal velocities,
+                        // but the piano soundfont has no buffer for those note numbers, so
+                        // they manifest as silent visual flashes on random keys.
+                        if (channel === 9) return;
                         const note = data1;
                         const velocity = data2 || 0;
                         if(!isPianoInputAllowed()) return;
