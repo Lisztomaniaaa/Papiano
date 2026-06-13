@@ -6614,7 +6614,7 @@ function playSfBuffer(soundMidi, vel, activeKey, layer='piano') {
         key,
         layer,
         sustain: layer === 'string' ? 0 : (fx.sustain || 0),
-        fadeSec: layer === 'string' ? (fx.fadeSec || 10.0) : 0,
+        fadeSec: layer === 'string' ? (fx.fadeSec || STRING_FADE_DEFAULT) : 0,
         masterGain: gainNode,
         oscillators: [],
         released: false,
@@ -6631,10 +6631,22 @@ function playSfBuffer(soundMidi, vel, activeKey, layer='piano') {
 }
 
 let activeVoices = [];
-const MAX_ACTIVE_VOICES = 42;
+// Strings double the voice count (piano + string per key) and their tails ring
+// for the whole fade, so 42 was reclaimed constantly during normal play. 64
+// gives string tails room to finish; buffer-source voices live on the audio
+// thread so this does not touch main-thread FPS.
+const MAX_ACTIVE_VOICES = 64;
 const MAX_RELEASE_SECONDS = 18.00;
 const PIANO_MIN_RELEASE_TC = 0.22;
 const PIANO_MIN_RELEASE_DELAY = 0.65;
+// Shared so local playback and remote (RTDB) playback use identical values.
+const STRING_VEL_SCALE = 0.82;   // strings sit slightly under the piano
+const STRING_FADE_DEFAULT = 5.0; // matches sfEffectSettings.sf2 default + snapshot
+// When the cap forces us to reclaim a voice, fade it out smoothly instead of
+// slamming it in 14ms — the slam was the audible string cutoff.
+const VOICE_STEAL_TC = 0.05;
+const VOICE_STEAL_DELAY = 0.16;
+function _isStringVoice(v){ return v && (v.layer === 'string' || v.layer === 'remoteString'); }
 
 function cleanupVoiceRef(voice){
     if (!voice) return;
@@ -6677,18 +6689,25 @@ function enforceVoiceLimit() {
 
     const needKill = activeVoices.length - burstLimit;
     let killed = 0;
-    for (let pass = 0; pass < 2 && killed < needKill; pass++) {
+    // Victim priority, oldest-first within each tier:
+    //   pass 0: already-released voices (fading out anyway)
+    //   pass 1: still-held piano voices
+    //   pass 2: still-held string voices (protected last — these are the tails
+    //           whose abrupt removal was the audible cutoff)
+    for (let pass = 0; pass < 3 && killed < needKill; pass++) {
         let victimIndex = -1;
         let victimAge = Infinity;
         for (let i = 0; i < activeVoices.length; i++) {
             const v = activeVoices[i];
             if (!v || v.ended) continue;
             if (pass === 0 && !v.released) continue;
+            if (pass === 1 && (v.released || _isStringVoice(v))) continue;
+            if (pass === 2 && v.released) continue;
             const age = v.startedAt || 0;
             if (age < victimAge) { victimAge = age; victimIndex = i; }
         }
         if (victimIndex < 0) continue;
-        releaseVoice(activeVoices[victimIndex], 0.014, 0.055);
+        releaseVoice(activeVoices[victimIndex], VOICE_STEAL_TC, VOICE_STEAL_DELAY);
         activeVoices[victimIndex].ended = true;
         killed++;
         pass = -1;
@@ -6712,7 +6731,7 @@ function getReleaseProfile(isFastGliss=false, sustainPct=sustainLevel) {
 }
 function getStringFadeProfile(fadeSec, isFast=false) {
     if (isFast) return { tc: 0.014, delay: 0.055 };
-    const sec = Math.max(0.1, Math.min(10.0, Number(fadeSec) || 10.0));
+    const sec = Math.max(0.1, Math.min(10.0, Number(fadeSec) || STRING_FADE_DEFAULT));
     return { tc: Math.max(0.018, Math.min(1.15, sec / 5.2)), delay: sec };
 }
 
@@ -6734,7 +6753,7 @@ function playNote(midi, transposeVal, velocity) {
     if (hasLayerBuffers('piano')) playSfBuffer(soundMidi, vel, midi, 'piano');
     if (stringEnabled && isMidiInStringRange(midi) && hasLayerBuffers('string')) {
         fastReleaseActiveKey('str:' + midi);
-        playSfBuffer(soundMidi, vel * 0.82, 'str:' + midi, 'string');
+        playSfBuffer(soundMidi, vel * STRING_VEL_SCALE, 'str:' + midi, 'string');
     }
 }
 
@@ -12907,7 +12926,7 @@ midiBtn.onclick = (e) => {
             stringInstrumentKey:currentStringInstrumentKey(),
             stringInstrument:currentStringInstrumentName(),
             stringVolume:Math.max(0, Math.min(1, Number(stringVolume || 0))),
-            stringFade:Math.max(0.1, Math.min(10, Number(stringFx.fadeSec || 5))),
+            stringFade:Math.max(0.1, Math.min(10, Number(stringFx.fadeSec || STRING_FADE_DEFAULT))),
             stringRangeLeft:Number(stringRangeLeft || 21),
             stringRangeRight:Number(stringRangeRight || 108)
         };
@@ -14751,7 +14770,7 @@ midiBtn.onclick = (e) => {
         const voice = activeNotes.get(key);
         if(!voice) return;
         const profile = layer === 'string'
-            ? getStringFadeProfile(Number(event.stringFade || voice.fadeSec || 5), !!fast)
+            ? getStringFadeProfile(Number(event.stringFade || voice.fadeSec || STRING_FADE_DEFAULT), !!fast)
             : getReleaseProfile(!!fast, remoteSustainValue(playerId, event));
         releaseVoice(voice, profile.tc, profile.delay);
         activeNotes.delete(key);
@@ -14782,7 +14801,10 @@ midiBtn.onclick = (e) => {
         const now = audioCtx.currentTime;
         const mixerGain = getRemotePlaybackGain(player.id);
         if(mixerGain <= 0) return false;
-        const vel = Math.max(0.01, Math.min(1, Number(event.velocity) || 0.8));
+        let vel = Math.max(0.01, Math.min(1, Number(event.velocity) || 0.8));
+        // Match the local string attenuation so listeners hear the exact balance
+        // the player hears (local applies STRING_VEL_SCALE in playNote).
+        if(layer === 'string') vel *= STRING_VEL_SCALE;
         const eventVolume = layer === 'string'
             ? Math.max(0, Math.min(1, Number(event.stringVolume ?? 0.75)))
             : Math.max(0, Math.min(1, Number(event.pianoVolume ?? 1)));
@@ -14803,7 +14825,7 @@ midiBtn.onclick = (e) => {
             key,
             layer:layer === 'string' ? 'remoteString' : 'remote',
             sustain:layer === 'string' ? 0 : remoteSustainValue(player.id, event),
-            fadeSec:layer === 'string' ? Math.max(0.1, Math.min(10, Number(event.stringFade || 5))) : 0,
+            fadeSec:layer === 'string' ? Math.max(0.1, Math.min(10, Number(event.stringFade || STRING_FADE_DEFAULT))) : 0,
             masterGain:gainNode,
             oscillators:[],
             released:false,
@@ -14905,7 +14927,7 @@ midiBtn.onclick = (e) => {
             sk:snapshot.stringInstrumentKey,
             si:snapshot.stringInstrument,
             sl:Math.round(Math.max(0, Math.min(1, Number(snapshot.stringVolume || 0))) * 100) / 100,
-            sf:Math.round(Math.max(0.1, Math.min(10, Number(snapshot.stringFade || 5))) * 10) / 10,
+            sf:Math.round(Math.max(0.1, Math.min(10, Number(snapshot.stringFade || STRING_FADE_DEFAULT))) * 10) / 10,
             rl:Number(snapshot.stringRangeLeft || 21),
             rr:Number(snapshot.stringRangeRight || 108),
             pv:Math.round(Math.max(0, Math.min(1, Number(pianoVolume || 1))) * 100) / 100
@@ -14923,7 +14945,7 @@ midiBtn.onclick = (e) => {
             stringInstrumentKey:normalizeStringInstrumentKey(data.sk || fallback.stringInstrumentKey || fallback.stringInstrument || 'stringSf1'),
             stringInstrument:data.si || fallback.stringInstrument || stringInstrumentLabel(data.sk || fallback.stringInstrumentKey || 'stringSf1'),
             stringVolume:Math.max(0, Math.min(1, Number(data.sl ?? 0.75))),
-            stringFade:Math.max(0.1, Math.min(10, Number(data.sf || 5))),
+            stringFade:Math.max(0.1, Math.min(10, Number(data.sf || STRING_FADE_DEFAULT))),
             stringRangeLeft:Number(data.rl || 21),
             stringRangeRight:Number(data.rr || 108),
             pianoVolume:Math.max(0, Math.min(1, Number(data.pv ?? 1)))
