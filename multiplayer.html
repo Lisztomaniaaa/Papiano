@@ -85,7 +85,6 @@
     --btn-color: #2a2a35;
     --bg-stage: #000000;
     --saber-color: #ffffff;
-    --fixed-glow-mult: 1;
     --saber-thickness: 3px;
     --saber-aura-height: 20px;
     --saber-aura-blur: 5px;
@@ -100,7 +99,6 @@
     --key-glow-intensity: 0.88;
     --key-glow-opacity: 0.88;
     --key-glow-spread: 1.75;
-    --white-key-separator-width: clamp(0.35px, 0.055vw, 0.8px);
 }
 
 *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
@@ -372,17 +370,6 @@ html[data-graphic-quality="low"] #pianoWrap::before{ display:none !important; }
     flex-shrink: 0;
     contain: layout paint style;
 }
-.white::after {
-    content: '';
-    position: absolute;
-    right: 0; top: 0; bottom: 0;
-    width: var(--white-key-separator-width, 1px);
-    background: rgba(15,18,22,var(--white-key-separator-alpha,0.34));
-    box-shadow: -1px 0 0 rgba(255,255,255,var(--white-key-separator-highlight,0.06));
-    z-index: 2;
-    pointer-events: none;
-}
-#piano .white[data-last-white="1"]::after { display: none !important; }
 .white.active{ background: var(--accent-white) !important; }
 .key-label {
     position: absolute;
@@ -972,12 +959,6 @@ body,button,input,select,textarea{ font-family:'Plus Jakarta Sans','Nunito',sans
     background-image:linear-gradient(180deg,var(--piano-white-top) 0%,var(--piano-white-mid) 52%,var(--piano-white-bottom) 100%) !important;
     border-radius:0 0 2px 2px !important;
     box-shadow:inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(6,17,31,0.10) !important;
-}
-.white::after,
-#piano .white::after{
-    width:var(--white-key-separator-width, 1px) !important;
-    background:rgba(15,18,22,var(--white-key-separator-alpha,0.34)) !important;
-    box-shadow:-1px 0 0 rgba(255,255,255,var(--white-key-separator-highlight,0.06)) !important;
 }
 .white.active,
 #piano .white.active{
@@ -1808,12 +1789,6 @@ body.layout-changing #piano .black.active{
         background-color: #f8fafb !important;
         box-shadow: none !important;
     }
-    .white::after,
-    #piano .white::after{
-        width:var(--white-key-separator-width, 1px) !important;
-        background:rgba(15,18,22,var(--white-key-separator-alpha,0.36)) !important;
-        box-shadow:-1px 0 0 rgba(255,255,255,var(--white-key-separator-highlight,0.05)) !important;
-    }
     #piano .black:not(.active){
         background: #1a1a1a !important;
         background-image: none !important;
@@ -1926,29 +1901,6 @@ body.layout-changing #piano .black.active{
 }
 #piano .white.active .key-label{ opacity:1 !important; }
 #piano .black.active .black-label{ opacity:1 !important; }
-
-body.keys-bloom-on #piano .white.active{
-    contain: none !important;
-    z-index: 4 !important;
-}
-body.keys-bloom-on #piano .black.active{
-    contain: none !important;
-    z-index: 50 !important;
-}
-body.keys-bloom-on #piano .white.active,
-body.keys-bloom-on #piano > .white.active,
-body.keys-bloom-on.wide-key-mode #piano .white.active,
-body.keys-bloom-on.input-burst-mode #piano .white.active,
-body.keys-bloom-on.layout-changing #piano .white.active{
-    box-shadow:0 0 calc(20px * var(--fixed-glow-mult, 1)) 0 var(--accent-white), 0 0 calc(52px * var(--fixed-glow-mult, 1)) 0 var(--accent-white) !important;
-}
-body.keys-bloom-on #piano .black.active,
-body.keys-bloom-on #piano > .black.active,
-body.keys-bloom-on.wide-key-mode #piano .black.active,
-body.keys-bloom-on.input-burst-mode #piano .black.active,
-body.keys-bloom-on.layout-changing #piano .black.active{
-    box-shadow:0 0 calc(20px * var(--fixed-glow-mult, 1)) 0 var(--accent-black), 0 0 calc(50px * var(--fixed-glow-mult, 1)) 0 var(--accent-black) !important;
-}
 
 #piano .white.active,
 #piano > .white.active,
@@ -2109,83 +2061,26 @@ body.key-glow-on .active-key-white-bottom-glow{
         0 0 calc(22px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 60%, transparent),
         0 0 calc(38px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-outer) 40%, transparent);
 }
-body.keys-bloom-on .active-key-piece{
-    box-shadow:
-        0 0 calc(20px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 90%, transparent),
-        0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 66%, transparent);
-}
-body.keys-bloom-on .active-key-white-bottom-tapered{
-    box-shadow:none !important;
-    filter:
-        drop-shadow(0 0 calc(20px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 90%, transparent))
-        drop-shadow(0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 66%, transparent)) !important;
-}
-body.keys-bloom-on .active-key-white-bottom-glow{
-    opacity:1;
-    box-shadow:
-        0 0 calc(18px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 78%, transparent),
-        0 0 calc(44px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 52%, transparent);
-}
-body.key-glow-on.keys-bloom-on .active-key-piece{
-    box-shadow:
-        0 0 calc(12px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 95%, transparent),
-        0 0 calc(28px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 78%, transparent),
-        0 0 calc(20px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 90%, transparent),
-        0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 66%, transparent);
-}
-body.key-glow-on.keys-bloom-on .active-key-white-bottom-tapered{
-    box-shadow:none !important;
-    filter:
-        drop-shadow(0 0 calc(12px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 95%, transparent))
-        drop-shadow(0 0 calc(28px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 78%, transparent))
-        drop-shadow(0 0 calc(20px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 90%, transparent))
-        drop-shadow(0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 66%, transparent)) !important;
-}
-body.key-glow-on.keys-bloom-on .active-key-white-bottom-glow{
-    opacity:calc(0.9 * var(--key-glow-opacity, 0.5));
-    box-shadow:
-        0 0 calc(10px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 84%, transparent),
-        0 0 calc(22px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 62%, transparent),
-        0 0 calc(18px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-core) 72%, transparent),
-        0 0 calc(44px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-glow-outer) 48%, transparent);
-}
 body.key-glow-on .active-key-light{
     opacity:calc(0.72 * var(--key-glow-opacity, 0.5));
     box-shadow:
         0 -2px calc(14px * var(--key-glow-spread, 1)) var(--active-key-light-color, #ffffff),
         0 0 calc(28px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 76%, transparent);
 }
-body.keys-bloom-on .active-key-light{
-    opacity:.66;
-    filter:blur(calc(7px + 10px * var(--fixed-glow-mult, 1)));
-    box-shadow:
-        0 -3px calc(18px * var(--fixed-glow-mult, 1)) var(--active-key-light-color, #ffffff),
-        0 0 calc(44px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 78%, transparent);
-}
-body.key-glow-on.keys-bloom-on .active-key-light{
-    opacity:calc(0.78 * var(--key-glow-opacity, 0.5));
-    filter:blur(calc(14px * var(--key-glow-spread, 1)));
-    box-shadow:
-        0 -3px calc(18px * var(--key-glow-spread, 1)) var(--active-key-light-color, #ffffff),
-        0 0 calc(42px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 78%, transparent),
-        0 0 calc(52px * var(--fixed-glow-mult, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 72%, transparent);
-}
-
-
-body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-light{
+body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-light{
     filter:none !important;
     opacity:calc(0.82 * var(--key-glow-opacity, 0.5)) !important;
     box-shadow:
         0 0 calc(14px * var(--key-glow-spread, 1)) var(--active-key-light-color, #ffffff),
         0 0 calc(28px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-light-color, #ffffff) 70%, transparent) !important;
 }
-body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKeyLayer :is(.active-key-piece, .active-key-white-bottom-tapered){
+body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer :is(.active-key-piece, .active-key-white-bottom-tapered){
     filter:none !important;
     box-shadow:
         0 0 calc(15px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 88%, transparent),
         0 0 calc(30px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-mid) 64%, transparent) !important;
 }
-body:is(.key-glow-on, .keys-bloom-on):is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-white-bottom-glow{
+body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-white-bottom-glow{
     opacity:calc(0.92 * var(--key-glow-opacity, 0.5)) !important;
     box-shadow:
         0 0 calc(13px * var(--key-glow-spread, 1)) color-mix(in srgb, var(--active-key-glow-core) 78%, transparent),
@@ -4895,9 +4790,6 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 }
 
 
-#piano .white::after{
-    display:none !important;
-}
 #pianoSeparatorLayer{
     position:absolute;
     left:0;
@@ -6252,7 +6144,6 @@ async function preparePianoEntryRuntime(){
             getSmokeSprite(color, 'dot');
             getSmokeSprite(color, 'smoke');
         }
-        if(typeof refreshFrameFx === 'function') refreshFrameFx();
         if(typeof ctx2d !== 'undefined' && ctx2d){
             ctx2d.save();
             ctx2d.globalAlpha = 0;
@@ -6273,7 +6164,6 @@ function clearPianoEntryVisualState(){
         if(typeof pointerNoteMap !== 'undefined' && pointerNoteMap) pointerNoteMap.clear();
         if(typeof qwertyHeldByCode !== 'undefined' && qwertyHeldByCode) qwertyHeldByCode.clear();
         if(typeof midiPedalHeldNotes !== 'undefined' && midiPedalHeldNotes) midiPedalHeldNotes.clear();
-        if(typeof pendingActiveAdds !== 'undefined' && pendingActiveAdds) pendingActiveAdds.clear();
         if(typeof pendingActiveRemoves !== 'undefined' && pendingActiveRemoves) pendingActiveRemoves.clear();
         if(typeof _keyColorMap !== 'undefined' && _keyColorMap) _keyColorMap.clear();
         document.querySelectorAll('#piano .active').forEach(el => {
@@ -7074,8 +6964,7 @@ function _applyPerfGovScale(now){
     if(document.body) document.body.classList.toggle('perf-lite', perfGovScale < 0.78);
     try { if(typeof markStageGeomDirty === 'function') markStageGeomDirty(); syncCanvasSize(true); } catch(e){}
 }
-let transpose=0, falling=[], isAnimOn=true, isSus=true, animStyle='default', animShape='rounded', animSize=18, animRoundness=100, noteOpacity=100, noteSpeed=75, visualTheme='default', wCount=52, lastFrameTime=0, viewOffset=0, whiteKeyWidth=0;
-let glossMix=35, colorBlend=25, edgeGlow=40, hitLineGlow=55, bloomSoftness=20, motionSmoothness=70, noteGlow=45, noteGloss=35, noteColorFlow=25, hitLinePulse=0;
+let transpose=0, falling=[], isAnimOn=true, isSus=true, animStyle='default', animShape='rounded', animSize=18, animRoundness=100, noteOpacity=100, noteSpeed=75, wCount=52, lastFrameTime=0, viewOffset=0, whiteKeyWidth=0;
 const RISE_SPEED=200, MAX_NOTE_HEIGHT=400;
 function getAnimRiseSpeed(){
     const speed = sliderRatio(noteSpeed, 100);
@@ -7216,17 +7105,12 @@ function updateKeyLabelStyle(labelEl, mode, blackKey) {
 }
 
 let labelMode = 'off';
-let pianoScalePercent = 100;
 let blackKeyWidthPercent = 120;
 let blackKeyHeightPercent = 60;
 let pianoVisibilityPercent = 100;
 
-function getPianoVisualScaleRatio(){
-    return 1;
-}
 function getEffectiveVisibleWhiteCount(){
-    const visibleWhiteCount = Math.max(1, Math.min(ALL_WHITE.length, Math.round(Number(wCount) || 52)));
-    return Math.max(1, Math.min(ALL_WHITE.length, visibleWhiteCount / getPianoVisualScaleRatio()));
+    return Math.max(1, Math.min(ALL_WHITE.length, Math.round(Number(wCount) || 52)));
 }
 function getSwipeMaxOffset(){
     return Math.max(0, ALL_WHITE.length - getEffectiveVisibleWhiteCount());
@@ -7243,7 +7127,9 @@ function getBlackKeyWidthRatio(){
 function formatLayoutPx(value){
     const n = Number(value);
     if(!Number.isFinite(n)) return '0px';
-    const v = Math.abs(n) < 0.0005 ? 0 : Math.round(n * 1000) / 1000;
+    // 1e5 precision keeps device-pixel-snapped values (multiples of 1/3, 1/1.5 ...)
+    // intact; coarser rounding would knock them off the device-pixel grid.
+    const v = Math.abs(n) < 0.000005 ? 0 : Math.round(n * 100000) / 100000;
     return v + 'px';
 }
 function getLayoutDpr(){
@@ -7257,26 +7143,6 @@ function snapLayoutValue(value){
     if(!Number.isFinite(n)) return 0;
     const dpr = getLayoutDpr();
     return Math.round(n * dpr) / dpr;
-}
-function syncKeyVisualScale(){
-    const root = document.documentElement;
-    const width = Math.max(1, whiteKeyWidth || 1);
-    let separatorWidth = 1;
-    let separatorAlpha = 0.31;
-    let separatorHighlight = 0.06;
-    if(width < 15){
-        separatorWidth = 0.75;
-        separatorAlpha = 0.36;
-        separatorHighlight = 0.04;
-    } else if(width < 24){
-        separatorWidth = 0.9;
-        separatorAlpha = 0.34;
-        separatorHighlight = 0.05;
-    }
-    root.style.setProperty('--white-key-width', formatLayoutPx(width));
-    root.style.setProperty('--white-key-separator-width', formatLayoutPx(separatorWidth));
-    root.style.setProperty('--white-key-separator-alpha', separatorAlpha.toFixed(2));
-    root.style.setProperty('--white-key-separator-highlight', separatorHighlight.toFixed(2));
 }
 function getBlackKeyBaseRatio(){
     const width = Math.max(1, whiteKeyWidth || 1);
@@ -7311,7 +7177,6 @@ function syncWhiteKeyGeometry(viewportWidth){
     for(let i=0; i<total; i++){
         whiteKeyWidths[i] = Math.max(getDevicePixelCssSize(), whiteKeyEdges[i + 1] - whiteKeyEdges[i]);
     }
-    syncKeyVisualScale();
 }
 function getWhiteKeyLeftPx(whiteIndex){
     const idx = Math.max(0, Math.min(ALL_WHITE.length, Math.round(Number(whiteIndex) || 0)));
@@ -7347,7 +7212,7 @@ function getBlackKeyCenterPx(whiteIndex){
     return getWhiteKeyLeftPx((Math.round(Number(whiteIndex) || 0)) + 1);
 }
 function getBlackKeyLeftPx(whiteIndex){
-    return getBlackKeyCenterPx(whiteIndex) - (getBlackKeyWidthPx() / 2);
+    return snapLayoutValue(getBlackKeyCenterPx(whiteIndex) - (getBlackKeyWidthPx() / 2));
 }
 function getBlackKeyBoundsForWhiteIndex(whiteIndex){
     if(whiteIndex < 0 || whiteIndex >= ALL_WHITE.length - 1) return null;
@@ -7369,7 +7234,10 @@ function renderPianoSeparators(){
     for(let i=1; i<ALL_WHITE.length; i++){
         const line = document.createElement('i');
         line.className = 'piano-separator';
-        line.style.left = formatLayoutPx(snapLayoutValue(getWhiteKeyLeftPx(i) - lineWidth / 2));
+        // Edges are device-pixel-snapped, so edge minus one device pixel stays on
+        // the grid; centering on the boundary instead would tie-break between two
+        // device pixels and rasterize inconsistently across boundaries.
+        line.style.left = formatLayoutPx(getWhiteKeyLeftPx(i) - lineWidth);
         line.style.width = formatLayoutPx(lineWidth);
         frag.appendChild(line);
     }
@@ -7387,7 +7255,6 @@ function setBlackKeyWidthPercent(value){
     updateKeyLayout();
 }
 function setPianoScalePercent(){
-    pianoScalePercent = 100;
     clampOffset();
     updateKeyLayout();
     if(typeof updateKeyHitCache === 'function') updateKeyHitCache();
@@ -7526,14 +7393,11 @@ function buildDOM() {
     blackKeyEls = [];
     noteElementMap.clear();
 
-    const whiteFS = Math.max(7, Math.min(whiteKeyWidth*0.28, 18));
-    const blackFS = Math.max(5, Math.min(getBlackKeyWidthPx() * 0.30, 13));
     const totalWhiteWidth = getPianoTotalWidthPx();
     const bw = getBlackKeyWidthPx();
 
     ALL_WHITE.forEach((n,i) => {
         const k = document.createElement('div'); k.className='white note-tone-' + (n % 12); k.dataset.note=n;
-        if(i === ALL_WHITE.length - 1) k.dataset.lastWhite = '1';
         const wPx = getWhiteKeyWidthPx(i);
         k.style.cssText = `left:${formatLayoutPx(getWhiteKeyLeftPx(i))};width:${formatLayoutPx(wPx)};`;
         const lbl = document.createElement('div'); lbl.className='key-label';
@@ -7576,7 +7440,6 @@ function buildDOM() {
     pianoEl.style.left = '0px';
     pianoEl.innerHTML = '';
     pianoEl.appendChild(frag);
-    renderPianoSeparators();
     refreshActiveKeyLayerGeometry();
 
     refreshKeyPresetUI();
@@ -7597,8 +7460,6 @@ function updateKeyLayout() {
 
         syncWhiteKeyGeometry(vpW);
         clampOffset();
-        const whiteFS = Math.max(7, Math.min(whiteKeyWidth*0.28, 18));
-        const blackFS = Math.max(5, Math.min(getBlackKeyWidthPx() * 0.30, 13));
         const totalWhiteWidth = getPianoTotalWidthPx();
         const bw = getBlackKeyWidthPx();
 
@@ -7792,9 +7653,9 @@ const GRAPHIC_PROFILES = {
     high: { dust:1, dustMax:180, fallingMax:900, chordDebounce:56, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
-    low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, noteGlow:0, noteGloss:0, noteColorFlow:10, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
-    medium: { dust:true, particleCount:45, particleSize:52, particleOpacity:74, particleSpeed:26, particleTurbulence:24, particleSaturation:88, particleFade:52, noteGlow:18, noteGloss:14, noteColorFlow:18, saberAuraSize:44, saberBrightness:64, saberOpacity:100, saberSaturation:100 },
-    high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, noteGlow:45, noteGloss:35, noteColorFlow:25, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 }
+    low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
+    medium: { dust:true, particleCount:45, particleSize:52, particleOpacity:74, particleSpeed:26, particleTurbulence:24, particleSaturation:88, particleFade:52, saberAuraSize:44, saberBrightness:64, saberOpacity:100, saberSaturation:100 },
+    high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 }
 };
 const REMOTE_VISUAL_PROFILES = {
     low: { level:'light' },
@@ -7812,9 +7673,6 @@ function remoteFallingOwnerId(playerId){ return `remote:${playerId || 'unknown'}
 function getGraphicProfile(){ const q=getEffectiveGraphicQuality(); return GRAPHIC_PROFILES[q] || GRAPHIC_PROFILES.high; }
 function isLowGraphic(){ return getEffectiveGraphicQuality() === 'low'; }
 function isWideKeyMode(){ return wCount > 12; }
-function isExtremeRenderBurst(){
-    return isWideKeyMode() && (frameBurstLevel > 10 || falling.length > 180);
-}
 function refreshWideKeyModeClass(){
     document.body.classList.toggle('wide-key-mode', isWideKeyMode());
 }
@@ -7957,7 +7815,6 @@ function requestChordUpdate(){
     if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function') window.PapianoMultiplayer._detectChords();
 }
 
-const pendingActiveAdds = new Set();
 const pendingActiveRemoves = new Set();
 const keyVisualDesired = new WeakMap();
 let keyVisualRaf = null;
@@ -8013,7 +7870,6 @@ function scheduleKeyVisual(el, active){
     if(active){
         // Apply press immediately — no rAF delay for key-down
         pendingActiveRemoves.delete(el);
-        pendingActiveAdds.delete(el);
         if(!el.classList.contains('active')) el.classList.add('active');
         const m = Number(el.dataset.note);
         const color = Number.isFinite(m) ? _resolveKeyColor(m) : '';
@@ -8021,7 +7877,7 @@ function scheduleKeyVisual(el, active){
         setActiveKeyOverlay(el, true, color);
         return;
     }
-    pendingActiveAdds.delete(el); pendingActiveRemoves.add(el);
+    pendingActiveRemoves.add(el);
     if(keyVisualRaf) return;
     keyVisualRaf = requestAnimationFrame(() => {
         keyVisualRaf = null;
@@ -8218,10 +8074,8 @@ function updateDrawNeonDust(dt, now){
     const maxVX = 0.006 + 0.052 * turbEase;
     ctx2d.save();
     ctx2d.globalCompositeOperation = dustBlendMode === 'glow' ? 'lighter' : 'source-over';
-    const _pI = window.LightEngine ? window.LightEngine.intensityFor('particle') : 0;
-    const _pE = window.LightEngine ? window.LightEngine.energy(0.0, _pI) : 0;
-    const _pbAlpha = 1.08 + _pE * 1.02;
-    const _pbSize  = 1.02 + _pE * 0.56;
+    const _pbAlpha = 1.08;
+    const _pbSize  = 1.02;
     let alive = 0;
     for(let i=0;i<neonDustCount;i++){
         neonDustAge[i] += dt * 1000;
@@ -8291,7 +8145,6 @@ function addFallingNote(n, options = {}){
             }
         }
     }
-    const now = performance.now();
     const remote = !!options.remote;
     const remoteLevel = options.remoteLevel === 'full' ? 'full' : 'light';
     ensureStageCanvasFresh();
@@ -8322,7 +8175,7 @@ function addFallingNote(n, options = {}){
     const opacity = remote ? Math.min(noteOpacity, remoteLevel === 'light' ? 88 : 96) : noteOpacity;
     const base = colorOverride || getAnimBaseColorForMidi(n);
 
-    const f = {midi:n, bottomY:bottomY, y:bottomY-6, height:6, style, styleResolved, shape:animShape, roundness:animRoundness, opacity, base, colorOverride, rainbowHue:noteHue, glossSeed:((rainbowV2Seq * 0.173) + (n * 0.071) + (now * 0.00031)) % 1, born:now, growing:true, ownerId:options.ownerId || null, remote};
+    const f = {midi:n, bottomY:bottomY, y:bottomY-6, height:6, style, styleResolved, shape:animShape, roundness:animRoundness, opacity, base, colorOverride, rainbowHue:noteHue, growing:true, ownerId:options.ownerId || null, remote};
 
     falling.push(f);
     registerFallingNote(f);
@@ -8338,7 +8191,6 @@ function addRemoteAnim(n, playerId, level, color){
 function hexToRgb(hex){ hex=hex.trim().replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join(''); const n=parseInt(hex,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
 let animFrameId = null;
 let _lastAnimTs = -1;
-let frameBurstLevel = 0;
 function ensureAnimLoop(){
     if(!animFrameId){
         lastFrameTime=0;
@@ -8365,19 +8217,6 @@ function _colorBucket(rgb){
 function _isNearWhiteRgb(rgb){
     return !!rgb && rgb[0] >= 235 && rgb[1] >= 235 && rgb[2] >= 235;
 }
-function getNoteFxLevels(){
-    return {
-        gloss: sliderCurve(glossMix, 1.08),
-        blend: sliderCurve(colorBlend, 1.08),
-        edge: sliderCurve(edgeGlow, 1.06),
-        hit: 0,
-        bloom: 0,
-        smooth: sliderRatio(motionSmoothness, 70)
-    };
-}
-
-let _frameFx = null;
-function refreshFrameFx(){ _frameFx = getNoteFxLevels(); }
 function _spriteRoundPath(sctx, w, h, r){
     r = Math.max(0, Math.min(r || 0, w * 0.5, h * 0.5));
     sctx.beginPath();
@@ -8504,7 +8343,6 @@ function drawFallingNote(f){
     if(y > canvasCssH || y + h < 0) return;
     if(x0 > canvasCssW || x0 + w < 0) return;
 
-    const extremeRenderBurst = isExtremeRenderBurst();
     const isRounded = shape === 'rounded' && roundPct > 0;
     const rv = isRounded ? Math.min(8, w*0.45, h*0.35) * (roundPct / 100) : 0;
     const drawStyleRaw = f.styleResolved || f.style;
@@ -8552,68 +8390,6 @@ function safeHex(hex, fallback){
 }
 function _clampRgb(v){ v = Number(v) || 0; return v < 0 ? 0 : v > 255 ? 255 : (v + 0.5) | 0; }
 
-const LightEngine = (function(){
-    const state = {
-        master: 0.0,
-        manual: {
-            notes:    1.0,
-            particle: 1.0,
-            keys:     1.0
-        }
-    };
-
-    function fExp(d){ return Math.exp(-d * 4.0); }
-    function fInvSq(d){ const e = d * 3.0 + 1.0; return 1.0 / (e * e); }
-    function fGauss(d){ return Math.exp(-(d * d) * 6.0); }
-
-    const W_CORE = 0.55, W_COLOR = 0.30, W_AMBIENT = 0.15;
-
-    function energy(d, intensity){
-        if(d < 0) d = 0; else if(d > 1) d = 1;
-        const e = fExp(d) * W_CORE + fInvSq(d) * W_COLOR + fGauss(d) * W_AMBIENT;
-        return intensity * e;
-    }
-
-    function colorAt(d, intensity, baseRgb){
-        const e = Math.min(1, energy(d, intensity));
-        const t = 1 - e;
-        return [
-            255 * e + baseRgb[0] * t,
-            255 * e + baseRgb[1] * t,
-            255 * e + baseRgb[2] * t
-        ];
-    }
-
-    function intensityFor(element){
-        const m = state.manual[element];
-        return state.master * (typeof m === 'number' ? m : 1.0);
-    }
-
-    const listeners = new Set();
-
-    function notify(){ listeners.forEach(fn => { try { fn(state); } catch(_){} }); }
-    function subscribe(fn){ if(typeof fn === 'function'){ listeners.add(fn); } return () => listeners.delete(fn); }
-    function resetManual(){
-        for(const el in state.manual) state.manual[el] = 1.0;
-        notify();
-    }
-
-    return {
-        _state: state,
-        energy, colorAt, intensityFor,
-        subscribe, resetManual,
-        get master(){ return state.master; },
-        set master(v){ state.master = Math.max(0, Math.min(1, v)); notify(); },
-        setManual(el, v){ if(el in state.manual){ state.manual[el] = Math.max(0, Math.min(2, v)); notify(); } },
-        getManual(el){ return state.manual[el] ?? 1.0; }
-    };
-})();
-window.LightEngine = LightEngine;
-LightEngine.master = 0;
-
-
-
-
 function anim(now){
 
     if(_lastAnimTs >= 0 && (now - _lastAnimTs) >= 0 && (now - _lastAnimTs) < 6 && animFrameId){
@@ -8638,7 +8414,6 @@ function anim(now){
     if(currentDPR !== 1) ctx2d.setTransform(currentDPR, 0, 0, currentDPR, 0, 0);
 
     let hasLive = false;
-    frameBurstLevel = getBurstLevel();
     const riseSpeed = getAnimRiseSpeed() * dt;
     for(let i=0;i<falling.length;i++){
         const f=falling[i];
@@ -8911,7 +8686,7 @@ if(keyPanelHRange){
 document.getElementById('blackKeyWidthRange')?.addEventListener('input', e => setBlackKeyWidthPercent(e.target.value));
 document.getElementById('blackKeyHeightRange')?.addEventListener('input', e => setBlackKeyHeightPercent(e.target.value));
 document.getElementById('pianoVisibilityRange')?.addEventListener('input', e => setPianoVisibilityPercent(e.target.value));
-setPianoScalePercent(pianoScalePercent);
+setPianoScalePercent();
 setBlackKeyWidthPercent(blackKeyWidthPercent);
 setBlackKeyHeightPercent(blackKeyHeightPercent);
 setPianoVisibilityPercent(pianoVisibilityPercent);
@@ -9406,9 +9181,6 @@ function applyFactoryDefaults(clearSavedState){
     setAnimRoundness(100);
     setNoteOpacity(100);
     setNoteSpeed(75);
-    setNoteGlowValue(45);
-    setNoteGlossValue(35);
-    setNoteColorFlowValue(25);
     setAnimShape('rounded');
     setWhiteKeyColor(NO_COLOR);
     setBlackKeyColor(NO_COLOR);
@@ -9429,8 +9201,6 @@ function applyFactoryDefaults(clearSavedState){
     updateSoundfontPickerUI();
     updateSfEffectUI();
     applyCurrentSfEffects();
-    if(typeof setVisualTheme === 'function') setVisualTheme('default');
-    else visualTheme = 'default';
     setLabelMode('off');
     setChordDisplayColors(DEFAULT_CHORD_COLORS);
     if(typeof window.applyGraphicQuality === 'function') window.applyGraphicQuality('auto', true);
@@ -9726,7 +9496,6 @@ function getCurrentSettings() {
         animDoubleLeftColor,
         animDoubleRightColor,
         animDoubleSplitTuts,
-        visualTheme,
         currentSf,
         perfHudEnabled,
         performanceMode,
@@ -9737,9 +9506,6 @@ function getCurrentSettings() {
         bgDim: Number(document.getElementById('bgDimRange')?.value ?? 0),
         bgBlur: Number(document.getElementById('bgBlurRange')?.value ?? 0),
         chordDisplayColors: typeof chordDisplayColors !== 'undefined' ? chordDisplayColors : null,
-        noteGlow,
-        noteGloss,
-        noteColorFlow,
         keyGlowEnabled,
         keyGlowIntensity,
     };
@@ -9822,9 +9588,6 @@ function applySettings(s) {
         if (s.animRoundness !== undefined) setAnimRoundness(s.animRoundness); else setAnimRoundness(animRoundness);
         if (s.noteOpacity !== undefined) setNoteOpacity(s.noteOpacity); else setNoteOpacity(noteOpacity);
         if (s.noteSpeed !== undefined) setNoteSpeed(s.noteSpeed); else setNoteSpeed(noteSpeed);
-        if (s.noteGlow !== undefined) setNoteGlowValue(s.noteGlow); else if (s.edgeGlow !== undefined) setNoteGlowValue(s.edgeGlow); else setNoteGlowValue(noteGlow);
-        if (s.noteGloss !== undefined) setNoteGlossValue(s.noteGloss); else if (s.glossMix !== undefined) setNoteGlossValue(s.glossMix); else setNoteGlossValue(noteGloss);
-        if (s.noteColorFlow !== undefined) setNoteColorFlowValue(s.noteColorFlow); else if (s.colorBlend !== undefined) setNoteColorFlowValue(s.colorBlend); else setNoteColorFlowValue(noteColorFlow);
         if (s.keyDustIntensity !== undefined) setKeyDustIntensity(s.keyDustIntensity); else setKeyDustIntensity(keyDustIntensity);
         if (s.saberColor !== undefined) setSaberColor(s.saberColor); else setSaberColor(saberColor);
         if (s.dustColor !== undefined) setDustColor(s.dustColor); else setDustColor(dustColor);
@@ -9848,13 +9611,6 @@ function applySettings(s) {
         setSaberMotion('static');
         syncSaberFxButtons();
         currentGlassColor = normalizeHexColor(s.currentGlassColor) || '#ffffff';
-        if (s.visualTheme !== undefined) {
-            if (typeof setVisualTheme === 'function') {
-                setVisualTheme(s.visualTheme);
-            } else {
-                visualTheme = s.visualTheme;
-            }
-        }
         const savedPianoHeight = Number(s.pianoHeight);
         if (Number.isFinite(savedPianoHeight) && savedPianoHeight > 5) { applyPianoHeight(savedPianoHeight); } else { applyPianoHeight(getDefaultPianoHeightPercent()); }
         setPianoScalePercent();
@@ -10513,61 +10269,6 @@ document.querySelectorAll('.settings-anim-style').forEach(btn => {
     btn.onclick = () => setAnimModeById(btn.dataset.styleTarget);
 });
 
-function setNoteFxSetting(name, value){
-    const v = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
-    const map = {
-        glossMix: ['glossMixRange','glossMixVal'],
-        colorBlend: ['colorBlendRange','colorBlendVal'],
-        edgeGlow: ['edgeGlowRange','edgeGlowVal'],
-        hitLineGlow: ['hitLineGlowRange','hitLineGlowVal'],
-        bloomSoftness: ['bloomSoftnessRange','bloomSoftnessVal'],
-        motionSmoothness: ['motionSmoothnessRange','motionSmoothnessVal']
-    };
-    if(!map[name]) return;
-    if(name === 'glossMix') glossMix = v;
-    else if(name === 'colorBlend') colorBlend = v;
-    else if(name === 'edgeGlow') edgeGlow = v;
-    else if(name === 'hitLineGlow') hitLineGlow = v;
-    else if(name === 'bloomSoftness') bloomSoftness = v;
-    else if(name === 'motionSmoothness') motionSmoothness = v;
-    const range = document.getElementById(map[name][0]);
-    const label = document.getElementById(map[name][1]);
-    if(range) range.value = v;
-    if(label) label.textContent = v + '%';
-    if(name === 'edgeGlow' || name === 'hitLineGlow') clearEffectSpriteCache();
-    if(typeof ensureAnimLoop === 'function') ensureAnimLoop();
-}
-function setNoteGlowValue(v){
-    const value = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
-    noteGlow = value;
-    edgeGlow = value;
-    const range = document.getElementById('noteGlowRange');
-    const label = document.getElementById('noteGlowVal');
-    if(range) range.value = value;
-    if(label) label.textContent = value + '%';
-    clearEffectSpriteCache();
-    if(typeof ensureAnimLoop === 'function') ensureAnimLoop();
-}
-function setNoteGlossValue(v){
-    const value = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
-    noteGloss = value;
-    setNoteFxSetting('glossMix', value);
-    const range = document.getElementById('noteGlossRange');
-    const label = document.getElementById('noteGlossVal');
-    if(range) range.value = value;
-    if(label) label.textContent = value + '%';
-}
-function setNoteColorFlowValue(v){
-    const value = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
-    noteColorFlow = value;
-    setNoteFxSetting('colorBlend', value);
-    const range = document.getElementById('noteColorFlowRange');
-    const label = document.getElementById('noteColorFlowVal');
-    if(range) range.value = value;
-    if(label) label.textContent = value + '%';
-}
-document.getElementById('noteGlowRange')?.addEventListener('input', e => setNoteGlowValue(e.target.value));
-setNoteGlowValue(noteGlow);
 const customBgLayer=document.getElementById('customBgLayer');
 const customBgDimLayer=document.getElementById('customBgDimLayer');
 const bgImgInput=document.getElementById('bgImgInput');
@@ -10764,7 +10465,6 @@ const strip = document.getElementById('swipeStrip');
 
 let swipeActive = false;
 let swipeStartX = 0;
-let swipeCurX = 0;
 let swipeVelocity = 0;
 let swipePrevX = 0;
 let swipePrevTime = 0;
@@ -10873,7 +10573,6 @@ strip.addEventListener('pointerdown', e => {
     strip.setPointerCapture(e.pointerId);
     swipeActive = true;
     swipeStartX = e.clientX;
-    swipeCurX = e.clientX;
     swipePrevX = e.clientX;
     swipePrevTime = performance.now();
     swipeVelocity = 0;
@@ -10895,11 +10594,8 @@ strip.addEventListener('pointermove', e => {
     if (dt > 0) swipeVelocity = dx * (16 / dt);
     swipePrevX = e.clientX;
     swipePrevTime = now;
-    swipeCurX = e.clientX;
 
     const totalDrag = e.clientX - swipeStartX;
-    swipeVisualOffset = totalDrag;
-
     swipeVisualOffset = swipeClampVisual(totalDrag);
 
     swipeSetTransform(swipeGetBase() - swipeVisualOffset);
@@ -11392,9 +11088,6 @@ midiBtn.onclick = (e) => {
         setParticleSetting('turbulence', cfg.particleTurbulence);
         setParticleSetting('saturation', cfg.particleSaturation);
         setParticleSetting('fade', cfg.particleFade);
-        setNoteGlowValue(cfg.noteGlow);
-        setNoteGlossValue(cfg.noteGloss);
-        setNoteColorFlowValue(cfg.noteColorFlow);
         setSaberAuraSize(cfg.saberAuraSize);
         setSaberVisualSetting('brightness', cfg.saberBrightness);
         setSaberVisualSetting('opacity', cfg.saberOpacity);
@@ -11829,38 +11522,6 @@ midiBtn.onclick = (e) => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia || typeof MediaRecorder === 'undefined'){
         recBtn.style.display = 'none';
     }
-})();
-
-(function initGlowSettings(){
-    function bindSlider(rangeId, valId, getVal, onInput){
-        const range = document.getElementById(rangeId);
-        const val = document.getElementById(valId);
-        if (!range || !val) return;
-        range.value = getVal();
-        val.textContent = getVal() + '%';
-        range.addEventListener('input', () => {
-            const v = Number(range.value)|0;
-            val.textContent = v + '%';
-            onInput(v);
-        });
-    }
-
-    function applyKeysGlowFromEngine(){
-        if(!window.LightEngine) return;
-        const I = window.LightEngine.intensityFor('keys');
-        const e = window.LightEngine.energy(0.0, I);
-        const mult = e * 3.0;
-        document.documentElement.style.setProperty('--fixed-glow-mult', mult.toFixed(3));
-        document.body.classList.toggle('keys-bloom-on', I > 0.001);
-    }
-    if(window.LightEngine && window.LightEngine.subscribe){
-        window.LightEngine.subscribe(applyKeysGlowFromEngine);
-    }
-    applyKeysGlowFromEngine();
-
-    bindSlider('fixedGlowIntensityRange', 'fixedGlowIntensityVal',
-        () => Math.round((window.LightEngine ? window.LightEngine.master : 0) * 100),
-        v => { if(window.LightEngine) window.LightEngine.master = v / 100; });
 })();
 
 (function initPapianoOnline(){
