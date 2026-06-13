@@ -210,22 +210,22 @@ canvas{
     height:var(--saber-aura-height, 34px);
     pointer-events:none;
     z-index:-1;
-    /* Soft, non-repeating haze (no more repeating "wave cells" / ombak). Three
-       overlapping soft blobs read as a billowing smoke base; the rising texture
-       itself comes from the canvas particles on top. */
+    /* Flowing horizontal waves (ombak): two repeating soft "crest" bands of
+       different widths scroll sideways in opposite directions, so the humps
+       travel and cross like abstract waves rather than a rigid block sliding.
+       A static base glow underneath. Kept thin/low-opacity so it's subtle. */
     background:
-        radial-gradient(ellipse 64% 124% at 42% 100%, var(--saber-smoke-a, rgba(0,229,255,0.24)) 0%, transparent 70%),
-        radial-gradient(ellipse 58% 110% at 62% 100%, var(--saber-smoke-b, rgba(0,229,255,0.16)) 0%, transparent 72%),
-        radial-gradient(ellipse 130% 96% at 50% 100%, var(--saber-smoke-b, rgba(0,229,255,0.13)) 0%, transparent 80%),
-        linear-gradient(to top, var(--saber-shadow-a, rgba(0,229,255,0.18)) 0%, var(--saber-shadow-b, rgba(0,229,255,0.08)) 40%, transparent 88%);
-    background-repeat:no-repeat;
-    background-size:100% 100%;
+        radial-gradient(ellipse 22% 150% at 50% 118%, var(--saber-smoke-a, rgba(0,229,255,0.24)) 0%, transparent 60%),
+        radial-gradient(ellipse 17% 135% at 50% 124%, var(--saber-smoke-b, rgba(0,229,255,0.16)) 0%, transparent 58%),
+        linear-gradient(to top, var(--saber-shadow-a, rgba(0,229,255,0.16)) 0%, var(--saber-shadow-b, rgba(0,229,255,0.07)) 40%, transparent 88%);
+    background-repeat:repeat-x, repeat-x, no-repeat;
+    background-size:190px 100%, 300px 100%, 100% 100%;
+    background-position:0 100%, 0 100%, 50% 100%;
     -webkit-mask-image:linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 42%, rgba(0,0,0,.28) 78%, transparent 100%);
     mask-image:linear-gradient(to top, rgba(0,0,0,1) 0%, rgba(0,0,0,.86) 42%, rgba(0,0,0,.28) 78%, transparent 100%);
     filter:blur(var(--saber-aura-blur, 8px));
     opacity:.5;
-    transform-origin:50% 100%;
-    animation:saberDriftH var(--saber-smoke-motion, 2.8s) ease-in-out infinite;
+    animation:saberWaveFlow var(--saber-smoke-motion, 2.8s) linear infinite;
 }
 body.saber-motion-off #saberLine::before,
 body.saber-motion-off #saberLine::after{ animation:none !important; }
@@ -239,18 +239,17 @@ body.saber-motion-off #saberLine::after{ animation:none !important; }
     pointer-events:none;
     z-index:-1;
     background:
-        radial-gradient(ellipse 70% 110% at 56% 100%, var(--saber-shadow-a, rgba(0,229,255,0.18)) 0%, transparent 72%),
-        radial-gradient(ellipse 120% 96% at 46% 100%, var(--saber-shadow-b, rgba(0,229,255,0.10)) 0%, transparent 74%);
-    background-repeat:no-repeat;
-    background-size:100% 100%;
+        radial-gradient(ellipse 26% 130% at 50% 120%, var(--saber-shadow-a, rgba(0,229,255,0.16)) 0%, transparent 60%),
+        linear-gradient(to top, var(--saber-shadow-b, rgba(0,229,255,0.08)) 0%, transparent 80%);
+    background-repeat:repeat-x, no-repeat;
+    background-size:240px 100%, 100% 100%;
+    background-position:0 100%, 50% 100%;
     -webkit-mask-image:linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.45) 58%, transparent 100%);
     mask-image:linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.45) 58%, transparent 100%);
     filter:blur(var(--saber-shadow-blur, 8px));
     opacity:.4;
-    transform-origin:50% 100%;
-    /* Drifts opposite the top layer so the two cross like abstract waves. */
-    animation:saberDriftHB var(--saber-smoke-motion, 2.8s) ease-in-out infinite;
-    animation-delay:calc(var(--saber-smoke-motion, 2.8s) * -0.4);
+    /* Scrolls opposite the top crests for an abstract, layered wave. */
+    animation:saberWaveFlowB var(--saber-smoke-motion, 2.8s) linear infinite;
 }
 body.saber-off #saberLine{
     opacity:0 !important;
@@ -264,16 +263,16 @@ html[data-graphic-quality="low"] #saberLine::after{
 #saberLine.saber-hit{
     filter:brightness(1.55) saturate(1.35);
 }
-/* Abstract horizontal drift (transform only -> GPU compositor). The two haze
-   layers slide opposite ways and overlap, reading like soft, abstract waves
-   gliding sideways rather than a vertical plume. */
-@keyframes saberDriftH{
-    0%,100%{ transform:translateX(-4%) scaleX(1.04); }
-    50%{ transform:translateX(4%) scaleX(0.97); }
+/* Continuous horizontal flow: scroll each repeating crest band by exactly one
+   tile so it loops seamlessly. The two crest layers move opposite ways at
+   different widths, so the humps travel and interfere like abstract waves. */
+@keyframes saberWaveFlow{
+    from{ background-position:0 100%, 0 100%, 50% 100%; }
+    to{ background-position:190px 100%, -300px 100%, 50% 100%; }
 }
-@keyframes saberDriftHB{
-    0%,100%{ transform:translateX(3.5%) scaleX(0.97); }
-    50%{ transform:translateX(-3.5%) scaleX(1.05); }
+@keyframes saberWaveFlowB{
+    from{ background-position:0 100%, 50% 100%; }
+    to{ background-position:-240px 100%, 50% 100%; }
 }
 
 @media (pointer: coarse) {
@@ -7856,15 +7855,13 @@ function getSmokeSprite(color, shape){
     const r = rgb[0], g = rgb[1], b = rgb[2];
     const grad = c.createRadialGradient(cx, cy, 0, cx, cy, SIZE/2);
     if(_shape === 'dot'){
-        // "Dust": a real point grain — a small, near-solid speck with a hard,
-        // short falloff and essentially no halo. Drawn source-over (not
-        // additive), so specks read as crisp points and never merge into smoke.
-        grad.addColorStop(0,     'rgba(255,255,255,1)');
-        grad.addColorStop(0.34,  `rgba(${Math.min(255,r+70)},${Math.min(255,g+70)},${Math.min(255,b+70)},1)`);
-        grad.addColorStop(0.55,  `rgba(${r},${g},${b},0.96)`);
-        grad.addColorStop(0.68,  `rgba(${r},${g},${b},0.5)`);
-        grad.addColorStop(0.8,   `rgba(${r},${g},${b},0.12)`);
-        grad.addColorStop(1,     `rgba(${r},${g},${b},0)`);
+        // "Dust": a tiny FLAT dot in the dust colour — no white-hot core, no
+        // glow halo. Solid to ~0.6 radius then a 1px-ish antialiased edge, so
+        // scaled down it reads as a small plain speck, not a neon mote.
+        grad.addColorStop(0,    `rgba(${r},${g},${b},1)`);
+        grad.addColorStop(0.6,  `rgba(${r},${g},${b},1)`);
+        grad.addColorStop(0.82, `rgba(${r},${g},${b},0.65)`);
+        grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
     } else {
         // "Smoke": very soft and diffuse — low opacity with a long feathered
         // tail so many overlapping puffs build a gentle, billowing haze.
@@ -8230,11 +8227,11 @@ function updateDrawNeonDust(dt, now){
         if(neonDustAge[i] < neonDustLife[i] && neonDustY[i] > -40){
             const t = tLife;
             const fade = t < 0.14 ? t / 0.14 : Math.max(0, 1 - Math.pow((t - 0.14) / 0.86, 1.9));
-            const alpha = Math.min(1, neonDustA[i] * fade * (isDot ? 1.7 : 1));
+            const alpha = Math.min(1, neonDustA[i] * fade * (isDot ? 1.4 : 1));
             if(alpha > 0.02){
-                // Smoke expands into a cloud; dust stays a tiny crisp point.
+                // Smoke expands into a cloud; dust stays a tiny fixed-size point.
                 const grow = isDot ? 1 : (1 + t * 1.9);
-                const sz = neonDustR[i] * (isDot ? 0.8 : 3.0) * grow;
+                const sz = isDot ? Math.max(1.5, neonDustR[i] * 0.5) : (neonDustR[i] * 3.0 * grow);
                 ctx2d.globalAlpha = alpha;
                 ctx2d.drawImage(sprite, neonDustX[i] - sz * 0.5, neonDustY[i] - sz * 0.5, sz, sz);
             }
