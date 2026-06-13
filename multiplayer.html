@@ -7797,11 +7797,10 @@ function _parseColorToRgb(color){
     }
     return [120, 220, 255];
 }
-function getSmokeSprite(color, shape, solid){
+function getSmokeSprite(color, shape){
     const _shape = shape === 'dot' ? 'dot' : 'smoke';
-    const _solid = !!solid;
     const dpr = currentDPR || 1;
-    const cacheKey = color + '@' + (Math.round(dpr * 100) | 0) + '#' + _shape + (_solid ? '#s' : '');
+    const cacheKey = color + '@' + (Math.round(dpr * 100) | 0) + '#' + _shape;
     if(_smokeSpriteCache.has(cacheKey)) return _smokeSpriteCache.get(cacheKey);
     const SIZE = 192;
     const physSize = Math.max(1, Math.round(SIZE * dpr));
@@ -7815,18 +7814,7 @@ function getSmokeSprite(color, shape, solid){
     const rgb = _parseColorToRgb(color);
     const r = rgb[0], g = rgb[1], b = rgb[2];
     const grad = c.createRadialGradient(cx, cy, 0, cx, cy, SIZE/2);
-    if(_solid){
-        // V2 "Solid": an opaque, crisp-edged particle. Combined with the
-        // source-over composite it reads as distinct solid specks at any
-        // density — visibly different from V1's soft additive bloom even when
-        // particles do not overlap (where the two composites alone look alike).
-        grad.addColorStop(0,    'rgba(255,255,255,1)');
-        grad.addColorStop(0.34, `rgba(${Math.min(255,r+30)},${Math.min(255,g+30)},${Math.min(255,b+30)},1)`);
-        grad.addColorStop(0.52, `rgba(${r},${g},${b},0.95)`);
-        grad.addColorStop(0.66, `rgba(${r},${g},${b},0.55)`);
-        grad.addColorStop(0.80, `rgba(${r},${g},${b},0.18)`);
-        grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
-    } else if(_shape === 'dot'){
+    if(_shape === 'dot'){
 
         grad.addColorStop(0,    'rgba(255,255,255,1)');
         grad.addColorStop(0.06, `rgba(${Math.min(255,r+50)},${Math.min(255,g+50)},${Math.min(255,b+50)},1)`);
@@ -8124,11 +8112,10 @@ function updateDrawNeonDust(dt, now){
 
     if(!neonDustCount) return neonDustEmitters.size > 0;
 
-    const _solidDust = dustBlendMode === 'solid';
-    const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation + '|' + particleShape + '|' + (_solidDust ? 's' : 'g');
+    const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation + '|' + particleShape;
     if(_dustColorKey !== _dustSpriteKey){
         _dustSpriteKey = _dustColorKey;
-        _dustSprite = getSmokeSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation), particleShape, _solidDust);
+        _dustSprite = getSmokeSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation), particleShape);
     }
     const sprite = _dustSprite;
     const speedLevel = sliderRatio(particleSpeed);
@@ -8139,7 +8126,10 @@ function updateDrawNeonDust(dt, now){
     const biasWind = 0.000006 * turbEase;
     const maxVX = 0.006 + 0.052 * turbEase;
     ctx2d.save();
-    ctx2d.globalCompositeOperation = dustBlendMode === 'glow' ? 'lighter' : 'source-over';
+    // Both V1 and V2 use the same additive glow look; the ONLY difference
+    // between them is whether the dust is drawn behind (V1) or in front (V2)
+    // of the falling notes — handled by the draw order in anim().
+    ctx2d.globalCompositeOperation = 'lighter';
     const _pbAlpha = 1.08;
     const _pbSize  = 1.02;
     let alive = 0;
@@ -8471,6 +8461,13 @@ function anim(now){
     if(currentDPR !== 1) ctx2d.setTransform(currentDPR, 0, 0, currentDPR, 0, 0);
 
     let hasLive = false;
+    // Particle layer: V1 ('glow') draws dust BEHIND the falling notes, V2
+    // ('solid') draws it IN FRONT. Same particles either way — only the
+    // compositing order differs. The dust pass also advances particle physics,
+    // so it must run exactly once per frame.
+    const dustInFront = dustBlendMode === 'solid';
+    if(!dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
+
     const riseSpeed = getAnimRiseSpeed() * dt;
     for(let i=0;i<falling.length;i++){
         const f=falling[i];
@@ -8490,7 +8487,7 @@ function anim(now){
         drawFallingNote(f);
         hasLive = true;
     }
-    if(updateDrawNeonDust(dt, now)) hasLive = true;
+    if(dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
 
     if(falling.length > 40){
         let w=0, removed=false;
