@@ -5375,6 +5375,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <button class="btn" id="mGradient">Gradient</button>
                     <button class="btn" id="mRainbow">Rainbow</button>
                     <button class="btn" id="mDouble">Double</button>
+                    <button class="btn" id="mCeramic">Glass Ceramic</button>
+                    <button class="btn" id="mPearl">Pearlescent</button>
+                    <button class="btn" id="mOpal">Opal Iridescent</button>
+                    <button class="btn" id="mLiquid">Liquid Neon</button>
                 </div>
             </div>
             <div class="color-row compact-color-row" id="rowAnimColor">
@@ -5728,6 +5732,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                             <button class="btn settings-anim-style" data-style-target="mGradient">Gradient</button>
                             <button class="btn settings-anim-style" data-style-target="mRainbow">Rainbow</button>
                             <button class="btn settings-anim-style" data-style-target="mDouble">Double</button>
+                            <button class="btn settings-anim-style" data-style-target="mCeramic">Glass Ceramic</button>
+                            <button class="btn settings-anim-style" data-style-target="mPearl">Pearlescent</button>
+                            <button class="btn settings-anim-style" data-style-target="mOpal">Opal Iridescent</button>
+                            <button class="btn settings-anim-style" data-style-target="mLiquid">Liquid Neon</button>
                         </div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
@@ -8445,6 +8453,101 @@ function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
             sctx.lineWidth = Math.max(1, wB * 0.06);
             sctx.strokeStyle = `rgba(${Math.min(255,R+60)},${Math.min(255,G+60)},${Math.min(255,B+60)},0.7)`;
             _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'ceramic'){
+            // Glass Ceramic: High-gloss ceramic look with bright highlights and deep color.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.8));
+            g.addColorStop(0.2, `rgb(${R},${G},${B})`);
+            g.addColorStop(0.8, dark(0.6));
+            g.addColorStop(1, dark(0.3));
+            sctx.fillStyle = g; sctx.fillRect(0, 0, wB, hB);
+            const gloss = sctx.createLinearGradient(0, 0, wB, 0);
+            gloss.addColorStop(0, 'rgba(255,255,255,0.4)');
+            gloss.addColorStop(0.1, 'rgba(255,255,255,0.1)');
+            gloss.addColorStop(0.5, 'rgba(255,255,255,0)');
+            gloss.addColorStop(0.9, 'rgba(255,255,255,0.1)');
+            gloss.addColorStop(1, 'rgba(255,255,255,0.3)');
+            sctx.fillStyle = gloss; sctx.fillRect(0, 0, wB, hB);
+            const sheen = sctx.createRadialGradient(wB*0.3, hB*0.2, 0, wB*0.3, hB*0.2, wB*0.8);
+            sheen.addColorStop(0, 'rgba(255,255,255,0.6)');
+            sheen.addColorStop(1, 'rgba(255,255,255,0)');
+            sctx.fillStyle = sheen; sctx.fillRect(0, 0, wB, hB);
+            sctx.restore();
+            sctx.lineWidth = Math.max(1, wB * 0.04);
+            sctx.strokeStyle = 'rgba(255,255,255,0.5)';
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'pearl'){
+            // Pearlescent Ceramic: Soft pearly sheen with multi-color iridescence.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.9));
+            g.addColorStop(0.5, lite(0.4));
+            g.addColorStop(1, `rgb(${R},${G},${B})`);
+            sctx.fillStyle = g; sctx.fillRect(0, 0, wB, hB);
+            const pearl = sctx.createLinearGradient(0, 0, wB, hB);
+            pearl.addColorStop(0, 'rgba(255,200,255,0.3)');
+            pearl.addColorStop(0.5, 'rgba(200,255,255,0.3)');
+            pearl.addColorStop(1, 'rgba(255,255,200,0.3)');
+            sctx.fillStyle = pearl; sctx.fillRect(0, 0, wB, hB);
+            const sheen = sctx.createLinearGradient(wB, 0, 0, hB);
+            sheen.addColorStop(0, 'rgba(255,255,255,0.5)');
+            sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+            sheen.addColorStop(1, 'rgba(255,255,255,0.3)');
+            sctx.fillStyle = sheen; sctx.fillRect(0, 0, wB, hB);
+            sctx.restore();
+            sctx.lineWidth = Math.max(1, wB * 0.05);
+            sctx.strokeStyle = 'rgba(255,255,255,0.4)';
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'opal'){
+            // Opal Iridescent: Spectral color shifts and bright shimmering highlights.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, lite(0.7));
+            g.addColorStop(1, dark(0.8));
+            sctx.fillStyle = g; sctx.fillRect(0, 0, wB, hB);
+            const opal = sctx.createLinearGradient(0, 0, wB, hB);
+            opal.addColorStop(0, 'rgba(255,100,100,0.2)');
+            opal.addColorStop(0.2, 'rgba(255,255,100,0.2)');
+            opal.addColorStop(0.4, 'rgba(100,255,100,0.2)');
+            opal.addColorStop(0.6, 'rgba(100,255,255,0.2)');
+            opal.addColorStop(0.8, 'rgba(100,100,255,0.2)');
+            opal.addColorStop(1, 'rgba(255,100,255,0.2)');
+            sctx.fillStyle = opal; sctx.fillRect(0, 0, wB, hB);
+            const shimmer = sctx.createRadialGradient(wB*Math.random(), hB*Math.random(), 0, wB*0.5, hB*0.5, wB);
+            shimmer.addColorStop(0, 'rgba(255,255,255,0.4)');
+            shimmer.addColorStop(1, 'rgba(255,255,255,0)');
+            sctx.fillStyle = shimmer; sctx.fillRect(0, 0, wB, hB);
+            sctx.restore();
+            sctx.lineWidth = Math.max(1, wB * 0.03);
+            sctx.strokeStyle = 'rgba(255,255,255,0.6)';
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'liquid'){
+            // Liquid Neon: Vibrant glowing core with an intense "liquid" aura.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const g = sctx.createLinearGradient(0, 0, 0, hB);
+            g.addColorStop(0, dark(0.4));
+            g.addColorStop(0.5, `rgb(${R},${G},${B})`);
+            g.addColorStop(1, dark(0.4));
+            sctx.fillStyle = g; sctx.fillRect(0, 0, wB, hB);
+            const core = sctx.createLinearGradient(0, 0, 0, hB);
+            core.addColorStop(0, 'rgba(255,255,255,0)');
+            core.addColorStop(0.5, 'rgba(255,255,255,0.8)');
+            core.addColorStop(1, 'rgba(255,255,255,0)');
+            sctx.fillStyle = core; sctx.fillRect(wB*0.2, 0, wB*0.6, hB);
+            const liquid = sctx.createLinearGradient(0, 0, 0, hB);
+            liquid.addColorStop(0, `rgba(${R},${G},${B},0)`);
+            liquid.addColorStop(0.2, `rgba(${R},${G},${B},0.5)`);
+            liquid.addColorStop(0.5, `rgba(${R},${G},${B},0)`);
+            liquid.addColorStop(0.8, `rgba(${R},${G},${B},0.5)`);
+            liquid.addColorStop(1, `rgba(${R},${G},${B},0)`);
+            sctx.fillStyle = liquid; sctx.fillRect(0, 0, wB, hB);
+            sctx.restore();
+            sctx.shadowBlur = Math.max(2, wB * 0.4);
+            sctx.shadowColor = `rgb(${R},${G},${B})`;
+            sctx.lineWidth = Math.max(1, wB * 0.1);
+            sctx.strokeStyle = '#fff';
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
         } else if(style === 'neon' || style === 'glow'){
             // Deprecated styles — fall back to a clean gradient if ever requested.
             const g = sctx.createLinearGradient(0, 0, 0, hB);
@@ -9341,10 +9444,10 @@ const PRESET_STORAGE_KEY = 'papiano_memory_preset_v2';
 const STORAGE_RESET_KEYS = ['papiano_memory_autosave_v2', 'papiano_memory_options_v2', 'papiano_settings'];
 const STORAGE_SCHEMA_VERSION = 2;
 
-const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mRainbow:'rainbow', mDouble:'double' };
+const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mRainbow:'rainbow', mDouble:'double', mCeramic:'ceramic', mPearl:'pearl', mOpal:'opal', mLiquid:'liquid' };
 // Single-colour fill styles (use the chosen Note Color). Excludes rainbow
 // (per-note hue) and double (split colours).
-const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient'];
+const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient','ceramic','pearl','opal','liquid'];
 const NO_COLOR="__none";
 const colors=[NO_COLOR,"#ffffff","#00e5ff","#38bdf8","#2979ff","#651fff","#8b5cf6","#ff4081","#ff2d75","#ff1744","#ff6d00","#f7b733","#ffea00","#b2ff59","#00e676"];
 function getDefaultPianoHeightPercent(){
@@ -9810,7 +9913,7 @@ function applySettings(s) {
         if (typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
         if (s.animStyle !== undefined) {
             const LEGACY_STYLE = { single:'default', metalic:'default', crystal3d:'default', clean:'default', cleanNeon:'default', rainbow2:'rainbow', rainbowV2:'rainbow', glow:'gradient', neon:'gradient' };
-            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', rainbow:'mRainbow', double:'mDouble' };
+            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', rainbow:'mRainbow', double:'mDouble', ceramic:'mCeramic', pearl:'mPearl', opal:'mOpal', liquid:'mLiquid' };
             const resolved = LEGACY_STYLE[s.animStyle] || s.animStyle;
             setAnimModeById(styleMap[resolved] || 'mDef');
         }
