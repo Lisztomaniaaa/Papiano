@@ -176,9 +176,6 @@ canvas{
     pointer-events: none;
     z-index: 20;
 }
-#fx{ z-index:20; }
-#note3d{ z-index:21; mix-blend-mode:normal; }
-
 #saberLine{
     position:absolute;
     left:0;
@@ -6026,7 +6023,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
         </div>
         <button class="metro-start-btn" id="metroStartBtn">Start</button>
     </div>
-    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><canvas id="note3d" aria-hidden="true"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
+    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
     <div id="swipeStrip"></div>
     <div id="pianoWrap"><div id="pianoViewport"><div id="piano"></div><div id="activeKeyLayer"></div></div></div>
 </div>
@@ -6969,8 +6966,6 @@ const pianoEl = document.getElementById('piano');
 const activeKeyLayer = document.getElementById('activeKeyLayer');
 const canvas = document.getElementById('fx');
 const ctx2d = canvas.getContext('2d', { alpha: true });
-const note3dCanvas = document.getElementById('note3d');
-const note3dGl = note3dCanvas ? (note3dCanvas.getContext('webgl', { alpha:true, antialias:true, premultipliedAlpha:false }) || note3dCanvas.getContext('experimental-webgl', { alpha:true, antialias:true, premultipliedAlpha:false })) : null;
 ctx2d.imageSmoothingEnabled = true;
 ctx2d.imageSmoothingQuality = 'high';
 ctx2d.globalCompositeOperation = 'source-over';
@@ -7030,8 +7025,6 @@ function getAnimRiseSpeed(){
 const DT_MAX = 0.042;
 let cachedAnimColor = '#ffffff';
 const _solidRgbCache = new Map();
-const TRUE_3D_NOTE_STYLES = ['glassCeramic','pearlCeramic','opalIridescent','liquidNeon'];
-function isTrue3DNoteStyle(style){ return TRUE_3D_NOTE_STYLES.includes(style); }
 let rainbowV2Seq = 0, renderNow = 0;
 let animDoubleLeftColor = '#ffffff';
 let animDoubleRightColor = '#ffffff';
@@ -7047,7 +7040,6 @@ function getAnimBaseColorForMidi(midi){
 function resolveAnimStyle(style){
     const raw = style === 'double' ? 'default' : style;
     if(typeof getGraphicProfile === 'function' && !getGraphicProfile().heavyFx){
-        if(isTrue3DNoteStyle(raw)) return raw;
         return raw === 'rainbow' ? 'rainbow' : 'default';
     }
     return raw;
@@ -8460,6 +8452,117 @@ function getEffectSprite(style, rgb, w, h, isRounded, hue, roundnessPct){
             sctx.lineWidth = Math.max(1, wB * 0.06);
             sctx.strokeStyle = `rgba(${Math.min(255,R+60)},${Math.min(255,G+60)},${Math.min(255,B+60)},0.7)`;
             _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'glassCeramic'){
+            // Premium glass-ceramic: translucent base colour with a milky
+            // ceramic core, glossy bevels, inner depth, and crisp edge catch.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const body = sctx.createLinearGradient(0, 0, wB, hB);
+            body.addColorStop(0, `rgba(${Math.min(255,R+92)},${Math.min(255,G+92)},${Math.min(255,B+92)},0.58)`);
+            body.addColorStop(0.36, `rgba(${R},${G},${B},0.34)`);
+            body.addColorStop(0.70, `rgba(${Math.round(R*0.72)},${Math.round(G*0.72)},${Math.round(B*0.72)},0.30)`);
+            body.addColorStop(1, `rgba(${R},${G},${B},0.48)`);
+            sctx.fillStyle = body; sctx.fillRect(0, 0, wB, hB);
+            const ceramicBloom = sctx.createRadialGradient(wB * 0.42, hB * 0.18, 0, wB * 0.48, hB * 0.42, Math.max(wB, hB) * 0.72);
+            ceramicBloom.addColorStop(0, 'rgba(255,255,255,0.44)');
+            ceramicBloom.addColorStop(0.32, 'rgba(255,255,255,0.14)');
+            ceramicBloom.addColorStop(1, 'rgba(255,255,255,0)');
+            sctx.fillStyle = ceramicBloom; sctx.fillRect(0, 0, wB, hB);
+            const inner = Math.max(1, Math.min(5, wB * 0.12));
+            sctx.strokeStyle = `rgba(${R},${G},${B},0.46)`;
+            sctx.lineWidth = inner;
+            sctx.save();
+            sctx.translate(inner * 0.5, inner * 0.5);
+            _spriteRoundPath(sctx, Math.max(1, wB - inner), Math.max(1, hB - inner), Math.max(0, r - inner * 0.5));
+            sctx.stroke();
+            sctx.restore();
+            sctx.restore();
+            sctx.lineWidth = Math.max(1.2, wB * 0.075);
+            sctx.strokeStyle = 'rgba(255,255,255,0.76)';
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'pearlCeramic'){
+            // Solid polished ceramic with a controlled pearlescent sheen.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const body = sctx.createLinearGradient(0, 0, 0, hB);
+            body.addColorStop(0, lite(0.68));
+            body.addColorStop(0.40, `rgb(${R},${G},${B})`);
+            body.addColorStop(1, dark(0.70));
+            sctx.fillStyle = body; sctx.fillRect(0, 0, wB, hB);
+            const pearl = sctx.createLinearGradient(0, 0, wB, hB);
+            pearl.addColorStop(0, 'rgba(255,245,224,0.00)');
+            pearl.addColorStop(0.28, 'rgba(255,246,220,0.30)');
+            pearl.addColorStop(0.50, 'rgba(196,235,255,0.14)');
+            pearl.addColorStop(0.72, 'rgba(255,214,244,0.20)');
+            pearl.addColorStop(1, 'rgba(255,255,255,0.00)');
+            sctx.fillStyle = pearl; sctx.fillRect(0, 0, wB, hB);
+            sctx.fillStyle = 'rgba(255,255,255,0.22)';
+            sctx.fillRect(wB * 0.16, 0, Math.max(1, wB * 0.18), hB);
+            sctx.restore();
+            sctx.lineWidth = Math.max(1, wB * 0.055);
+            sctx.strokeStyle = 'rgba(255,255,255,0.46)';
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'opalIridescent'){
+            // Opal body: base note colour stays dominant; shifting pastel
+            // layers are subtle accents inside the material.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const body = sctx.createLinearGradient(0, 0, 0, hB);
+            body.addColorStop(0, lite(0.50));
+            body.addColorStop(0.48, `rgb(${R},${G},${B})`);
+            body.addColorStop(1, dark(0.62));
+            sctx.fillStyle = body; sctx.fillRect(0, 0, wB, hB);
+            const opal = sctx.createLinearGradient(0, 0, wB, 0);
+            opal.addColorStop(0.00, 'rgba(125,245,255,0.16)');
+            opal.addColorStop(0.26, 'rgba(255,255,185,0.13)');
+            opal.addColorStop(0.50, 'rgba(255,140,232,0.17)');
+            opal.addColorStop(0.74, 'rgba(146,255,191,0.14)');
+            opal.addColorStop(1.00, 'rgba(136,178,255,0.18)');
+            sctx.fillStyle = opal; sctx.fillRect(0, 0, wB, hB);
+            sctx.globalCompositeOperation = 'screen';
+            for(let i=0;i<3;i++){
+                sctx.fillStyle = ['rgba(255,255,255,0.12)','rgba(112,241,255,0.09)','rgba(255,159,238,0.08)'][i];
+                sctx.beginPath();
+                sctx.ellipse(wB * (0.25 + i * 0.22), hB * (0.28 + i * 0.18), wB * 0.22, hB * 0.18, -0.7, 0, Math.PI * 2);
+                sctx.fill();
+            }
+            sctx.globalCompositeOperation = 'source-over';
+            sctx.restore();
+            sctx.lineWidth = Math.max(1, wB * 0.06);
+            sctx.strokeStyle = 'rgba(230,250,255,0.62)';
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+        } else if(style === 'liquidNeon'){
+            // Translucent shell with the chosen note colour as an animated-feel
+            // emissive core. The visible motion is baked as internal light bands.
+            sctx.save(); _spriteRoundPath(sctx, wB, hB, r); sctx.clip();
+            const shell = sctx.createLinearGradient(0, 0, 0, hB);
+            shell.addColorStop(0, `rgba(${Math.min(255,R+70)},${Math.min(255,G+70)},${Math.min(255,B+70)},0.44)`);
+            shell.addColorStop(0.50, `rgba(${R},${G},${B},0.22)`);
+            shell.addColorStop(1, `rgba(${Math.round(R*0.45)},${Math.round(G*0.45)},${Math.round(B*0.45)},0.44)`);
+            sctx.fillStyle = shell; sctx.fillRect(0, 0, wB, hB);
+            const core = sctx.createLinearGradient(wB * 0.5, 0, wB * 0.5, hB);
+            core.addColorStop(0, `rgba(${R},${G},${B},0.05)`);
+            core.addColorStop(0.18, `rgba(${R},${G},${B},0.92)`);
+            core.addColorStop(0.50, `rgba(255,255,255,0.46)`);
+            core.addColorStop(0.82, `rgba(${R},${G},${B},0.86)`);
+            core.addColorStop(1, `rgba(${R},${G},${B},0.10)`);
+            sctx.fillStyle = core;
+            const coreW = Math.max(2, wB * 0.46);
+            sctx.fillRect((wB - coreW) * 0.5, 0, coreW, hB);
+            sctx.globalCompositeOperation = 'screen';
+            for(let i=0;i<4;i++){
+                const yy = (i + 0.35) * hB / 4;
+                const wave = sctx.createLinearGradient(0, yy - hB * 0.10, wB, yy + hB * 0.10);
+                wave.addColorStop(0, 'rgba(255,255,255,0)');
+                wave.addColorStop(0.5, `rgba(${R},${G},${B},0.34)`);
+                wave.addColorStop(1, 'rgba(255,255,255,0)');
+                sctx.fillStyle = wave;
+                sctx.fillRect(0, yy - hB * 0.08, wB, hB * 0.16);
+            }
+            sctx.restore();
+            sctx.shadowColor = `rgba(${R},${G},${B},0.72)`;
+            sctx.shadowBlur = Math.max(8, wB * 0.8);
+            sctx.lineWidth = Math.max(1.3, wB * 0.09);
+            sctx.strokeStyle = `rgba(${Math.min(255,R+90)},${Math.min(255,G+90)},${Math.min(255,B+90)},0.88)`;
+            _spriteRoundPath(sctx, wB, hB, r); sctx.stroke();
+            sctx.shadowBlur = 0;
         } else if(style === 'neon' || style === 'glow'){
             // Deprecated styles — fall back to a clean gradient if ever requested.
             const g = sctx.createLinearGradient(0, 0, 0, hB);
@@ -8520,131 +8623,6 @@ function tuneRgbForFalling(rgb){
     return _tunedRgbScratch;
 }
 
-const True3DNoteRenderer = (() => {
-    const gl = note3dGl;
-    if(!gl) return null;
-    const vs = `
-        attribute vec2 a_pos;
-        attribute vec3 a_normal;
-        attribute float a_layer;
-        uniform vec2 u_resolution;
-        varying vec3 v_normal;
-        varying float v_layer;
-        void main(){
-            vec2 clip = (a_pos / u_resolution) * 2.0 - 1.0;
-            gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
-            v_normal = normalize(a_normal);
-            v_layer = a_layer;
-        }`;
-    const fs = `
-        precision mediump float;
-        uniform vec3 u_color;
-        uniform float u_alpha;
-        uniform float u_time;
-        uniform float u_material;
-        varying vec3 v_normal;
-        varying float v_layer;
-        void main(){
-            vec3 n = normalize(v_normal);
-            float light = max(dot(n, normalize(vec3(-0.35,-0.55,0.76))), 0.0);
-            float rim = pow(1.0 - max(n.z, 0.0), 2.2);
-            vec3 base = u_color;
-            vec3 c = base * (0.50 + light * 0.52);
-            float a = u_alpha;
-            if(u_material < 0.5){
-                c = mix(c, vec3(1.0), 0.28 + 0.26 * v_layer) + rim * vec3(0.42,0.55,0.62);
-                a *= 0.58;
-            }else if(u_material < 1.5){
-                c = mix(c, vec3(1.0,0.94,0.82), 0.20 + 0.18 * sin((v_layer + n.x) * 5.0));
-                a *= 0.98;
-            }else if(u_material < 2.5){
-                vec3 opal = 0.5 + 0.5 * cos(vec3(0.0,2.1,4.2) + u_time * 0.0014 + (n.x+n.y+v_layer) * 5.6);
-                c = mix(c, opal, 0.24) + rim * opal * 0.38;
-                a *= 0.88;
-            }else{
-                vec3 neon = base * (1.15 + 0.35 * sin(u_time * 0.005 + v_layer * 8.0));
-                c = mix(c, neon, 0.72) + base * (0.55 + rim * 0.85);
-                a *= 0.86;
-            }
-            gl_FragColor = vec4(clamp(c,0.0,1.0), a);
-        }`;
-    function shader(type, src){
-        const s = gl.createShader(type);
-        gl.shaderSource(s, src); gl.compileShader(s);
-        return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
-    }
-    const prog = gl.createProgram();
-    gl.attachShader(prog, shader(gl.VERTEX_SHADER, vs));
-    gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fs));
-    gl.linkProgram(prog);
-    const buf = gl.createBuffer();
-    const loc = {
-        pos: gl.getAttribLocation(prog, 'a_pos'),
-        normal: gl.getAttribLocation(prog, 'a_normal'),
-        layer: gl.getAttribLocation(prog, 'a_layer'),
-        res: gl.getUniformLocation(prog, 'u_resolution'),
-        color: gl.getUniformLocation(prog, 'u_color'),
-        alpha: gl.getUniformLocation(prog, 'u_alpha'),
-        time: gl.getUniformLocation(prog, 'u_time'),
-        material: gl.getUniformLocation(prog, 'u_material')
-    };
-    function pushQuad(out, p1,p2,p3,p4, n, layer){
-        const v = [p1,p2,p3, p1,p3,p4];
-        for(const p of v) out.push(p[0],p[1], n[0],n[1],n[2], layer);
-    }
-    function roundedCuboidMesh(x,y,w,h,r,depth){
-        const z = depth, bevel = Math.max(1.2, Math.min(depth * 0.48, Math.min(w,h) * 0.18));
-        const x1=x, x2=x+w, y1=y, y2=y+h, bx=x+bevel, bx2=x+w-bevel, by=y+bevel, by2=y+h-bevel;
-        const o=[];
-        pushQuad(o,[bx,by],[bx2,by],[bx2,by2],[bx,by2],[0,0,1],0.72);
-        pushQuad(o,[x1+r,y1],[x2-r,y1],[bx2,by],[bx,by],[0,-0.62,0.78],0.92);
-        pushQuad(o,[x2,y1+r],[x2,y2-r],[bx2,by2],[bx2,by],[0.62,0,0.78],0.58);
-        pushQuad(o,[x2-r,y2],[x1+r,y2],[bx,by2],[bx2,by2],[0,0.62,0.78],0.34);
-        pushQuad(o,[x1,y2-r],[x1,y1+r],[bx,by],[bx,by2],[-0.62,0,0.78],0.58);
-        pushQuad(o,[x1+r+z,y1+z],[x2-r+z,y1+z],[x2-r,y1],[x1+r,y1],[0,-0.8,0.2],0.18);
-        pushQuad(o,[x2+z,y1+r+z],[x2+z,y2-r+z],[x2,y2-r],[x2,y1+r],[0.8,0,0.2],0.12);
-        return new Float32Array(o);
-    }
-    return {
-        clear(){
-            gl.viewport(0,0,gl.canvas.width,gl.canvas.height);
-            gl.clearColor(0,0,0,0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-        },
-        draw(x,y,w,h,r,alpha,rgb,style){
-            gl.useProgram(prog);
-            gl.enable(gl.BLEND);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-            const depth = Math.max(5, Math.min(18, w * 0.62));
-            const verts = roundedCuboidMesh(x,y,w,h,r,depth);
-            gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-            gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STREAM_DRAW);
-            const stride = 6 * 4;
-            gl.enableVertexAttribArray(loc.pos); gl.vertexAttribPointer(loc.pos,2,gl.FLOAT,false,stride,0);
-            gl.enableVertexAttribArray(loc.normal); gl.vertexAttribPointer(loc.normal,3,gl.FLOAT,false,stride,2*4);
-            gl.enableVertexAttribArray(loc.layer); gl.vertexAttribPointer(loc.layer,1,gl.FLOAT,false,stride,5*4);
-            gl.uniform2f(loc.res, canvasCssW, canvasCssH);
-            gl.uniform3f(loc.color, rgb[0]/255, rgb[1]/255, rgb[2]/255);
-            gl.uniform1f(loc.alpha, alpha);
-            gl.uniform1f(loc.time, renderNow || performance.now());
-            gl.uniform1f(loc.material, style === 'pearlCeramic' ? 1 : style === 'opalIridescent' ? 2 : style === 'liquidNeon' ? 3 : 0);
-            gl.drawArrays(gl.TRIANGLES, 0, verts.length / 6);
-        }
-    };
-})();
-function clearTrue3DNotes(){ if(True3DNoteRenderer) True3DNoteRenderer.clear(); }
-function drawTrue3DFallingNote(f, x0, y, w, h, rv, noteAlpha, drawStyle){
-    if(!True3DNoteRenderer) return;
-    const baseHex = f.base || cachedAnimColor || '#ffffff';
-    let rgb = _solidRgbCache.get(baseHex);
-    if(rgb === undefined){
-        const rgb0 = safeHex(baseHex, '#78dcff');
-        rgb = _isNearWhiteRgb(rgb0) ? [240,248,255] : tuneRgbForFalling(rgb0).slice();
-        if(_solidRgbCache.size > 64) _solidRgbCache.clear();
-        _solidRgbCache.set(baseHex, rgb);
-    }
-    True3DNoteRenderer.draw(x0, y, w, h, rv, noteAlpha, rgb, drawStyle);
-}
 function drawFallingNote(f){
     const fastX = noteXFast[f.midi];
     const cachedX = Number.isFinite(fastX) ? fastX : noteXCache.get(f.midi);
@@ -8668,11 +8646,6 @@ function drawFallingNote(f){
     const rv = isRounded ? Math.min(8, w*0.45, h*0.35) * (roundPct / 100) : 0;
     const drawStyleRaw = f.styleResolved || f.style;
     const drawStyle = (drawStyleRaw === 'rainbowV2' || drawStyleRaw === 'crystal3d') ? 'rainbow' : drawStyleRaw;
-    if(isTrue3DNoteStyle(drawStyle)){
-        drawTrue3DFallingNote(f, x0, y, w, h, rv, noteAlpha, drawStyle);
-        return;
-    }
-
     ctx2d.globalAlpha = noteAlpha;
     ctx2d.globalCompositeOperation = 'source-over';
 
@@ -8757,7 +8730,6 @@ function anim(now){
     ctx2d.globalCompositeOperation = 'source-over';
     ctx2d.clearRect(0, 0, canvas.width, canvas.height);
     if(currentDPR !== 1) ctx2d.setTransform(currentDPR, 0, 0, currentDPR, 0, 0);
-    clearTrue3DNotes();
 
     let hasLive = false;
     // Particle layer: V1 ('glow') draws dust BEHIND the falling notes, V2
@@ -8856,15 +8828,9 @@ function syncCanvasSize(forceReadStage){
     currentDPR = dpr;
     if(canvas.width !== physW) canvas.width = physW;
     if(canvas.height !== physH) canvas.height = physH;
-    if(note3dCanvas){
-        if(note3dCanvas.width !== physW) note3dCanvas.width = physW;
-        if(note3dCanvas.height !== physH) note3dCanvas.height = physH;
-    }
     const cssW = nextW + 'px', cssH = nextH + 'px';
     if(canvas.style.width !== cssW) canvas.style.width = cssW;
     if(canvas.style.height !== cssH) canvas.style.height = cssH;
-    if(note3dCanvas && note3dCanvas.style.width !== cssW) note3dCanvas.style.width = cssW;
-    if(note3dCanvas && note3dCanvas.style.height !== cssH) note3dCanvas.style.height = cssH;
     ctx2d.imageSmoothingEnabled = true;
     ctx2d.imageSmoothingQuality = 'high';
     ctx2d.globalAlpha = 1;
