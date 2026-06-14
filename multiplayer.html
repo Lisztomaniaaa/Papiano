@@ -6289,12 +6289,23 @@ const audioCtx = (() => {
 })();
 const masterGain = audioCtx.createGain();
 masterGain.gain.value = 1.0;
-masterGain.connect(audioCtx.destination);
+// Brick-wall limiter so many simultaneous voices can't sum past 0 dBFS and
+// hard-clip into the crackle/static the user reported on chords/fast play.
+const masterLimiter = audioCtx.createDynamicsCompressor();
+try {
+    masterLimiter.threshold.value = -3.0;
+    masterLimiter.knee.value = 0.0;
+    masterLimiter.ratio.value = 20.0;
+    masterLimiter.attack.value = 0.003;
+    masterLimiter.release.value = 0.25;
+} catch(e) {}
+masterGain.connect(masterLimiter);
+masterLimiter.connect(audioCtx.destination);
 let _recAudioDest = null;
 function getRecAudioDest() {
     if (_recAudioDest) return _recAudioDest;
     _recAudioDest = audioCtx.createMediaStreamDestination();
-    masterGain.connect(_recAudioDest);
+    masterLimiter.connect(_recAudioDest);
     return _recAudioDest;
 }
 let reverbNode = null, reverbGain = null, reverbEnabled = false, currentSf = "sf1", currentStringSf = "stringSf1", stringEnabled = false, sustainLevel = 1.00, reverbLevel = 0.0, pianoVolume = 1.00, stringVolume = 0.75;
@@ -6380,11 +6391,29 @@ function setMidiSustainPedal(down){
     if(wasActive && !manualSustainEnabled && !midiSustainPedalDown) releaseMidiPedalHeldNotes();
     if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendSustainState === 'function') window.PapianoMultiplayer.sendSustainState();
 }
+// Sustain button (click mode) toggle. If sustain is active for ANY reason —
+// including a MIDI pedal whose "up" was never received and got stuck down —
+// a click force-clears everything so the user can always turn it off. (Before,
+// a stuck MIDI flag made the click button unable to disable sustain; only a
+// reload fixed it.)
+function toggleSustainHold(){
+    if(manualSustainEnabled || midiSustainPedalDown){
+        manualSustainEnabled = false;
+        midiSustainPedalDown = false;
+        isSus = false;
+        refreshSustainButton();
+        releaseMidiPedalHeldNotes();
+        if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendSustainState === 'function') window.PapianoMultiplayer.sendSustainState();
+    } else {
+        setManualSustain(true);
+        isSus = true;
+    }
+}
 let stringRangeLeft = 21;
 let stringRangeRight = 108;
 const sfEffectSettings = {
     sf1: { sustain: 1.00, reverb: 0.00 },
-    sf2: { fadeSec: 5.00, reverb: 0.00 }
+    sf2: { fadeSec: 2.00, reverb: 0.00 }
 };
 let sfBuffers = {};
 let stringBuffers = {};
@@ -6625,7 +6654,11 @@ function playSfBuffer(soundMidi, vel, activeKey, layer='piano') {
     const volume = layer === 'string' ? stringVolume : pianoVolume;
     const layerBoost = layer === 'string' ? 1.2 : 2.25;
     const now = audioCtx.currentTime;
-    gainNode.gain.setValueAtTime((vel || 0.8) * layerBoost * volume, now);
+    const peak = (vel || 0.8) * layerBoost * volume;
+    // Tiny attack ramp instead of an instant jump — a hard step on the first
+    // sample is an audible click/crackle, especially on fast repeated notes.
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.linearRampToValueAtTime(peak, now + 0.006);
     src.connect(gainNode);
     gainNode.connect(masterGain);
     if ((fx.reverb || 0) > 0) {
@@ -6669,7 +6702,7 @@ const PIANO_MIN_RELEASE_TC = 0.22;
 const PIANO_MIN_RELEASE_DELAY = 0.65;
 // Shared so local playback and remote (RTDB) playback use identical values.
 const STRING_VEL_SCALE = 0.82;   // strings sit slightly under the piano
-const STRING_FADE_DEFAULT = 5.0; // matches sfEffectSettings.sf2 default + snapshot
+const STRING_FADE_DEFAULT = 2.0; // layer fade acts like the layer's sustain/release
 // When the cap forces us to reclaim a voice, fade it out smoothly instead of
 // slamming it in 14ms — the slam was the audible string cutoff.
 const VOICE_STEAL_TC = 0.05;
@@ -6790,9 +6823,19 @@ function stopNote(midi, fast=false) {
     keys.forEach(key => {
         const voice = activeNotes.get(key);
         if (!voice) return;
-        const profile = voice.layer === 'string'
-            ? getStringFadeProfile(voice.fadeSec, !!fast)
-            : getReleaseProfile(!!fast, getActivePianoSustain());
+        let profile;
+        if (voice.layer === 'string') {
+            profile = getStringFadeProfile(voice.fadeSec, !!fast);
+            // The layer fade behaves like its sustain: while the sustain pedal /
+            // manual hold is on, don't let the layer cut before the sustained
+            // piano tail (this mismatch was the "weird" doubling on release).
+            if (!fast && (manualSustainEnabled || midiSustainPedalDown)) {
+                const ps = getReleaseProfile(false, getActivePianoSustain());
+                profile = { tc: Math.max(profile.tc, ps.tc), delay: Math.max(profile.delay, ps.delay) };
+            }
+        } else {
+            profile = getReleaseProfile(!!fast, getActivePianoSustain());
+        }
         releaseVoice(voice, profile.tc, profile.delay);
         activeNotes.delete(key);
     });
@@ -8985,7 +9028,8 @@ document.getElementById('sfBtn').onclick=()=>openSfPanelTab('main');
 const audioBtn = document.getElementById('audioBtn');
 if(audioBtn) audioBtn.onclick=()=>toggle('audioPanel');
 document.getElementById('keyBtn').onclick=()=>toggle('keyPanel');
-document.getElementById('holdBtn').onclick=()=>setManualSustain(!manualSustainEnabled);
+document.getElementById('holdBtn').onclick=()=>toggleSustainHold();
+document.getElementById('settingsSustainBtn')?.addEventListener('click', toggleSustainHold);
 refreshSustainButton();
 const logoToggle = document.getElementById('logoToggle');
 if(logoToggle){
@@ -9017,15 +9061,15 @@ if(settingsMidiBtn) settingsMidiBtn.onclick = () => {
 function applyCurrentSfEffects(){
     const fx = sfEffectSettings.sf1 || {sustain:1.00,reverb:0};
     sustainLevel = Math.max(0, Math.min(1, fx.sustain || 0));
-    if (!sfEffectSettings.sf2) sfEffectSettings.sf2 = {fadeSec:5.0,reverb:0};
-    if (sfEffectSettings.sf2.fadeSec === undefined) sfEffectSettings.sf2.fadeSec = 5.0;
+    if (!sfEffectSettings.sf2) sfEffectSettings.sf2 = {fadeSec:STRING_FADE_DEFAULT,reverb:0};
+    if (sfEffectSettings.sf2.fadeSec === undefined) sfEffectSettings.sf2.fadeSec = STRING_FADE_DEFAULT;
     reverbLevel = Math.round(Math.max(sfEffectSettings.sf1.reverb || 0, sfEffectSettings.sf2.reverb || 0) * 100);
     isSus = sustainLevel > 0.01;
     reverbEnabled = reverbLevel > 0;
     if (reverbGain) reverbGain.gain.setTargetAtTime(0.65, audioCtx.currentTime, 0.05);
 }
 function updateSfEffectUI(){
-    if (!sfEffectSettings.sf2) sfEffectSettings.sf2 = {fadeSec:5.0,reverb:0};
+    if (!sfEffectSettings.sf2) sfEffectSettings.sf2 = {fadeSec:STRING_FADE_DEFAULT,reverb:0};
     const pairs = [
         ['sf1','sustainSf1Range','sustainSf1Val','sustain'],
         ['sf1','reverbSf1Range','reverbSf1Val','reverb'],
@@ -9040,7 +9084,7 @@ function updateSfEffectUI(){
     });
     const stringFadeRange = document.getElementById('sustainSf2Range');
     const stringFadeVal = document.getElementById('sustainSf2Val');
-    const fadeSec = Math.max(0.1, Math.min(10.0, Number(sfEffectSettings.sf2.fadeSec) || 10.0));
+    const fadeSec = Math.max(0.1, Math.min(10.0, Number(sfEffectSettings.sf2.fadeSec) || STRING_FADE_DEFAULT));
     if (stringFadeRange) stringFadeRange.value = fadeSec.toFixed(1);
     if (stringFadeVal) stringFadeVal.textContent = fadeSec.toFixed(1) + 's';
     const pianoRange = document.getElementById('pianoVolRange');
@@ -9085,7 +9129,7 @@ document.querySelectorAll('.sf-tab').forEach(btn => btn.onclick=()=>setSfPanelTa
     if (!el) return;
     el.oninput = e => {
         if (id === 'sustainSf2Range') {
-            sfEffectSettings.sf2.fadeSec = Math.max(0.1, Math.min(10.0, parseFloat(e.target.value) || 10.0));
+            sfEffectSettings.sf2.fadeSec = Math.max(0.1, Math.min(10.0, parseFloat(e.target.value) || STRING_FADE_DEFAULT));
         } else {
             const val = parseInt(e.target.value,10) / 100;
             const isSf2 = id.includes('Sf2');
@@ -9426,7 +9470,7 @@ function applyFactoryDefaults(clearSavedState){
     setKeyGlowEnabled(false);
     setKeyGlowIntensity(50);
     sfEffectSettings.sf1 = {sustain:1.00, reverb:0.00};
-    sfEffectSettings.sf2 = {fadeSec:5.00, reverb:0.00};
+    sfEffectSettings.sf2 = {fadeSec:2.00, reverb:0.00};
     currentSf = 'sf1';
     currentStringSf = 'stringSf1';
     pianoVolume = 1.00;
