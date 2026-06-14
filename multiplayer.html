@@ -1271,12 +1271,6 @@ body.key-glow-on #piano .black.active{
     width:100%;
     accent-color:#78dcff;
 }
-.sf-layer-toggle{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:7px;
-    margin:0 0 10px;
-}
 .sf-current-card{
     display:flex;
     justify-content:space-between;
@@ -1337,17 +1331,6 @@ body.key-glow-on #piano .black.active{
     flex-direction:column;
     gap:8px;
     padding:0 10px 10px;
-}
-.sf-toggle-btn{
-    width:100%;
-    height:34px !important;
-    line-height:1 !important;
-    font-size:11px !important;
-}
-.sf-toggle-btn.active{
-    background:linear-gradient(135deg,rgba(91,198,242,0.92),rgba(127,226,255,0.70)) !important;
-    border-color:rgba(157,235,255,0.72) !important;
-    color:#061117 !important;
 }
 
 #metronomePanel{
@@ -5447,13 +5430,6 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <button class="btn" type="button" id="dustBlendSolid">V2</button>
                 </div>
             </div>
-            <div class="color-row compact-color-row" id="rowParticleSmoke">
-                <div class="ui-setting-head">
-                    <span class="ui-label">Smoke</span>
-                    <span class="ui-value-sm" id="particleSmokeVal">0%</span>
-                </div>
-                <input class="ui-full" type="range" id="particleSmokeRange" min="0" max="100" value="0" aria-label="Smoke">
-            </div>
             <div class="color-row compact-color-row" id="rowParticleCount">
                 <div class="ui-setting-head">
                     <span class="ui-label">Count</span>
@@ -5841,10 +5817,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
         </div>
 
         <div class="sf-page" id="sfPageLayer">
-            <div class="section-title">Layer SoundFont</div>
-            <div class="sf-layer-toggle">
-                <button class="btn sf-toggle-btn active" id="stringOffBtn">Layer Off</button>
-                <button class="btn sf-toggle-btn" id="stringOnBtn">Layer On</button>
+            <div class="ui-setting-head-gap" style="margin:0 0 10px;">
+                <div class="section-title" style="margin:0;">Layer SoundFont</div>
+                <div class="toggle-switch" id="layerToggle"><div class="toggle-track" id="layerTrack"><div class="toggle-thumb"></div></div></div>
             </div>
             <div class="sf-current-card"><span class="sf-current-label">Current</span><span class="sf-current-value" id="layerSfCurrent">String Ensemble</span></div>
             <div class="sf-effect-card ui-mb10">
@@ -6171,10 +6146,9 @@ async function preparePianoEntryRuntime(){
     const ready = preparePianoRuntimeForEntry();
     setPianoEntryLoading(76, 'Preparing Visuals');
     try{
-        if(typeof getSmokeSprite === 'function'){
+        if(typeof getDustSprite === 'function'){
             const color = (typeof saberColor !== 'undefined' && saberColor) ? saberColor : '#ffffff';
-            getSmokeSprite(color, 'dot');
-            getSmokeSprite(color, 'smoke');
+            getDustSprite(color);
         }
         if(typeof ctx2d !== 'undefined' && ctx2d){
             ctx2d.save();
@@ -6878,11 +6852,9 @@ function setStringLayerEnabled(on, skipConfirm=false) {
             }
         });
     }
-    const onBtn = document.getElementById('stringOnBtn');
-    const offBtn = document.getElementById('stringOffBtn');
+    const layerTrack = document.getElementById('layerTrack');
     const settingsTrack = document.getElementById('settingsStringTrack');
-    if (onBtn) onBtn.classList.toggle('active', stringEnabled);
-    if (offBtn) offBtn.classList.toggle('active', !stringEnabled);
+    if (layerTrack) layerTrack.classList.toggle('active', stringEnabled);
     if (settingsTrack) settingsTrack.classList.toggle('active', stringEnabled);
     updateSoundfontPickerUI();
     if (stringEnabled && currentStringSf !== stringLoadedSfKey && SF_URLS[currentStringSf]) {
@@ -6996,8 +6968,8 @@ document.querySelectorAll('.sf-option[data-layer][data-sf-key]').forEach(btn => 
         if (SF_URLS[sfKey]) selectSf(sfKey, SF_URLS[sfKey], btn, getSoundfontName(sfKey), layer);
     });
 });
-document.getElementById('stringOnBtn').onclick = () => setStringLayerEnabled(true);
-document.getElementById('stringOffBtn').onclick = () => setStringLayerEnabled(false);
+const layerTrack = document.getElementById('layerTrack');
+if(layerTrack) layerTrack.onclick = () => setStringLayerEnabled(!stringEnabled);
 const settingsStringTrack = document.getElementById('settingsStringTrack');
 if(settingsStringTrack) settingsStringTrack.onclick = () => setStringLayerEnabled(!stringEnabled);
 bindStringRangeSliders();
@@ -7909,7 +7881,7 @@ function unregisterDeadFalling(){
         if(!w) fallingByMidi.delete(midi);
     });
 }
-const _smokeSpriteCache = new Map();
+const _dustSpriteCache = new Map();
 function _parseColorToRgb(color){
     color = (color || '').trim();
     if(color.startsWith('#')){
@@ -7922,11 +7894,10 @@ function _parseColorToRgb(color){
     }
     return [120, 220, 255];
 }
-function getSmokeSprite(color, shape){
-    const _shape = shape === 'dot' ? 'dot' : 'smoke';
+function getDustSprite(color){
     const dpr = currentDPR || 1;
-    const cacheKey = color + '@' + (Math.round(dpr * 100) | 0) + '#' + _shape;
-    if(_smokeSpriteCache.has(cacheKey)) return _smokeSpriteCache.get(cacheKey);
+    const cacheKey = color + '@' + (Math.round(dpr * 100) | 0);
+    if(_dustSpriteCache.has(cacheKey)) return _dustSpriteCache.get(cacheKey);
     const SIZE = 192;
     const physSize = Math.max(1, Math.round(SIZE * dpr));
     const cv = document.createElement('canvas');
@@ -7939,27 +7910,15 @@ function getSmokeSprite(color, shape){
     const rgb = _parseColorToRgb(color);
     const r = rgb[0], g = rgb[1], b = rgb[2];
     const grad = c.createRadialGradient(cx, cy, 0, cx, cy, SIZE/2);
-    if(_shape === 'dot'){
-        // "Dust": a tiny FLAT dot in the dust colour — no white-hot core, no
-        // glow halo. Solid to ~0.6 radius then a 1px-ish antialiased edge, so
-        // scaled down it reads as a small plain speck, not a neon mote.
-        grad.addColorStop(0,    `rgba(${r},${g},${b},1)`);
-        grad.addColorStop(0.6,  `rgba(${r},${g},${b},1)`);
-        grad.addColorStop(0.82, `rgba(${r},${g},${b},0.65)`);
-        grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
-    } else {
-        // "Smoke": very soft and diffuse — pure smoke colour (no white-hot /
-        // neon core), low opacity with a long feathered tail so many
-        // overlapping puffs build a gentle, billowing haze.
-        grad.addColorStop(0,    `rgba(${r},${g},${b},0.40)`);
-        grad.addColorStop(0.16, `rgba(${r},${g},${b},0.28)`);
-        grad.addColorStop(0.42, `rgba(${r},${g},${b},0.14)`);
-        grad.addColorStop(0.72, `rgba(${r},${g},${b},0.05)`);
-        grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
-    }
+    // A tiny FLAT dot in the dust colour — solid to ~0.6 radius then a 1px-ish
+    // antialiased edge, so scaled down it reads as a small plain speck.
+    grad.addColorStop(0,    `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.6,  `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.82, `rgba(${r},${g},${b},0.65)`);
+    grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
     c.fillStyle = grad;
     c.fillRect(0, 0, SIZE, SIZE);
-    _smokeSpriteCache.set(cacheKey, cv);
+    _dustSpriteCache.set(cacheKey, cv);
     return cv;
 }
 
@@ -7968,7 +7927,7 @@ function refreshKeyDustColorCache(){
     const css = getComputedStyle(document.documentElement);
     cachedDustWhite = css.getPropertyValue('--accent-white').trim() || css.getPropertyValue('--piano-white-active-mid').trim() || '#70d8ff';
     cachedDustBlack = css.getPropertyValue('--accent-black').trim() || css.getPropertyValue('--piano-black-active-mid').trim() || '#ff7f66';
-    _smokeSpriteCache.clear();
+    _dustSpriteCache.clear();
 }
 // Chord detection is throttled on a wall-clock timer (leading + trailing edge)
 // rather than coalesced into requestAnimationFrame. rAF coupling meant that at
@@ -8164,7 +8123,6 @@ const neonDustSpin = new Float32Array(NEON_DUST_MAX);
 const neonDustAnchorX = new Float32Array(NEON_DUST_MAX);
 let neonDustCount = 0;
 let dustBlendMode = 'glow';
-let particleShape = 'dot';
 let keyGlowEnabled = false;
 let keyGlowIntensity = 50;
 let _dustSprite = null, _dustSpriteKey = '';
@@ -8287,30 +8245,23 @@ function updateDrawNeonDust(dt, now){
 
     if(!neonDustCount) return neonDustEmitters.size > 0;
 
-    const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation + '|' + particleShape;
+    const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation;
     if(_dustColorKey !== _dustSpriteKey){
         _dustSpriteKey = _dustColorKey;
-        _dustSprite = getSmokeSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation), particleShape);
+        _dustSprite = getDustSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation));
     }
     const sprite = _dustSprite;
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     const moveDt = dt * 1000 * (0.18 + speedLevel * 1.85);
     const turbEase = turbulenceLevel * 2; // Turbulence +100%
-    const isDot = particleShape === 'dot';
-    // Smoke slider continuously scales how far the puffs spread (0.5x at 0% up
-    // to 1.5x at 100%), so the dot->smoke transition reads as a real gradient.
-    const smokeAmt = 0.5 + particleSmoke / 100;
-    // Smoke billows into a cloud as it rises; dust stays as drifting points.
-    const wind = (isDot ? 0.000022 : 0.000050) * turbEase * smokeAmt;
-    const biasWind = (isDot ? 0.000006 : 0.000017) * turbEase * smokeAmt;
-    const maxVX = ((isDot ? 0.006 : 0.011) + (isDot ? 0.030 : 0.080) * turbEase) * smokeAmt;
+    // Dust drifts as discrete points.
+    const wind = 0.000011 * turbEase;
+    const biasWind = 0.000003 * turbEase;
+    const maxVX = 0.003 + 0.015 * turbEase;
     ctx2d.save();
-    // Smoke is additive ('lighter') so soft puffs build a glowing haze. Dust
-    // must NOT be additive — with 'lighter', overlapping specks accumulate into
-    // a bright smoky blob (worse at high counts). 'source-over' keeps each dust
-    // grain a discrete point that never merges into smoke.
-    ctx2d.globalCompositeOperation = isDot ? 'source-over' : 'lighter';
+    // 'source-over' keeps each dust grain a discrete point.
+    ctx2d.globalCompositeOperation = 'source-over';
     let alive = 0;
     for(let i=0;i<neonDustCount;i++){
         neonDustAge[i] += dt * 1000;
@@ -8321,8 +8272,8 @@ function updateDrawNeonDust(dt, now){
             const phaseB = age * 0.0026 + neonDustSeedB[i] * 1.7;
             const wander = Math.sin(phaseA) * 0.66 + Math.sin(phaseB) * 0.34;
             const bias = neonDustSpin[i] * (0.30 + Math.sin(age * 0.0009 + neonDustSeedB[i]) * 0.22);
-            // Smoke spreads with age (cloud); dust barely spreads (points).
-            const ageScale = isDot ? (0.25 + Math.min(1, tLife) * 0.35) : (0.32 + Math.min(1, tLife) * 1.55);
+            // Dust barely spreads as it ages (stays a drifting point).
+            const ageScale = 0.25 + Math.min(1, tLife) * 0.35;
             neonDustVX[i] += (wander * wind + bias * biasWind) * ageScale * moveDt;
             if(neonDustVX[i] > maxVX) neonDustVX[i] = maxVX;
             else if(neonDustVX[i] < -maxVX) neonDustVX[i] = -maxVX;
@@ -8341,11 +8292,9 @@ function updateDrawNeonDust(dt, now){
         if(neonDustAge[i] < neonDustLife[i] && neonDustY[i] > -40){
             const t = tLife;
             const fade = t < 0.14 ? t / 0.14 : Math.max(0, 1 - Math.pow((t - 0.14) / 0.86, 1.9));
-            const alpha = Math.min(1, neonDustA[i] * fade * (isDot ? 1.4 : 1));
+            const alpha = Math.min(1, neonDustA[i] * fade * 1.4);
             if(alpha > 0.02){
-                // Smoke expands into a cloud; dust stays a tiny fixed-size point.
-                const grow = isDot ? 1 : (1 + t * 1.9);
-                const sz = isDot ? Math.max(1.5, neonDustR[i] * 0.5) : (neonDustR[i] * 3.0 * grow);
+                const sz = Math.max(1.5, neonDustR[i] * 0.5);
                 ctx2d.globalAlpha = alpha;
                 ctx2d.drawImage(sprite, neonDustX[i] - sz * 0.5, neonDustY[i] - sz * 0.5, sz, sz);
             }
@@ -9397,7 +9346,6 @@ let particleSpeed = 30;
 let particleTurbulence = 30;
 let particleSaturation = 100;
 let particleFade = 45;
-let particleSmoke = 0; // 0 = crisp dots, 100 = full smoke (replaces Shape toggle)
 
 // --- Dual particle amounts: mobile (Medium/high tier) vs PC (ultra tier) ---
 // Each device "mode" remembers its own particle settings, so switching tiers or
@@ -9555,7 +9503,6 @@ function applyFactoryDefaults(clearSavedState){
     setSaberMotion('static');
     setMotionSpeed(50);
     setDustBlendMode('glow');
-    setParticleSmoke(0);
     setSaberAuraSize(50);
     setSaberVisualSetting('brightness', 70);
     setSaberVisualSetting('opacity', 100);
@@ -9879,7 +9826,6 @@ function getCurrentSettings() {
         particleSaturation,
         particleFade,
         particleModeStore: { mobile: Object.assign({}, particleModeStore.mobile), pc: Object.assign({}, particleModeStore.pc) },
-        particleSmoke,
         saberMotion,
         motionSpeed,
         dustBlendMode,
@@ -10028,7 +9974,6 @@ function applySettings(s) {
         setParticleSetting('turbulence', s.particleTurbulence !== undefined ? s.particleTurbulence : particleTurbulence);
         setParticleSetting('saturation', s.particleSaturation !== undefined ? s.particleSaturation : particleSaturation);
         setParticleSetting('fade', s.particleFade !== undefined ? s.particleFade : particleFade);
-        setParticleSmoke(s.particleSmoke !== undefined ? s.particleSmoke : (s.particleShape === 'smoke' ? 100 : particleSmoke));
         // Restore dual (mobile / PC) particle amounts. New presets carry both;
         // legacy presets carry only the single live values applied above, so the
         // other mode is derived by the mobile<->PC conversion.
@@ -10469,7 +10414,7 @@ function setSaberColor(color){
 function setDustColor(color){
     dustColor = normalizeHexColor(color) || '#ffffff';
     updateColorPadValue('gridDust', dustColor);
-    _smokeSpriteCache.clear();
+    _dustSpriteCache.clear();
 }
 function syncSaberFxButtons(){
     const saberTrack = document.getElementById('saberEnabledTrack');
@@ -10511,7 +10456,7 @@ function setParticleSetting(name, value){
     const meta = map[name];
     if(!meta) return;
     if(name === 'count') { particleCount = v; saberDustAmount = v; }
-    else if(name === 'size') { particleSize = v; saberDustSize = v; _smokeSpriteCache.clear(); }
+    else if(name === 'size') { particleSize = v; saberDustSize = v; _dustSpriteCache.clear(); }
     else if(name === 'opacity') { particleOpacity = v; }
     else if(name === 'speed') { particleSpeed = v; }
     else if(name === 'turbulence') { particleTurbulence = v; }
@@ -10545,22 +10490,6 @@ function setDustBlendMode(mode){
     if(glowBtn) glowBtn.classList.toggle('active', dustBlendMode === 'glow');
     if(solidBtn) solidBtn.classList.toggle('active', dustBlendMode === 'solid');
     if(typeof ensureAnimLoop === 'function' && falling.length > 0) ensureAnimLoop();
-}
-function setParticleShape(shape){
-    particleShape = shape === 'dot' ? 'dot' : 'smoke';
-    _dustSpriteKey = '';
-    if(typeof ensureAnimLoop === 'function' && falling.length > 0) ensureAnimLoop();
-}
-// Smoke amount slider (replaces the old Smoke/Dot toggle): 0% = crisp dots,
-// 100% = full billowing smoke. The midpoint flips the render style (sprite +
-// additive blend) while the value continuously scales how much the puffs spread.
-function setParticleSmoke(value){
-    particleSmoke = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
-    const range = document.getElementById('particleSmokeRange');
-    const label = document.getElementById('particleSmokeVal');
-    if(range && range.value !== String(particleSmoke)) range.value = particleSmoke;
-    if(label) label.textContent = particleSmoke + '%';
-    setParticleShape(particleSmoke >= 50 ? 'smoke' : 'dot');
 }
 function setKeyGlowEnabled(on){
     keyGlowEnabled = !!on;
@@ -10668,7 +10597,6 @@ document.getElementById('particleSpeedRange')?.addEventListener('input', e => se
 document.getElementById('particleTurbulenceRange')?.addEventListener('input', e => setParticleSetting('turbulence', e.target.value));
 document.getElementById('particleSaturationRange')?.addEventListener('input', e => setParticleSetting('saturation', e.target.value));
 document.getElementById('particleFadeRange')?.addEventListener('input', e => setParticleSetting('fade', e.target.value));
-document.getElementById('particleSmokeRange')?.addEventListener('input', e => setParticleSmoke(e.target.value));
 document.getElementById('saberBrightnessRange')?.addEventListener('input', e => setSaberVisualSetting('brightness', e.target.value));
 document.getElementById('saberOpacityRange')?.addEventListener('input', e => setSaberVisualSetting('opacity', e.target.value));
 document.getElementById('saberSaturationRange')?.addEventListener('input', e => setSaberVisualSetting('saturation', e.target.value));
@@ -10684,7 +10612,6 @@ setParticleSetting('speed', particleSpeed);
 setParticleSetting('turbulence', particleTurbulence);
 setParticleSetting('saturation', particleSaturation);
 setParticleSetting('fade', particleFade);
-setParticleSmoke(particleSmoke);
 syncSaberFxButtons();
 updateSaberLine();
 
@@ -11569,7 +11496,7 @@ midiBtn.onclick = (e) => {
         const nextDPR = typeof getRenderDPR === 'function' ? getRenderDPR() : prevDPR;
         if(nextDPR !== prevDPR){
             if(typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
-            if(typeof _smokeSpriteCache !== 'undefined' && _smokeSpriteCache.clear) _smokeSpriteCache.clear();
+            if(typeof _dustSpriteCache !== 'undefined' && _dustSpriteCache.clear) _dustSpriteCache.clear();
             if(typeof syncCanvasSize === 'function') syncCanvasSize(false);
         }
         refreshGraphicButtons();
