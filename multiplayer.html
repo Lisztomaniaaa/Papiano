@@ -5419,8 +5419,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                 <div class="color-pad-host" id="gridBlackTuts"></div>
             </div>
             <div class="color-row compact-color-row" id="rowKeyGlow">
-                <div class="section-title">Key Light</div>
-                <button class="btn saber-fx-btn ui-mb8" type="button" id="keyGlowEnabledBtn">Light Off</button>
+                <div class="ui-setting-head-gap ui-mb8">
+                    <div class="section-title">Key Light</div>
+                    <div class="toggle-switch" id="keyGlowToggle"><div class="toggle-track" id="keyGlowTrack"><div class="toggle-thumb"></div></div></div>
+                </div>
                 <div class="ui-setting-head">
                     <span class="ui-label">Intensity</span>
                     <span class="ui-value-sm" id="keyGlowIntensityVal">50%</span>
@@ -5433,8 +5435,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
             <button class="btn visual-back-btn" type="button" data-visual-back>← Back</button>
             <div class="color-group-title">Particles</div>
             <div class="color-row compact-color-row" id="rowParticleFx">
-                <div class="section-title">Particles</div>
-                <button class="btn saber-fx-btn active" type="button" id="particleEnabledBtn">Particles On</button>
+                <div class="ui-setting-head-gap">
+                    <div class="section-title">Particles</div>
+                    <div class="toggle-switch" id="particleEnabledToggle"><div class="toggle-track active" id="particleEnabledTrack"><div class="toggle-thumb"></div></div></div>
+                </div>
             </div>
             <div class="color-row compact-color-row" id="rowDustBlend">
                 <div class="section-title">Particle Mode</div>
@@ -5509,9 +5513,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
             <button class="btn visual-back-btn" type="button" data-visual-back>← Back</button>
             <div class="color-group-title">Strike Line</div>
             <div class="color-row compact-color-row" id="rowSaberFx">
-                <div class="section-title">Strike Line</div>
-                <div style="display:grid; grid-template-columns:1fr; gap:7px;">
-                    <button class="btn saber-fx-btn active" type="button" id="saberEnabledBtn">Strike On</button>
+                <div class="ui-setting-head-gap">
+                    <div class="section-title">Strike Line</div>
+                    <div class="toggle-switch" id="saberEnabledToggle"><div class="toggle-track active" id="saberEnabledTrack"><div class="toggle-thumb"></div></div></div>
                 </div>
             </div>
             <div class="color-row compact-color-row" id="rowSaberBrightness">
@@ -10468,16 +10472,16 @@ function setDustColor(color){
     _smokeSpriteCache.clear();
 }
 function syncSaberFxButtons(){
-    const saberBtn = document.getElementById('saberEnabledBtn');
-    const particleBtn = document.getElementById('particleEnabledBtn');
+    const saberTrack = document.getElementById('saberEnabledTrack');
+    const particleTrack = document.getElementById('particleEnabledTrack');
     const settingsSaberTrack = document.getElementById('settingsSaberTrack');
     const settingsDustTrack = document.getElementById('settingsDustTrack');
     const amountRange = document.getElementById('settingsDustAmountRange');
     const amountVal = document.getElementById('settingsDustAmountVal');
-    if(saberBtn){ saberBtn.classList.toggle('active', saberEnabled); saberBtn.textContent = saberEnabled ? 'Strike On' : 'Strike Off'; }
+    if(saberTrack){ saberTrack.classList.toggle('active', saberEnabled); }
     if(settingsSaberTrack){ settingsSaberTrack.classList.toggle('active', saberEnabled); }
     if(settingsDustTrack){ settingsDustTrack.classList.toggle('active', saberDustEnabled); }
-    if(particleBtn){ particleBtn.classList.toggle('active', saberDustEnabled); particleBtn.textContent = saberDustEnabled ? 'Particle ON' : 'Particle OFF'; }
+    if(particleTrack){ particleTrack.classList.toggle('active', saberDustEnabled); }
     const amountRangeMain = document.getElementById('dustAmountRange');
     const amountValMain = document.getElementById('dustAmountVal');
     if(amountRange) amountRange.value = particleCount;
@@ -10561,11 +10565,8 @@ function setParticleSmoke(value){
 function setKeyGlowEnabled(on){
     keyGlowEnabled = !!on;
     document.body.classList.toggle('key-glow-on', keyGlowEnabled);
-    const btn = document.getElementById('keyGlowEnabledBtn');
-    if(btn){
-        btn.classList.toggle('active', keyGlowEnabled);
-        btn.textContent = keyGlowEnabled ? 'Light On' : 'Light Off';
-    }
+    const track = document.getElementById('keyGlowTrack');
+    if(track){ track.classList.toggle('active', keyGlowEnabled); }
 }
 function setKeyGlowIntensity(v){
     const n = Math.max(0, Math.min(100, parseInt(v, 10) || 0));
@@ -10647,14 +10648,14 @@ populateGrid('gridWhiteTuts', setWhiteKeyColor); populateGrid('gridBlackTuts', s
 setAnimDoubleSplitTuts(animDoubleSplitTuts);
 updateAnimModeControls();
 document.getElementById('animDoubleSplitRange')?.addEventListener('input', e => setAnimDoubleSplitTuts(e.target.value));
-document.getElementById('saberEnabledBtn')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
+document.getElementById('saberEnabledTrack')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
 document.getElementById('settingsSaberTrack')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
 document.getElementById('settingsDustTrack')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
-document.getElementById('particleEnabledBtn')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
+document.getElementById('particleEnabledTrack')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
 document.getElementById('dustBlendGlow')?.addEventListener('click', () => setDustBlendMode('glow'));
 document.getElementById('dustBlendSolid')?.addEventListener('click', () => setDustBlendMode('solid'));
 setDustBlendMode(dustBlendMode);
-document.getElementById('keyGlowEnabledBtn')?.addEventListener('click', () => setKeyGlowEnabled(!keyGlowEnabled));
+document.getElementById('keyGlowTrack')?.addEventListener('click', () => setKeyGlowEnabled(!keyGlowEnabled));
 document.getElementById('keyGlowIntensityRange')?.addEventListener('input', e => setKeyGlowIntensity(e.target.value));
 setKeyGlowEnabled(keyGlowEnabled);
 setKeyGlowIntensity(keyGlowIntensity);
