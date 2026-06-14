@@ -5443,12 +5443,12 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <button class="btn" type="button" id="dustBlendSolid">V2</button>
                 </div>
             </div>
-            <div class="color-row compact-color-row" id="rowParticleShape">
-                <div class="section-title">Shape</div>
-                <div class="anim-style-grid" style="grid-template-columns:1fr 1fr;">
-                    <button class="btn" type="button" id="particleShapeSmoke">Smoke</button>
-                    <button class="btn active" type="button" id="particleShapeDot">Dot</button>
+            <div class="color-row compact-color-row" id="rowParticleSmoke">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Smoke</span>
+                    <span class="ui-value-sm" id="particleSmokeVal">0%</span>
                 </div>
+                <input class="ui-full" type="range" id="particleSmokeRange" min="0" max="100" value="0" aria-label="Smoke">
             </div>
             <div class="color-row compact-color-row" id="rowParticleCount">
                 <div class="ui-setting-head">
@@ -5967,7 +5967,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                                     <span class="ui-label">Piano Visibility</span>
                                     <span class="ui-value" id="pianoVisibilityVal">100%</span>
                                 </div>
-                                <input class="ui-full" type="range" id="pianoVisibilityRange" min="40" max="100" value="100" aria-label="Piano Visibility">
+                                <input class="ui-full" type="range" id="pianoVisibilityRange" min="0" max="100" value="100" aria-label="Piano Visibility">
                             </div>
         <div class="height-stepper perf-setting-block" style="margin-top:12px;">
             <div class="ui-setting-head">
@@ -7324,7 +7324,7 @@ function setBlackKeyHeightPercent(value){
     syncPianoCustomControl('blackKeyHeightRange', 'blackKeyHeightVal', blackKeyHeightPercent);
 }
 function setPianoVisibilityPercent(value){
-    pianoVisibilityPercent = clampPianoCustomPercent(value, 100, 40, 100);
+    pianoVisibilityPercent = clampPianoCustomPercent(value, 100, 0, 100);
     document.documentElement.style.setProperty('--piano-visibility', (pianoVisibilityPercent / 100).toFixed(2));
     syncPianoCustomControl('pianoVisibilityRange', 'pianoVisibilityVal', pianoVisibilityPercent);
 }
@@ -7721,10 +7721,10 @@ function getPressureScale(){
 }
 const GRAPHIC_PROFILES = {
     low: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
-    medium: { dust:0.55, dustMax:276, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
-    high: { dust:1, dustMax:540, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
+    medium: { dust:0.55, dustMax:800, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
+    high: { dust:1, dustMax:2000, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
     // PC tier — everything maxed for fast desktops.
-    ultra: { dust:1, dustMax:960, fallingMax:1600, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    ultra: { dust:1, dustMax:3600, fallingMax:1600, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
     low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
@@ -8054,12 +8054,12 @@ function refreshStageHeight(){
     }
 }
 
-const NEON_DUST_MAX = 960;
+const NEON_DUST_MAX = 3600;
 // Even, hold-independent emission: same initial puff per press, same steady
 // trickle while held. Density never escalates with hold time.
-const DUST_PRESS_BURST = 8;
+const DUST_PRESS_BURST = 20;
 const DUST_EMIT_INTERVAL = 60; // ms between trickle spawns while held
-const DUST_EMIT_COUNT = 2;     // particles per trickle
+const DUST_EMIT_COUNT = 6;     // particles per trickle
 const neonDustX = new Float32Array(NEON_DUST_MAX);
 const neonDustY = new Float32Array(NEON_DUST_MAX);
 const neonDustVX = new Float32Array(NEON_DUST_MAX);
@@ -8108,13 +8108,15 @@ function spawnNeonDust(geom, count){
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     if(countLevel <= 0.005 || opacityLevel <= 0.005 || sizeLevel <= 0.005) return;
-    // Count tripled (1.85 -> 5.55) for a much denser field; caps raised to match.
-    const countMul = countLevel * 5.55 * dustScale;
-    // Max particle size reduced so 100% slider == the old 70% size
-    // (old: 0.08 + 1.76; old 70% ≈ 1.28 -> new 100% slope 1.20). Slider stays 0-100%.
-    const sizeMul = 0.08 + sizeLevel * 1.20;
+    // Count boosted hard: 100% slider reaches a much denser field (caps raised
+    // to match). Multiplier kept moderate so the slider stays ~linear up to the
+    // raised cap instead of slamming into it at low percentages.
+    const countMul = countLevel * 12 * dustScale;
+    // Size +30%: max particle size raised (slope 1.20 -> 1.56). Slider 0-100%.
+    const sizeMul = 0.08 + sizeLevel * 1.56;
     const speedMul = 0.18 + speedLevel * 2.12;
-    const turbEase = turbulenceLevel;
+    // Turbulence +100%: doubled influence at max.
+    const turbEase = turbulenceLevel * 2;
     const fadeLevel = sliderCurve(particleFade, 1.02);
     const fadeMul = 0.25 + fadeLevel * 2.25;
     const n = Math.min(Math.round(count * countMul), maxDust - neonDustCount);
@@ -8192,12 +8194,15 @@ function updateDrawNeonDust(dt, now){
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     const moveDt = dt * 1000 * (0.18 + speedLevel * 1.85);
-    const turbEase = turbulenceLevel;
+    const turbEase = turbulenceLevel * 2; // Turbulence +100%
     const isDot = particleShape === 'dot';
+    // Smoke slider continuously scales how far the puffs spread (0.5x at 0% up
+    // to 1.5x at 100%), so the dot->smoke transition reads as a real gradient.
+    const smokeAmt = 0.5 + particleSmoke / 100;
     // Smoke billows into a cloud as it rises; dust stays as drifting points.
-    const wind = (isDot ? 0.000022 : 0.000050) * turbEase;
-    const biasWind = (isDot ? 0.000006 : 0.000017) * turbEase;
-    const maxVX = (isDot ? 0.006 : 0.011) + (isDot ? 0.030 : 0.080) * turbEase;
+    const wind = (isDot ? 0.000022 : 0.000050) * turbEase * smokeAmt;
+    const biasWind = (isDot ? 0.000006 : 0.000017) * turbEase * smokeAmt;
+    const maxVX = ((isDot ? 0.006 : 0.011) + (isDot ? 0.030 : 0.080) * turbEase) * smokeAmt;
     ctx2d.save();
     // Smoke is additive ('lighter') so soft puffs build a glowing haze. Dust
     // must NOT be additive — with 'lighter', overlapping specks accumulate into
@@ -8474,9 +8479,10 @@ function clampPercentValue(value, fallback=0){
 function sliderRatio(value, fallback=0){
     return clampPercentValue(value, fallback) / 100;
 }
-function sliderCurve(value, power=1.08, fallback=0){
-    const x = sliderRatio(value, fallback);
-    return x <= 0 ? 0 : Math.pow(x, power);
+function sliderCurve(value, power=1, fallback=0){
+    // Linear mapping: a slider at X% applies exactly X% of the effect, so the
+    // response feels accurate across the whole range (no front/back loading).
+    return sliderRatio(value, fallback);
 }
 const _tunedRgbScratch = new Uint8Array(3);
 let _tunedCacheR = -1, _tunedCacheG = -1, _tunedCacheB = -1;
@@ -9282,6 +9288,7 @@ let particleSpeed = 30;
 let particleTurbulence = 30;
 let particleSaturation = 100;
 let particleFade = 45;
+let particleSmoke = 0; // 0 = crisp dots, 100 = full smoke (replaces Shape toggle)
 var saberMotion = 'static';
 let motionSpeed = 50; // drives the strike aura's drift/billow speed
 // "Motion Speed": 0..100 maps to a slow..fast aura billow duration. Higher = faster.
@@ -9390,7 +9397,7 @@ function applyFactoryDefaults(clearSavedState){
     setSaberMotion('static');
     setMotionSpeed(50);
     setDustBlendMode('glow');
-    setParticleShape('dot');
+    setParticleSmoke(0);
     setSaberAuraSize(50);
     setSaberVisualSetting('brightness', 70);
     setSaberVisualSetting('opacity', 100);
@@ -9710,6 +9717,7 @@ function getCurrentSettings() {
         particleTurbulence,
         particleSaturation,
         particleFade,
+        particleSmoke,
         saberMotion,
         motionSpeed,
         dustBlendMode,
@@ -9858,6 +9866,7 @@ function applySettings(s) {
         setParticleSetting('turbulence', s.particleTurbulence !== undefined ? s.particleTurbulence : particleTurbulence);
         setParticleSetting('saturation', s.particleSaturation !== undefined ? s.particleSaturation : particleSaturation);
         setParticleSetting('fade', s.particleFade !== undefined ? s.particleFade : particleFade);
+        setParticleSmoke(s.particleSmoke !== undefined ? s.particleSmoke : (s.particleShape === 'smoke' ? 100 : particleSmoke));
         setDustBlendMode(s.dustBlendMode === 'solid' ? 'solid' : 'glow');
         setSaberMotion('static');
         setMotionSpeed(s.motionSpeed !== undefined ? s.motionSpeed : motionSpeed);
@@ -10162,11 +10171,12 @@ function populateGrid(id, handler){
 }
 function getSaberAuraMetrics(){
     const level = sliderCurve(saberAuraSize, 1.04);
+    // Aura height +50%: taller, softer aura at the same slider %.
     return {
-        height: Math.round(22 * level),
-        blur: Math.round(5 * level),
-        shadowHeight: Math.round(8 * level),
-        shadowBlur: Math.round(4 * level)
+        height: Math.round(33 * level),
+        blur: Math.round(8 * level),
+        shadowHeight: Math.round(12 * level),
+        shadowBlur: Math.round(6 * level)
     };
 }
 function applySaberAuraHeight(){
@@ -10212,7 +10222,7 @@ function updateSaberLine(){
     if(!el) return;
     const baseColor = normalizeHexColor(saberColor) || '#00e5ff';
     const saturatedColor = applySaberSaturation(baseColor, saberSaturation);
-    const intensity = sliderCurve(saberBrightness, 1.10);
+    const intensity = sliderRatio(saberBrightness) * 2; // Intensity +100%
     const opacityLevel = sliderRatio(saberOpacity);
     const auraLevel = sliderCurve(saberAuraSize, 1.04);
     const lineColor = saturatedColor;
@@ -10355,12 +10365,19 @@ function setDustBlendMode(mode){
 }
 function setParticleShape(shape){
     particleShape = shape === 'dot' ? 'dot' : 'smoke';
-    const smokeBtn = document.getElementById('particleShapeSmoke');
-    const dotBtn = document.getElementById('particleShapeDot');
-    if(smokeBtn) smokeBtn.classList.toggle('active', particleShape === 'smoke');
-    if(dotBtn) dotBtn.classList.toggle('active', particleShape === 'dot');
     _dustSpriteKey = '';
     if(typeof ensureAnimLoop === 'function' && falling.length > 0) ensureAnimLoop();
+}
+// Smoke amount slider (replaces the old Smoke/Dot toggle): 0% = crisp dots,
+// 100% = full billowing smoke. The midpoint flips the render style (sprite +
+// additive blend) while the value continuously scales how much the puffs spread.
+function setParticleSmoke(value){
+    particleSmoke = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    const range = document.getElementById('particleSmokeRange');
+    const label = document.getElementById('particleSmokeVal');
+    if(range && range.value !== String(particleSmoke)) range.value = particleSmoke;
+    if(label) label.textContent = particleSmoke + '%';
+    setParticleShape(particleSmoke >= 50 ? 'smoke' : 'dot');
 }
 function setKeyGlowEnabled(on){
     keyGlowEnabled = !!on;
@@ -10458,9 +10475,6 @@ document.getElementById('particleEnabledBtn')?.addEventListener('click', () => s
 document.getElementById('dustBlendGlow')?.addEventListener('click', () => setDustBlendMode('glow'));
 document.getElementById('dustBlendSolid')?.addEventListener('click', () => setDustBlendMode('solid'));
 setDustBlendMode(dustBlendMode);
-document.getElementById('particleShapeSmoke')?.addEventListener('click', () => setParticleShape('smoke'));
-document.getElementById('particleShapeDot')?.addEventListener('click', () => setParticleShape('dot'));
-setParticleShape(particleShape);
 document.getElementById('keyGlowEnabledBtn')?.addEventListener('click', () => setKeyGlowEnabled(!keyGlowEnabled));
 document.getElementById('keyGlowIntensityRange')?.addEventListener('input', e => setKeyGlowIntensity(e.target.value));
 setKeyGlowEnabled(keyGlowEnabled);
@@ -10474,6 +10488,7 @@ document.getElementById('particleSpeedRange')?.addEventListener('input', e => se
 document.getElementById('particleTurbulenceRange')?.addEventListener('input', e => setParticleSetting('turbulence', e.target.value));
 document.getElementById('particleSaturationRange')?.addEventListener('input', e => setParticleSetting('saturation', e.target.value));
 document.getElementById('particleFadeRange')?.addEventListener('input', e => setParticleSetting('fade', e.target.value));
+document.getElementById('particleSmokeRange')?.addEventListener('input', e => setParticleSmoke(e.target.value));
 document.getElementById('saberBrightnessRange')?.addEventListener('input', e => setSaberVisualSetting('brightness', e.target.value));
 document.getElementById('saberOpacityRange')?.addEventListener('input', e => setSaberVisualSetting('opacity', e.target.value));
 document.getElementById('saberSaturationRange')?.addEventListener('input', e => setSaberVisualSetting('saturation', e.target.value));
@@ -10489,6 +10504,7 @@ setParticleSetting('speed', particleSpeed);
 setParticleSetting('turbulence', particleTurbulence);
 setParticleSetting('saturation', particleSaturation);
 setParticleSetting('fade', particleFade);
+setParticleSmoke(particleSmoke);
 syncSaberFxButtons();
 updateSaberLine();
 
