@@ -3253,7 +3253,9 @@ body.mp-chat-keyboard .mp-chat-preview,body.mp-chat-dismissed .mp-chat-preview{d
 .mp-chat-preview-foot{grid-area:reply;display:flex;justify-content:flex-end;align-items:center;}
 .mp-chat-preview-reply{width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#b9f2ff;opacity:.92;flex:0 0 auto;}
 .mp-chat-preview-reply .mp-reply-icon{width:12px;height:12px;}
-.mp-chat-panel{position:fixed;top:86px;left:50%;right:auto;bottom:auto;transform:translateX(-50%);width:340px;max-width:calc(100dvw - 24px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));height:auto;max-height:80vh;z-index:2110;display:none;flex-direction:column;overflow:hidden;border-radius:30px;border:1px solid rgba(255,255,255,.14);background:rgba(35,38,45,.86);box-shadow:0 16px 44px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.075);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);pointer-events:auto;touch-action:auto;}
+.mp-chat-panel{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));right:auto;top:auto;bottom:calc(var(--piano-height,25vh) + 14px + env(safe-area-inset-bottom,0px));transform:none;width:min(330px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));height:clamp(220px,42dvh,360px);z-index:2110;display:none;flex-direction:column;overflow:hidden;border-radius:20px;border:1px solid rgba(255,255,255,.14);background:rgba(35,38,45,.86);box-shadow:0 16px 44px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.075);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);pointer-events:auto;touch-action:auto;transition:background .35s ease,border-color .35s ease,box-shadow .35s ease,backdrop-filter .35s ease,-webkit-backdrop-filter .35s ease;}
+body.mp-chat-idle .mp-chat-panel{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;}
+body.mp-chat-idle .mp-chat-head,body.mp-chat-idle .mp-chat-form{opacity:0;transition:opacity .35s ease;}
 body.mp-chat-open .mp-chat-panel{display:flex;animation:mpChatPop .24s cubic-bezier(.22,1,.36,1);}
 @keyframes mpChatPop{from{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.96);}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
 body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(10px + env(safe-area-inset-bottom,0px) + var(--mp-chat-keyboard-inset,0px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 80px - env(safe-area-inset-top,0px)) !important;}
@@ -3262,24 +3264,16 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(10px + env(
 .mp-chat-sub{margin-top:3px;color:var(--mp-chat-muted);font-size:10.5px;font-weight:800;}
 .mp-chat-close{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.075);color:rgba(245,248,252,.72);cursor:pointer;display:grid;place-items:center;padding:0;transition:.15s;}
 .mp-chat-close:active{transform:scale(.94);}
-.mp-messages{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:14px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.20) transparent;}
+.mp-messages{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:10px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.20) transparent;}
 .mp-messages>:first-child{margin-top:auto;}
-.mp-message{display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:start;}
-.mp-message.mine{grid-template-columns:38px minmax(0,1fr);}
-.mp-message-avatar{width:38px;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;background:linear-gradient(135deg,var(--mp-player-color,#78dcff),rgba(255,255,255,.12));color:#061117;font-size:12px;font-weight:950;letter-spacing:.03em;overflow:hidden;cursor:pointer;font-family:inherit;box-shadow:0 10px 22px rgba(0,0,0,.34);}
-.mp-bubble{min-width:0;padding:11px 12px 10px;border-radius:20px;background:var(--mp-chat-surface);border:1px solid rgba(255,255,255,.085);box-shadow:0 12px 24px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.045);}
-.mp-message.mine .mp-bubble{background:linear-gradient(145deg,rgba(16,26,32,.96),rgba(9,13,18,.96));border-color:rgba(157,235,255,.20);}
-.mp-message-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
-.mp-message-meta{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.mp-message-name{color:#fff;font-size:12.5px;font-weight:950;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.mp-message-time{color:var(--mp-chat-muted);font-size:10.5px;font-weight:800;line-height:1.1;}
-.mp-message-text{color:rgba(248,252,255,.93);font-size:13px;line-height:1.46;font-weight:720;word-break:break-word;white-space:pre-wrap;}
-.mp-quote{margin:0 0 9px;padding:7px 9px;border-left:3px solid rgba(157,235,255,.74);border-radius:11px;background:rgba(157,235,255,.07);color:rgba(235,244,250,.70);font-size:10.5px;font-weight:800;line-height:1.32;}
-.mp-quote b{display:block;color:#fff;margin-bottom:2px;}
-.mp-reply{width:30px;height:30px;min-height:30px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.065);color:#b9f2ff;overflow:hidden;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}
-.mp-reply:active{transform:scale(.96);}
-.mp-reply svg{display:block;}
-.mp-reply .mp-reply-icon{width:14px;height:14px;}
+.mp-message{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:start;width:100%;text-align:left;background:none;border:0;padding:3px;border-radius:12px;cursor:pointer;font-family:inherit;transition:background .12s;}
+.mp-message:active{background:rgba(255,255,255,.05);}
+.mp-message-avatar{width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;background:linear-gradient(135deg,var(--mp-player-color,#78dcff),rgba(255,255,255,.12));color:#061117;font-size:11px;font-weight:950;letter-spacing:.03em;overflow:hidden;font-family:inherit;}
+.mp-bubble{min-width:0;display:flex;flex-direction:column;gap:1px;}
+.mp-message-name{font-size:11.5px;font-weight:900;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mp-message-text{color:rgba(248,252,255,.92);font-size:12px;line-height:1.4;font-weight:600;word-break:break-word;white-space:pre-wrap;}
+.mp-quote{display:block;margin:0 0 3px;padding:4px 7px;border-left:2px solid rgba(157,235,255,.7);border-radius:7px;background:rgba(157,235,255,.07);color:rgba(235,244,250,.66);font-size:10px;font-weight:700;line-height:1.3;}
+.mp-quote b{display:block;color:#fff;margin-bottom:1px;}
 .mp-reply-bar{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 14px 10px;padding:9px 10px;border-radius:14px;border:1px solid rgba(157,235,255,.16);background:rgba(157,235,255,.065);color:rgba(255,255,255,.74);font-size:10.5px;font-weight:800;flex:0 0 auto;}
 .mp-reply-bar.active{display:flex;}
 .mp-reply-bar b{color:#fff;}
@@ -4810,8 +4804,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 @media (hover:hover) and (pointer:fine){
     #panel .btn:not(.active):hover{ background:#34343f; border-color:rgba(255,255,255,0.14); }
     #logoToggle:hover{ background:rgba(0,0,0,0.5); }
-    .mp-reply:hover{ filter:brightness(1.18); }
-    .mp-message-text, .mp-message-meta{ -webkit-user-select:text; user-select:text; }
+    .mp-message-text{ -webkit-user-select:text; user-select:text; }
 }
 
 /* ============================================================
@@ -4951,15 +4944,17 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     max-width:none !important;
 }
 
-/* Professional chat placement across screen sizes */
-@media (min-width:900px){.mp-chat-panel{position:fixed !important;top:96px !important;bottom:auto !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(500px,calc(100vw - 48px)) !important;max-width:none !important;height:auto !important;min-height:0 !important;max-height:calc(100vh - 132px) !important;border-radius:28px !important;}}
 @media (orientation:landscape) and (max-height:560px){body.mp-chat-open .stage,body.mp-chat-open #pianoWrap,body.mp-chat-open #swipeStrip{display:block !important;right:0 !important;left:0 !important;width:100% !important;max-width:none !important;margin:0 !important;}body.mp-chat-open .piano-container,body.mp-chat-open .piano-scroll-wrapper{width:100% !important;max-width:none !important;}.mp-chat-panel{top:calc(var(--ui-below-strip,64px) + 10px) !important;right:auto !important;bottom:calc(var(--piano-height,26vh) + 12px + env(safe-area-inset-bottom,0px)) !important;left:50% !important;transform:translateX(-50%) !important;width:min(520px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))) !important;min-width:0 !important;height:auto !important;max-height:none !important;min-height:0 !important;border-radius:24px;background:rgba(35,38,45,.94) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}.mp-chat-head{padding:10px 12px 9px !important;}.mp-messages{padding:10px 12px !important;}.mp-chat-form{grid-template-columns:minmax(0,1fr) 72px !important;align-items:end !important;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px)) !important;}.mp-chat-input{min-height:40px !important;height:auto !important;max-height:76px !important;color:#fff !important;-webkit-text-fill-color:#fff !important;caret-color:#9defff !important;opacity:1 !important;}.mp-chat-preview{left:calc(10px + env(safe-area-inset-left,0px)) !important;}body.mp-chat-keyboard .mp-chat-panel{top:calc(10px + env(safe-area-inset-top,0px)) !important;bottom:calc(10px + env(safe-area-inset-bottom,0px) + var(--mp-chat-keyboard-inset,0px)) !important;width:min(340px,calc(100vw - 24px)) !important;height:auto !important;max-height:calc(var(--mp-chat-vh,100dvh) - 20px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - var(--mp-chat-keyboard-inset,0px)) !important;}}
 .mp-chat-preview{left:calc(14px + env(safe-area-inset-left,0px)) !important;max-height:min(calc(var(--mp-chat-preview-rows,3) * 76px + (var(--mp-chat-preview-rows,3) - 1) * 8px),calc(100dvh - var(--piano-height,26vh) - var(--ui-below-strip) - 14px - env(safe-area-inset-bottom,0px))) !important;}
 
-/* === Chat popup: ONE absolute card size for every device and orientation (never widens) === */
-.mp-chat-panel{position:fixed !important;top:calc(64px + env(safe-area-inset-top,0px)) !important;bottom:auto !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(340px,calc(100vw - 24px)) !important;max-width:none !important;height:auto !important;min-height:0 !important;max-height:calc(100dvh - 84px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)) !important;border-radius:28px !important;}
-/* When the keyboard is open: dock the card just above it so the input (typed text) stays visible; never stretch full height */
-body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 8px) !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(340px,calc(100vw - 24px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 16px) !important;border-radius:24px !important;}
+/* === Chat panel: docked (never centred), one consistent fixed size per orientation === */
+.mp-chat-panel{position:fixed !important;left:calc(14px + env(safe-area-inset-left,0px)) !important;right:auto !important;top:auto !important;bottom:calc(var(--piano-height,25vh) + 14px + env(safe-area-inset-bottom,0px)) !important;transform:none !important;width:min(330px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))) !important;max-width:none !important;height:clamp(260px,46dvh,380px) !important;min-height:0 !important;max-height:none !important;border-radius:20px !important;}
+/* Portrait keeps the tall column; landscape becomes a wider, shorter card. */
+@media (orientation:landscape) and (max-height:600px){.mp-chat-panel{left:calc(12px + env(safe-area-inset-left,0px)) !important;bottom:calc(var(--piano-height,38vh) + 10px + env(safe-area-inset-bottom,0px)) !important;width:min(480px,54dvw) !important;height:clamp(160px,42dvh,260px) !important;}}
+/* Desktop / large screens: keep it docked but comfortably sized (never tiny). */
+@media (min-width:900px){.mp-chat-panel{left:calc(22px + env(safe-area-inset-left,0px)) !important;bottom:calc(var(--piano-height,25vh) + 20px + env(safe-area-inset-bottom,0px)) !important;width:400px !important;height:clamp(320px,48vh,480px) !important;}}
+/* Keyboard open: dock just above it so the input stays visible. */
+body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 8px) !important;left:calc(14px + env(safe-area-inset-left,0px)) !important;right:auto !important;transform:none !important;width:min(330px,calc(100vw - 24px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 16px - var(--mp-chat-keyboard-inset,0px)) !important;border-radius:18px !important;}
 @media (orientation:landscape){body.mp-chat-keyboard .mp-chat-head{display:none !important;}}
 
 /* --- Multiplayer home: consistent with the stage on all devices --- */
@@ -12125,6 +12120,19 @@ midiBtn.onclick = (e) => {
     }
     let replyTarget = null;
     let selectedPlayer = null;
+    let chatIdleTimer = null;
+    function clearChatIdleTimer(){ if(chatIdleTimer){ clearTimeout(chatIdleTimer); chatIdleTimer = null; } }
+    function bumpChatActivity(){
+        if(!document.body.classList.contains('mp-chat-open')) return;
+        document.body.classList.remove('mp-chat-idle');
+        clearChatIdleTimer();
+        chatIdleTimer = setTimeout(() => {
+            if(document.body.classList.contains('mp-chat-open')) document.body.classList.add('mp-chat-idle');
+        }, 5000);
+    }
+    if(chatPanel){
+        ['pointerdown','keydown','input','focusin','wheel','touchstart'].forEach(ev => chatPanel.addEventListener(ev, bumpChatActivity, { passive:true }));
+    }
     let reportPlayer = null;
     let selectedReportReason = 'Spam';
     let blockedPlayersLoadedFor = '';
@@ -13603,6 +13611,10 @@ midiBtn.onclick = (e) => {
             pushMpHistory('chat');
             renderMessages();
             updateChatCounter();
+            bumpChatActivity();
+        }else{
+            clearChatIdleTimer();
+            document.body.classList.remove('mp-chat-idle');
         }
     }
 
@@ -13883,24 +13895,20 @@ midiBtn.onclick = (e) => {
     }
 
     function renderMessages(){
+        const meId = currentUser().id;
         messagesBox.innerHTML = visibleRoomMessages().map(message => {
             const player = getPlayer(message.playerId);
-            const quote = message.replyTo ? `<div class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><span>${escapeHtml(message.replyTo.text)}</span></div>` : '';
+            const color = playerColor(player);
+            const quote = message.replyTo ? `<span class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><span>${escapeHtml(message.replyTo.text)}</span></span>` : '';
             return `
-                <div class="mp-message${message.playerId === currentUser().id ? ' mine' : ''}" data-mp-message="${escapeHtml(message.id)}">
-                    <button class="mp-message-avatar" type="button" data-mp-player="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}" style="--mp-player-color:${escapeHtml(playerColor(player))}">${chatAvatarContent(player)}</button>
-                    <article class="mp-bubble">
-                        <header class="mp-message-head">
-                            <div class="mp-message-meta">
-                                <span class="mp-message-name">${escapeHtml(player.name)}</span>
-                                <time class="mp-message-time">${escapeHtml(message.time)}</time>
-                            </div>
-                            <button class="mp-reply" type="button" data-mp-reply="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">${MP_REPLY_ICON}</button>
-                        </header>
+                <button class="mp-message${message.playerId === meId ? ' mine' : ''}" type="button" data-mp-message="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">
+                    <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(player)}</span>
+                    <span class="mp-bubble">
                         ${quote}
-                        <div class="mp-message-text">${escapeHtml(message.text)}</div>
-                    </article>
-                </div>
+                        <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
+                        <span class="mp-message-text">${escapeHtml(message.text)}</span>
+                    </span>
+                </button>
             `;
         }).join('');
         renderChatPreview();
@@ -16305,19 +16313,13 @@ midiBtn.onclick = (e) => {
     });
 
     function handleMessageAction(event){
-        const reply = event.target.closest('[data-mp-reply]');
-        const player = event.target.closest('[data-mp-player]');
-        if(reply){
-            event.preventDefault(); event.stopPropagation();
-            const message = messages.find(item => item.id === reply.dataset.mpReply);
-            if(message) setReply(message);
-            return;
-        }
-        if(player){ event.preventDefault(); event.stopPropagation(); openProfile(player.dataset.mpPlayer); }
+        const row = event.target.closest('[data-mp-message]');
+        if(!row) return;
+        const message = messages.find(item => item.id === row.dataset.mpMessage);
+        if(message) setReply(message);
     }
 
     messagesBox.addEventListener('click', handleMessageAction);
-    messagesBox.addEventListener('pointerup', event => { if(event.target.closest('[data-mp-reply]')) handleMessageAction(event); }, { passive:false });
     chatForm.addEventListener('submit', event => { event.preventDefault(); addMessage(chatInput.value); });
     chatInput?.addEventListener('keydown', event => {
         if(event.key === 'Enter' && !event.shiftKey){
