@@ -11284,7 +11284,24 @@ var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordO
 })();
 
 let midiAccess = null;
+let midiEnabled = false;
 const midiBtn = document.getElementById('midiBtn');
+function _attachMidiInputs(){
+    if(!midiAccess) return;
+    // Property assignment (not addEventListener) so re-running never stacks
+    // duplicate listeners on the same input.
+    midiAccess.inputs.forEach(input => { input.onmidimessage = (msg) => _handleMidiMessage(msg.data); });
+}
+function _detachMidiInputs(){
+    if(!midiAccess) return;
+    midiAccess.inputs.forEach(input => { input.onmidimessage = null; });
+}
+function _onMidiStateChange(){
+    // A device was (un)plugged or one that failed earlier is now ready — re-scan
+    // and re-attach so MIDI reconnects without a reload/relog.
+    if(midiEnabled) _attachMidiInputs();
+}
+function _setMidiUiActive(on){ if(midiBtn) midiBtn.classList.toggle('active', !!on); }
 
 // Web MIDI handler, extracted so the dispatch logic is unit-testable. Note: we
 // deliberately do NOT filter GM channel 10 here. A live controller or DAW track
@@ -11327,32 +11344,31 @@ function _handleMidiMessage(data){
 }
 window._handleMidiMessage = _handleMidiMessage;
 
-midiBtn.onclick = (e) => {
-    const isOn = e.target.classList.toggle('active');
-    if (isOn) {
-        if (navigator.requestMIDIAccess) {
-            navigator.requestMIDIAccess().then(midi => {
-                midiAccess = midi;
-                const inputs = midi.inputs.values();
-                for (let input of inputs) {
-                    input.onmidimessage = (msg) => _handleMidiMessage(msg.data);
-                }
-                midi.onstatechange = () => {};
-            }).catch(err => {
-                e.target.classList.remove('active');
-                showToast('MIDI access was denied or is unavailable. Check your browser permissions.', { type:'error', title:'MIDI unavailable' });
-            });
-        } else {
-            e.target.classList.remove('active');
+midiBtn.onclick = () => {
+    if(!midiEnabled){
+        if(!navigator.requestMIDIAccess){
+            _setMidiUiActive(false);
             showToast('This browser does not support the Web MIDI API. Try Chrome or Edge on desktop.', { type:'error', title:'MIDI not supported' });
+            return;
         }
+        midiEnabled = true;
+        _setMidiUiActive(true);
+        // Reuse an existing access object (instant re-enable + still hot-plug aware).
+        if(midiAccess){ _attachMidiInputs(); return; }
+        navigator.requestMIDIAccess().then(midi => {
+            midiAccess = midi;
+            midi.onstatechange = _onMidiStateChange;
+            if(midiEnabled) _attachMidiInputs(); else _detachMidiInputs();
+        }).catch(() => {
+            midiEnabled = false;
+            _setMidiUiActive(false);
+            showToast('MIDI access was denied or is unavailable. Check your browser permissions.', { type:'error', title:'MIDI unavailable' });
+        });
     } else {
-        if (midiAccess) {
-            const inputs = midiAccess.inputs.values();
-            for (let input of inputs) input.onmidimessage = null;
-            setMidiSustainPedal(false);
-            midiAccess = null;
-        }
+        midiEnabled = false;
+        _setMidiUiActive(false);
+        _detachMidiInputs();
+        setMidiSustainPedal(false);
         stopAllNotes();
     }
 };
