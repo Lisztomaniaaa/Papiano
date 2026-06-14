@@ -7778,7 +7778,7 @@ const GRAPHIC_MODE_DEFAULTS = {
     low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
     medium: { dust:true, particleCount:45, particleSize:52, particleOpacity:74, particleSpeed:26, particleTurbulence:24, particleSaturation:88, particleFade:52, saberAuraSize:44, saberBrightness:64, saberOpacity:100, saberSaturation:100 },
     high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 },
-    ultra: { dust:true, particleCount:100, particleSize:76, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:38, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
+    ultra: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:38, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
 };
 const REMOTE_VISUAL_PROFILES = {
     low: { level:'light' },
@@ -8156,12 +8156,13 @@ function spawnNeonDust(geom, count){
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     if(countLevel <= 0.005 || opacityLevel <= 0.005 || sizeLevel <= 0.005) return;
-    // Count boosted hard: 100% slider reaches a much denser field (caps raised
-    // to match). Multiplier kept moderate so the slider stays ~linear up to the
-    // raised cap instead of slamming into it at low percentages.
-    const countMul = countLevel * 12 * dustScale;
-    // Size +30%: max particle size raised (slope 1.20 -> 1.56). Slider 0-100%.
-    const sizeMul = 0.08 + sizeLevel * 1.56;
+    // PC particles render larger/denser than mobile by concept, so on the PC
+    // tier the size & count ceilings are halved (100% slider == half the old
+    // max) — they were too big. Mobile keeps the fuller mapping.
+    const _pcTier = getEffectiveGraphicQuality() === 'ultra';
+    const countMul = countLevel * (_pcTier ? 6 : 12) * dustScale;
+    // Size +30% baseline; halved again on PC.
+    const sizeMul = 0.08 + sizeLevel * (_pcTier ? 0.78 : 1.56);
     const speedMul = 0.18 + speedLevel * 2.12;
     // Turbulence +100%: doubled influence at max.
     const turbEase = turbulenceLevel * 2;
@@ -8679,12 +8680,18 @@ function anim(now){
     if(!dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
 
     const riseSpeed = getAnimRiseSpeed() * dt;
+    // PC tier: a held note keeps growing to fill the screen instead of capping
+    // at 400px — held notes stay drawing for as long as the key is held. Mobile
+    // keeps the shorter fixed cap.
+    const maxNoteH = (graphicQuality === 'ultra')
+        ? Math.max(MAX_NOTE_HEIGHT, (canvasCssH || MAX_NOTE_HEIGHT))
+        : MAX_NOTE_HEIGHT;
     for(let i=0;i<falling.length;i++){
         const f=falling[i];
         if(f.dead) continue;
         if(f.growing){
-            if(f.height<MAX_NOTE_HEIGHT){
-                f.height=Math.min(f.height+riseSpeed, MAX_NOTE_HEIGHT);
+            if(f.height<maxNoteH){
+                f.height=Math.min(f.height+riseSpeed, maxNoteH);
                 f.y=f.bottomY-f.height;
             } else {
                 f.growing = false;
