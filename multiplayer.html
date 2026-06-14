@@ -1848,9 +1848,9 @@ body.layout-changing #piano .black.active{
 }
 
 @media (pointer: fine) {
-/* Tuts putih realistis: putih terang merata seperti piano akrilik asli,
-   dengan bibir depan (front lip) halus di ujung bawah — tanpa gradasi
-   abu-abu lebar yang membuat tuts terlihat pucat/kusam. */
+/* Realistic white keys: evenly bright white like real acrylic piano keys,
+   with a soft front lip at the bottom edge — no wide grey gradient that
+   makes the keys look pale/dull. */
 #piano .white:not(.active){
     background:linear-gradient(180deg,#ffffff 0%,#fdfdfe 62%,#f7f8fa 88%,#e9ebee 95%,#f5f6f8 100%) !important;
     background-color:#fdfdfe !important;
@@ -4833,10 +4833,10 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 
 /* ============================================================
    PAPIANO — Universal responsive layer (2026-06-11)
-   Fluid scaling untuk semua device: phone / tablet / laptop / PC
-   (320px s.d. 3840px), portrait & landscape, fullscreen & non-fullscreen.
-   Semua geometri top bar / pill / panel diturunkan dari variabel
-   di bawah agar tidak ada lagi nilai px yang saling bertabrakan.
+   Fluid scaling for all devices: phone / tablet / laptop / PC
+   (320px to 3840px), portrait & landscape, fullscreen & non-fullscreen.
+   All top bar / pill / panel geometry derives from the variables
+   below so there are no more conflicting px values.
    ============================================================ */
 
 :root{
@@ -4851,12 +4851,12 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     --ui-logo-clear:clamp(128px, 98px + 2.9vw, 196px);
     --ui-pill-h:clamp(36px, 27px + 0.8vw, 54px);
     --ui-pill-font:clamp(11px, 9.6px + 0.18vw, 15px);
-    /* Baris pill player selalu di bawah top bar — tidak boleh menabrak */
+    /* Player pill row always sits below the top bar — must never overlap */
     --ui-strip-top:calc(var(--ui-top-offset) + var(--ui-topbar-h) + 8px);
     --ui-below-strip:calc(var(--ui-strip-top) + var(--ui-pill-h) + 10px);
     --ui-chat-w:clamp(300px, 120px + 12vw, 420px);
 }
-/* Phone landscape pendek: rapatkan semuanya supaya stage tetap lega */
+/* Short phone landscape: tighten everything so the stage stays roomy */
 @media (orientation:landscape) and (max-height:520px){
     :root{
         --ui-top-offset:calc(4px + env(safe-area-inset-top,0px));
@@ -4868,7 +4868,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     }
 }
 
-/* --- Top bar: satu sumber kebenaran untuk posisi & ukuran --- */
+/* --- Top bar: single source of truth for position & size --- */
 .render-fixed .top,
 .render-fixed.papiano-fullscreen .top{
     top:var(--ui-top-offset) !important;
@@ -4957,7 +4957,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     left:auto !important;
 }
 
-/* --- Stage & piano full-bleed: tidak ada lagi area mati di monitor lebar --- */
+/* --- Stage & piano full-bleed: no more dead space on wide monitors --- */
 .render-fixed .stage,
 .render-fixed #pianoWrap{
     max-width:none !important;
@@ -4979,7 +4979,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 8px) !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(340px,calc(100vw - 24px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 16px) !important;border-radius:24px !important;}
 @media (orientation:landscape){body.mp-chat-keyboard .mp-chat-head{display:none !important;}}
 
-/* --- Home multiplayer: konsisten dengan stage di semua device --- */
+/* --- Multiplayer home: consistent with the stage on all devices --- */
 @media (min-width:900px){
     .mp-screen[data-mp-screen] .mp-room-main,
     .mp-screen[data-mp-screen] .mp-notice,
@@ -5030,7 +5030,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
     .mp-card-title{ font-size:17px; }
 }
 
-/* --- Floating panel: jangan mengecil di tablet/laptop kecil --- */
+/* --- Floating panel: don't shrink on small tablets/laptops --- */
 @media (min-width:900px) and (max-width:1599px){
     .floating-panel{ width:min(380px,calc(100vw - 28px)) !important; }
     #settingsPanel{ width:min(400px,calc(100vw - 28px)) !important; }
@@ -7802,7 +7802,7 @@ const GRAPHIC_PROFILES = {
     high: { dust:1, dustMax:2000, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
     // PC tier — no limits: caps lifted to the full buffer so particles, draw
     // counts and DPR are never throttled. (governor is disabled for 'ultra'.)
-    ultra: { dust:1, dustMax:8000, fallingMax:100000, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    ultra: { dust:1, dustMax:16000, fallingMax:100000, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
     low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
@@ -8137,7 +8137,10 @@ function refreshStageHeight(){
     }
 }
 
-const NEON_DUST_MAX = 8000;
+// PC ("ultra") tier has no particle cap — give the shared pool real headroom so
+// the PC ceiling never feels limited. Mobile tiers stay capped by profile.dustMax
+// (800 / 2000), so this larger buffer never affects them.
+const NEON_DUST_MAX = 16000;
 // Even, hold-independent emission: same initial puff per press, same steady
 // trickle while held. Density never escalates with hold time.
 const DUST_PRESS_BURST = 20;
@@ -8180,7 +8183,11 @@ function getKeyStageGeom(midi){
 function spawnNeonDust(geom, count){
     if(!saberDustEnabled || !geom || !canvas) return;
     const profile = getGraphicProfile();
-    const loadScale = getPressureScale();
+    const _pcTier = getEffectiveGraphicQuality() === 'ultra';
+    // PC = no particle limit: the perf governor never trims particle count or
+    // scale on PC, so raising the slider always adds more and the density never
+    // collapses under load. (Mobile still backs off under genuine pressure.)
+    const loadScale = _pcTier ? 1 : getPressureScale();
     const maxDust = Math.max(0, Math.min(Math.round(NEON_DUST_MAX * loadScale), Number(profile.dustMax) || 0));
     const dustScale = Math.max(0, Math.min(1, (Number(profile.dust) || 0) * loadScale));
     if(dustScale <= 0 || neonDustCount >= maxDust) return;
@@ -8191,10 +8198,9 @@ function spawnNeonDust(geom, count){
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     if(countLevel <= 0.005 || opacityLevel <= 0.005 || sizeLevel <= 0.005) return;
-    // PC particles render larger/denser than mobile by concept, so on the PC
-    // tier the size & count ceilings are halved (100% slider == half the old
-    // max) — they were too big. Mobile keeps the fuller mapping.
-    const _pcTier = getEffectiveGraphicQuality() === 'ultra';
+    // Mobile and PC keep SEPARATE per-mode amounts (the slider is dual), so the
+    // PC mapping can stay lighter per unit — the dual settings carry the
+    // mobile↔PC difference (PC value ≈ half of mobile for the same look).
     const countMul = countLevel * (_pcTier ? 6 : 12) * dustScale;
     // Size +30% baseline; halved again on PC.
     const sizeMul = 0.08 + sizeLevel * (_pcTier ? 0.78 : 1.56);
@@ -9387,6 +9393,55 @@ let particleTurbulence = 30;
 let particleSaturation = 100;
 let particleFade = 45;
 let particleSmoke = 0; // 0 = crisp dots, 100 = full smoke (replaces Shape toggle)
+
+// --- Dual particle amounts: mobile (Medium/high tier) vs PC (ultra tier) ---
+// Each device "mode" remembers its own particle settings, so switching tiers or
+// loading a preset restores the right amounts per device instead of sharing one
+// value. PC has no particle cap, so the same number renders ~2x denser than
+// mobile — therefore a value crossing mobile<->PC is halved/doubled (count &
+// size only) to keep the visual consistent.
+const PARTICLE_FIELDS = ['count','size','opacity','speed','turbulence','saturation','fade'];
+const PARTICLE_SCALED_FIELDS = new Set(['count','size']); // the density/size fields that halve/double across modes
+function _particleModeForQuality(q){ return q === 'ultra' ? 'pc' : 'mobile'; }
+let currentParticleMode = _particleModeForQuality(graphicQuality);
+function _liveParticleSnapshot(){
+    return { count:particleCount, size:particleSize, opacity:particleOpacity, speed:particleSpeed, turbulence:particleTurbulence, saturation:particleSaturation, fade:particleFade };
+}
+function _sanitizeParticleStore(src){
+    if(!src || typeof src !== 'object') return null;
+    const out = {};
+    PARTICLE_FIELDS.forEach(f => {
+        let v = Math.round(Number(src[f]));
+        if(!Number.isFinite(v)) v = 0;
+        out[f] = Math.max(0, Math.min(100, v));
+    });
+    return out;
+}
+function _particleStoreFromDefaults(cfg){
+    return { count:cfg.particleCount, size:cfg.particleSize, opacity:cfg.particleOpacity, speed:cfg.particleSpeed, turbulence:cfg.particleTurbulence, saturation:cfg.particleSaturation, fade:cfg.particleFade };
+}
+const particleModeStore = {
+    mobile: _particleStoreFromDefaults(GRAPHIC_MODE_DEFAULTS.high),
+    pc: _particleStoreFromDefaults(GRAPHIC_MODE_DEFAULTS.ultra)
+};
+// Cross-mode conversion: PC value = round(mobile/2); mobile value = pc*2.
+function convertParticleStore(src, fromMode, toMode){
+    const clean = _sanitizeParticleStore(src);
+    if(!clean || fromMode === toMode) return clean;
+    const halve = fromMode === 'mobile' && toMode === 'pc';
+    const out = {};
+    PARTICLE_FIELDS.forEach(f => {
+        let v = clean[f];
+        if(PARTICLE_SCALED_FIELDS.has(f)) v = halve ? Math.round(v / 2) : Math.min(100, Math.round(v * 2));
+        out[f] = v;
+    });
+    return out;
+}
+function applyParticleStore(store){
+    const clean = _sanitizeParticleStore(store);
+    if(!clean) return;
+    PARTICLE_FIELDS.forEach(f => setParticleSetting(f, clean[f]));
+}
 var saberMotion = 'static';
 let motionSpeed = 50; // drives the strike aura's drift/billow speed
 // "Motion Speed": 0..100 maps to a slow..fast aura billow duration. Higher = faster.
@@ -9463,7 +9518,7 @@ function getDefaultPianoHeightPercent(){
     // jadi 48 berarti piano ~24% tinggi layar (standar Synthesia/See Music ~20-25%).
     if(!isTouch){
         const maxPx = Math.max(1, vh * 0.5);
-        // 24% viewport, dengan lantai 220px supaya tidak pendek di layar laptop kecil
+        // 24% viewport, with a 220px floor so it isn't too short on small laptop screens
         return Math.min(60, Math.max(48, Math.round(220 / maxPx * 100)));
     }
     if(vw > vh) return 52; // landscape phone/tablet: ~26% viewport (selaras CSS boot 26vh)
@@ -9665,10 +9720,10 @@ function mountColorPad(id, label, initialColor, handler, resetColor){
         instance.val = clampColorPadValue(v, 0, 1);
         syncUI(emit);
     };
-    // === Standar pro: pointer-driven drag dengan global capture ===
-    // Gunakan window-level listener saat aktif supaya gerakan jari yang
-    // keluar dari area pad (kasus paling sering "tidak bisa digeser") tetap
-    // terlacak; selalu preventDefault agar browser tidak men-cancel jadi scroll.
+    // === Pointer-driven drag with global capture ===
+    // Use a window-level listener while active so finger movement that leaves
+    // the pad area (the most common "can't drag" case) is still tracked;
+    // always preventDefault so the browser doesn't cancel it into a scroll.
     const makeDragger = (target, applyFromXY) => {
         let pid = -1;
         const onDown = event => {
@@ -9774,6 +9829,9 @@ function bindChordColorControls(){
 }
 
 function getCurrentSettings() {
+    if(typeof particleModeStore !== 'undefined' && particleModeStore[currentParticleMode]){
+        particleModeStore[currentParticleMode] = _liveParticleSnapshot();
+    }
     return {
         wCount,
         transpose,
@@ -9815,6 +9873,7 @@ function getCurrentSettings() {
         particleTurbulence,
         particleSaturation,
         particleFade,
+        particleModeStore: { mobile: Object.assign({}, particleModeStore.mobile), pc: Object.assign({}, particleModeStore.pc) },
         particleSmoke,
         saberMotion,
         motionSpeed,
@@ -9965,6 +10024,21 @@ function applySettings(s) {
         setParticleSetting('saturation', s.particleSaturation !== undefined ? s.particleSaturation : particleSaturation);
         setParticleSetting('fade', s.particleFade !== undefined ? s.particleFade : particleFade);
         setParticleSmoke(s.particleSmoke !== undefined ? s.particleSmoke : (s.particleShape === 'smoke' ? 100 : particleSmoke));
+        // Restore dual (mobile / PC) particle amounts. New presets carry both;
+        // legacy presets carry only the single live values applied above, so the
+        // other mode is derived by the mobile<->PC conversion.
+        if(s.particleModeStore && typeof s.particleModeStore === 'object'){
+            const m = _sanitizeParticleStore(s.particleModeStore.mobile);
+            const p = _sanitizeParticleStore(s.particleModeStore.pc);
+            particleModeStore.mobile = m || (p ? convertParticleStore(p, 'pc', 'mobile') : particleModeStore.mobile);
+            particleModeStore.pc = p || (m ? convertParticleStore(m, 'mobile', 'pc') : particleModeStore.pc);
+        } else {
+            const liveMode = _particleModeForQuality((s.graphicQuality && GRAPHIC_PROFILES[s.graphicQuality]) ? s.graphicQuality : graphicQuality);
+            const live = _liveParticleSnapshot();
+            particleModeStore[liveMode] = live;
+            const other = liveMode === 'pc' ? 'mobile' : 'pc';
+            particleModeStore[other] = convertParticleStore(live, liveMode, other);
+        }
         setDustBlendMode(s.dustBlendMode === 'solid' ? 'solid' : 'glow');
         setSaberMotion('static');
         setMotionSpeed(s.motionSpeed !== undefined ? s.motionSpeed : motionSpeed);
@@ -10150,21 +10224,21 @@ function resetBlackKeyBaseColor(){
     root.setProperty('--piano-black-mid','#151a22');
     root.setProperty('--piano-black-bottom','#040506');
 }
-// === Warna custom user vs warna seat (multiplayer) =========================
-// Warna seat hanyalah DEFAULT identitas di dalam room. Begitu user memilih
-// warna sendiri di panel Visual (TERMASUK PUTIH), pilihan user MENANG untuk
-// tampilan lokalnya. Reset/preset mengembalikan ke warna seat.
-// Pemain lain tetap melihat warna seat user ini di layar mereka.
+// === Custom user colour vs seat colour (multiplayer) =======================
+// The seat colour is only the DEFAULT identity inside a room. Once the user
+// picks their own colour in the Visual panel (INCLUDING WHITE), the user's
+// choice WINS for their local view. Reset/preset returns to the seat colour.
+// Other players still see this user's seat colour on their screens.
 //
-// Standar pro: bedakan "default state" dengan "user explicitly chose color".
-// Putih juga bisa dipilih sebagai custom. Cara satu-satunya untuk kembali ke
-// warna seat adalah tombol Reset (yang men-set NO_COLOR).
-var customWhiteKey = null;   // null = belum custom (pakai seat) ; string hex = warna pilihan user
+// Distinguish "default state" from "user explicitly chose a colour". White can
+// also be chosen as custom. The only way back to the seat colour is the Reset
+// button (which sets NO_COLOR).
+var customWhiteKey = null;   // null = not custom yet (use seat) ; hex string = user-chosen colour
 var customBlackKey = null;
 var customAnimNote = null;
 var customChordColor = null;
 function selfSeatKeyColor(){
-    if(customWhiteKey || customBlackKey) return ''; // user sudah custom → tampilan ikut --accent-white global
+    if(customWhiteKey || customBlackKey) return ''; // user already customised → view follows global --accent-white
     return _mpSelfSeatColor || '';
 }
 function selfSeatNoteOpts(){
@@ -10181,10 +10255,10 @@ function selfSeatNoteOpts(){
 function userCustomChordColor(){
     return customChordColor || '';
 }
-// Sinkronkan TAMPILAN color pad ke warna efektif saat ini:
-// custom user kalau ada, kalau tidak warna seat di room, kalau tidak default.
-// Display-only (updateColorPadValue tidak memanggil handler), jadi tidak
-// pernah mengubah state custom.
+// Sync the color pad DISPLAY to the current effective colour:
+// user custom if any, else the seat colour in the room, else the default.
+// Display-only (updateColorPadValue doesn't call the handler), so it never
+// changes the custom state.
 function syncColorPadsToEffectiveColors(){
     try{
         const seat = _mpSelfSeatColor || '';
@@ -10202,10 +10276,10 @@ function syncColorPadsToEffectiveColors(){
 function setWhiteKeyColor(color){
     const root=document.documentElement.style;
     resetWhiteKeyBaseColor();
-    // Update custom flag berdasarkan intent (sumber panggilan):
-    //   'user'  -> user pilih warna di color pad (termasuk putih)  -> custom
-    //   'reset' -> klik tombol Reset                                -> kembali seat
-    //   null    -> load settings / factory defaults                 -> jangan ubah
+    // Update the custom flag based on intent (call source):
+    //   'user'  -> user picked a colour in the color pad (incl. white) -> custom
+    //   'reset' -> clicked the Reset button                            -> back to seat
+    //   null    -> load settings / factory defaults                    -> don't change
     if(_activeColorPadIntent === 'user'){
         customWhiteKey = (color === NO_COLOR || color === null) ? null : (normalizeHexColor(color) || null);
     } else if(_activeColorPadIntent === 'reset' || color === NO_COLOR || color === null){
@@ -10442,6 +10516,11 @@ function setParticleSetting(name, value){
     const label = document.getElementById(meta[2]);
     if(range) range.value = v;
     if(label) label.textContent = v + '%';
+    // Keep the active device mode's remembered amount in sync (dual settings).
+    if(typeof particleModeStore !== 'undefined' && PARTICLE_FIELDS.indexOf(name) !== -1){
+        const store = particleModeStore[currentParticleMode];
+        if(store) store[name] = v;
+    }
     syncSaberFxButtons();
 }
 function setSaberDustSize(value){
@@ -11533,10 +11612,27 @@ midiBtn.onclick = (e) => {
         const nextQuality = q === 'auto' ? _detectDefaultGraphicQuality() : q;
         performanceMode = 'manual';
         perfGovScale = 1.0; _perfSlowStreak = 0; _perfFastStreak = 0; _perfEmaMs = 1000 / 60; if(document.body) document.body.classList.remove('perf-lite');
+        const _prevParticleMode = (typeof currentParticleMode !== 'undefined') ? currentParticleMode : null;
         graphicQuality = GRAPHIC_PROFILES[nextQuality] ? nextQuality : _detectDefaultGraphicQuality();
+        const _newParticleMode = _particleModeForQuality(graphicQuality);
+        // Remember the outgoing mode's particle amounts before switching device modes.
+        if(_prevParticleMode && _prevParticleMode !== _newParticleMode && particleModeStore[_prevParticleMode]){
+            particleModeStore[_prevParticleMode] = _liveParticleSnapshot();
+        }
+        currentParticleMode = _newParticleMode;
         syncEffectiveGraphicState(prevDPR);
         updateManualQualityUi(graphicQuality, true);
-        if(applyDefaults) applyGraphicModeDefaults(graphicQuality);
+        if(applyDefaults){
+            // Tier buttons reset the non-particle visual defaults, but PARTICLES are
+            // dual: restore this mode's remembered amounts (copied first, since
+            // applyGraphicModeDefaults overwrites the live store).
+            const remembered = Object.assign({}, particleModeStore[currentParticleMode]);
+            applyGraphicModeDefaults(graphicQuality);
+            applyParticleStore(remembered);
+        } else {
+            // Initial load / preset / programmatic: load this mode's remembered amounts.
+            applyParticleStore(particleModeStore[currentParticleMode]);
+        }
         if(typeof ensureAnimLoop === 'function' && falling.length>0) ensureAnimLoop();
     }
     Object.entries(btns).forEach(([id, val]) => {
@@ -12184,7 +12280,10 @@ midiBtn.onclick = (e) => {
         }
     }
 
-    const MP_PLAYER_COLORS = ['#e63946','#ffffff','#b28cff','#4895ef','#5ee68a','#ffe066'];
+    // Brightest version of each seat hue (top-right corner of the colour picker:
+    // max saturation + max brightness), so default seat colours that drive
+    // falling notes / key visuals are vivid, not muted.
+    const MP_PLAYER_COLORS = ['#ff0013','#ffffff','#5400ff','#0076ff','#00ff52','#ffcb00'];
 
     function colorFromId(id){
         const text = String(id || '');
@@ -12299,7 +12398,7 @@ midiBtn.onclick = (e) => {
         return String(value ?? '').replace(/[&<>"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]));
     }
 
-    // Selaras dengan BASE_ROLE_REGISTRY di js/app.js (common -> PLAYER).
+    // Aligned with BASE_ROLE_REGISTRY in js/app.js (common -> PLAYER).
     const MP_BADGES_BASE = {
         common:    { id:'common',    label:'PLAYER',    rarity:'common' },
         supporter: { id:'supporter', label:'SUPPORTER', rarity:'supporter' },
@@ -15539,7 +15638,7 @@ midiBtn.onclick = (e) => {
             return;
         }
 
-        // Color: self = warna custom user (jika ada) atau warna seat; remote = warna seat mereka
+        // Color: self = user custom colour (if any) or seat colour; remote = their seat colour
         var color = playerColor(mpSelfId);
         if(bestSource === 'self'){
             var customChord = (typeof userCustomChordColor === 'function') ? userCustomChordColor() : '';
@@ -16152,7 +16251,6 @@ midiBtn.onclick = (e) => {
                 attachRoomsListener();
                 attachUsersListener();
                 attachRoleRegistryListener();
-                showToast('Online mode connected.', { type:'success', title:'Papiano' });
             }catch(e){
                 firebaseReady = false;
                 firebaseInitPromise = null;
