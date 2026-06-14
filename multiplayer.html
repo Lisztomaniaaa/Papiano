@@ -10,6 +10,12 @@
 <meta name="apple-mobile-web-app-title" content="Papiano Online">
 <meta name="theme-color" content="#05132e">
 <meta name="color-scheme" content="dark">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://papiano.fun/multiplayer">
 <meta property="og:type" content="website">
@@ -5376,6 +5382,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <button class="btn" id="mRainbow">Rainbow</button>
                     <button class="btn" id="mAurora">Aurora</button>
                     <button class="btn" id="mOpal">Opal</button>
+                    <button class="btn" id="m3D">3D Glow</button>
                     <button class="btn" id="mDouble">Double</button>
                 </div>
             </div>
@@ -5731,6 +5738,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                             <button class="btn settings-anim-style" data-style-target="mRainbow">Rainbow</button>
                             <button class="btn settings-anim-style" data-style-target="mAurora">Aurora</button>
                             <button class="btn settings-anim-style" data-style-target="mOpal">Opal</button>
+                            <button class="btn settings-anim-style" data-style-target="m3D">3D Glow</button>
                             <button class="btn settings-anim-style" data-style-target="mDouble">Double</button>
                         </div>
                     </div>
@@ -8545,7 +8553,15 @@ function drawFallingNote(f){
     const isRounded = shape === 'rounded' && roundPct > 0;
     const rv = isRounded ? Math.min(8, w*0.45, h*0.35) * (roundPct / 100) : 0;
     const drawStyleRaw = f.styleResolved || f.style;
-    const drawStyle = (drawStyleRaw === 'rainbowV2' || drawStyleRaw === 'crystal3d') ? 'rainbow' : drawStyleRaw;
+    let drawStyle = (drawStyleRaw === 'rainbowV2' || drawStyleRaw === 'crystal3d') ? 'rainbow' : drawStyleRaw;
+
+    // 3D Glow notes are rendered by the WebGL layer (note3D); skip the 2D draw
+    // once it is ready. While Three.js is still loading (or if WebGL/CDN is
+    // unavailable) we render a gradient fallback so notes never disappear.
+    if(drawStyle === 'glossy3d'){
+        if(typeof note3DReady !== 'undefined' && note3DReady) return;
+        drawStyle = 'gradient';
+    }
 
     ctx2d.globalAlpha = noteAlpha;
     ctx2d.globalCompositeOperation = 'source-over';
@@ -8695,6 +8711,191 @@ function safeHex(hex, fallback){
 }
 function _clampRgb(v){ v = Number(v) || 0; return v < 0 ? 0 : v > 255 ? 255 : (v + 0.5) | 0; }
 
+/* ============================================================================
+ * note3D — real 3D (WebGL/Three.js) "3D Glow" falling-note layer.
+ *
+ * SeeMusic-style glossy 3D tiles: each note is an extruded rounded box with a
+ * clear-coat glossy surface, lit so the bevels catch specular highlights, and
+ * an UnrealBloom pass for the glow. Notes keep their single assigned colour
+ * (no hue-mixing) so the colour calibration matches the chosen Note Color.
+ *
+ * Three.js is lazy-loaded from a CDN the first time the style is selected, so
+ * it costs nothing unless used. The whole layer is PC/heavy-FX only and falls
+ * back to a plain 2D fill if WebGL or the CDN is unavailable.
+ * ========================================================================== */
+var note3DActive = false;   // user has the 3D Glow style selected
+var note3DReady = false;    // three.js loaded + renderer built
+var _note3DLoading = false;
+var _note3DFailed = false;
+var THREE3D = null;         // captured three namespace
+var note3DCanvas = null, note3DRenderer = null, note3DScene = null,
+    note3DCamera = null, note3DComposer = null, note3DBloom = null, note3DPool = [];
+const NOTE3D_POOL_MAX = 220;
+
+function _note3DWebglOk(){
+    try {
+        const c = document.createElement('canvas');
+        return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl')));
+    } catch(e){ return false; }
+}
+
+function syncNote3DActive(){
+    const want = (typeof resolveAnimStyle === 'function' ? resolveAnimStyle(animStyle) : animStyle) === 'glossy3d';
+    if(want){
+        note3DActive = true;
+        ensureNote3D();
+        if(note3DCanvas) note3DCanvas.style.display = '';
+    } else {
+        note3DActive = false;
+        if(note3DReady) clearNote3D();
+        if(note3DCanvas) note3DCanvas.style.display = 'none';
+    }
+}
+
+function ensureNote3D(){
+    if(note3DReady || _note3DLoading || _note3DFailed) return;
+    if(!_note3DWebglOk()){ _note3DFailed = true; return; }
+    _note3DLoading = true;
+    Promise.all([
+        import('three'),
+        import('three/addons/postprocessing/EffectComposer.js'),
+        import('three/addons/postprocessing/RenderPass.js'),
+        import('three/addons/postprocessing/UnrealBloomPass.js'),
+        import('three/addons/postprocessing/OutputPass.js'),
+        import('three/addons/geometries/RoundedBoxGeometry.js')
+    ]).then(([THREE, ec, rp, ub, op, rbg]) => {
+        THREE3D = THREE;
+        _buildNote3D(THREE, ec.EffectComposer, rp.RenderPass, ub.UnrealBloomPass, op.OutputPass, rbg.RoundedBoxGeometry);
+        note3DReady = true;
+        _note3DLoading = false;
+        if(typeof ensureAnimLoop === 'function' && Array.isArray(falling) && falling.length > 0) ensureAnimLoop();
+    }).catch(err => {
+        console.warn('[note3D] failed to load Three.js, falling back to 2D:', err);
+        _note3DFailed = true;
+        _note3DLoading = false;
+    });
+}
+
+function _buildNote3D(THREE, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, RoundedBoxGeometry){
+    const W = Math.max(1, canvasCssW || 1), H = Math.max(1, canvasCssH || 1);
+
+    note3DCanvas = document.createElement('canvas');
+    note3DCanvas.id = 'fx3d';
+    // mix-blend-mode:screen composites the glow additively over the stage:
+    // black (empty space) contributes nothing, bright notes/bloom add light.
+    // This sidesteps the transparent-background bloom artifacts entirely.
+    note3DCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:19;mix-blend-mode:screen;';
+    const stage = document.querySelector('.stage');
+    (stage || document.body).appendChild(note3DCanvas);
+
+    note3DRenderer = new THREE.WebGLRenderer({ canvas: note3DCanvas, alpha: true, antialias: true });
+    note3DRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    note3DRenderer.setSize(W, H, false);
+    note3DRenderer.setClearColor(0x000000, 1);
+    if('outputColorSpace' in note3DRenderer) note3DRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    note3DRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    note3DRenderer.toneMappingExposure = 1.15;
+
+    note3DScene = new THREE.Scene();
+    note3DCamera = new THREE.PerspectiveCamera(30, W / H, 1, 20000);
+
+    // Lighting: soft ambient + a key/fill pair so the glossy bevels pick up
+    // travelling specular highlights as notes move.
+    note3DScene.add(new THREE.AmbientLight(0x9fb4d6, 0.85));
+    const key = new THREE.DirectionalLight(0xffffff, 1.25); key.position.set(-0.5, 0.9, 1.2); note3DScene.add(key);
+    const fill = new THREE.DirectionalLight(0x88aaff, 0.55); fill.position.set(0.7, -0.4, 0.9); note3DScene.add(fill);
+    const rim = new THREE.DirectionalLight(0xffffff, 0.7); rim.position.set(0, 0.2, -1); note3DScene.add(rim);
+
+    const geo = new RoundedBoxGeometry(1, 1, 1, 3, 0.16);
+    for(let i = 0; i < NOTE3D_POOL_MAX; i++){
+        const mat = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.55,
+            metalness: 0.0, roughness: 0.26, clearcoat: 1.0, clearcoatRoughness: 0.16,
+            reflectivity: 0.6, transparent: false
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.visible = false;
+        note3DScene.add(mesh);
+        note3DPool.push(mesh);
+    }
+
+    note3DComposer = new EffectComposer(note3DRenderer);
+    note3DComposer.addPass(new RenderPass(note3DScene, note3DCamera));
+    note3DBloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.9, 0.55, 0.18);
+    note3DComposer.addPass(note3DBloom);
+    note3DComposer.addPass(new OutputPass());
+    note3DComposer.setSize(W, H);
+}
+
+function note3DResize(){
+    if(!note3DReady) return;
+    const W = Math.max(1, canvasCssW || 1), H = Math.max(1, canvasCssH || 1);
+    note3DRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    note3DRenderer.setSize(W, H, false);
+    note3DComposer.setSize(W, H);
+    if(note3DBloom && note3DBloom.setSize) note3DBloom.setSize(W, H);
+    note3DCamera.aspect = W / H;
+    note3DCamera.updateProjectionMatrix();
+}
+
+function clearNote3D(){
+    if(!note3DReady) return;
+    for(let i = 0; i < note3DPool.length; i++) note3DPool[i].visible = false;
+    note3DRenderer.clear();
+}
+
+function renderNote3D(now){
+    if(!note3DReady) return;
+    const W = Math.max(1, canvasCssW || 1), H = Math.max(1, canvasCssH || 1);
+    const _kwBase = whiteKeyWidth > 0 ? whiteKeyWidth : animSize;
+    const _effSize = Math.min(animSize, Math.max(4, _kwBase * 0.9));
+
+    let idx = 0;
+    for(let i = 0; i < falling.length && idx < note3DPool.length; i++){
+        const f = falling[i];
+        if(f.dead) continue;
+        if((f.styleResolved || f.style) !== 'glossy3d') continue;
+        const fastX = noteXFast[f.midi];
+        const cachedX = Number.isFinite(fastX) ? fastX : noteXCache.get(f.midi);
+        if(cachedX === undefined || !Number.isFinite(cachedX)) continue;
+        const w = isBlack(f.midi) ? _effSize * 0.7 : _effSize;
+        const h = Math.max(6, f.height);
+        const cx = cachedX - currentPianoTransformPx;
+        const cy = f.y + h * 0.5;
+        if(cy - h * 0.5 > H || cy + h * 0.5 < 0) continue;
+        if(cx + w * 0.5 < 0 || cx - w * 0.5 > W) continue;
+
+        const m = note3DPool[idx++];
+        const depth = Math.max(6, Math.min(w * 0.85, 20));
+        m.visible = true;
+        m.scale.set(w, h, depth);
+        // Map screen px -> world: plane at z=0 spans W x H around the origin.
+        m.position.set(cx - W * 0.5, H * 0.5 - cy, depth * 0.5);
+
+        if(f._c3hex !== f.base){
+            const col = f._c3 || (f._c3 = new THREE3D.Color());
+            try { col.set(f.base || '#78dcff'); } catch(e){ col.set('#78dcff'); }
+            f._c3hex = f.base;
+        }
+        m.material.color.copy(f._c3);
+        m.material.emissive.copy(f._c3).multiplyScalar(0.5);
+        const op = Math.max(0.1, Math.min(1, Number(f.opacity ?? 100) / 100));
+        m.material.opacity = op;
+        m.material.transparent = op < 1;
+    }
+    for(; idx < note3DPool.length; idx++){ if(note3DPool[idx].visible) note3DPool[idx].visible = false; }
+
+    // Camera kept straight-on so the box front faces line up exactly with the
+    // piano keys; depth + lighting + bloom provide the 3D pop.
+    const fovRad = note3DCamera.fov * Math.PI / 360;
+    const dist = (H * 0.5) / Math.tan(fovRad);
+    note3DCamera.position.set(0, 0, dist);
+    note3DCamera.aspect = W / H;
+    note3DCamera.lookAt(0, 0, 0);
+    note3DCamera.updateProjectionMatrix();
+    note3DComposer.render();
+}
+
 function anim(now){
 
     if(_lastAnimTs >= 0 && (now - _lastAnimTs) >= 0 && (now - _lastAnimTs) < 6 && animFrameId){
@@ -8747,6 +8948,9 @@ function anim(now){
     }
     if(dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
 
+    // WebGL 3D Glow layer: renders the glossy3d notes in real 3D with bloom.
+    if(typeof note3DActive !== 'undefined' && note3DActive && note3DReady) renderNote3D(now);
+
     if(falling.length > 40){
         let w=0, removed=false;
         for(let i=0;i<falling.length;i++){
@@ -8760,6 +8964,7 @@ function anim(now){
     if(hasLive) animFrameId=requestAnimationFrame(anim);
     else {
         animFrameId=null; lastFrameTime=0; _lastAnimTs=-1; falling.length=0; fallingByMidi.clear();
+        if(typeof note3DActive !== 'undefined' && note3DActive && note3DReady) clearNote3D();
         if(pressStartTimes.size === 0 && document.body && !document.body.classList.contains('idle-no-notes')){
             document.body.classList.add('idle-no-notes');
         }
@@ -8818,6 +9023,7 @@ function syncCanvasSize(forceReadStage){
     const cssW = nextW + 'px', cssH = nextH + 'px';
     if(canvas.style.width !== cssW) canvas.style.width = cssW;
     if(canvas.style.height !== cssH) canvas.style.height = cssH;
+    if(typeof note3DActive !== 'undefined' && note3DActive && typeof note3DResize === 'function') note3DResize();
     ctx2d.imageSmoothingEnabled = true;
     ctx2d.imageSmoothingQuality = 'high';
     ctx2d.globalAlpha = 1;
@@ -9446,11 +9652,11 @@ const PRESET_STORAGE_KEY = 'papiano_memory_preset_v2';
 const STORAGE_RESET_KEYS = ['papiano_memory_autosave_v2', 'papiano_memory_options_v2', 'papiano_settings'];
 const STORAGE_SCHEMA_VERSION = 2;
 
-const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mRainbow:'rainbow', mAurora:'aurora', mOpal:'opal', mDouble:'double' };
+const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mRainbow:'rainbow', mAurora:'aurora', mOpal:'opal', m3D:'glossy3d', mDouble:'double' };
 // Single-colour fill styles (use the chosen Note Color). Excludes rainbow
-// (per-note hue) and double (split colours). Aurora/Opal are single-colour too:
-// their flowing/iridescent palette is derived from the chosen Note Color's hue.
-const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient','aurora','opal'];
+// (per-note hue) and double (split colours). Aurora/Opal/3D are single-colour
+// too: their look is derived from the chosen Note Color.
+const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient','aurora','opal','glossy3d'];
 const NO_COLOR="__none";
 const colors=[NO_COLOR,"#ffffff","#00e5ff","#38bdf8","#2979ff","#651fff","#8b5cf6","#ff4081","#ff2d75","#ff1744","#ff6d00","#f7b733","#ffea00","#b2ff59","#00e676"];
 function getDefaultPianoHeightPercent(){
@@ -9916,7 +10122,7 @@ function applySettings(s) {
         if (typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
         if (s.animStyle !== undefined) {
             const LEGACY_STYLE = { single:'default', metalic:'default', crystal3d:'default', clean:'default', cleanNeon:'default', rainbow2:'rainbow', rainbowV2:'rainbow', glow:'gradient', neon:'gradient' };
-            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', rainbow:'mRainbow', aurora:'mAurora', opal:'mOpal', double:'mDouble' };
+            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', rainbow:'mRainbow', aurora:'mAurora', opal:'mOpal', glossy3d:'m3D', double:'mDouble' };
             const resolved = LEGACY_STYLE[s.animStyle] || s.animStyle;
             setAnimModeById(styleMap[resolved] || 'mDef');
         }
@@ -10583,6 +10789,7 @@ function setAnimModeById(id){
     }
     renderNow = performance.now();
     updateAnimMode(id);
+    if(typeof syncNote3DActive === 'function') syncNote3DActive();
     if(typeof ensureAnimLoop === 'function') ensureAnimLoop();
 }
 Object.entries(animModeBtns).forEach(([id]) => {
