@@ -147,12 +147,15 @@ html,body{ width:100%; height:100%; overflow:hidden; background:#000; font-famil
 .floating-panel {
     position:absolute; top:70px; display:none; padding:20px; background:var(--ui-color);
     border-radius:24px; border:1px solid rgba(255,255,255,0.1); z-index:120;
-    box-shadow:0 20px 50px rgba(0,0,0,0.8); flex-direction:column; gap:15px; width:340px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.8); flex-direction:column; gap:18px; width:340px;
     left:50%; transform:translateX(-50%); max-height: 80vh; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
 }
-.color-row { display: flex; flex-direction: column; gap: 10px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 15px; margin-bottom: 5px; }
+.color-row { display: flex; flex-direction: column; gap: 12px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 15px; margin-bottom: 8px; }
 
-.floating-panel input[type="range"]{ touch-action: pan-y; accent-color:#78dcff; }
+/* Sliders: keep vertical-scroll panning on the slider itself, and add a
+   vertical dead-zone (margin) above/below the track so a finger can land in the
+   row to scroll without grabbing the slider on cramped layouts. */
+.floating-panel input[type="range"]{ touch-action: pan-y !important; accent-color:#78dcff; margin:9px 0; min-height:22px; }
 .section-title { font-size: 10px; color: rgba(255,255,255,0.4); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
 
 .stage{
@@ -1191,7 +1194,7 @@ body.key-glow-on #piano .black.active{
 }
 
 .compact-color-panel{ width:min(326px,calc(100vw - 28px)) !important; }
-.compact-color-row{ padding:9px 10px !important; }
+.compact-color-row{ padding:13px 12px !important; }
 .color-group-title{
     margin:10px 2px 4px;
     padding:0 2px;
@@ -9733,6 +9736,15 @@ function getCurrentSettings() {
         chordDisplayColors: typeof chordDisplayColors !== 'undefined' ? chordDisplayColors : null,
         keyGlowEnabled,
         keyGlowIntensity,
+        // Persist the explicit "user chose this colour" intent so a chosen
+        // colour (even white) restores correctly instead of collapsing back to
+        // the room seat colour on load.
+        customAnimNote: typeof customAnimNote !== 'undefined' ? (customAnimNote || null) : null,
+        customWhiteKey: typeof customWhiteKey !== 'undefined' ? (customWhiteKey || null) : null,
+        customBlackKey: typeof customBlackKey !== 'undefined' ? (customBlackKey || null) : null,
+        customChordColor: typeof customChordColor !== 'undefined' ? (customChordColor || null) : null,
+        // Settings outside the Visual panel (top bar) so a preset is complete.
+        metronome: (typeof window.getMetronomeState === 'function') ? window.getMetronomeState() : undefined,
     };
 }
 
@@ -9803,7 +9815,16 @@ function applySettings(s) {
         updateSfEffectUI();
         applyCurrentSfEffects();
         if (s.isAnimOn !== undefined) { setAnimationEnabled(s.isAnimOn); }
+        // Restore the note colour using the saved explicit intent when present
+        // (new presets store customAnimNote): a saved colour — including white —
+        // is re-applied as the user's choice, while "no custom" falls back to
+        // the seat/default colour. Older presets keep the legacy value path.
+        if (s.customAnimNote !== undefined) {
+            _activeColorPadIntent = s.customAnimNote ? 'user' : 'reset';
+            try { setAnimColor(s.customAnimNote || '#ffffff'); } finally { _activeColorPadIntent = null; }
+        } else {
         setAnimColor(s.animColor !== undefined ? s.animColor : '#ffffff');
+        }
         setAnimDoubleLeftColor(s.animDoubleLeftColor !== undefined ? s.animDoubleLeftColor : '#ffffff');
         setAnimDoubleRightColor(s.animDoubleRightColor !== undefined ? s.animDoubleRightColor : '#ffffff');
         setAnimDoubleSplitTuts(s.animDoubleSplitTuts !== undefined ? s.animDoubleSplitTuts : 44);
@@ -9848,11 +9869,27 @@ function applySettings(s) {
         setBlackKeyWidthPercent(s.blackKeyWidthPercent !== undefined ? s.blackKeyWidthPercent : 120);
         setBlackKeyHeightPercent(s.blackKeyHeightPercent !== undefined ? s.blackKeyHeightPercent : 60);
         setPianoVisibilityPercent(s.pianoVisibilityPercent !== undefined ? s.pianoVisibilityPercent : 100);
-        setWhiteKeyColor(s.accentWhite !== undefined ? s.accentWhite : NO_COLOR);
-        setBlackKeyColor(s.accentBlack !== undefined ? s.accentBlack : NO_COLOR);
+        if (s.customWhiteKey !== undefined) {
+            _activeColorPadIntent = s.customWhiteKey ? 'user' : 'reset';
+            try { setWhiteKeyColor(s.customWhiteKey || NO_COLOR); } finally { _activeColorPadIntent = null; }
+        } else {
+            setWhiteKeyColor(s.accentWhite !== undefined ? s.accentWhite : NO_COLOR);
+        }
+        if (s.customBlackKey !== undefined) {
+            _activeColorPadIntent = s.customBlackKey ? 'user' : 'reset';
+            try { setBlackKeyColor(s.customBlackKey || NO_COLOR); } finally { _activeColorPadIntent = null; }
+        } else {
+            setBlackKeyColor(s.accentBlack !== undefined ? s.accentBlack : NO_COLOR);
+        }
         setKeyGlowEnabled(s.keyGlowEnabled !== undefined ? !!s.keyGlowEnabled : false);
         setKeyGlowIntensity(s.keyGlowIntensity !== undefined ? s.keyGlowIntensity : 50);
-        if (s.chordDisplayColors) setChordDisplayColors(s.chordDisplayColors);
+        if (s.customChordColor !== undefined) {
+            _activeColorPadIntent = s.customChordColor ? 'user' : 'reset';
+            try { setChordDisplayColors(s.chordDisplayColors || DEFAULT_CHORD_COLORS); } finally { _activeColorPadIntent = null; }
+        } else if (s.chordDisplayColors) {
+            setChordDisplayColors(s.chordDisplayColors);
+        }
+        if (s.metronome && typeof window.setMetronomeState === 'function') window.setMetronomeState(s.metronome);
         if (s.perfHudEnabled !== undefined) setPerformanceMonitor(!!s.perfHudEnabled);
         if (s.performanceMode === 'auto') performanceMode = 'auto';
         else if (s.graphicQuality !== undefined) { performanceMode = 'manual'; graphicQuality = GRAPHIC_PROFILES[s.graphicQuality] ? s.graphicQuality : graphicQuality; }
@@ -11553,6 +11590,26 @@ midiBtn.onclick = (e) => {
             btn.classList.add('active');
         };
     });
+
+    // Expose state so presets can save/restore the metronome (it lives in this
+    // private scope; without this it was silently dropped from every preset).
+    function applyBeats(n){
+        metroBeats = Math.max(1, Math.min(12, parseInt(n, 10) || 4));
+        document.querySelectorAll('.metro-beat-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.beats, 10) === metroBeats));
+        buildDots();
+        metroCurBeat = 0;
+    }
+    function applySound(name){
+        metroSound = name || 'click';
+        document.querySelectorAll('.metro-sound-btn').forEach(b => b.classList.toggle('active', b.dataset.sound === metroSound));
+    }
+    window.getMetronomeState = function(){ return { bpm: metroBpm, beats: metroBeats, sound: metroSound }; };
+    window.setMetronomeState = function(st){
+        if(!st || typeof st !== 'object') return;
+        if(st.bpm !== undefined) updateBpm(parseInt(st.bpm, 10) || metroBpm);
+        if(st.beats !== undefined) applyBeats(st.beats);
+        if(st.sound !== undefined) applySound(st.sound);
+    };
 
     buildDots();
 })();
