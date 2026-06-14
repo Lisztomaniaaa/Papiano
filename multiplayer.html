@@ -13684,7 +13684,12 @@ midiBtn.onclick = () => {
     function touchRoomPresence(){
         if(!firebaseReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
         const now = Date.now();
-        dbApi.update(dbRef(`roomPlayers/${currentRoom.id}/${mpSelfId}`), { lastSeen:now, lastActive:now, room:currentRoom.id }).catch(() => {});
+        // Re-assert the current valid name each heartbeat so a returning player is
+        // never left showing a stale fallback name in the room list.
+        const roomUpdate = { lastSeen:now, lastActive:now, room:currentRoom.id };
+        const selfName = (currentUser() && currentUser().name) || '';
+        if(selfName) roomUpdate.name = selfName;
+        dbApi.update(dbRef(`roomPlayers/${currentRoom.id}/${mpSelfId}`), roomUpdate).catch(() => {});
         dbApi.update(dbRef(`users/${mpSelfId}`), { room:currentRoom.id, online:true, lastSeen:now, lastActive:now, updatedAt:now }).catch(() => {});
         // Prune ghost players on every heartbeat
         const live = roomPlayersByRoom[currentRoom.id];
@@ -15861,10 +15866,13 @@ midiBtn.onclick = () => {
         if(currentAuthUser && currentAuthUser.uid === authUser.uid && players.some(player => player.id === authUser.uid)) return currentUser();
         currentAuthUser = authUser;
         mpSelfId = authUser.uid;
+        // Keep a previously-resolved real name so a transient auth refresh with an
+        // empty displayName never downgrades the user to a fallback ("Papiano User").
+        const prevValidName = (players.find(player => player.id === authUser.uid) || {}).name || '';
         purgeLocalGuestPlayers();
         loadRemoteMixer();
         const homeProfile = await ensureHomeProfile(authUser, {
-            name:authUser.displayName || fallbackName(),
+            name:authUser.displayName || prevValidName || fallbackName(),
             photoURL:authUser.photoURL || '',
             badgeId:'common',
             uid:mpSelfId
@@ -15888,7 +15896,7 @@ midiBtn.onclick = () => {
             dislikes:homeProfile.dislikes,
             countryCode:homeProfile.countryCode,
             online:true,
-            room:null
+            room:currentRoom ? currentRoom.id : null
         });
         try{
             await dbApi.update(dbRef(`users/${mpSelfId}`), {
@@ -16411,8 +16419,14 @@ midiBtn.onclick = () => {
     });
 
     document.addEventListener('visibilitychange', () => {
-        if(document.hidden) pauseMpPlayTimeTracker(true);
-        else if(isSignedIn()) startMpPlayTimeTracker();
+        if(document.hidden){ pauseMpPlayTimeTracker(true); return; }
+        if(!isSignedIn()) return;
+        startMpPlayTimeTracker();
+        // Returning from background / another app: re-assert presence immediately so
+        // a valid player isn't left stale (and pruned as a ghost), and resume the
+        // heartbeat that the browser throttled while hidden.
+        if(currentRoom && isInPianoRoom() && typeof startRoomPresenceHeartbeat === 'function') startRoomPresenceHeartbeat();
+        if(typeof touchGlobalPresence === 'function') touchGlobalPresence();
     });
 
     replaceMpHistory('multiHome');
