@@ -7038,10 +7038,10 @@ const PERF_GOV_COOLDOWN = 850;
 const PERF_SCALE_MIN = 0.6;
 const PERF_SCALE_MAX = 1.0;
 function perfGovernorTick(frameMs, now){
-    // PC runs a LIGHT governor: it still trims the cheap stuff (particle
-    // spawn/count + key overlay) when frames genuinely drop, but DPR and the
-    // visual ceilings (particle cap, note length) are protected elsewhere so PC
-    // stays "no limit" at full framerate.
+    // PC ("ultra") = NO limits, period. The governor never runs on PC, so
+    // particle count, key overlay and DPR are NEVER throttled regardless of
+    // load. Only the mobile tiers use the adaptive governor.
+    if(getEffectiveGraphicQuality() === 'ultra'){ if(perfGovScale !== 1) perfGovScale = 1; return; }
     if(!(frameMs > 0) || frameMs > 240) return;
     _perfEmaMs += (frameMs - _perfEmaMs) * 0.12;
     if(_perfEmaMs > PERF_BUDGET_MS){ _perfSlowStreak++; _perfFastStreak = 0; }
@@ -8246,7 +8246,7 @@ function startNeonDust(midi, key){
     // burst per note floods the field — hundreds of sprites spawned in a beat,
     // all drawn every frame. Shrink the per-press burst when input is bursty so
     // dense playing stays smooth; single/slow notes keep the full puff.
-    const burstCount = (typeof getBurstLevel === 'function' && getBurstLevel() > 8)
+    const burstCount = (getEffectiveGraphicQuality() !== 'ultra' && typeof getBurstLevel === 'function' && getBurstLevel() > 8)
         ? Math.max(4, DUST_PRESS_BURST >> 2)
         : DUST_PRESS_BURST;
     spawnNeonDust(geom, burstCount);
@@ -8258,7 +8258,8 @@ function stopNeonDust(midi){
     if(!neonDustEmitters.size && saberLine) saberLine.classList.remove('saber-hit');
 }
 function updateDrawNeonDust(dt, now){
-    if(perfGovScale < 0.62 && neonDustCount > 120){
+    // Emergency trim only on mobile tiers — PC is never capped (no limit).
+    if(perfGovScale < 0.62 && neonDustCount > 120 && getEffectiveGraphicQuality() !== 'ultra'){
         neonDustCount = 120;
     }
     if(isLowGraphic() || !saberDustEnabled){
