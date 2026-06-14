@@ -5628,10 +5628,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                         <div class="section-title ui-mb8">Graphics Quality</div>
                         <div class="graphic-grid">
                             <button class="graphic-btn" id="gfxLow">Potato</button>
-                            <button class="graphic-btn" id="gfxMed">Mobile</button>
+                            <button class="graphic-btn" id="gfxMed">Medium</button>
                             <button class="graphic-btn" id="gfxHigh">PC</button>
                         </div>
-                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Performance · Mobile = Full Visuals · PC = Maxed Out</div>
+                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Limited (heavy FX hidden) · Medium = Balanced · PC = No Limits (Maxed)</div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="ui-setting-head-gap">
@@ -6975,8 +6975,8 @@ function getRenderDPR(){
         const q = typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality;
         if(q === 'low') cap = 1;
         else if(q === 'medium') cap = Math.min(native, 1.5);
-        else if(q === 'ultra') cap = Math.min(native, 3.0); // PC tier: sharpest
-        else cap = Math.min(native, 2.0); // high / Mobile tier
+        else if(q === 'ultra') cap = native; // PC tier: no DPR cap — full native sharpness
+        else cap = Math.min(native, 2.0); // high / Medium tier
     } catch(e){ cap = Math.min(native, 2.0); }
     const scaled = cap * (perfGovScale > 0 ? perfGovScale : 1);
     return scaled < PERF_DPR_FLOOR ? PERF_DPR_FLOOR : scaled;
@@ -6992,6 +6992,8 @@ const PERF_GOV_COOLDOWN = 850;
 const PERF_SCALE_MIN = 0.6;
 const PERF_SCALE_MAX = 1.0;
 function perfGovernorTick(frameMs, now){
+    // PC tier = no limits: never auto-throttle DPR/particles, keep full scale.
+    if(graphicQuality === 'ultra'){ if(perfGovScale !== 1){ perfGovScale = 1; } return; }
     if(!(frameMs > 0) || frameMs > 240) return;
     _perfEmaMs += (frameMs - _perfEmaMs) * 0.12;
     if(_perfEmaMs > PERF_BUDGET_MS){ _perfSlowStreak++; _perfFastStreak = 0; }
@@ -7690,11 +7692,13 @@ function _detectDefaultGraphicQuality(){
         const ua = (navigator.userAgent || '').toLowerCase();
         const isMobileUA = /android|iphone|ipad|ipod|mobile|webview/i.test(ua);
 
-        // Tiers exposed in the UI: low = Potato, high = Mobile, ultra = PC.
-        if (cores <= 2 || mem <= 2) return 'low';
-        if (isMobileUA || (isCoarse && smallScreen)) return 'high';   // Mobile
-        if (lowCores || lowMem) return 'high';                        // weak desktop
-        return 'ultra';                                               // capable desktop -> PC
+        // Smart pc/mobile detection. UI tiers: low = Potato, high = Medium,
+        // ultra = PC. Mobiles & weak desktops land on Medium; capable desktops
+        // get the uncapped PC tier; very weak devices fall back to Potato.
+        if (cores <= 2 || mem <= 2) return 'low';                     // very weak -> Potato
+        if (isMobileUA || isCoarse) return 'high';                    // any mobile/touch -> Medium
+        if (lowCores || lowMem || smallScreen) return 'high';         // weak desktop -> Medium
+        return 'ultra';                                              // capable desktop -> PC
     } catch(e) { return 'high'; }
 }
 let graphicQuality = _detectDefaultGraphicQuality();
@@ -7723,8 +7727,9 @@ const GRAPHIC_PROFILES = {
     low: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
     medium: { dust:0.55, dustMax:800, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
     high: { dust:1, dustMax:2000, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
-    // PC tier — everything maxed for fast desktops.
-    ultra: { dust:1, dustMax:3600, fallingMax:1600, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    // PC tier — no limits: caps lifted to the full buffer so particles, draw
+    // counts and DPR are never throttled. (governor is disabled for 'ultra'.)
+    ultra: { dust:1, dustMax:8000, fallingMax:100000, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
     low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
@@ -8054,7 +8059,7 @@ function refreshStageHeight(){
     }
 }
 
-const NEON_DUST_MAX = 3600;
+const NEON_DUST_MAX = 8000;
 // Even, hold-independent emission: same initial puff per press, same steady
 // trickle while held. Density never escalates with hold time.
 const DUST_PRESS_BURST = 20;
@@ -9900,8 +9905,9 @@ function applySettings(s) {
         }
         if (s.metronome && typeof window.setMetronomeState === 'function') window.setMetronomeState(s.metronome);
         if (s.perfHudEnabled !== undefined) setPerformanceMonitor(!!s.perfHudEnabled);
-        if (s.performanceMode === 'auto') performanceMode = 'auto';
-        else if (s.graphicQuality !== undefined) { performanceMode = 'manual'; graphicQuality = GRAPHIC_PROFILES[s.graphicQuality] ? s.graphicQuality : graphicQuality; }
+        // 'auto' retired: old presets that stored it fall back to smart detection.
+        performanceMode = 'manual';
+        if (s.graphicQuality !== undefined && GRAPHIC_PROFILES[s.graphicQuality]) graphicQuality = s.graphicQuality;
         setTimeout(() => {
             if (typeof setBgFitMode === 'function' && s.bgFitMode) setBgFitMode(s.bgFitMode);
             if (typeof setBgPositionMode === 'function' && s.bgPositionMode) setBgPositionMode(s.bgPositionMode);
@@ -9909,7 +9915,7 @@ function applySettings(s) {
             if (s.bgDim !== undefined && document.getElementById('bgDimRange')) document.getElementById('bgDimRange').value = s.bgDim;
             if (s.bgBlur !== undefined && document.getElementById('bgBlurRange')) document.getElementById('bgBlurRange').value = s.bgBlur;
             if (typeof applyBgImageSettings === 'function') applyBgImageSettings();
-            if (typeof window.applyGraphicQuality === 'function') window.applyGraphicQuality(performanceMode === 'auto' ? 'auto' : graphicQuality);
+            if (typeof window.applyGraphicQuality === 'function') window.applyGraphicQuality(graphicQuality);
         }, 0);
         if (s.currentSf && SF_URLS[s.currentSf]) currentSf = s.currentSf;
         if (s.currentStringSf && SF_URLS[s.currentStringSf]) currentStringSf = s.currentStringSf;
@@ -11347,6 +11353,9 @@ midiBtn.onclick = (e) => {
 (function(){
     const btns = { gfxLow:'low', gfxMed:'high', gfxHigh:'ultra' };
     const lowHiddenRows = ['rowAnimEffect','rowAnimTone'];
+    // Potato locks & hides the heavy-FX menus (particles + strike line) so they
+    // can't be enabled in the limited tier.
+    const lowHiddenSelectors = ['[data-visual-open="particle"]', '[data-visual-open="saber"]'];
     const mediumHiddenRows = [];
     function effectiveQuality(){ return typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality; }
     function refreshGraphicButtons(){
@@ -11396,6 +11405,7 @@ midiBtn.onclick = (e) => {
         const isMed = q === 'medium';
         if(destructive){
             lowHiddenRows.forEach(id => setDisplayById(id, !isLow));
+            lowHiddenSelectors.forEach(sel => { const el = document.querySelector(sel); if(el) el.style.display = isLow ? 'none' : ''; });
             mediumHiddenRows.forEach(id => setDisplayById(id, !isLow && !isMed));
         }
         const root = document.documentElement;
@@ -11425,8 +11435,10 @@ midiBtn.onclick = (e) => {
     }
     function applyGraphicQuality(q, applyDefaults){
         const prevDPR = (typeof currentDPR !== 'undefined') ? currentDPR : 1;
+        // 'auto' is gone — smart detection only picks the initial default; the
+        // three modes (Potato/Medium/PC) are an explicit manual choice.
         const nextQuality = q === 'auto' ? _detectDefaultGraphicQuality() : q;
-        performanceMode = q === 'auto' ? 'auto' : 'manual';
+        performanceMode = 'manual';
         perfGovScale = 1.0; _perfSlowStreak = 0; _perfFastStreak = 0; _perfEmaMs = 1000 / 60; if(document.body) document.body.classList.remove('perf-lite');
         graphicQuality = GRAPHIC_PROFILES[nextQuality] ? nextQuality : _detectDefaultGraphicQuality();
         syncEffectiveGraphicState(prevDPR);
