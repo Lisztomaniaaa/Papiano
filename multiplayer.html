@@ -7953,15 +7953,20 @@ function _runChordDetect(){
 }
 function requestChordUpdate(){
     if(!(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function')) return;
+    // Back off chord matching during bursts: a glissando fires note events far
+    // faster than a chord can change, so running matchChords every 28ms there is
+    // wasted work. A longer interval while bursting keeps the heavy detection
+    // off the hot path; normal playing stays responsive.
+    const interval = (typeof getBurstLevel === 'function' && getBurstLevel() > 8) ? 90 : CHORD_MIN_INTERVAL;
     const since = performance.now() - _chordLastRun;
-    if(since >= CHORD_MIN_INTERVAL){
+    if(since >= interval){
         if(_chordTrailingTimer){ clearTimeout(_chordTrailingTimer); _chordTrailingTimer = 0; }
         _runChordDetect();
     } else if(!_chordTrailingTimer){
         _chordTrailingTimer = setTimeout(() => {
             _chordTrailingTimer = 0;
             _runChordDetect();
-        }, Math.max(1, CHORD_MIN_INTERVAL - since));
+        }, Math.max(1, interval - since));
     }
 }
 
@@ -8201,7 +8206,14 @@ function startNeonDust(midi, key){
     if(!geom) return;
 
     neonDustEmitters.set(midi, { geom, midi, start: performance.now(), last: 0 });
-    spawnNeonDust(geom, DUST_PRESS_BURST);
+    // During fast passages (glissando / broken-chord spam) a full 20-particle
+    // burst per note floods the field — hundreds of sprites spawned in a beat,
+    // all drawn every frame. Shrink the per-press burst when input is bursty so
+    // dense playing stays smooth; single/slow notes keep the full puff.
+    const burstCount = (typeof getBurstLevel === 'function' && getBurstLevel() > 8)
+        ? Math.max(4, DUST_PRESS_BURST >> 2)
+        : DUST_PRESS_BURST;
+    spawnNeonDust(geom, burstCount);
     if(saberLine) saberLine.classList.add('saber-hit');
     ensureAnimLoop();
 }
