@@ -7013,15 +7013,18 @@ let perfGovScale = 1.0;
 const PERF_DPR_FLOOR = 1.0;
 function getRenderDPR(){
     const native = Math.max(1, window.devicePixelRatio || 1);
-    let cap;
+    let cap; let isUltra = false;
     try {
         const q = typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality;
+        isUltra = (q === 'ultra');
         if(q === 'low') cap = 1;
         else if(q === 'medium') cap = Math.min(native, 1.5);
-        else if(q === 'ultra') cap = native; // PC tier: no DPR cap — full native sharpness
+        else if(isUltra) cap = native; // PC tier: no DPR cap — full native sharpness
         else cap = Math.min(native, 2.0); // high / Medium tier
     } catch(e){ cap = Math.min(native, 2.0); }
-    const scaled = cap * (perfGovScale > 0 ? perfGovScale : 1);
+    // PC keeps full native sharpness always: the light governor on PC trims only
+    // the cheap stuff (particles/overlay), never DPR.
+    const scaled = isUltra ? cap : cap * (perfGovScale > 0 ? perfGovScale : 1);
     return scaled < PERF_DPR_FLOOR ? PERF_DPR_FLOOR : scaled;
 }
 
@@ -7035,8 +7038,10 @@ const PERF_GOV_COOLDOWN = 850;
 const PERF_SCALE_MIN = 0.6;
 const PERF_SCALE_MAX = 1.0;
 function perfGovernorTick(frameMs, now){
-    // PC tier = no limits: never auto-throttle DPR/particles, keep full scale.
-    if(graphicQuality === 'ultra'){ if(perfGovScale !== 1){ perfGovScale = 1; } return; }
+    // PC runs a LIGHT governor: it still trims the cheap stuff (particle
+    // spawn/count + key overlay) when frames genuinely drop, but DPR and the
+    // visual ceilings (particle cap, note length) are protected elsewhere so PC
+    // stays "no limit" at full framerate.
     if(!(frameMs > 0) || frameMs > 240) return;
     _perfEmaMs += (frameMs - _perfEmaMs) * 0.12;
     if(_perfEmaMs > PERF_BUDGET_MS){ _perfSlowStreak++; _perfFastStreak = 0; }
@@ -7377,10 +7382,28 @@ function setPianoVisibilityPercent(value){
 function syncActiveKeyLayerTransform(px){
     if(activeKeyLayer) activeKeyLayer.style.transform = `translate3d(-${px}px,0,0)`;
 }
+// Overlay piece pool: reuse hidden <div>s instead of create+append on press and
+// remove on release. The create/remove churn was the dominant per-press reflow
+// cost during glissando / broken-chord spam; pooling keeps the exact same look
+// with no DOM allocation or insertion/removal after warm-up.
+const _overlayFreePool = [];
+function _acquireOverlayPiece(){
+    let el = _overlayFreePool.pop();
+    if(!el){
+        el = document.createElement('div');
+        if(activeKeyLayer) activeKeyLayer.appendChild(el);
+    }
+    return el;
+}
+function _releaseOverlayPiece(el){
+    if(!el) return;
+    el.style.cssText = 'display:none';
+    _overlayFreePool.push(el);
+}
 function clearActiveKeyOverlay(midi){
     const pieces = activeKeyOverlayMap.get(midi);
     if(!pieces) return;
-    pieces.forEach(piece => piece.remove());
+    for(let i=0;i<pieces.length;i++) _releaseOverlayPiece(pieces[i]);
     activeKeyOverlayMap.delete(midi);
 }
 function shouldUseLightKeyVisual(){
@@ -7393,7 +7416,10 @@ function shouldUseLightKeyVisual(){
     return getPerfPressureLevel() >= 3 && activeOverlayNotes.size >= 18;
 }
 function appendActiveKeyPiece(className, left, width, config){
-    const piece = document.createElement('div');
+    const piece = _acquireOverlayPiece();
+    // Full reset: clears any prior taper custom-props / colour / display:none
+    // from a previous use, and makes the reused element visible again.
+    piece.style.cssText = '';
     piece.className = className;
     piece.style.left = formatLayoutPx(left);
     piece.style.width = formatLayoutPx(Math.max(1, width));
@@ -7407,7 +7433,8 @@ function appendActiveKeyPiece(className, left, width, config){
         piece.style.setProperty('--active-white-right-cut-pct', ((rightCutPx / safeWidth) * 100).toFixed(2) + '%');
         piece.style.setProperty('--active-white-taper-depth-pct', taperDepthPct.toFixed(2) + '%');
     }
-    activeKeyLayer.appendChild(piece);
+    // Already attached to activeKeyLayer (on first acquire); reused pieces stay
+    // put, so there is no append/remove cost on the hot path.
     return piece;
 }
 function renderActiveKeyOverlay(midi, keyEl, color){
@@ -7493,6 +7520,9 @@ function refreshActiveKeyLayerGeometry(){
     const notes = Array.from(activeOverlayNotes);
     activeKeyLayer.innerHTML = '';
     activeKeyOverlayMap.clear();
+    // innerHTML wipe also detached every pooled piece — drop the stale pool so
+    // acquire rebuilds fresh, attached elements.
+    _overlayFreePool.length = 0;
     notes.forEach(midi => {
         const color = _resolveKeyColor(midi);
         renderActiveKeyOverlay(midi, noteElementMap.get(midi), color);
