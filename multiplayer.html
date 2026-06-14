@@ -5374,6 +5374,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <button class="btn" id="mMidnight">Midnight</button>
                     <button class="btn" id="mGradient">Gradient</button>
                     <button class="btn" id="mRainbow">Rainbow</button>
+                    <button class="btn" id="mAurora">Aurora</button>
                     <button class="btn" id="mDouble">Double</button>
                 </div>
             </div>
@@ -5727,6 +5728,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                             <button class="btn settings-anim-style" data-style-target="mMidnight">Midnight</button>
                             <button class="btn settings-anim-style" data-style-target="mGradient">Gradient</button>
                             <button class="btn settings-anim-style" data-style-target="mRainbow">Rainbow</button>
+                            <button class="btn settings-anim-style" data-style-target="mAurora">Aurora</button>
                             <button class="btn settings-anim-style" data-style-target="mDouble">Double</button>
                         </div>
                     </div>
@@ -8504,6 +8506,21 @@ function tuneRgbForFalling(rgb){
     _tunedRgbScratch[2] = ob;
     return _tunedRgbScratch;
 }
+// Aurora style: derive a single base hue from the chosen Note Color so the
+// flowing gradient stays themed around the user's colour. Cached per hex.
+const _auroraHueCache = new Map();
+function _rgbToHue(r, g, b){
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const d = max - min;
+    if(d < 1e-6) return 200; // near-grey/white -> default cyan-ish aurora hue
+    let h;
+    if(max === r) h = ((g - b) / d) % 6;
+    else if(max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+    return h < 0 ? h + 360 : h;
+}
 function drawFallingNote(f){
     const fastX = noteXFast[f.midi];
     const cachedX = Number.isFinite(fastX) ? fastX : noteXCache.get(f.midi);
@@ -8531,7 +8548,50 @@ function drawFallingNote(f){
     ctx2d.globalAlpha = noteAlpha;
     ctx2d.globalCompositeOperation = 'source-over';
 
-    if(drawStyle === 'rainbow'){
+    if(drawStyle === 'aurora'){
+        // SeeMusic-style HD note: a soft glow bloom plus a vertical gradient
+        // whose hues drift and blend over time, so colours appear to flow
+        // smoothly up the note. Drawn live every frame (not a baked sprite).
+        const baseHex = f.base || cachedAnimColor || '#ffffff';
+        let baseHue = _auroraHueCache.get(baseHex);
+        if(baseHue === undefined){
+            const rgb0 = safeHex(baseHex, '#78dcff');
+            baseHue = _rgbToHue(rgb0[0]|0, rgb0[1]|0, rgb0[2]|0);
+            if(_auroraHueCache.size > 64) _auroraHueCache.clear();
+            _auroraHueCache.set(baseHex, baseHue);
+        }
+        const t = (renderNow || 0) * 0.001;
+        // Per-note phase offset keeps neighbouring notes out of sync so the
+        // whole field shimmers instead of pulsing as one block.
+        const phase = t * 0.9 + f.midi * 0.22;
+        const h1 = baseHue + 32 * Math.sin(phase) + 14;
+        const h2 = baseHue - 30 + 30 * Math.cos(phase * 0.8);
+        const wrap = (x) => ((x % 360) + 360) % 360;
+        const g = ctx2d.createLinearGradient(x0, y, x0, y + h);
+        g.addColorStop(0,    `hsl(${wrap(h1)|0},96%,72%)`);
+        g.addColorStop(0.5,  `hsl(${wrap(baseHue)|0},92%,60%)`);
+        g.addColorStop(1,    `hsl(${wrap(h2)|0},90%,52%)`);
+        ctx2d.save();
+        // Glow bloom — themed around the base hue, gated to heavy FX profiles.
+        ctx2d.shadowColor = `hsla(${wrap(baseHue)|0},95%,62%,0.95)`;
+        ctx2d.shadowBlur = Math.min(22, Math.max(6, w * 0.95));
+        ctx2d.fillStyle = g;
+        ctx2d.beginPath();
+        if(isRounded && rv > 0 && ctx2d.roundRect) ctx2d.roundRect(x0, y, w, h, rv);
+        else ctx2d.rect(x0, y, w, h);
+        ctx2d.fill();
+        ctx2d.restore();
+        // Glossy top sheen for the crisp HD highlight.
+        const sh = Math.min(h * 0.5, Math.max(2, w * 1.1));
+        const sheen = ctx2d.createLinearGradient(x0, y, x0, y + sh);
+        sheen.addColorStop(0, 'rgba(255,255,255,0.5)');
+        sheen.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx2d.fillStyle = sheen;
+        ctx2d.beginPath();
+        if(isRounded && rv > 0 && ctx2d.roundRect) ctx2d.roundRect(x0, y, w, sh, rv);
+        else ctx2d.rect(x0, y, w, sh);
+        ctx2d.fill();
+    } else if(drawStyle === 'rainbow'){
         const hue = Number.isFinite(f.rainbowHue) ? f.rainbowHue : 0;
         ctx2d.fillStyle = `hsl(${hue|0},88%,58%)`;
         if(isRounded && rv > 0){
@@ -9341,10 +9401,11 @@ const PRESET_STORAGE_KEY = 'papiano_memory_preset_v2';
 const STORAGE_RESET_KEYS = ['papiano_memory_autosave_v2', 'papiano_memory_options_v2', 'papiano_settings'];
 const STORAGE_SCHEMA_VERSION = 2;
 
-const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mRainbow:'rainbow', mDouble:'double' };
+const animModeBtns = { mDef:'default', mGlass:'glass', mOutline:'outline', mMidnight:'midnight', mGradient:'gradient', mRainbow:'rainbow', mAurora:'aurora', mDouble:'double' };
 // Single-colour fill styles (use the chosen Note Color). Excludes rainbow
-// (per-note hue) and double (split colours).
-const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient'];
+// (per-note hue) and double (split colours). Aurora is single-colour too: the
+// flowing glow is derived from the chosen Note Color's hue.
+const SINGLE_COLOR_STYLES = ['default','glass','outline','midnight','gradient','aurora'];
 const NO_COLOR="__none";
 const colors=[NO_COLOR,"#ffffff","#00e5ff","#38bdf8","#2979ff","#651fff","#8b5cf6","#ff4081","#ff2d75","#ff1744","#ff6d00","#f7b733","#ffea00","#b2ff59","#00e676"];
 function getDefaultPianoHeightPercent(){
@@ -9810,7 +9871,7 @@ function applySettings(s) {
         if (typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
         if (s.animStyle !== undefined) {
             const LEGACY_STYLE = { single:'default', metalic:'default', crystal3d:'default', clean:'default', cleanNeon:'default', rainbow2:'rainbow', rainbowV2:'rainbow', glow:'gradient', neon:'gradient' };
-            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', rainbow:'mRainbow', double:'mDouble' };
+            const styleMap = { default:'mDef', glass:'mGlass', outline:'mOutline', midnight:'mMidnight', gradient:'mGradient', rainbow:'mRainbow', aurora:'mAurora', double:'mDouble' };
             const resolved = LEGACY_STYLE[s.animStyle] || s.animStyle;
             setAnimModeById(styleMap[resolved] || 'mDef');
         }
