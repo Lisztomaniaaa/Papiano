@@ -179,6 +179,12 @@ canvas{
     pointer-events: none;
     z-index: 20;
 }
+/* WebGL particle layer. Sits just BEHIND the falling-note canvas (#fx, z 20)
+   by default (V1 'glow' — dust behind notes). When the V2 'solid' dust mode is
+   active, .stage.dust-front lifts it just IN FRONT of the notes but still under
+   the saber line (z 25), matching the old single-canvas draw order. */
+#fxParticles{ z-index:19; }
+.stage.dust-front #fxParticles{ z-index:21; }
 
 #saberLine{
     position:absolute;
@@ -304,6 +310,15 @@ html[data-graphic-quality="potato"] #saberLine::after{
 
     #piano .black {
         box-shadow: none !important;
+    }
+
+    /* During fast passages (burst mode) or under load, hold the blurred saber
+       smoke still — animating a blurred layer forces a repaint every frame. */
+    body.input-burst-mode #saberLine::before,
+    body.input-burst-mode #saberLine::after,
+    body.perf-lite #saberLine::before,
+    body.perf-lite #saberLine::after {
+        animation-play-state: paused !important;
     }
 }
 
@@ -1016,6 +1031,19 @@ body.key-glow-on #piano .black.active{
         0 0 calc(24px * var(--key-glow-intensity, 0.5)) var(--saber-color),
         0 0 calc(44px * var(--key-glow-intensity, 0.5)) var(--saber-color) !important;
     filter:brightness(calc(1 + 0.18 * var(--key-glow-intensity, 0.5))) !important;
+}
+/* Under sustained load (governor → .perf-lite, which mobile Default now enters)
+   collapse the three stacked glow shadows to one and drop the brightness filter
+   — the filter forces a separate compositing layer that repaints on every
+   press/release. Full glow returns at rest. */
+body.key-glow-on.perf-lite #piano > .white.active,
+body.key-glow-on.perf-lite #piano .white.active,
+body.key-glow-on.perf-lite #piano > .black.active,
+body.key-glow-on.perf-lite #piano .black.active{
+    filter:none !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.45),
+        0 0 calc(16px * var(--key-glow-spread, 1)) var(--saber-color) !important;
 }
 .key-label{ color:rgba(20,24,30,0.54) !important; }
 .black-label{ color:rgba(255,255,255,0.64) !important; }
@@ -5997,7 +6025,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
         </div>
         <button class="metro-start-btn" id="metroStartBtn">Start</button>
     </div>
-    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
+    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fxParticles"></canvas><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
     <div id="swipeStrip"></div>
     <div id="pianoWrap"><div id="pianoViewport"><div id="piano"></div><div id="activeKeyLayer"></div></div></div>
 </div>
@@ -6995,12 +7023,12 @@ function getRenderDPR(){
         isDefaultTier = (q === 'default');
         if(q === 'potato') cap = 1;
         else if(q === 'medium') cap = Math.min(native, 1.5);
-        else if(isDefaultTier) cap = native; // Default tier: no DPR cap — full native sharpness
+        else if(isDefaultTier) cap = isMobileTargetMemo() ? Math.min(native, 2.0) : native; // mobile caps DPR; desktop keeps full native sharpness
         else cap = Math.min(native, 2.0); // high / Medium tier
     } catch(e){ cap = Math.min(native, 2.0); }
-    // Default tier keeps full native sharpness; the governor on other tiers trims only
-    // the cheap stuff (particles/overlay), never DPR.
-    const scaled = isDefaultTier ? cap : cap * (perfGovScale > 0 ? perfGovScale : 1);
+    // Desktop Default keeps full native sharpness with no governor. Mobile Default
+    // and the other tiers let the governor trim DPR (and the cheap stuff) under load.
+    const scaled = (isDefaultTier && !isMobileTargetMemo()) ? cap : cap * (perfGovScale > 0 ? perfGovScale : 1);
     return scaled < PERF_DPR_FLOOR ? PERF_DPR_FLOOR : scaled;
 }
 
@@ -7014,10 +7042,10 @@ const PERF_GOV_COOLDOWN = 850;
 const PERF_SCALE_MIN = 0.6;
 const PERF_SCALE_MAX = 1.0;
 function perfGovernorTick(frameMs, now){
-    // Default tier = NO limits, period. The governor never runs there, so
-    // particle count, key overlay and DPR are NEVER throttled regardless of
-    // load. Only the mobile tiers use the adaptive governor.
-    if(getEffectiveGraphicQuality() === 'default'){ if(perfGovScale !== 1) perfGovScale = 1; return; }
+    // Desktop Default = NO limits: the governor never runs, so particle count,
+    // key overlay and DPR are never throttled. Mobile Default auto-adapts (and the
+    // mobile tiers always do) to hold 60fps under load.
+    if(getEffectiveGraphicQuality() === 'default' && !isMobileTargetMemo()){ if(perfGovScale !== 1) perfGovScale = 1; return; }
     if(!(frameMs > 0) || frameMs > 240) return;
     _perfEmaMs += (frameMs - _perfEmaMs) * 0.12;
     if(_perfEmaMs > PERF_BUDGET_MS){ _perfSlowStreak++; _perfFastStreak = 0; }
@@ -7741,6 +7769,14 @@ function isMobileRenderTarget(){
         return coarse || /android|iphone|ipad|ipod|mobile|webview/i.test(ua);
     } catch(e) { return false; }
 }
+// Memoised once — the form factor never changes within a session, and this is
+// read on hot paths (governor, particle spawn, DPR). The Default tier auto-adapts
+// to hold 60fps ONLY on mobile; on desktop it stays fully uncapped.
+let _isMobileTargetCache = null;
+function isMobileTargetMemo(){
+    if(_isMobileTargetCache === null) _isMobileTargetCache = isMobileRenderTarget();
+    return _isMobileTargetCache;
+}
 function getEffectiveGraphicQuality(){
     return graphicQuality;
 }
@@ -8088,6 +8124,9 @@ function refreshStageHeight(){
 // the Default ceiling never feels limited. Potato stays capped by profile.dustMax
 // (800 / 2000), so this larger buffer never affects them.
 const NEON_DUST_MAX = 16000;
+// Mobile Default bounds the live pool: the WebGL draw is cheap regardless, but
+// the per-grain physics + buffer upload still cost CPU, so cap the simulation.
+const MOBILE_DUST_CAP = 3000;
 // Even, hold-independent emission: same initial puff per press, same steady
 // trickle while held. Density never escalates with hold time.
 const DUST_PRESS_BURST = 20;
@@ -8112,6 +8151,135 @@ let keyGlowIntensity = 50;
 let _dustSprite = null, _dustSpriteKey = '';
 const neonDustEmitters = new Map();
 
+// ---------------------------------------------------------------------------
+// WebGL particle layer
+// ---------------------------------------------------------------------------
+// Canvas-2D draws each dust grain with its own drawImage + globalAlpha write.
+// Under a glissando that is ~1,350 serialized draw calls per frame — the single
+// biggest cost on the Default tier. This renderer packs every live grain into
+// one vertex buffer and draws them all as GL point-sprites in ONE draw call,
+// with the dust colour as a uniform and a soft radial dot computed in the
+// fragment shader (no texture, no overdraw waste). Falls back to the 2D path
+// (below) when WebGL is unavailable, so there is no hard regression.
+const glCanvas = document.getElementById('fxParticles');
+let glParticles = null;            // renderer handle, or null if WebGL is unavailable
+let _glColorR = 0, _glColorG = 0.9, _glColorB = 1; // cached normalized dust colour
+function initGlParticles(){
+    if(!glCanvas || typeof WebGLRenderingContext === 'undefined') return null;
+    let gl = null;
+    const opts = { alpha:true, antialias:false, depth:false, stencil:false, preserveDrawingBuffer:false };
+    try { gl = glCanvas.getContext('webgl', opts) || glCanvas.getContext('experimental-webgl', opts); }
+    catch(e){ gl = null; }
+    if(!gl) return null;
+    const vsSrc =
+        'attribute vec2 aPos;' +          // position in CSS px (stage space)
+        'attribute float aSize;' +        // diameter in CSS px
+        'attribute float aAlpha;' +
+        'uniform vec2 uStage;' +          // stage css width,height
+        'uniform float uDpr;' +
+        'varying float vAlpha;' +
+        'void main(){' +
+        '  vAlpha = aAlpha;' +
+        '  float cx = (aPos.x / uStage.x) * 2.0 - 1.0;' +
+        '  float cy = 1.0 - (aPos.y / uStage.y) * 2.0;' +
+        '  gl_Position = vec4(cx, cy, 0.0, 1.0);' +
+        '  gl_PointSize = max(1.0, aSize * uDpr);' +
+        '}';
+    const fsSrc =
+        'precision mediump float;' +
+        'uniform vec3 uColor;' +
+        'varying float vAlpha;' +
+        'void main(){' +
+        '  vec2 d = gl_PointCoord - vec2(0.5);' +
+        '  float dist = length(d) * 2.0;' +          // 0 at centre, 1 at edge
+        '  float a = 1.0 - smoothstep(0.6, 1.0, dist);' + // flat dot, soft 1px edge
+        '  float alpha = vAlpha * a;' +
+        '  if(alpha <= 0.0) discard;' +
+        '  gl_FragColor = vec4(uColor * alpha, alpha);' + // premultiplied output
+        '}';
+    function compile(type, src){
+        const s = gl.createShader(type);
+        gl.shaderSource(s, src); gl.compileShader(s);
+        if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ gl.deleteShader(s); return null; }
+        return s;
+    }
+    const vs = compile(gl.VERTEX_SHADER, vsSrc);
+    const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+    if(!vs || !fs) return null;
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS)){ return null; }
+    gl.useProgram(prog);
+    const loc = {
+        aPos:   gl.getAttribLocation(prog, 'aPos'),
+        aSize:  gl.getAttribLocation(prog, 'aSize'),
+        aAlpha: gl.getAttribLocation(prog, 'aAlpha'),
+        uStage: gl.getUniformLocation(prog, 'uStage'),
+        uDpr:   gl.getUniformLocation(prog, 'uDpr'),
+        uColor: gl.getUniformLocation(prog, 'uColor')
+    };
+    const STRIDE = 4; // floats per particle: x, y, size, alpha
+    const packed = new Float32Array(NEON_DUST_MAX * STRIDE);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, packed.byteLength, gl.DYNAMIC_DRAW);
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    // Fragment outputs premultiplied colour, so accumulate premultiplied.
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0, 0, 0, 0);
+    return { gl, prog, loc, buf, packed, STRIDE };
+}
+function glResizeParticles(physW, physH){
+    if(!glParticles || !glCanvas) return;
+    if(glCanvas.width !== physW) glCanvas.width = physW;
+    if(glCanvas.height !== physH) glCanvas.height = physH;
+    glParticles.gl.viewport(0, 0, physW, physH);
+}
+// Recomputes per-grain alpha exactly like the 2D draw loop, packs the live
+// grains and issues a single point-sprite draw. Called once per frame from the
+// dust update after physics have advanced.
+function renderGlParticles(){
+    const r = glParticles;
+    if(!r) return;
+    const gl = r.gl;
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    const packed = r.packed, STRIDE = r.STRIDE;
+    let n = 0;
+    for(let i=0;i<neonDustCount;i++){
+        const tLife = neonDustLife[i] > 0 ? neonDustAge[i] / neonDustLife[i] : 1;
+        const t = tLife;
+        const fade = t < 0.14 ? t / 0.14 : Math.max(0, 1 - Math.pow((t - 0.14) / 0.86, 1.9));
+        const alpha = Math.min(1, neonDustA[i] * fade * 1.4);
+        if(alpha <= 0.02) continue;
+        const sz = Math.max(1.5, neonDustR[i] * 0.5);
+        const o = n * STRIDE;
+        packed[o] = neonDustX[i];
+        packed[o + 1] = neonDustY[i];
+        packed[o + 2] = sz;
+        packed[o + 3] = alpha;
+        n++;
+    }
+    if(n === 0) return;
+    gl.bindBuffer(gl.ARRAY_BUFFER, r.buf);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, packed.subarray(0, n * STRIDE));
+    const stride = STRIDE * 4;
+    gl.enableVertexAttribArray(r.loc.aPos);
+    gl.vertexAttribPointer(r.loc.aPos, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(r.loc.aSize);
+    gl.vertexAttribPointer(r.loc.aSize, 1, gl.FLOAT, false, stride, 8);
+    gl.enableVertexAttribArray(r.loc.aAlpha);
+    gl.vertexAttribPointer(r.loc.aAlpha, 1, gl.FLOAT, false, stride, 12);
+    gl.uniform2f(r.loc.uStage, canvasCssW || 1, canvasCssH || 1);
+    gl.uniform1f(r.loc.uDpr, currentDPR || 1);
+    gl.uniform3f(r.loc.uColor, _glColorR, _glColorG, _glColorB);
+    gl.drawArrays(gl.POINTS, 0, n);
+}
+function clearGlParticles(){
+    if(glParticles) glParticles.gl.clear(glParticles.gl.COLOR_BUFFER_BIT);
+}
+try { glParticles = initGlParticles(); } catch(e){ glParticles = null; }
+
 function getKeyStageGeom(midi){
 
     if(midi == null || !whiteKeyWidth) return null;
@@ -8130,11 +8298,14 @@ function spawnNeonDust(geom, count){
     if(!saberDustEnabled || !geom || !canvas) return;
     const profile = getGraphicProfile();
     const _defaultTier = getEffectiveGraphicQuality() === 'default';
-    // Default tier = no particle limit: the perf governor never trims particle
-    // count or scale, so raising the slider always adds more and density never
-    // collapses under load. (Potato keeps particles off entirely.)
-    const loadScale = _defaultTier ? 1 : getPressureScale();
-    const maxDust = Math.max(0, Math.min(Math.round(NEON_DUST_MAX * loadScale), Number(profile.dustMax) || 0));
+    const _autoAdapt = _defaultTier && isMobileTargetMemo();
+    // Desktop Default = no particle limit: the governor never trims count or scale,
+    // so raising the slider always adds more and density never collapses under load.
+    // Mobile Default auto-adapts: count scales down under pressure and the alive
+    // pool is bounded so the per-frame simulation/upload cost stays cheap.
+    const loadScale = (_defaultTier && !_autoAdapt) ? 1 : getPressureScale();
+    let maxDust = Math.max(0, Math.min(Math.round(NEON_DUST_MAX * loadScale), Number(profile.dustMax) || 0));
+    if(_autoAdapt) maxDust = Math.min(maxDust, MOBILE_DUST_CAP);
     const dustScale = Math.max(0, Math.min(1, (Number(profile.dust) || 0) * loadScale));
     if(dustScale <= 0 || neonDustCount >= maxDust) return;
     const stageH = cachedStageHeight || knownStageH || canvasCssH || window.innerHeight * 0.6;
@@ -8189,7 +8360,7 @@ function startNeonDust(midi, key){
     // burst per note floods the field — hundreds of sprites spawned in a beat,
     // all drawn every frame. Shrink the per-press burst when input is bursty so
     // dense playing stays smooth; single/slow notes keep the full puff.
-    const burstCount = (getEffectiveGraphicQuality() !== 'default' && typeof getBurstLevel === 'function' && getBurstLevel() > 8)
+    const burstCount = ((getEffectiveGraphicQuality() !== 'default' || isMobileTargetMemo()) && typeof getBurstLevel === 'function' && getBurstLevel() > 8)
         ? Math.max(4, DUST_PRESS_BURST >> 2)
         : DUST_PRESS_BURST;
     spawnNeonDust(geom, burstCount);
@@ -8201,13 +8372,15 @@ function stopNeonDust(midi){
     if(!neonDustEmitters.size && saberLine) saberLine.classList.remove('saber-hit');
 }
 function updateDrawNeonDust(dt, now){
-    // Emergency trim only on the Potato fallback — Default is never capped.
-    if(perfGovScale < 0.62 && neonDustCount > 120 && getEffectiveGraphicQuality() !== 'default'){
+    // Emergency trim under sustained pressure. Runs for the mobile tiers AND for
+    // the Default tier on mobile (auto-adapt); desktop Default is never capped.
+    if(perfGovScale < 0.62 && neonDustCount > 120 && (getEffectiveGraphicQuality() !== 'default' || isMobileTargetMemo())){
         neonDustCount = 120;
     }
     if(isLowGraphic() || !saberDustEnabled){
         neonDustCount = 0;
         neonDustEmitters.clear();
+        clearGlParticles();
         return false;
     }
     // Holding a key only MAINTAINS the stream — it does NOT thicken it. Every
@@ -8224,12 +8397,15 @@ function updateDrawNeonDust(dt, now){
         }
     });
 
-    if(!neonDustCount) return neonDustEmitters.size > 0;
+    if(!neonDustCount){ clearGlParticles(); return neonDustEmitters.size > 0; }
 
     const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation;
     if(_dustColorKey !== _dustSpriteKey){
         _dustSpriteKey = _dustColorKey;
-        _dustSprite = getDustSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation));
+        const _resolved = applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation);
+        _dustSprite = getDustSprite(_resolved);
+        const _rgb = _parseColorToRgb(_resolved);
+        _glColorR = _rgb[0] / 255; _glColorG = _rgb[1] / 255; _glColorB = _rgb[2] / 255;
     }
     const sprite = _dustSprite;
     const speedLevel = sliderRatio(particleSpeed);
@@ -8240,9 +8416,14 @@ function updateDrawNeonDust(dt, now){
     const wind = 0.000011 * turbEase;
     const biasWind = 0.000003 * turbEase;
     const maxVX = 0.003 + 0.015 * turbEase;
-    ctx2d.save();
-    // 'source-over' keeps each dust grain a discrete point.
-    ctx2d.globalCompositeOperation = 'source-over';
+    // When the WebGL layer is live the 2D context is left untouched — physics run
+    // here, the single GL draw happens after the loop.
+    const useGl = !!glParticles;
+    if(!useGl){
+        ctx2d.save();
+        // 'source-over' keeps each dust grain a discrete point.
+        ctx2d.globalCompositeOperation = 'source-over';
+    }
     let alive = 0;
     for(let i=0;i<neonDustCount;i++){
         neonDustAge[i] += dt * 1000;
@@ -8271,13 +8452,15 @@ function updateDrawNeonDust(dt, now){
         neonDustVY[i] -= 0.0000034 * moveDt;
 
         if(neonDustAge[i] < neonDustLife[i] && neonDustY[i] > -40){
-            const t = tLife;
-            const fade = t < 0.14 ? t / 0.14 : Math.max(0, 1 - Math.pow((t - 0.14) / 0.86, 1.9));
-            const alpha = Math.min(1, neonDustA[i] * fade * 1.4);
-            if(alpha > 0.02){
-                const sz = Math.max(1.5, neonDustR[i] * 0.5);
-                ctx2d.globalAlpha = alpha;
-                ctx2d.drawImage(sprite, neonDustX[i] - sz * 0.5, neonDustY[i] - sz * 0.5, sz, sz);
+            if(!useGl){
+                const t = tLife;
+                const fade = t < 0.14 ? t / 0.14 : Math.max(0, 1 - Math.pow((t - 0.14) / 0.86, 1.9));
+                const alpha = Math.min(1, neonDustA[i] * fade * 1.4);
+                if(alpha > 0.02){
+                    const sz = Math.max(1.5, neonDustR[i] * 0.5);
+                    ctx2d.globalAlpha = alpha;
+                    ctx2d.drawImage(sprite, neonDustX[i] - sz * 0.5, neonDustY[i] - sz * 0.5, sz, sz);
+                }
             }
             if(alive !== i){
                 neonDustX[alive]=neonDustX[i]; neonDustY[alive]=neonDustY[i];
@@ -8291,9 +8474,13 @@ function updateDrawNeonDust(dt, now){
         }
     }
     neonDustCount = alive;
-    ctx2d.restore();
-    ctx2d.globalAlpha = 1;
-    ctx2d.globalCompositeOperation = 'source-over';
+    if(useGl){
+        renderGlParticles();
+    } else {
+        ctx2d.restore();
+        ctx2d.globalAlpha = 1;
+        ctx2d.globalCompositeOperation = 'source-over';
+    }
     return neonDustCount > 0 || neonDustEmitters.size > 0;
 }
 
@@ -8760,6 +8947,12 @@ function syncCanvasSize(forceReadStage){
     const cssW = nextW + 'px', cssH = nextH + 'px';
     if(canvas.style.width !== cssW) canvas.style.width = cssW;
     if(canvas.style.height !== cssH) canvas.style.height = cssH;
+    // Keep the WebGL particle layer pixel-locked to the 2D canvas.
+    if(glCanvas){
+        if(glCanvas.style.width !== cssW) glCanvas.style.width = cssW;
+        if(glCanvas.style.height !== cssH) glCanvas.style.height = cssH;
+        glResizeParticles(physW, physH);
+    }
     ctx2d.imageSmoothingEnabled = true;
     ctx2d.imageSmoothingQuality = 'high';
     ctx2d.globalAlpha = 1;
@@ -10400,6 +10593,10 @@ function setDustBlendMode(mode){
     const solidBtn = document.getElementById('dustBlendSolid');
     if(glowBtn) glowBtn.classList.toggle('active', dustBlendMode === 'glow');
     if(solidBtn) solidBtn.classList.toggle('active', dustBlendMode === 'solid');
+    // V2 'solid' draws dust IN FRONT of the falling notes — on the WebGL layer
+    // that is a CSS z-index lift (the GL canvas is a separate layer).
+    const _stageEl = document.querySelector('.stage');
+    if(_stageEl) _stageEl.classList.toggle('dust-front', dustBlendMode === 'solid');
     if(typeof ensureAnimLoop === 'function' && falling.length > 0) ensureAnimLoop();
 }
 function setKeyGlowEnabled(on){
@@ -12163,27 +12360,46 @@ midiBtn.onclick = () => {
         return fallback || '#78dcff';
     }
 
-    // Seat cache + color lock: once a player's color is resolved from seat data,
-    // it is LOCKED for the entire room session. This prevents flicker/fade to white.
+    // Seat cache + color lock: once a player's color is resolved, it is LOCKED
+    // for the room session to prevent flicker/fade. The lock is overwritten when
+    // a fresh roomPlayers snapshot arrives (so a corrected colour self-heals).
     const _playerSeatCache = new Map(); // playerId → seat number
-    const _playerColorLock = new Map(); // playerId → resolved hex color (immutable per session)
+    const _playerColorLock = new Map(); // playerId → resolved hex color
+
+    // Builds playerId → palette index for EVERY active player in the current
+    // room, guaranteeing DISTINCT colours. Prefers the stored seat when seats
+    // are present AND unique; otherwise falls back to a stable join-order rank.
+    // This is the fix for "every pill is red": if the seat field is missing or
+    // duplicated (so everyone would resolve to seat 1 → MP_PLAYER_COLORS[0]),
+    // rank-based assignment keeps each player a different colour.
+    function roomColorIndexMap(){
+        const map = new Map();
+        if(!(currentRoom && roomPlayersByRoom[currentRoom.id])) return map;
+        const live = roomPlayersByRoom[currentRoom.id];
+        const entries = Object.entries(live)
+            .map(([key, data]) => ({
+                id: String(data?.id || key),
+                seat: Number(data?.seat || 0),
+                joinedAt: Number(data?.joinedAt || data?.updatedAt || 0)
+            }))
+            .sort((a, b) => (a.joinedAt - b.joinedAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        if(!entries.length) return map;
+        const seatsSeen = new Set();
+        let seatsUsable = true;
+        for(const e of entries){
+            if(e.seat < 1 || e.seat > MP_PLAYER_COLORS.length || seatsSeen.has(e.seat)){ seatsUsable = false; break; }
+            seatsSeen.add(e.seat);
+        }
+        entries.forEach((e, rank) => {
+            map.set(e.id, seatsUsable ? (e.seat - 1) : (rank % MP_PLAYER_COLORS.length));
+        });
+        return map;
+    }
 
     function getRoomPlayerColorIndex(id){
         const targetId = String(id || '');
-        if(currentRoom && roomPlayersByRoom[currentRoom.id]){
-            const entry = Object.entries(roomPlayersByRoom[currentRoom.id])
-                .map(([key, data]) => ({
-                    id:String(data?.id || key),
-                    seat:Number(data?.seat || 0),
-                    joinedAt:Number(data?.joinedAt || data?.updatedAt || 0)
-                }))
-                .find(player => player.id === targetId);
-            const seatIndex = playerSeatColorIndex(entry?.seat);
-            if(seatIndex >= 0){
-                _playerSeatCache.set(targetId, entry.seat);
-                return seatIndex;
-            }
-        }
+        const idx = roomColorIndexMap().get(targetId);
+        if(typeof idx === 'number' && idx >= 0) return idx;
         const cachedSeat = _playerSeatCache.get(targetId);
         if(cachedSeat){
             const seatIndex = playerSeatColorIndex(cachedSeat);
@@ -12197,23 +12413,25 @@ midiBtn.onclick = () => {
         const id = player ? player.id : playerOrId;
         const idStr = String(id || '');
 
-        // Once locked, color never changes during room session
         const locked = _playerColorLock.get(idStr);
         if(locked) return locked;
 
-        // Try seat from player object
-        const seatIndex = playerSeatColorIndex(player?.seat);
-        if(seatIndex >= 0){
-            const color = MP_PLAYER_COLORS[seatIndex];
-            _playerSeatCache.set(idStr, player.seat);
+        // Room-wide resolution FIRST: this guarantees a distinct colour per
+        // player even when the stored seat field is missing/duplicated. (Using a
+        // raw player.seat here was what made every player collapse to seat 1's
+        // red when seat data was unreliable.)
+        const roomIndex = getRoomPlayerColorIndex(id);
+        if(roomIndex >= 0){
+            const color = MP_PLAYER_COLORS[roomIndex];
             _playerColorLock.set(idStr, color);
             return color;
         }
 
-        // Try seat from room data / cache
-        const roomIndex = getRoomPlayerColorIndex(id);
-        if(roomIndex >= 0){
-            const color = MP_PLAYER_COLORS[roomIndex];
+        // Then a seat carried directly on the player object (out-of-room lookups).
+        const seatIndex = playerSeatColorIndex(player?.seat);
+        if(seatIndex >= 0){
+            const color = MP_PLAYER_COLORS[seatIndex];
+            _playerSeatCache.set(idStr, player.seat);
             _playerColorLock.set(idStr, color);
             return color;
         }
@@ -12230,7 +12448,10 @@ midiBtn.onclick = () => {
         const selfId = String(mpSelfId || '');
         const locked = _playerColorLock.get(selfId);
         if(locked) return locked;
-        const seatIndex = playerSeatColorIndex(currentRoomSeat || roomPlayersByRoom[currentRoom?.id]?.[mpSelfId]?.seat || currentUser()?.seat);
+        // Prefer the room-wide distinct resolution (handles broken/duplicate seats).
+        const mapIndex = getRoomPlayerColorIndex(selfId);
+        const seatIndex = mapIndex >= 0 ? mapIndex
+            : playerSeatColorIndex(currentRoomSeat || roomPlayersByRoom[currentRoom?.id]?.[mpSelfId]?.seat || currentUser()?.seat);
         if(seatIndex >= 0){
             const color = MP_PLAYER_COLORS[seatIndex];
             _playerColorLock.set(selfId, color);
@@ -15635,22 +15856,24 @@ midiBtn.onclick = () => {
         roomPlayersUnsubscribe = dbApi.onValue(dbRef(`roomPlayers/${roomId}`), snap => {
             roomPlayersLoaded = true;
             roomPlayersByRoom[roomId] = snap.val() || {};
-            // Populate seat cache and lock colors for all players
+            // Lock a DISTINCT colour for every active player. roomColorIndexMap
+            // guarantees uniqueness (seat-based when seats are healthy, else
+            // join-order rank), so the lock self-heals away from the "everyone
+            // resolves to seat 1 → all red" failure mode on each snapshot.
             const live = roomPlayersByRoom[roomId];
             if(live){
+                const idxMap = roomColorIndexMap();
                 Object.entries(live).forEach(([key, data]) => {
                     const pid = String(data?.id || key);
                     const seat = Number(data?.seat || 0);
-                    if(seat >= 1){
-                        _playerSeatCache.set(pid, seat);
-                        // Always update from authoritative seat data — overrides any stale hash-based lock
-                        const seatIdx = playerSeatColorIndex(seat);
-                        if(seatIdx >= 0){
-                            _playerColorLock.set(pid, MP_PLAYER_COLORS[seatIdx]);
-                            if(pid === String(mpSelfId || '')){
-                            _mpSelfSeatColor = MP_PLAYER_COLORS[seatIdx];
+                    if(seat >= 1) _playerSeatCache.set(pid, seat);
+                    const cIdx = idxMap.get(pid);
+                    if(typeof cIdx === 'number' && cIdx >= 0){
+                        const color = MP_PLAYER_COLORS[cIdx];
+                        _playerColorLock.set(pid, color); // overwrite: corrects stale/duplicate colours
+                        if(pid === String(mpSelfId || '')){
+                            _mpSelfSeatColor = color;
                             if(typeof syncColorPadsToEffectiveColors === 'function') syncColorPadsToEffectiveColors();
-                        }
                         }
                     }
                 });
