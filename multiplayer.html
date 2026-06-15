@@ -3254,7 +3254,7 @@ body.mp-chat-keyboard .mp-chat-preview,body.mp-chat-dismissed .mp-chat-preview{d
 .mp-chat-preview-reply{width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#b9f2ff;opacity:.92;flex:0 0 auto;}
 .mp-chat-preview-reply .mp-reply-icon{width:12px;height:12px;}
 .mp-chat-panel{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));right:auto;top:auto;bottom:calc(var(--piano-height,25vh) + 14px + env(safe-area-inset-bottom,0px));transform:none;width:min(330px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));height:clamp(220px,42dvh,360px);z-index:2110;display:none;flex-direction:column;overflow:hidden;border-radius:20px;border:1px solid rgba(255,255,255,.14);background:rgba(35,38,45,.86);box-shadow:0 16px 44px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.075);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);pointer-events:auto;touch-action:auto;transition:background .35s ease,border-color .35s ease,box-shadow .35s ease,backdrop-filter .35s ease,-webkit-backdrop-filter .35s ease;}
-body.mp-chat-idle .mp-chat-panel{background:transparent;border-color:transparent;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;}
+body.mp-chat-idle .mp-chat-panel{background:transparent !important;border-color:transparent !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
 body.mp-chat-idle .mp-chat-head,body.mp-chat-idle .mp-chat-form{opacity:0;transition:opacity .35s ease;}
 body.mp-chat-open .mp-chat-panel{display:flex;animation:mpChatPop .24s cubic-bezier(.22,1,.36,1);}
 @keyframes mpChatPop{from{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.96);}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
@@ -4949,8 +4949,10 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 
 /* === Chat panel: docked (never centred), one consistent fixed size per orientation === */
 .mp-chat-panel{position:fixed !important;left:calc(14px + env(safe-area-inset-left,0px)) !important;right:auto !important;top:auto !important;bottom:calc(var(--piano-height,25vh) + 14px + env(safe-area-inset-bottom,0px)) !important;transform:none !important;width:min(330px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))) !important;max-width:none !important;height:clamp(260px,46dvh,380px) !important;min-height:0 !important;max-height:none !important;border-radius:20px !important;}
-/* Portrait keeps the tall column; landscape becomes a wider, shorter card. */
-@media (orientation:landscape) and (max-height:600px){.mp-chat-panel{left:calc(12px + env(safe-area-inset-left,0px)) !important;bottom:calc(var(--piano-height,38vh) + 10px + env(safe-area-inset-bottom,0px)) !important;width:min(480px,54dvw) !important;height:clamp(160px,42dvh,260px) !important;}}
+/* Landscape mobile: a NARROW vertical column (never a wide card) that uses the
+   full height between the player strip and the bottom so 4-6 messages fit on a
+   short screen. Fully overrides any older centred landscape rule. */
+@media (orientation:landscape) and (max-height:600px){.mp-chat-panel{top:calc(var(--ui-below-strip,60px) + 6px) !important;bottom:calc(10px + env(safe-area-inset-bottom,0px)) !important;left:calc(10px + env(safe-area-inset-left,0px)) !important;right:auto !important;transform:none !important;width:min(248px,40dvw) !important;height:auto !important;min-height:0 !important;max-height:none !important;border-radius:16px !important;}}
 /* Desktop / large screens: keep it docked but comfortably sized (never tiny). */
 @media (min-width:900px){.mp-chat-panel{left:calc(22px + env(safe-area-inset-left,0px)) !important;bottom:calc(var(--piano-height,25vh) + 20px + env(safe-area-inset-bottom,0px)) !important;width:400px !important;height:clamp(320px,48vh,480px) !important;}}
 /* Keyboard open: dock just above it so the input stays visible. */
