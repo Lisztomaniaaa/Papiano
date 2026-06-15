@@ -311,6 +311,15 @@ html[data-graphic-quality="potato"] #saberLine::after{
     #piano .black {
         box-shadow: none !important;
     }
+
+    /* During fast passages (burst mode) or under load, hold the blurred saber
+       smoke still — animating a blurred layer forces a repaint every frame. */
+    body.input-burst-mode #saberLine::before,
+    body.input-burst-mode #saberLine::after,
+    body.perf-lite #saberLine::before,
+    body.perf-lite #saberLine::after {
+        animation-play-state: paused !important;
+    }
 }
 
 body.idle-no-notes #saberLine::before,
@@ -1022,6 +1031,19 @@ body.key-glow-on #piano .black.active{
         0 0 calc(24px * var(--key-glow-intensity, 0.5)) var(--saber-color),
         0 0 calc(44px * var(--key-glow-intensity, 0.5)) var(--saber-color) !important;
     filter:brightness(calc(1 + 0.18 * var(--key-glow-intensity, 0.5))) !important;
+}
+/* Under sustained load (governor → .perf-lite, which mobile Default now enters)
+   collapse the three stacked glow shadows to one and drop the brightness filter
+   — the filter forces a separate compositing layer that repaints on every
+   press/release. Full glow returns at rest. */
+body.key-glow-on.perf-lite #piano > .white.active,
+body.key-glow-on.perf-lite #piano .white.active,
+body.key-glow-on.perf-lite #piano > .black.active,
+body.key-glow-on.perf-lite #piano .black.active{
+    filter:none !important;
+    box-shadow:
+        inset 0 0 0 1px rgba(255,255,255,0.45),
+        0 0 calc(16px * var(--key-glow-spread, 1)) var(--saber-color) !important;
 }
 .key-label{ color:rgba(20,24,30,0.54) !important; }
 .black-label{ color:rgba(255,255,255,0.64) !important; }
