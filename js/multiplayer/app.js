@@ -5514,7 +5514,7 @@ midiBtn.onclick = () => {
 
 (function(){
     const btns = { gfxPotato:'potato', gfxDefault:'default' };
-    const lowHiddenRows = ['rowAnimEffect','rowAnimTone'];
+    const lowHiddenRows = ['rowAnimEffect','rowAnimTone','rowKeyGlow'];
     // Potato locks & hides the heavy-FX menus (particles + strike line) so they
     // can't be enabled in the limited tier.
     const lowHiddenSelectors = ['[data-visual-open="particle"]', '[data-visual-open="saber"]'];
