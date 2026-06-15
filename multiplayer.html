@@ -5430,16 +5430,16 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
             <div class="color-row compact-color-row" id="rowParticleCount">
                 <div class="ui-setting-head">
                     <span class="ui-label">Count</span>
-                    <span class="ui-value-sm" id="particleCountVal">69%</span>
+                    <span class="ui-value-sm" id="particleCountVal">20%</span>
                 </div>
-                <input class="ui-full" type="range" id="particleCountRange" min="0" max="100" value="69" aria-label="Particle Count">
+                <input class="ui-full" type="range" id="particleCountRange" min="0" max="50" value="20" aria-label="Particle Count">
             </div>
             <div class="color-row compact-color-row" id="rowParticleSize">
                 <div class="ui-setting-head">
                     <span class="ui-label">Size</span>
-                    <span class="ui-value-sm" id="particleSizeVal">60%</span>
+                    <span class="ui-value-sm" id="particleSizeVal">20%</span>
                 </div>
-                <input class="ui-full" type="range" id="particleSizeRange" min="0" max="100" value="60" aria-label="Particle Size">
+                <input class="ui-full" type="range" id="particleSizeRange" min="0" max="50" value="20" aria-label="Particle Size">
             </div>
             <div class="color-row compact-color-row" id="rowParticleOpacity">
                 <div class="ui-setting-head">
@@ -5725,9 +5725,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                         </div>
                         <div class="ui-setting-head-divided-soft">
                             <span class="ui-label">Particle Count</span>
-                            <span class="ui-value-sm" id="settingsDustAmountVal">69%</span>
+                            <span class="ui-value-sm" id="settingsDustAmountVal">20%</span>
                         </div>
-                        <input class="ui-full" type="range" id="settingsDustAmountRange" min="0" max="100" value="69" aria-label="Dust Amount">
+                        <input class="ui-full" type="range" id="settingsDustAmountRange" min="0" max="50" value="20" aria-label="Dust Amount">
                     </div>
 
                 </div>
@@ -7734,12 +7734,13 @@ function _detectDefaultGraphicQuality(){
         const ua = (navigator.userAgent || '').toLowerCase();
         const isMobileUA = /android|iphone|ipod|mobile|webview/i.test(ua) || (/ipad/.test(ua) && isCoarse);
 
-        // Only two tiers remain: low = Potato (default), ultra = PC. A real desktop
-        // gets the uncapped PC tier; touch/mobile and anything weak default to Potato.
+        // Only two tiers remain: low = Potato, ultra = PC. PC is the default;
+        // only real mobile devices and genuinely tiny machines fall back to Potato.
         const tiny = cores <= 2 || mem <= 2;
-        if (isMobileUA || isCoarse) return 'low';                    // mobile/touch -> Potato (default)
-        return tiny ? 'low' : 'ultra';                              // desktop -> PC, else Potato
-    } catch(e) { return 'low'; }
+        if (tiny) return 'low';
+        if (isMobileUA) return 'low';                                // real mobile -> Potato
+        return 'ultra';                                             // everything else -> PC (default)
+    } catch(e) { return 'ultra'; }
 }
 let graphicQuality = _detectDefaultGraphicQuality();
 let performanceMode = 'manual';
@@ -9330,8 +9331,8 @@ let saberBrightness = 70;
 let saberOpacity = 100;
 let saberSaturation = 100;
 let saberDustSize = 50;
-let particleCount = 69;
-let particleSize = 60;
+let particleCount = 20;
+let particleSize = 20;
 let particleOpacity = 100;
 let particleSpeed = 30;
 let particleTurbulence = 30;
@@ -9357,7 +9358,7 @@ function _sanitizeParticleStore(src){
     PARTICLE_FIELDS.forEach(f => {
         let v = Math.round(Number(src[f]));
         if(!Number.isFinite(v)) v = 0;
-        out[f] = Math.max(0, Math.min(100, v));
+        out[f] = Math.max(0, Math.min(PARTICLE_SCALED_FIELDS.has(f) ? 50 : 100, v));
     });
     return out;
 }
@@ -9365,7 +9366,7 @@ function _particleStoreFromDefaults(cfg){
     return { count:cfg.particleCount, size:cfg.particleSize, opacity:cfg.particleOpacity, speed:cfg.particleSpeed, turbulence:cfg.particleTurbulence, saturation:cfg.particleSaturation, fade:cfg.particleFade };
 }
 const particleModeStore = {
-    mobile: _particleStoreFromDefaults(GRAPHIC_MODE_DEFAULTS.high),
+    mobile: _particleStoreFromDefaults(GRAPHIC_MODE_DEFAULTS.ultra),
     pc: _particleStoreFromDefaults(GRAPHIC_MODE_DEFAULTS.ultra)
 };
 // Cross-mode conversion: PC value = round(mobile/2); mobile value = pc*2.
@@ -9376,7 +9377,7 @@ function convertParticleStore(src, fromMode, toMode){
     const out = {};
     PARTICLE_FIELDS.forEach(f => {
         let v = clean[f];
-        if(PARTICLE_SCALED_FIELDS.has(f)) v = halve ? Math.round(v / 2) : Math.min(100, Math.round(v * 2));
+        if(PARTICLE_SCALED_FIELDS.has(f)) v = halve ? Math.round(v / 2) : Math.min(50, Math.round(v * 2));
         out[f] = v;
     });
     return out;
@@ -9498,8 +9499,8 @@ function applyFactoryDefaults(clearSavedState){
     setSaberVisualSetting('brightness', 70);
     setSaberVisualSetting('opacity', 100);
     setSaberVisualSetting('saturation', 100);
-    setParticleSetting('count', 69);
-    setParticleSetting('size', 60);
+    setParticleSetting('count', 20);
+    setParticleSetting('size', 20);
     setParticleSetting('opacity', 100);
     setParticleSetting('speed', 30);
     setParticleSetting('turbulence', 30);
@@ -10435,7 +10436,9 @@ function setSaberFx(part, value){
     updateSaberLine();
 }
 function setParticleSetting(name, value){
-    const v = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    // Count & Size are capped at 50% (0-50 sliders); the rest stay 0-100.
+    const maxV = (name === 'count' || name === 'size') ? 50 : 100;
+    const v = Math.max(0, Math.min(maxV, Math.round(Number(value) || 0)));
     const map = {
         count: ['particleCount', 'particleCountRange', 'particleCountVal'],
         size: ['particleSize', 'particleSizeRange', 'particleSizeVal'],
