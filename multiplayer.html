@@ -6803,10 +6803,11 @@ function stopNote(midi, fast=false) {
         let profile;
         if (voice.layer === 'string') {
             profile = getStringFadeProfile(voice.fadeSec, !!fast);
-            // The layer fade behaves like its sustain: while the sustain pedal /
-            // manual hold is on, don't let the layer cut before the sustained
-            // piano tail (this mismatch was the "weird" doubling on release).
-            if (!fast && (manualSustainEnabled || midiSustainPedalDown)) {
+            // The layer follows ONLY a real MIDI sustain pedal (it then holds as
+            // long as the sustained piano tail). The manual / default sustain
+            // (mobile / keyboard) does NOT drag the layer along — the layer is
+            // managed by its own fade so main and layer keep independent triggers.
+            if (!fast && midiSustainPedalDown) {
                 const ps = getReleaseProfile(false, getActivePianoSustain());
                 profile = { tc: Math.max(profile.tc, ps.tc), delay: Math.max(profile.delay, ps.delay) };
             }
