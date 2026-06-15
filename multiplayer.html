@@ -259,8 +259,8 @@ body.saber-off #saberLine{
 }
 body.saber-smoke-off #saberLine::before,
 body.saber-smoke-off #saberLine::after,
-html[data-graphic-quality="low"] #saberLine::before,
-html[data-graphic-quality="low"] #saberLine::after{
+html[data-graphic-quality="potato"] #saberLine::before,
+html[data-graphic-quality="potato"] #saberLine::after{
     display:none !important;
 }
 #saberLine.saber-hit{
@@ -352,7 +352,7 @@ body.piano-height-dragging #pianoWrap{
     opacity:.78;
 }
 body.saber-smoke-off #pianoWrap::before,
-html[data-graphic-quality="low"] #pianoWrap::before{ display:none !important; }
+html[data-graphic-quality="potato"] #pianoWrap::before{ display:none !important; }
 #pianoViewport {
     position: relative;
     height: 100%;
@@ -5604,10 +5604,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <div class="perf-setting-block ui-mt8">
                         <div class="section-title ui-mb8">Graphics Quality</div>
                         <div class="graphic-grid">
-                            <button class="graphic-btn" id="gfxLow">Potato</button>
-                            <button class="graphic-btn" id="gfxHigh">PC</button>
+                            <button class="graphic-btn" id="gfxPotato">Potato</button>
+                            <button class="graphic-btn" id="gfxDefault">Default</button>
                         </div>
-                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Limited (heavy FX hidden) · PC = No Limits (Maxed)</div>
+                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Limited (heavy FX hidden) · Default = No Limits (Maxed)</div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="ui-setting-head-gap">
@@ -6985,18 +6985,18 @@ let perfGovScale = 1.0;
 const PERF_DPR_FLOOR = 1.0;
 function getRenderDPR(){
     const native = Math.max(1, window.devicePixelRatio || 1);
-    let cap; let isUltra = false;
+    let cap; let isDefaultTier = false;
     try {
         const q = typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality;
-        isUltra = (q === 'ultra');
-        if(q === 'low') cap = 1;
+        isDefaultTier = (q === 'default');
+        if(q === 'potato') cap = 1;
         else if(q === 'medium') cap = Math.min(native, 1.5);
-        else if(isUltra) cap = native; // PC tier: no DPR cap — full native sharpness
+        else if(isDefaultTier) cap = native; // Default tier: no DPR cap — full native sharpness
         else cap = Math.min(native, 2.0); // high / Medium tier
     } catch(e){ cap = Math.min(native, 2.0); }
-    // PC keeps full native sharpness always: the light governor on PC trims only
+    // Default tier keeps full native sharpness; the governor on other tiers trims only
     // the cheap stuff (particles/overlay), never DPR.
-    const scaled = isUltra ? cap : cap * (perfGovScale > 0 ? perfGovScale : 1);
+    const scaled = isDefaultTier ? cap : cap * (perfGovScale > 0 ? perfGovScale : 1);
     return scaled < PERF_DPR_FLOOR ? PERF_DPR_FLOOR : scaled;
 }
 
@@ -7010,10 +7010,10 @@ const PERF_GOV_COOLDOWN = 850;
 const PERF_SCALE_MIN = 0.6;
 const PERF_SCALE_MAX = 1.0;
 function perfGovernorTick(frameMs, now){
-    // PC ("ultra") = NO limits, period. The governor never runs on PC, so
+    // Default tier = NO limits, period. The governor never runs there, so
     // particle count, key overlay and DPR are NEVER throttled regardless of
     // load. Only the mobile tiers use the adaptive governor.
-    if(getEffectiveGraphicQuality() === 'ultra'){ if(perfGovScale !== 1) perfGovScale = 1; return; }
+    if(getEffectiveGraphicQuality() === 'default'){ if(perfGovScale !== 1) perfGovScale = 1; return; }
     if(!(frameMs > 0) || frameMs > 240) return;
     _perfEmaMs += (frameMs - _perfEmaMs) * 0.12;
     if(_perfEmaMs > PERF_BUDGET_MS){ _perfSlowStreak++; _perfFastStreak = 0; }
@@ -7726,8 +7726,8 @@ noteXFast.fill(NaN);
 const keyElFast = new Array(128);
 let currentPianoTransformPx = viewOffset * whiteKeyWidth;
 let noteCacheTransformPx = viewOffset * whiteKeyWidth;
-// No device sniffing: the default tier is always PC. Potato is a manual choice.
-function _detectDefaultGraphicQuality(){ return 'ultra'; }
+// No device sniffing: the default tier is always Default. Potato is a manual choice.
+function _detectDefaultGraphicQuality(){ return 'default'; }
 let graphicQuality = _detectDefaultGraphicQuality();
 let performanceMode = 'manual';
 function isMobileRenderTarget(){
@@ -7751,26 +7751,26 @@ function getPressureScale(){
     return pressure >= 3 ? 0.34 : pressure === 2 ? 0.56 : pressure === 1 ? 0.78 : 1;
 }
 const GRAPHIC_PROFILES = {
-    low: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
+    potato: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
     medium: { dust:0.55, dustMax:800, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
     high: { dust:1, dustMax:2000, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
-    // PC tier — no limits: caps lifted to the full buffer so particles, draw
-    // counts and DPR are never throttled. (governor is disabled for 'ultra'.)
-    ultra: { dust:1, dustMax:16000, fallingMax:100000, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    // Default tier — no limits: caps lifted to the full buffer so particles, draw
+    // counts and DPR are never throttled. (governor is disabled for 'default'.)
+    default: { dust:1, dustMax:16000, fallingMax:100000, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
-    // Potato and PC share IDENTICAL setting percentages so presets never shift
+    // Potato and Default share IDENTICAL setting percentages so presets never shift
     // values between tiers; the only difference is Potato keeps heavy FX (dust) off.
-    low: { dust:false, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
+    potato: { dust:false, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
     medium: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
     high: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
-    ultra: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
+    default: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
 };
 const REMOTE_VISUAL_PROFILES = {
-    low: { level:'light' },
+    potato: { level:'light' },
     medium: { level:'light' },
     high: { level:'full' },
-    ultra: { level:'full' }
+    default: { level:'full' }
 };
 function getRemoteVisualLevel(){
     const q = getEffectiveGraphicQuality();
@@ -7781,7 +7781,7 @@ function getRemoteVisualLevel(){
 }
 function remoteFallingOwnerId(playerId){ return `remote:${playerId || 'unknown'}`; }
 function getGraphicProfile(){ const q=getEffectiveGraphicQuality(); return GRAPHIC_PROFILES[q] || GRAPHIC_PROFILES.high; }
-function isLowGraphic(){ return getEffectiveGraphicQuality() === 'low'; }
+function isLowGraphic(){ return getEffectiveGraphicQuality() === 'potato'; }
 function isWideKeyMode(){ return wCount > 12; }
 function refreshWideKeyModeClass(){
     document.body.classList.toggle('wide-key-mode', isWideKeyMode());
@@ -8080,8 +8080,8 @@ function refreshStageHeight(){
     }
 }
 
-// PC ("ultra") tier has no particle cap — give the shared pool real headroom so
-// the PC ceiling never feels limited. Mobile tiers stay capped by profile.dustMax
+// Default tier has no particle cap — give the shared pool real headroom so
+// the Default ceiling never feels limited. Potato stays capped by profile.dustMax
 // (800 / 2000), so this larger buffer never affects them.
 const NEON_DUST_MAX = 16000;
 // Even, hold-independent emission: same initial puff per press, same steady
@@ -8125,11 +8125,11 @@ function getKeyStageGeom(midi){
 function spawnNeonDust(geom, count){
     if(!saberDustEnabled || !geom || !canvas) return;
     const profile = getGraphicProfile();
-    const _pcTier = getEffectiveGraphicQuality() === 'ultra';
-    // PC = no particle limit: the perf governor never trims particle count or
-    // scale on PC, so raising the slider always adds more and the density never
-    // collapses under load. (Mobile still backs off under genuine pressure.)
-    const loadScale = _pcTier ? 1 : getPressureScale();
+    const _defaultTier = getEffectiveGraphicQuality() === 'default';
+    // Default tier = no particle limit: the perf governor never trims particle
+    // count or scale, so raising the slider always adds more and density never
+    // collapses under load. (Potato keeps particles off entirely.)
+    const loadScale = _defaultTier ? 1 : getPressureScale();
     const maxDust = Math.max(0, Math.min(Math.round(NEON_DUST_MAX * loadScale), Number(profile.dustMax) || 0));
     const dustScale = Math.max(0, Math.min(1, (Number(profile.dust) || 0) * loadScale));
     if(dustScale <= 0 || neonDustCount >= maxDust) return;
@@ -8140,12 +8140,9 @@ function spawnNeonDust(geom, count){
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     if(countLevel <= 0.005 || opacityLevel <= 0.005 || sizeLevel <= 0.005) return;
-    // Mobile and PC keep SEPARATE per-mode amounts (the slider is dual), so the
-    // PC mapping can stay lighter per unit — the dual settings carry the
-    // mobile↔PC difference (PC value ≈ half of mobile for the same look).
-    const countMul = countLevel * (_pcTier ? 6 : 12) * dustScale;
-    // Size +30% baseline; halved again on PC.
-    const sizeMul = 0.08 + sizeLevel * (_pcTier ? 0.78 : 1.56);
+    // The Default tier renders denser per unit than the (particle-less) Potato fallback.
+    const countMul = countLevel * (_defaultTier ? 6 : 12) * dustScale;
+    const sizeMul = 0.08 + sizeLevel * (_defaultTier ? 0.78 : 1.56);
     const speedMul = 0.18 + speedLevel * 2.12;
     // Turbulence +100%: doubled influence at max.
     const turbEase = turbulenceLevel * 2;
@@ -8188,7 +8185,7 @@ function startNeonDust(midi, key){
     // burst per note floods the field — hundreds of sprites spawned in a beat,
     // all drawn every frame. Shrink the per-press burst when input is bursty so
     // dense playing stays smooth; single/slow notes keep the full puff.
-    const burstCount = (getEffectiveGraphicQuality() !== 'ultra' && typeof getBurstLevel === 'function' && getBurstLevel() > 8)
+    const burstCount = (getEffectiveGraphicQuality() !== 'default' && typeof getBurstLevel === 'function' && getBurstLevel() > 8)
         ? Math.max(4, DUST_PRESS_BURST >> 2)
         : DUST_PRESS_BURST;
     spawnNeonDust(geom, burstCount);
@@ -8200,8 +8197,8 @@ function stopNeonDust(midi){
     if(!neonDustEmitters.size && saberLine) saberLine.classList.remove('saber-hit');
 }
 function updateDrawNeonDust(dt, now){
-    // Emergency trim only on mobile tiers — PC is never capped (no limit).
-    if(perfGovScale < 0.62 && neonDustCount > 120 && getEffectiveGraphicQuality() !== 'ultra'){
+    // Emergency trim only on the Potato fallback — Default is never capped.
+    if(perfGovScale < 0.62 && neonDustCount > 120 && getEffectiveGraphicQuality() !== 'default'){
         neonDustCount = 120;
     }
     if(isLowGraphic() || !saberDustEnabled){
@@ -8662,10 +8659,10 @@ function anim(now){
     if(!dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
 
     const riseSpeed = getAnimRiseSpeed() * dt;
-    // PC tier: a held note keeps growing to fill the screen instead of capping
+    // Default tier: a held note keeps growing to fill the screen instead of capping
     // at 400px — held notes stay drawing for as long as the key is held. Mobile
     // keeps the shorter fixed cap.
-    const maxNoteH = (graphicQuality === 'ultra')
+    const maxNoteH = (graphicQuality === 'default')
         ? Math.max(MAX_NOTE_HEIGHT, (canvasCssH || MAX_NOTE_HEIGHT))
         : MAX_NOTE_HEIGHT;
     for(let i=0;i<falling.length;i++){
@@ -9936,8 +9933,8 @@ function applySettings(s) {
         if (s.perfHudEnabled !== undefined) setPerformanceMonitor(!!s.perfHudEnabled);
         // 'auto' retired: old presets that stored it fall back to smart detection.
         performanceMode = 'manual';
-        // Only Potato (low) and PC (ultra) exist; map any retired tier (mobile/medium/high) to Potato.
-        if (s.graphicQuality !== undefined) graphicQuality = (s.graphicQuality === 'ultra') ? 'ultra' : 'low';
+        // Only Potato and Default exist; old 'ultra' maps to Default, everything else (low/high/medium/mobile) to Potato.
+        if (s.graphicQuality !== undefined) graphicQuality = (s.graphicQuality === 'default' || s.graphicQuality === 'ultra') ? 'default' : 'potato';
         setTimeout(() => {
             if (typeof setBgFitMode === 'function' && s.bgFitMode) setBgFitMode(s.bgFitMode);
             if (typeof setBgPositionMode === 'function' && s.bgPositionMode) setBgPositionMode(s.bgPositionMode);
@@ -11378,7 +11375,7 @@ midiBtn.onclick = () => {
 })();
 
 (function(){
-    const btns = { gfxLow:'low', gfxHigh:'ultra' };
+    const btns = { gfxPotato:'potato', gfxDefault:'default' };
     const lowHiddenRows = ['rowAnimEffect','rowAnimTone'];
     // Potato locks & hides the heavy-FX menus (particles + strike line) so they
     // can't be enabled in the limited tier.
@@ -11428,7 +11425,7 @@ midiBtn.onclick = () => {
         refreshGraphicButtons();
     }
     function updateManualQualityUi(q, destructive){
-        const isLow = q === 'low';
+        const isLow = q === 'potato';
         const isMed = q === 'medium';
         if(destructive){
             lowHiddenRows.forEach(id => setDisplayById(id, !isLow));
@@ -11436,7 +11433,7 @@ midiBtn.onclick = () => {
             mediumHiddenRows.forEach(id => setDisplayById(id, !isLow && !isMed));
         }
         const root = document.documentElement;
-        if(q === 'low'){
+        if(q === 'potato'){
             root.style.setProperty('--saber-wave-opacity','0.28');
             root.style.setProperty('--saber-shadow-a','rgba(255,255,255,0.08)');
             root.style.setProperty('--saber-shadow-b','rgba(255,255,255,0.03)');
@@ -11451,7 +11448,7 @@ midiBtn.onclick = () => {
         }
         [document.querySelector('.top'), ...document.querySelectorAll('.floating-panel')].forEach(el => {
             if(!el) return;
-            if(q === 'low'){
+            if(q === 'potato'){
                 el.style.backdropFilter = 'none';
                 el.style.webkitBackdropFilter = 'none';
             } else {
@@ -11462,7 +11459,7 @@ midiBtn.onclick = () => {
     }
     function applyGraphicQuality(q, applyDefaults){
         const prevDPR = (typeof currentDPR !== 'undefined') ? currentDPR : 1;
-        // Two manual tiers (Potato/PC); 'auto' just falls back to the fixed default.
+        // Two manual tiers (Potato/Default); 'auto' just falls back to the fixed default.
         const nextQuality = q === 'auto' ? _detectDefaultGraphicQuality() : q;
         performanceMode = 'manual';
         perfGovScale = 1.0; _perfSlowStreak = 0; _perfFastStreak = 0; _perfEmaMs = 1000 / 60; if(document.body) document.body.classList.remove('perf-lite');
