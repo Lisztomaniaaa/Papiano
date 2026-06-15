@@ -251,44 +251,6 @@ html[data-graphic-quality="potato"] #saberLine::after{
     to{ background-position:240px 100%, 50% 100%; }
 }
 
-/* Strike effect modes: lightweight alternatives to WebGL particles. Each hit
-   spawns pooled elements animated with ONLY transform + opacity (compositor),
-   so there is no per-frame JS, no canvas redraw and no animated blur. */
-#strikeFxLayer{ position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:2; }
-.strike-fx{ position:absolute; bottom:0; pointer-events:none; will-change:transform, opacity; }
-.strike-beam{
-    width:var(--w, 12px); height:var(--h, 160px);
-    transform:translateX(-50%) scaleY(.08); transform-origin:bottom center;
-    background:linear-gradient(to top, var(--c, #78dcff) 0%, transparent 100%);
-    border-radius:50% 50% 4px 4px / 16px 16px 4px 4px;
-    opacity:0; animation:strikeBeam var(--dur, .6s) ease-out forwards;
-}
-@keyframes strikeBeam{
-    0%{ opacity:0; transform:translateX(-50%) scaleY(.08); }
-    18%{ opacity:.85; }
-    100%{ opacity:0; transform:translateX(-50%) scaleY(1) translateY(-12%); }
-}
-.strike-ripple{
-    width:var(--s, 60px); height:var(--s, 60px); border-radius:50%;
-    transform:translateX(-50%) scale(.2);
-    background:radial-gradient(circle, var(--c, #78dcff) 0%, transparent 68%);
-    opacity:.7; animation:strikeRipple var(--dur, .6s) ease-out forwards;
-}
-@keyframes strikeRipple{
-    0%{ opacity:.7; transform:translateX(-50%) scale(.2); }
-    100%{ opacity:0; transform:translateX(-50%) scale(2.3); }
-}
-.strike-spark{
-    width:var(--s, 4px); height:var(--s, 4px); border-radius:50%;
-    background:var(--c, #78dcff); box-shadow:0 0 6px var(--c, #78dcff);
-    transform:translate(-50%, 0); opacity:1;
-    animation:strikeSpark var(--dur, .6s) ease-out forwards;
-}
-@keyframes strikeSpark{
-    0%{ opacity:1; transform:translate(-50%, 0) scale(1); }
-    100%{ opacity:0; transform:translate(calc(-50% + var(--dx, 0px)), var(--dy, -40px)) scale(.3); }
-}
-
 @media (pointer: coarse) {
     #pianoWrap::before {
         display: none !important;
