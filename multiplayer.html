@@ -5465,9 +5465,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
             <div class="color-row compact-color-row" id="rowParticleFade">
                 <div class="ui-setting-head">
                     <span class="ui-label">Fade</span>
-                    <span class="ui-value-sm" id="particleFadeVal">45%</span>
+                    <span class="ui-value-sm" id="particleFadeVal">20%</span>
                 </div>
-                <input class="ui-full" type="range" id="particleFadeRange" min="0" max="100" value="45" aria-label="Particle Fade">
+                <input class="ui-full" type="range" id="particleFadeRange" min="0" max="100" value="20" aria-label="Particle Fade">
             </div>
             <div class="color-row compact-color-row" id="rowParticleSaturation">
                 <div class="ui-setting-head">
@@ -7726,22 +7726,8 @@ noteXFast.fill(NaN);
 const keyElFast = new Array(128);
 let currentPianoTransformPx = viewOffset * whiteKeyWidth;
 let noteCacheTransformPx = viewOffset * whiteKeyWidth;
-function _detectDefaultGraphicQuality(){
-    try {
-        const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-        const cores = navigator.hardwareConcurrency || 4;
-        const mem = navigator.deviceMemory || 4;
-        const ua = (navigator.userAgent || '').toLowerCase();
-        const isMobileUA = /android|iphone|ipod|mobile|webview/i.test(ua) || (/ipad/.test(ua) && isCoarse);
-
-        // Only two tiers remain: low = Potato, ultra = PC. PC is the default;
-        // only real mobile devices and genuinely tiny machines fall back to Potato.
-        const tiny = cores <= 2 || mem <= 2;
-        if (tiny) return 'low';
-        if (isMobileUA) return 'low';                                // real mobile -> Potato
-        return 'ultra';                                             // everything else -> PC (default)
-    } catch(e) { return 'ultra'; }
-}
+// No device sniffing: the default tier is always PC. Potato is a manual choice.
+function _detectDefaultGraphicQuality(){ return 'ultra'; }
 let graphicQuality = _detectDefaultGraphicQuality();
 let performanceMode = 'manual';
 function isMobileRenderTarget(){
@@ -7773,10 +7759,12 @@ const GRAPHIC_PROFILES = {
     ultra: { dust:1, dustMax:16000, fallingMax:100000, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
-    low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
-    medium: { dust:true, particleCount:45, particleSize:52, particleOpacity:74, particleSpeed:26, particleTurbulence:24, particleSaturation:88, particleFade:52, saberAuraSize:44, saberBrightness:64, saberOpacity:100, saberSaturation:100 },
-    high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 },
-    ultra: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:38, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
+    // Potato and PC share IDENTICAL setting percentages so presets never shift
+    // values between tiers; the only difference is Potato keeps heavy FX (dust) off.
+    low: { dust:false, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
+    medium: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
+    high: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
+    ultra: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
 };
 const REMOTE_VISUAL_PROFILES = {
     low: { level:'light' },
@@ -9337,56 +9325,8 @@ let particleOpacity = 100;
 let particleSpeed = 30;
 let particleTurbulence = 30;
 let particleSaturation = 100;
-let particleFade = 45;
+let particleFade = 20;
 
-// --- Dual particle amounts: non-PC tier (Potato) vs PC (ultra tier) ---
-// Each device "mode" remembers its own particle settings, so switching tiers or
-// loading a preset restores the right amounts per device instead of sharing one
-// value. PC has no particle cap, so the same number renders ~2x denser than
-// mobile — therefore a value crossing mobile<->PC is halved/doubled (count &
-// size only) to keep the visual consistent.
-const PARTICLE_FIELDS = ['count','size','opacity','speed','turbulence','saturation','fade'];
-const PARTICLE_SCALED_FIELDS = new Set(['count','size']); // the density/size fields that halve/double across modes
-function _particleModeForQuality(q){ return q === 'ultra' ? 'pc' : 'mobile'; }
-let currentParticleMode = _particleModeForQuality(graphicQuality);
-function _liveParticleSnapshot(){
-    return { count:particleCount, size:particleSize, opacity:particleOpacity, speed:particleSpeed, turbulence:particleTurbulence, saturation:particleSaturation, fade:particleFade };
-}
-function _sanitizeParticleStore(src){
-    if(!src || typeof src !== 'object') return null;
-    const out = {};
-    PARTICLE_FIELDS.forEach(f => {
-        let v = Math.round(Number(src[f]));
-        if(!Number.isFinite(v)) v = 0;
-        out[f] = Math.max(0, Math.min(PARTICLE_SCALED_FIELDS.has(f) ? 50 : 100, v));
-    });
-    return out;
-}
-function _particleStoreFromDefaults(cfg){
-    return { count:cfg.particleCount, size:cfg.particleSize, opacity:cfg.particleOpacity, speed:cfg.particleSpeed, turbulence:cfg.particleTurbulence, saturation:cfg.particleSaturation, fade:cfg.particleFade };
-}
-const particleModeStore = {
-    mobile: _particleStoreFromDefaults(GRAPHIC_MODE_DEFAULTS.ultra),
-    pc: _particleStoreFromDefaults(GRAPHIC_MODE_DEFAULTS.ultra)
-};
-// Cross-mode conversion: PC value = round(mobile/2); mobile value = pc*2.
-function convertParticleStore(src, fromMode, toMode){
-    const clean = _sanitizeParticleStore(src);
-    if(!clean || fromMode === toMode) return clean;
-    const halve = fromMode === 'mobile' && toMode === 'pc';
-    const out = {};
-    PARTICLE_FIELDS.forEach(f => {
-        let v = clean[f];
-        if(PARTICLE_SCALED_FIELDS.has(f)) v = halve ? Math.round(v / 2) : Math.min(50, Math.round(v * 2));
-        out[f] = v;
-    });
-    return out;
-}
-function applyParticleStore(store){
-    const clean = _sanitizeParticleStore(store);
-    if(!clean) return;
-    PARTICLE_FIELDS.forEach(f => setParticleSetting(f, clean[f]));
-}
 var saberMotion = 'static';
 let motionSpeed = 50; // drives the strike aura's drift/billow speed
 // "Motion Speed": 0..100 maps to a slow..fast aura billow duration. Higher = faster.
@@ -9505,10 +9445,9 @@ function applyFactoryDefaults(clearSavedState){
     setParticleSetting('speed', 30);
     setParticleSetting('turbulence', 30);
     setParticleSetting('saturation', 100);
-    setParticleSetting('fade', 45);
+    setParticleSetting('fade', 20);
     setSaberFx('saber', true);
     setSaberFx('dust', true);
-    setSaberDustAmount(69);
     setAnimRoundness(100);
     setNoteOpacity(100);
     setNoteSpeed(75);
@@ -9773,9 +9712,6 @@ function bindChordColorControls(){
 }
 
 function getCurrentSettings() {
-    if(typeof particleModeStore !== 'undefined' && particleModeStore[currentParticleMode]){
-        particleModeStore[currentParticleMode] = _liveParticleSnapshot();
-    }
     return {
         wCount,
         transpose,
@@ -9817,7 +9753,6 @@ function getCurrentSettings() {
         particleTurbulence,
         particleSaturation,
         particleFade,
-        particleModeStore: { mobile: Object.assign({}, particleModeStore.mobile), pc: Object.assign({}, particleModeStore.pc) },
         saberMotion,
         motionSpeed,
         dustBlendMode,
@@ -9966,21 +9901,6 @@ function applySettings(s) {
         setParticleSetting('turbulence', s.particleTurbulence !== undefined ? s.particleTurbulence : particleTurbulence);
         setParticleSetting('saturation', s.particleSaturation !== undefined ? s.particleSaturation : particleSaturation);
         setParticleSetting('fade', s.particleFade !== undefined ? s.particleFade : particleFade);
-        // Restore dual (mobile / PC) particle amounts. New presets carry both;
-        // legacy presets carry only the single live values applied above, so the
-        // other mode is derived by the mobile<->PC conversion.
-        if(s.particleModeStore && typeof s.particleModeStore === 'object'){
-            const m = _sanitizeParticleStore(s.particleModeStore.mobile);
-            const p = _sanitizeParticleStore(s.particleModeStore.pc);
-            particleModeStore.mobile = m || (p ? convertParticleStore(p, 'pc', 'mobile') : particleModeStore.mobile);
-            particleModeStore.pc = p || (m ? convertParticleStore(m, 'mobile', 'pc') : particleModeStore.pc);
-        } else {
-            const liveMode = _particleModeForQuality((s.graphicQuality && GRAPHIC_PROFILES[s.graphicQuality]) ? s.graphicQuality : graphicQuality);
-            const live = _liveParticleSnapshot();
-            particleModeStore[liveMode] = live;
-            const other = liveMode === 'pc' ? 'mobile' : 'pc';
-            particleModeStore[other] = convertParticleStore(live, liveMode, other);
-        }
         setDustBlendMode(s.dustBlendMode === 'solid' ? 'solid' : 'glow');
         setSaberMotion('static');
         setMotionSpeed(s.motionSpeed !== undefined ? s.motionSpeed : motionSpeed);
@@ -10461,11 +10381,6 @@ function setParticleSetting(name, value){
     const label = document.getElementById(meta[2]);
     if(range) range.value = v;
     if(label) label.textContent = v + '%';
-    // Keep the active device mode's remembered amount in sync (dual settings).
-    if(typeof particleModeStore !== 'undefined' && PARTICLE_FIELDS.indexOf(name) !== -1){
-        const store = particleModeStore[currentParticleMode];
-        if(store) store[name] = v;
-    }
     syncSaberFxButtons();
 }
 function setSaberDustSize(value){
@@ -11547,32 +11462,14 @@ midiBtn.onclick = () => {
     }
     function applyGraphicQuality(q, applyDefaults){
         const prevDPR = (typeof currentDPR !== 'undefined') ? currentDPR : 1;
-        // 'auto' is gone — smart detection only picks the initial default; the
-        // three modes (Potato/Medium/PC) are an explicit manual choice.
+        // Two manual tiers (Potato/PC); 'auto' just falls back to the fixed default.
         const nextQuality = q === 'auto' ? _detectDefaultGraphicQuality() : q;
         performanceMode = 'manual';
         perfGovScale = 1.0; _perfSlowStreak = 0; _perfFastStreak = 0; _perfEmaMs = 1000 / 60; if(document.body) document.body.classList.remove('perf-lite');
-        const _prevParticleMode = (typeof currentParticleMode !== 'undefined') ? currentParticleMode : null;
         graphicQuality = GRAPHIC_PROFILES[nextQuality] ? nextQuality : _detectDefaultGraphicQuality();
-        const _newParticleMode = _particleModeForQuality(graphicQuality);
-        // Remember the outgoing mode's particle amounts before switching device modes.
-        if(_prevParticleMode && _prevParticleMode !== _newParticleMode && particleModeStore[_prevParticleMode]){
-            particleModeStore[_prevParticleMode] = _liveParticleSnapshot();
-        }
-        currentParticleMode = _newParticleMode;
         syncEffectiveGraphicState(prevDPR);
         updateManualQualityUi(graphicQuality, true);
-        if(applyDefaults){
-            // Tier buttons reset the non-particle visual defaults, but PARTICLES are
-            // dual: restore this mode's remembered amounts (copied first, since
-            // applyGraphicModeDefaults overwrites the live store).
-            const remembered = Object.assign({}, particleModeStore[currentParticleMode]);
-            applyGraphicModeDefaults(graphicQuality);
-            applyParticleStore(remembered);
-        } else {
-            // Initial load / preset / programmatic: load this mode's remembered amounts.
-            applyParticleStore(particleModeStore[currentParticleMode]);
-        }
+        if(applyDefaults) applyGraphicModeDefaults(graphicQuality);
         if(typeof ensureAnimLoop === 'function' && falling.length>0) ensureAnimLoop();
     }
     Object.entries(btns).forEach(([id, val]) => {
