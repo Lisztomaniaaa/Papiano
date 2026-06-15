@@ -4957,6 +4957,9 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 @media (min-width:900px){.mp-chat-panel{top:calc(78px + env(safe-area-inset-top,0px)) !important;bottom:auto !important;right:calc(22px + env(safe-area-inset-right,0px)) !important;left:auto !important;transform:none !important;width:380px !important;height:clamp(340px,56vh,560px) !important;}}
 /* Keyboard open: dock just above it so the input stays visible. */
 body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 8px) !important;left:calc(14px + env(safe-area-inset-left,0px)) !important;right:auto !important;transform:none !important;width:min(330px,calc(100vw - 24px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 16px - var(--mp-chat-keyboard-inset,0px)) !important;border-radius:18px !important;}
+/* Landscape mobile while typing: keep the panel on the RIGHT (no left jump) and
+   sit above the keyboard so your own messages + input stay visible. */
+@media (orientation:landscape) and (max-height:600px){body.mp-chat-keyboard .mp-chat-panel{top:calc(6px + env(safe-area-inset-top,0px)) !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 6px) !important;left:auto !important;right:calc(10px + env(safe-area-inset-right,0px)) !important;transform:none !important;width:min(250px,40dvw) !important;height:auto !important;min-height:0 !important;max-height:none !important;border-radius:16px !important;}}
 @media (orientation:landscape){body.mp-chat-keyboard .mp-chat-head{display:none !important;}}
 
 /* --- Multiplayer home: consistent with the stage on all devices --- */
