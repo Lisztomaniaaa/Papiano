@@ -4952,9 +4952,9 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 /* Landscape mobile: a NARROW vertical column (never a wide card) that uses the
    full height between the player strip and the bottom so 4-6 messages fit on a
    short screen. Fully overrides any older centred landscape rule. */
-@media (orientation:landscape) and (max-height:600px){.mp-chat-panel{top:calc(var(--ui-below-strip,60px) + 6px) !important;bottom:calc(10px + env(safe-area-inset-bottom,0px)) !important;left:calc(10px + env(safe-area-inset-left,0px)) !important;right:auto !important;transform:none !important;width:min(248px,40dvw) !important;height:auto !important;min-height:0 !important;max-height:none !important;border-radius:16px !important;}}
+@media (orientation:landscape) and (max-height:600px){.mp-chat-panel{top:calc(8px + env(safe-area-inset-top,0px)) !important;bottom:calc(8px + env(safe-area-inset-bottom,0px)) !important;right:calc(10px + env(safe-area-inset-right,0px)) !important;left:auto !important;transform:none !important;width:min(250px,40dvw) !important;height:auto !important;min-height:0 !important;max-height:none !important;border-radius:16px !important;}}
 /* Desktop / large screens: keep it docked but comfortably sized (never tiny). */
-@media (min-width:900px){.mp-chat-panel{left:calc(22px + env(safe-area-inset-left,0px)) !important;bottom:calc(var(--piano-height,25vh) + 20px + env(safe-area-inset-bottom,0px)) !important;width:400px !important;height:clamp(320px,48vh,480px) !important;}}
+@media (min-width:900px){.mp-chat-panel{top:calc(78px + env(safe-area-inset-top,0px)) !important;bottom:auto !important;right:calc(22px + env(safe-area-inset-right,0px)) !important;left:auto !important;transform:none !important;width:380px !important;height:clamp(340px,56vh,560px) !important;}}
 /* Keyboard open: dock just above it so the input stays visible. */
 body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 8px) !important;left:calc(14px + env(safe-area-inset-left,0px)) !important;right:auto !important;transform:none !important;width:min(330px,calc(100vw - 24px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 16px - var(--mp-chat-keyboard-inset,0px)) !important;border-radius:18px !important;}
 @media (orientation:landscape){body.mp-chat-keyboard .mp-chat-head{display:none !important;}}
@@ -5605,10 +5605,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                         <div class="section-title ui-mb8">Graphics Quality</div>
                         <div class="graphic-grid">
                             <button class="graphic-btn" id="gfxLow">Potato</button>
-                            <button class="graphic-btn" id="gfxMed">Medium</button>
+                            <button class="graphic-btn" id="gfxMed">Mobile</button>
                             <button class="graphic-btn" id="gfxHigh">PC</button>
                         </div>
-                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Limited (heavy FX hidden) · Medium = Balanced · PC = No Limits (Maxed)</div>
+                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Limited (heavy FX hidden) · Mobile = Balanced · PC = No Limits (Maxed)</div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="ui-setting-head-gap">
@@ -7730,21 +7730,19 @@ let noteCacheTransformPx = viewOffset * whiteKeyWidth;
 function _detectDefaultGraphicQuality(){
     try {
         const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-        const smallScreen = (window.innerWidth || 9999) < 900;
         const cores = navigator.hardwareConcurrency || 4;
         const mem = navigator.deviceMemory || 4;
-        const lowCores = cores <= 4;
-        const lowMem = mem <= 4;
         const ua = (navigator.userAgent || '').toLowerCase();
-        const isMobileUA = /android|iphone|ipad|ipod|mobile|webview/i.test(ua);
+        const isMobileUA = /android|iphone|ipod|mobile|webview/i.test(ua) || (/ipad/.test(ua) && isCoarse);
 
-        // Smart pc/mobile detection. UI tiers: low = Potato, high = Medium,
-        // ultra = PC. Mobiles & weak desktops land on Medium; capable desktops
-        // get the uncapped PC tier; very weak devices fall back to Potato.
-        if (cores <= 2 || mem <= 2) return 'low';                     // very weak -> Potato
-        if (isMobileUA || isCoarse) return 'high';                    // any mobile/touch -> Medium
-        if (lowCores || lowMem || smallScreen) return 'high';         // weak desktop -> Medium
-        return 'ultra';                                              // capable desktop -> PC
+        // UI tiers: low = Potato, high = Mobile, ultra = PC. Primary signal is the
+        // device type: a touch/mobile device gets the Mobile tier, anything else is
+        // a real desktop and gets the uncapped PC tier. Core/RAM/screen size do NOT
+        // demote a desktop to Mobile (that misclassified many real PCs). Only a
+        // genuinely tiny device falls back to Potato.
+        const tiny = cores <= 2 || mem <= 2;
+        if (isMobileUA || isCoarse) return tiny ? 'low' : 'high';     // mobile/touch -> Mobile
+        return tiny ? 'low' : 'ultra';                               // desktop/PC -> PC
     } catch(e) { return 'high'; }
 }
 let graphicQuality = _detectDefaultGraphicQuality();
