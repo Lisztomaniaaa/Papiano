@@ -224,7 +224,7 @@ body.saber-motion-off #saberLine::after{ animation:none !important; }
     mask-image:linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.45) 58%, transparent 100%);
     filter:blur(var(--saber-shadow-blur, 8px));
     opacity:.4;
-    /* Scrolls opposite the top crests for an abstract, layered wave. */
+    /* Scrolls the same way as the top crests, slightly slower, for layered depth. */
     animation:saberWaveFlowB var(--saber-smoke-motion, 2.8s) linear infinite;
 }
 body.saber-off #saberLine{
@@ -239,16 +239,16 @@ html[data-graphic-quality="potato"] #saberLine::after{
 #saberLine.saber-hit{
     filter:brightness(1.55) saturate(1.35);
 }
-/* Continuous horizontal flow: scroll each repeating crest band by exactly one
-   tile so it loops seamlessly. The two crest layers move opposite ways at
-   different widths, so the humps travel and interfere like abstract waves. */
+/* Continuous rightward flow: scroll each repeating crest band by exactly one
+   tile so it loops seamlessly. All crest bands move the SAME way (rightward) at
+   different tile widths, giving a parallax sense of depth without oscillating. */
 @keyframes saberWaveFlow{
     from{ background-position:0 100%, 0 100%, 50% 100%; }
-    to{ background-position:190px 100%, -300px 100%, 50% 100%; }
+    to{ background-position:190px 100%, 300px 100%, 50% 100%; }
 }
 @keyframes saberWaveFlowB{
     from{ background-position:0 100%, 50% 100%; }
-    to{ background-position:-240px 100%, 50% 100%; }
+    to{ background-position:240px 100%, 50% 100%; }
 }
 
 @media (pointer: coarse) {
@@ -261,12 +261,12 @@ html[data-graphic-quality="potato"] #saberLine::after{
 
     #saberLine::before {
         filter: blur(4px) !important;
-        will-change: opacity, transform;
+        /* No will-change here: the animation drives background-position (a paint
+           property). Promoting the element to a GPU layer makes the browser
+           rasterize once and stop repainting, freezing the flow after a moment. */
     }
     #saberLine::after {
-
         filter: blur(3px) !important;
-        will-change: opacity;
     }
 
     #saberLine {
