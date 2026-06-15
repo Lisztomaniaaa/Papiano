@@ -12360,27 +12360,46 @@ midiBtn.onclick = () => {
         return fallback || '#78dcff';
     }
 
-    // Seat cache + color lock: once a player's color is resolved from seat data,
-    // it is LOCKED for the entire room session. This prevents flicker/fade to white.
+    // Seat cache + color lock: once a player's color is resolved, it is LOCKED
+    // for the room session to prevent flicker/fade. The lock is overwritten when
+    // a fresh roomPlayers snapshot arrives (so a corrected colour self-heals).
     const _playerSeatCache = new Map(); // playerId → seat number
-    const _playerColorLock = new Map(); // playerId → resolved hex color (immutable per session)
+    const _playerColorLock = new Map(); // playerId → resolved hex color
+
+    // Builds playerId → palette index for EVERY active player in the current
+    // room, guaranteeing DISTINCT colours. Prefers the stored seat when seats
+    // are present AND unique; otherwise falls back to a stable join-order rank.
+    // This is the fix for "every pill is red": if the seat field is missing or
+    // duplicated (so everyone would resolve to seat 1 → MP_PLAYER_COLORS[0]),
+    // rank-based assignment keeps each player a different colour.
+    function roomColorIndexMap(){
+        const map = new Map();
+        if(!(currentRoom && roomPlayersByRoom[currentRoom.id])) return map;
+        const live = roomPlayersByRoom[currentRoom.id];
+        const entries = Object.entries(live)
+            .map(([key, data]) => ({
+                id: String(data?.id || key),
+                seat: Number(data?.seat || 0),
+                joinedAt: Number(data?.joinedAt || data?.updatedAt || 0)
+            }))
+            .sort((a, b) => (a.joinedAt - b.joinedAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+        if(!entries.length) return map;
+        const seatsSeen = new Set();
+        let seatsUsable = true;
+        for(const e of entries){
+            if(e.seat < 1 || e.seat > MP_PLAYER_COLORS.length || seatsSeen.has(e.seat)){ seatsUsable = false; break; }
+            seatsSeen.add(e.seat);
+        }
+        entries.forEach((e, rank) => {
+            map.set(e.id, seatsUsable ? (e.seat - 1) : (rank % MP_PLAYER_COLORS.length));
+        });
+        return map;
+    }
 
     function getRoomPlayerColorIndex(id){
         const targetId = String(id || '');
-        if(currentRoom && roomPlayersByRoom[currentRoom.id]){
-            const entry = Object.entries(roomPlayersByRoom[currentRoom.id])
-                .map(([key, data]) => ({
-                    id:String(data?.id || key),
-                    seat:Number(data?.seat || 0),
-                    joinedAt:Number(data?.joinedAt || data?.updatedAt || 0)
-                }))
-                .find(player => player.id === targetId);
-            const seatIndex = playerSeatColorIndex(entry?.seat);
-            if(seatIndex >= 0){
-                _playerSeatCache.set(targetId, entry.seat);
-                return seatIndex;
-            }
-        }
+        const idx = roomColorIndexMap().get(targetId);
+        if(typeof idx === 'number' && idx >= 0) return idx;
         const cachedSeat = _playerSeatCache.get(targetId);
         if(cachedSeat){
             const seatIndex = playerSeatColorIndex(cachedSeat);
@@ -12394,23 +12413,25 @@ midiBtn.onclick = () => {
         const id = player ? player.id : playerOrId;
         const idStr = String(id || '');
 
-        // Once locked, color never changes during room session
         const locked = _playerColorLock.get(idStr);
         if(locked) return locked;
 
-        // Try seat from player object
-        const seatIndex = playerSeatColorIndex(player?.seat);
-        if(seatIndex >= 0){
-            const color = MP_PLAYER_COLORS[seatIndex];
-            _playerSeatCache.set(idStr, player.seat);
+        // Room-wide resolution FIRST: this guarantees a distinct colour per
+        // player even when the stored seat field is missing/duplicated. (Using a
+        // raw player.seat here was what made every player collapse to seat 1's
+        // red when seat data was unreliable.)
+        const roomIndex = getRoomPlayerColorIndex(id);
+        if(roomIndex >= 0){
+            const color = MP_PLAYER_COLORS[roomIndex];
             _playerColorLock.set(idStr, color);
             return color;
         }
 
-        // Try seat from room data / cache
-        const roomIndex = getRoomPlayerColorIndex(id);
-        if(roomIndex >= 0){
-            const color = MP_PLAYER_COLORS[roomIndex];
+        // Then a seat carried directly on the player object (out-of-room lookups).
+        const seatIndex = playerSeatColorIndex(player?.seat);
+        if(seatIndex >= 0){
+            const color = MP_PLAYER_COLORS[seatIndex];
+            _playerSeatCache.set(idStr, player.seat);
             _playerColorLock.set(idStr, color);
             return color;
         }
@@ -12427,7 +12448,10 @@ midiBtn.onclick = () => {
         const selfId = String(mpSelfId || '');
         const locked = _playerColorLock.get(selfId);
         if(locked) return locked;
-        const seatIndex = playerSeatColorIndex(currentRoomSeat || roomPlayersByRoom[currentRoom?.id]?.[mpSelfId]?.seat || currentUser()?.seat);
+        // Prefer the room-wide distinct resolution (handles broken/duplicate seats).
+        const mapIndex = getRoomPlayerColorIndex(selfId);
+        const seatIndex = mapIndex >= 0 ? mapIndex
+            : playerSeatColorIndex(currentRoomSeat || roomPlayersByRoom[currentRoom?.id]?.[mpSelfId]?.seat || currentUser()?.seat);
         if(seatIndex >= 0){
             const color = MP_PLAYER_COLORS[seatIndex];
             _playerColorLock.set(selfId, color);
@@ -15832,22 +15856,24 @@ midiBtn.onclick = () => {
         roomPlayersUnsubscribe = dbApi.onValue(dbRef(`roomPlayers/${roomId}`), snap => {
             roomPlayersLoaded = true;
             roomPlayersByRoom[roomId] = snap.val() || {};
-            // Populate seat cache and lock colors for all players
+            // Lock a DISTINCT colour for every active player. roomColorIndexMap
+            // guarantees uniqueness (seat-based when seats are healthy, else
+            // join-order rank), so the lock self-heals away from the "everyone
+            // resolves to seat 1 → all red" failure mode on each snapshot.
             const live = roomPlayersByRoom[roomId];
             if(live){
+                const idxMap = roomColorIndexMap();
                 Object.entries(live).forEach(([key, data]) => {
                     const pid = String(data?.id || key);
                     const seat = Number(data?.seat || 0);
-                    if(seat >= 1){
-                        _playerSeatCache.set(pid, seat);
-                        // Always update from authoritative seat data — overrides any stale hash-based lock
-                        const seatIdx = playerSeatColorIndex(seat);
-                        if(seatIdx >= 0){
-                            _playerColorLock.set(pid, MP_PLAYER_COLORS[seatIdx]);
-                            if(pid === String(mpSelfId || '')){
-                            _mpSelfSeatColor = MP_PLAYER_COLORS[seatIdx];
+                    if(seat >= 1) _playerSeatCache.set(pid, seat);
+                    const cIdx = idxMap.get(pid);
+                    if(typeof cIdx === 'number' && cIdx >= 0){
+                        const color = MP_PLAYER_COLORS[cIdx];
+                        _playerColorLock.set(pid, color); // overwrite: corrects stale/duplicate colours
+                        if(pid === String(mpSelfId || '')){
+                            _mpSelfSeatColor = color;
                             if(typeof syncColorPadsToEffectiveColors === 'function') syncColorPadsToEffectiveColors();
-                        }
                         }
                     }
                 });
