@@ -2755,8 +2755,6 @@ function safeHex(hex, fallback){
     try { return hexToRgb(hex || fallback); }
     catch(e){ return hexToRgb(fallback); }
 }
-function _clampRgb(v){ v = Number(v) || 0; return v < 0 ? 0 : v > 255 ? 255 : (v + 0.5) | 0; }
-
 function anim(now){
 
     if(_lastAnimTs >= 0 && (now - _lastAnimTs) >= 0 && (now - _lastAnimTs) < 6 && animFrameId){
@@ -6382,24 +6380,6 @@ midiBtn.onclick = () => {
         return MP_PLAYER_COLORS[fallbackIndex];
     }
 
-    function getCurrentRoomSelfColor(){
-        // Lock self color on first resolve too
-        const selfId = String(mpSelfId || '');
-        const locked = _playerColorLock.get(selfId);
-        if(locked) return locked;
-        // Prefer the room-wide distinct resolution (handles broken/duplicate seats).
-        const mapIndex = getRoomPlayerColorIndex(selfId);
-        const seatIndex = mapIndex >= 0 ? mapIndex
-            : playerSeatColorIndex(currentRoomSeat || roomPlayersByRoom[currentRoom?.id]?.[mpSelfId]?.seat || currentUser()?.seat);
-        if(seatIndex >= 0){
-            const color = MP_PLAYER_COLORS[seatIndex];
-            _playerColorLock.set(selfId, color);
-            return color;
-        }
-        // Fallback: visible cyan instead of invisible white
-        return '#78dcff';
-    }
-
     function sanitizeText(value, fallback = ''){
         const text = String(value ?? '').trim();
         return text || fallback;
@@ -7628,13 +7608,6 @@ midiBtn.onclick = () => {
         if(getState(player.id).banned) return false;
         return isRoomOwner() || mpSelfHasPermission('kick_player') || mpSelfHasPermission('ban_user') || mpSelfHasPermission('mute_chat') || mpSelfHasPermission('mute_playing');
     }
-    function canKickPlayer(player){
-        return canModeratePlayer(player) && (isRoomOwner() || mpSelfHasPermission('kick_player') || mpSelfHasPermission('ban_user'));
-    }
-    function canMutePlayer(player){
-        return canModeratePlayer(player) && (isRoomOwner() || mpSelfHasPermission('mute_chat') || mpSelfHasPermission('mute_playing'));
-    }
-
     function showLayer(screen='home', options = {}){
         currentScreen = screen;
         document.body.classList.add('mp-lobby-open');
@@ -8712,42 +8685,6 @@ midiBtn.onclick = () => {
         return seen > 0 && now - seen > ROOM_PLAYER_STALE_MS;
     }
 
-    async function claimSpecificRoomSeat(room, seat){
-        if(!firebaseReady || !dbApi || !room || !isRoomSeatNumber(room, seat)) return false;
-        const now = Date.now();
-        const claimRef = dbRef(`roomSeatClaims/${room.id}/${mpSelfId}`);
-        let claimOwned = false;
-        try{
-            const claimResult = await dbApi.runTransaction(claimRef, value => {
-                if(value && value.uid && value.uid !== mpSelfId && !isStaleSeatValue(value, now)) return value;
-                if(value && value.uid === mpSelfId && Number(value.seat || 0) !== seat && !isStaleSeatValue(value, now)) return value;
-                return { uid:mpSelfId, room:room.id, seat, joinedAt:Number(value?.joinedAt || now), lastSeen:now };
-            });
-            const claim = claimResult?.snapshot?.val?.() || null;
-            claimOwned = !!(claimResult.committed && claim && claim.uid === mpSelfId && Number(claim.seat || 0) === seat);
-            if(!claimOwned) return false;
-
-            const seatResult = await dbApi.runTransaction(dbRef(`roomSeats/${room.id}/${seat}`), value => {
-                if(!value || value.uid === mpSelfId || isStaleSeatValue(value, now)){
-                    return { uid:mpSelfId, seat, joinedAt:Number(value?.uid === mpSelfId ? value?.joinedAt || now : now), lastSeen:now };
-                }
-                return value;
-            });
-            const seatValue = seatResult?.snapshot?.val?.() || null;
-            if(seatResult.committed && seatValue && seatValue.uid === mpSelfId) return true;
-        }catch(e){}
-
-        if(claimOwned){
-            try{
-                await dbApi.runTransaction(claimRef, value => {
-                    if(value && value.uid === mpSelfId && Number(value.seat || 0) === seat) return null;
-                    return value;
-                });
-            }catch(e){}
-        }
-        return false;
-    }
-
     async function reserveRoomSeat(room, live = {}){
         if(!firebaseReady || !dbApi || !room) return 0;
         const max = Math.min(6, Math.max(2, Number(room.max || 6)));
@@ -9201,10 +9138,6 @@ midiBtn.onclick = () => {
         return (enabled || pedalDown) ? Math.max(0, Math.min(1, value)) : 0;
     }
 
-    function remoteSustainActive(playerId, event = {}){
-        return remoteSustainValue(playerId, event) > 0.01;
-    }
-
     function shouldHoldRemoteNoteOff(playerId, event = {}){
         if(event.sustainPedalDown !== undefined) return !!event.sustainPedalDown;
         return !!getRemoteSustainState(playerId).sustainPedalDown;
@@ -9316,13 +9249,13 @@ midiBtn.onclick = () => {
         }
         if(event.playerId === currentUser().id) return;
 
-        // ═══ CHORD DETECTION: runs BEFORE all audio/mute/volume guards ═══
+        // Chord detection: runs BEFORE all audio/mute/volume guards.
         var _chMidi = Number(event.note);
         if(Number.isFinite(_chMidi) && _chMidi >= 21 && _chMidi <= 108){
             if(event.type === 'noteOn' && typeof _remoteNoteOn === 'function') _remoteNoteOn(event.playerId, _chMidi);
             else if(event.type === 'noteOff' && typeof _remoteNoteOff === 'function') _remoteNoteOff(event.playerId, _chMidi);
         }
-        // ═══ END CHORD DETECTION ═══
+        // End chord detection.
 
         const player = getPlayer(event.playerId);
         if(event.type === 'sustain'){
@@ -9593,14 +9526,10 @@ midiBtn.onclick = () => {
         _detectChords(){ _detectAndRenderChords(); }
     };
 
-    /* ═══════════════════════════════════════════════════════════════════
-       LIVE MULTIPLAYER CHORD DETECTION (fully synchronous — guaranteed)
-       — Tracks remote players' active notes client-side (zero extra writes)
-       — Detects chords using the existing matchChords() engine
-       — Detection + render happen synchronously on each note event
-       — No setTimeout / requestAnimationFrame for the critical path
-       — Decay handled by a single timer that only manages fade-out cleanup
-       ═══════════════════════════════════════════════════════════════════ */
+    // Live multiplayer chord detection (fully synchronous).
+    // Tracks remote players' active notes client-side (no extra writes),
+    // detects chords via matchChords(), and renders synchronously on each note
+    // event. A single timer only handles fade-out cleanup.
     const _remoteActiveNotes = new Map(); // playerId → Set<midi>
     let _mpChordDecayTimer = 0;
 
