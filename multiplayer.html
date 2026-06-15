@@ -147,12 +147,15 @@ html,body{ width:100%; height:100%; overflow:hidden; background:#000; font-famil
 .floating-panel {
     position:absolute; top:70px; display:none; padding:20px; background:var(--ui-color);
     border-radius:24px; border:1px solid rgba(255,255,255,0.1); z-index:120;
-    box-shadow:0 20px 50px rgba(0,0,0,0.8); flex-direction:column; gap:15px; width:340px;
+    box-shadow:0 20px 50px rgba(0,0,0,0.8); flex-direction:column; gap:18px; width:340px;
     left:50%; transform:translateX(-50%); max-height: 80vh; overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain;
 }
-.color-row { display: flex; flex-direction: column; gap: 10px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 15px; margin-bottom: 5px; }
+.color-row { display: flex; flex-direction: column; gap: 12px; padding: 15px; background: rgba(255,255,255,0.03); border-radius: 15px; margin-bottom: 8px; }
 
-.floating-panel input[type="range"]{ touch-action: pan-y; accent-color:#78dcff; }
+/* Sliders: keep vertical-scroll panning on the slider itself, and add a
+   vertical dead-zone (margin) above/below the track so a finger can land in the
+   row to scroll without grabbing the slider on cramped layouts. */
+.floating-panel input[type="range"]{ touch-action: pan-y !important; accent-color:#78dcff; margin:9px 0; min-height:22px; }
 .section-title { font-size: 10px; color: rgba(255,255,255,0.4); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
 
 .stage{
@@ -256,8 +259,8 @@ body.saber-off #saberLine{
 }
 body.saber-smoke-off #saberLine::before,
 body.saber-smoke-off #saberLine::after,
-html[data-graphic-quality="low"] #saberLine::before,
-html[data-graphic-quality="low"] #saberLine::after{
+html[data-graphic-quality="potato"] #saberLine::before,
+html[data-graphic-quality="potato"] #saberLine::after{
     display:none !important;
 }
 #saberLine.saber-hit{
@@ -349,7 +352,7 @@ body.piano-height-dragging #pianoWrap{
     opacity:.78;
 }
 body.saber-smoke-off #pianoWrap::before,
-html[data-graphic-quality="low"] #pianoWrap::before{ display:none !important; }
+html[data-graphic-quality="potato"] #pianoWrap::before{ display:none !important; }
 #pianoViewport {
     position: relative;
     height: 100%;
@@ -1191,7 +1194,7 @@ body.key-glow-on #piano .black.active{
 }
 
 .compact-color-panel{ width:min(326px,calc(100vw - 28px)) !important; }
-.compact-color-row{ padding:9px 10px !important; }
+.compact-color-row{ padding:13px 12px !important; }
 .color-group-title{
     margin:10px 2px 4px;
     padding:0 2px;
@@ -1268,12 +1271,6 @@ body.key-glow-on #piano .black.active{
     width:100%;
     accent-color:#78dcff;
 }
-.sf-layer-toggle{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:7px;
-    margin:0 0 10px;
-}
 .sf-current-card{
     display:flex;
     justify-content:space-between;
@@ -1334,17 +1331,6 @@ body.key-glow-on #piano .black.active{
     flex-direction:column;
     gap:8px;
     padding:0 10px 10px;
-}
-.sf-toggle-btn{
-    width:100%;
-    height:34px !important;
-    line-height:1 !important;
-    font-size:11px !important;
-}
-.sf-toggle-btn.active{
-    background:linear-gradient(135deg,rgba(91,198,242,0.92),rgba(127,226,255,0.70)) !important;
-    border-color:rgba(157,235,255,0.72) !important;
-    color:#061117 !important;
 }
 
 #metronomePanel{
@@ -1509,7 +1495,7 @@ body.key-glow-on #piano .black.active{
 }
 #metroBtn.active{ background:linear-gradient(135deg,rgba(91,198,242,0.92),rgba(127,226,255,0.70)) !important; border-color:rgba(157,235,255,0.72) !important; color:#061117 !important; }
 
-.graphic-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:5px; }
+.graphic-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin-top:5px; }
 .graphic-btn {
     padding:9px 0; border-radius:12px; border:1px solid rgba(255,255,255,0.1);
     background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7);
@@ -1845,9 +1831,9 @@ body.layout-changing #piano .black.active{
 }
 
 @media (pointer: fine) {
-/* Tuts putih realistis: putih terang merata seperti piano akrilik asli,
-   dengan bibir depan (front lip) halus di ujung bawah — tanpa gradasi
-   abu-abu lebar yang membuat tuts terlihat pucat/kusam. */
+/* Realistic white keys: evenly bright white like real acrylic piano keys,
+   with a soft front lip at the bottom edge — no wide grey gradient that
+   makes the keys look pale/dull. */
 #piano .white:not(.active){
     background:linear-gradient(180deg,#ffffff 0%,#fdfdfe 62%,#f7f8fa 88%,#e9ebee 95%,#f5f6f8 100%) !important;
     background-color:#fdfdfe !important;
@@ -2251,7 +2237,7 @@ body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-wh
 .chord-name.primary{ color:var(--chord-primary) !important; }
 .chord-name.secondary{ color:var(--chord-secondary) !important; opacity:0; }
 .chord-name.secondary.show{ opacity:.62; }
-.graphic-grid{ grid-template-columns:repeat(4,1fr) !important; }
+.graphic-grid{ grid-template-columns:repeat(2,1fr) !important; }
 .option-grid-3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-top:6px; }
 .option-grid-3 .btn{ width:100%; padding-left:8px !important; padding-right:8px !important; font-size:11px !important; }
 .color-pad-host{ width:100%; }
@@ -3267,7 +3253,9 @@ body.mp-chat-keyboard .mp-chat-preview,body.mp-chat-dismissed .mp-chat-preview{d
 .mp-chat-preview-foot{grid-area:reply;display:flex;justify-content:flex-end;align-items:center;}
 .mp-chat-preview-reply{width:20px;height:20px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);color:#b9f2ff;opacity:.92;flex:0 0 auto;}
 .mp-chat-preview-reply .mp-reply-icon{width:12px;height:12px;}
-.mp-chat-panel{position:fixed;top:86px;left:50%;right:auto;bottom:auto;transform:translateX(-50%);width:340px;max-width:calc(100dvw - 24px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px));height:auto;max-height:80vh;z-index:2110;display:none;flex-direction:column;overflow:hidden;border-radius:30px;border:1px solid rgba(255,255,255,.14);background:rgba(35,38,45,.86);box-shadow:0 16px 44px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.075);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);pointer-events:auto;touch-action:auto;}
+.mp-chat-panel{position:fixed;left:calc(14px + env(safe-area-inset-left,0px));right:auto;top:auto;bottom:calc(var(--piano-height,25vh) + 14px + env(safe-area-inset-bottom,0px));transform:none;width:min(330px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px)));height:clamp(220px,42dvh,360px);z-index:2110;display:none;flex-direction:column;overflow:hidden;border-radius:20px;border:1px solid rgba(255,255,255,.14);background:rgba(35,38,45,.86);box-shadow:0 16px 44px rgba(0,0,0,.46),inset 0 1px 0 rgba(255,255,255,.075);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);pointer-events:auto;touch-action:auto;transition:background .35s ease,border-color .35s ease,box-shadow .35s ease,backdrop-filter .35s ease,-webkit-backdrop-filter .35s ease;}
+body.mp-chat-idle .mp-chat-panel{background:transparent !important;border-color:transparent !important;box-shadow:none !important;-webkit-backdrop-filter:none !important;backdrop-filter:none !important;}
+body.mp-chat-idle .mp-chat-head,body.mp-chat-idle .mp-chat-form{opacity:0;transition:opacity .35s ease;}
 body.mp-chat-open .mp-chat-panel{display:flex;animation:mpChatPop .24s cubic-bezier(.22,1,.36,1);}
 @keyframes mpChatPop{from{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.96);}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}}
 body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(10px + env(safe-area-inset-bottom,0px) + var(--mp-chat-keyboard-inset,0px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 80px - env(safe-area-inset-top,0px)) !important;}
@@ -3276,24 +3264,16 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(10px + env(
 .mp-chat-sub{margin-top:3px;color:var(--mp-chat-muted);font-size:10.5px;font-weight:800;}
 .mp-chat-close{width:30px;height:30px;border-radius:50%;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.075);color:rgba(245,248,252,.72);cursor:pointer;display:grid;place-items:center;padding:0;transition:.15s;}
 .mp-chat-close:active{transform:scale(.94);}
-.mp-messages{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding:14px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.20) transparent;}
+.mp-messages{flex:1 1 auto;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:10px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.20) transparent;}
 .mp-messages>:first-child{margin-top:auto;}
-.mp-message{display:grid;grid-template-columns:38px minmax(0,1fr);gap:10px;align-items:start;}
-.mp-message.mine{grid-template-columns:38px minmax(0,1fr);}
-.mp-message-avatar{width:38px;height:38px;border-radius:999px;border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;background:linear-gradient(135deg,var(--mp-player-color,#78dcff),rgba(255,255,255,.12));color:#061117;font-size:12px;font-weight:950;letter-spacing:.03em;overflow:hidden;cursor:pointer;font-family:inherit;box-shadow:0 10px 22px rgba(0,0,0,.34);}
-.mp-bubble{min-width:0;padding:11px 12px 10px;border-radius:20px;background:var(--mp-chat-surface);border:1px solid rgba(255,255,255,.085);box-shadow:0 12px 24px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.045);}
-.mp-message.mine .mp-bubble{background:linear-gradient(145deg,rgba(16,26,32,.96),rgba(9,13,18,.96));border-color:rgba(157,235,255,.20);}
-.mp-message-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
-.mp-message-meta{display:flex;flex-direction:column;gap:2px;min-width:0;}
-.mp-message-name{color:#fff;font-size:12.5px;font-weight:950;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.mp-message-time{color:var(--mp-chat-muted);font-size:10.5px;font-weight:800;line-height:1.1;}
-.mp-message-text{color:rgba(248,252,255,.93);font-size:13px;line-height:1.46;font-weight:720;word-break:break-word;white-space:pre-wrap;}
-.mp-quote{margin:0 0 9px;padding:7px 9px;border-left:3px solid rgba(157,235,255,.74);border-radius:11px;background:rgba(157,235,255,.07);color:rgba(235,244,250,.70);font-size:10.5px;font-weight:800;line-height:1.32;}
-.mp-quote b{display:block;color:#fff;margin-bottom:2px;}
-.mp-reply{width:30px;height:30px;min-height:30px;padding:0;border:1px solid rgba(255,255,255,.13);border-radius:999px;background:rgba(255,255,255,.065);color:#b9f2ff;overflow:hidden;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;}
-.mp-reply:active{transform:scale(.96);}
-.mp-reply svg{display:block;}
-.mp-reply .mp-reply-icon{width:14px;height:14px;}
+.mp-message{display:grid;grid-template-columns:28px minmax(0,1fr);gap:8px;align-items:start;width:100%;text-align:left;background:none;border:0;padding:3px;border-radius:12px;cursor:pointer;font-family:inherit;transition:background .12s;}
+.mp-message:active{background:rgba(255,255,255,.05);}
+.mp-message-avatar{width:28px;height:28px;border-radius:999px;border:1px solid rgba(255,255,255,.14);display:grid;place-items:center;background:linear-gradient(135deg,var(--mp-player-color,#78dcff),rgba(255,255,255,.12));color:#061117;font-size:11px;font-weight:950;letter-spacing:.03em;overflow:hidden;font-family:inherit;}
+.mp-bubble{min-width:0;display:flex;flex-direction:column;gap:1px;}
+.mp-message-name{font-size:11.5px;font-weight:900;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mp-message-text{color:rgba(248,252,255,.92);font-size:12px;line-height:1.4;font-weight:600;word-break:break-word;white-space:pre-wrap;}
+.mp-quote{display:block;margin:0 0 3px;padding:4px 7px;border-left:2px solid rgba(157,235,255,.7);border-radius:7px;background:rgba(157,235,255,.07);color:rgba(235,244,250,.66);font-size:10px;font-weight:700;line-height:1.3;}
+.mp-quote b{display:block;color:#fff;margin-bottom:1px;}
 .mp-reply-bar{display:none;align-items:center;justify-content:space-between;gap:10px;margin:0 14px 10px;padding:9px 10px;border-radius:14px;border:1px solid rgba(157,235,255,.16);background:rgba(157,235,255,.065);color:rgba(255,255,255,.74);font-size:10.5px;font-weight:800;flex:0 0 auto;}
 .mp-reply-bar.active{display:flex;}
 .mp-reply-bar b{color:#fff;}
@@ -4824,16 +4804,15 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
 @media (hover:hover) and (pointer:fine){
     #panel .btn:not(.active):hover{ background:#34343f; border-color:rgba(255,255,255,0.14); }
     #logoToggle:hover{ background:rgba(0,0,0,0.5); }
-    .mp-reply:hover{ filter:brightness(1.18); }
-    .mp-message-text, .mp-message-meta{ -webkit-user-select:text; user-select:text; }
+    .mp-message-text{ -webkit-user-select:text; user-select:text; }
 }
 
 /* ============================================================
    PAPIANO — Universal responsive layer (2026-06-11)
-   Fluid scaling untuk semua device: phone / tablet / laptop / PC
-   (320px s.d. 3840px), portrait & landscape, fullscreen & non-fullscreen.
-   Semua geometri top bar / pill / panel diturunkan dari variabel
-   di bawah agar tidak ada lagi nilai px yang saling bertabrakan.
+   Fluid scaling for all devices: phone / tablet / laptop / PC
+   (320px to 3840px), portrait & landscape, fullscreen & non-fullscreen.
+   All top bar / pill / panel geometry derives from the variables
+   below so there are no more conflicting px values.
    ============================================================ */
 
 :root{
@@ -4848,12 +4827,12 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     --ui-logo-clear:clamp(128px, 98px + 2.9vw, 196px);
     --ui-pill-h:clamp(36px, 27px + 0.8vw, 54px);
     --ui-pill-font:clamp(11px, 9.6px + 0.18vw, 15px);
-    /* Baris pill player selalu di bawah top bar — tidak boleh menabrak */
+    /* Player pill row always sits below the top bar — must never overlap */
     --ui-strip-top:calc(var(--ui-top-offset) + var(--ui-topbar-h) + 8px);
     --ui-below-strip:calc(var(--ui-strip-top) + var(--ui-pill-h) + 10px);
     --ui-chat-w:clamp(300px, 120px + 12vw, 420px);
 }
-/* Phone landscape pendek: rapatkan semuanya supaya stage tetap lega */
+/* Short phone landscape: tighten everything so the stage stays roomy */
 @media (orientation:landscape) and (max-height:520px){
     :root{
         --ui-top-offset:calc(4px + env(safe-area-inset-top,0px));
@@ -4865,7 +4844,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     }
 }
 
-/* --- Top bar: satu sumber kebenaran untuk posisi & ukuran --- */
+/* --- Top bar: single source of truth for position & size --- */
 .render-fixed .top,
 .render-fixed.papiano-fullscreen .top{
     top:var(--ui-top-offset) !important;
@@ -4954,7 +4933,7 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     left:auto !important;
 }
 
-/* --- Stage & piano full-bleed: tidak ada lagi area mati di monitor lebar --- */
+/* --- Stage & piano full-bleed: no more dead space on wide monitors --- */
 .render-fixed .stage,
 .render-fixed #pianoWrap{
     max-width:none !important;
@@ -4965,18 +4944,25 @@ body.mp-room-active #mpLeaveTopBtn:active{ transform:scale(.96); }
     max-width:none !important;
 }
 
-/* Professional chat placement across screen sizes */
-@media (min-width:900px){.mp-chat-panel{position:fixed !important;top:96px !important;bottom:auto !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(500px,calc(100vw - 48px)) !important;max-width:none !important;height:auto !important;min-height:0 !important;max-height:calc(100vh - 132px) !important;border-radius:28px !important;}}
 @media (orientation:landscape) and (max-height:560px){body.mp-chat-open .stage,body.mp-chat-open #pianoWrap,body.mp-chat-open #swipeStrip{display:block !important;right:0 !important;left:0 !important;width:100% !important;max-width:none !important;margin:0 !important;}body.mp-chat-open .piano-container,body.mp-chat-open .piano-scroll-wrapper{width:100% !important;max-width:none !important;}.mp-chat-panel{top:calc(var(--ui-below-strip,64px) + 10px) !important;right:auto !important;bottom:calc(var(--piano-height,26vh) + 12px + env(safe-area-inset-bottom,0px)) !important;left:50% !important;transform:translateX(-50%) !important;width:min(520px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))) !important;min-width:0 !important;height:auto !important;max-height:none !important;min-height:0 !important;border-radius:24px;background:rgba(35,38,45,.94) !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}.mp-chat-head{padding:10px 12px 9px !important;}.mp-messages{padding:10px 12px !important;}.mp-chat-form{grid-template-columns:minmax(0,1fr) 72px !important;align-items:end !important;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px)) !important;}.mp-chat-input{min-height:40px !important;height:auto !important;max-height:76px !important;color:#fff !important;-webkit-text-fill-color:#fff !important;caret-color:#9defff !important;opacity:1 !important;}.mp-chat-preview{left:calc(10px + env(safe-area-inset-left,0px)) !important;}body.mp-chat-keyboard .mp-chat-panel{top:calc(10px + env(safe-area-inset-top,0px)) !important;bottom:calc(10px + env(safe-area-inset-bottom,0px) + var(--mp-chat-keyboard-inset,0px)) !important;width:min(340px,calc(100vw - 24px)) !important;height:auto !important;max-height:calc(var(--mp-chat-vh,100dvh) - 20px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px) - var(--mp-chat-keyboard-inset,0px)) !important;}}
 .mp-chat-preview{left:calc(14px + env(safe-area-inset-left,0px)) !important;max-height:min(calc(var(--mp-chat-preview-rows,3) * 76px + (var(--mp-chat-preview-rows,3) - 1) * 8px),calc(100dvh - var(--piano-height,26vh) - var(--ui-below-strip) - 14px - env(safe-area-inset-bottom,0px))) !important;}
 
-/* === Chat popup: ONE absolute card size for every device and orientation (never widens) === */
-.mp-chat-panel{position:fixed !important;top:calc(64px + env(safe-area-inset-top,0px)) !important;bottom:auto !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(340px,calc(100vw - 24px)) !important;max-width:none !important;height:auto !important;min-height:0 !important;max-height:calc(100dvh - 84px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)) !important;border-radius:28px !important;}
-/* When the keyboard is open: dock the card just above it so the input (typed text) stays visible; never stretch full height */
-body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 8px) !important;left:50% !important;right:auto !important;transform:translateX(-50%) !important;width:min(340px,calc(100vw - 24px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 16px) !important;border-radius:24px !important;}
+/* === Chat panel: docked (never centred), one consistent fixed size per orientation === */
+.mp-chat-panel{position:fixed !important;left:calc(14px + env(safe-area-inset-left,0px)) !important;right:auto !important;top:auto !important;bottom:calc(var(--piano-height,25vh) + 14px + env(safe-area-inset-bottom,0px)) !important;transform:none !important;width:min(330px,calc(100dvw - 28px - env(safe-area-inset-left,0px) - env(safe-area-inset-right,0px))) !important;max-width:none !important;height:clamp(260px,46dvh,380px) !important;min-height:0 !important;max-height:none !important;border-radius:20px !important;}
+/* Landscape mobile: a NARROW vertical column (never a wide card) that uses the
+   full height between the player strip and the bottom so 4-6 messages fit on a
+   short screen. Fully overrides any older centred landscape rule. */
+@media (orientation:landscape) and (max-height:600px){.mp-chat-panel{top:calc(8px + env(safe-area-inset-top,0px)) !important;bottom:calc(8px + env(safe-area-inset-bottom,0px)) !important;right:calc(10px + env(safe-area-inset-right,0px)) !important;left:auto !important;transform:none !important;width:min(250px,40dvw) !important;height:auto !important;min-height:0 !important;max-height:none !important;border-radius:16px !important;}}
+/* Desktop / large screens: keep it docked but comfortably sized (never tiny). */
+@media (min-width:900px){.mp-chat-panel{top:calc(78px + env(safe-area-inset-top,0px)) !important;bottom:auto !important;right:calc(22px + env(safe-area-inset-right,0px)) !important;left:auto !important;transform:none !important;width:380px !important;height:clamp(340px,56vh,560px) !important;}}
+/* Keyboard open: dock just above it so the input stays visible. */
+body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 8px) !important;left:calc(14px + env(safe-area-inset-left,0px)) !important;right:auto !important;transform:none !important;width:min(330px,calc(100vw - 24px)) !important;height:auto !important;min-height:0 !important;max-height:calc(var(--mp-chat-vh,100dvh) - 16px - var(--mp-chat-keyboard-inset,0px)) !important;border-radius:18px !important;}
+/* Landscape mobile while typing: keep the panel on the RIGHT (no left jump) and
+   sit above the keyboard so your own messages + input stay visible. */
+@media (orientation:landscape) and (max-height:600px){body.mp-chat-keyboard .mp-chat-panel{top:calc(6px + env(safe-area-inset-top,0px)) !important;bottom:calc(var(--mp-chat-keyboard-inset,0px) + 6px) !important;left:auto !important;right:calc(10px + env(safe-area-inset-right,0px)) !important;transform:none !important;width:min(250px,40dvw) !important;height:auto !important;min-height:0 !important;max-height:none !important;border-radius:16px !important;}}
 @media (orientation:landscape){body.mp-chat-keyboard .mp-chat-head{display:none !important;}}
 
-/* --- Home multiplayer: konsisten dengan stage di semua device --- */
+/* --- Multiplayer home: consistent with the stage on all devices --- */
 @media (min-width:900px){
     .mp-screen[data-mp-screen] .mp-room-main,
     .mp-screen[data-mp-screen] .mp-notice,
@@ -5027,7 +5013,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
     .mp-card-title{ font-size:17px; }
 }
 
-/* --- Floating panel: jangan mengecil di tablet/laptop kecil --- */
+/* --- Floating panel: don't shrink on small tablets/laptops --- */
 @media (min-width:900px) and (max-width:1599px){
     .floating-panel{ width:min(380px,calc(100vw - 28px)) !important; }
     #settingsPanel{ width:min(400px,calc(100vw - 28px)) !important; }
@@ -5416,8 +5402,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                 <div class="color-pad-host" id="gridBlackTuts"></div>
             </div>
             <div class="color-row compact-color-row" id="rowKeyGlow">
-                <div class="section-title">Key Light</div>
-                <button class="btn saber-fx-btn ui-mb8" type="button" id="keyGlowEnabledBtn">Light Off</button>
+                <div class="ui-setting-head-gap ui-mb8">
+                    <div class="section-title">Key Light</div>
+                    <div class="toggle-switch" id="keyGlowToggle"><div class="toggle-track" id="keyGlowTrack"><div class="toggle-thumb"></div></div></div>
+                </div>
                 <div class="ui-setting-head">
                     <span class="ui-label">Intensity</span>
                     <span class="ui-value-sm" id="keyGlowIntensityVal">50%</span>
@@ -5430,8 +5418,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
             <button class="btn visual-back-btn" type="button" data-visual-back>← Back</button>
             <div class="color-group-title">Particles</div>
             <div class="color-row compact-color-row" id="rowParticleFx">
-                <div class="section-title">Particles</div>
-                <button class="btn saber-fx-btn active" type="button" id="particleEnabledBtn">Particles On</button>
+                <div class="ui-setting-head-gap">
+                    <div class="section-title">Particles</div>
+                    <div class="toggle-switch" id="particleEnabledToggle"><div class="toggle-track active" id="particleEnabledTrack"><div class="toggle-thumb"></div></div></div>
+                </div>
             </div>
             <div class="color-row compact-color-row" id="rowDustBlend">
                 <div class="section-title">Particle Mode</div>
@@ -5440,26 +5430,19 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <button class="btn" type="button" id="dustBlendSolid">V2</button>
                 </div>
             </div>
-            <div class="color-row compact-color-row" id="rowParticleShape">
-                <div class="section-title">Shape</div>
-                <div class="anim-style-grid" style="grid-template-columns:1fr 1fr;">
-                    <button class="btn" type="button" id="particleShapeSmoke">Smoke</button>
-                    <button class="btn active" type="button" id="particleShapeDot">Dot</button>
-                </div>
-            </div>
             <div class="color-row compact-color-row" id="rowParticleCount">
                 <div class="ui-setting-head">
                     <span class="ui-label">Count</span>
-                    <span class="ui-value-sm" id="particleCountVal">69%</span>
+                    <span class="ui-value-sm" id="particleCountVal">20%</span>
                 </div>
-                <input class="ui-full" type="range" id="particleCountRange" min="0" max="100" value="69" aria-label="Particle Count">
+                <input class="ui-full" type="range" id="particleCountRange" min="0" max="50" value="20" aria-label="Particle Count">
             </div>
             <div class="color-row compact-color-row" id="rowParticleSize">
                 <div class="ui-setting-head">
                     <span class="ui-label">Size</span>
-                    <span class="ui-value-sm" id="particleSizeVal">60%</span>
+                    <span class="ui-value-sm" id="particleSizeVal">20%</span>
                 </div>
-                <input class="ui-full" type="range" id="particleSizeRange" min="0" max="100" value="60" aria-label="Particle Size">
+                <input class="ui-full" type="range" id="particleSizeRange" min="0" max="50" value="20" aria-label="Particle Size">
             </div>
             <div class="color-row compact-color-row" id="rowParticleOpacity">
                 <div class="ui-setting-head">
@@ -5485,9 +5468,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
             <div class="color-row compact-color-row" id="rowParticleFade">
                 <div class="ui-setting-head">
                     <span class="ui-label">Fade</span>
-                    <span class="ui-value-sm" id="particleFadeVal">45%</span>
+                    <span class="ui-value-sm" id="particleFadeVal">20%</span>
                 </div>
-                <input class="ui-full" type="range" id="particleFadeRange" min="0" max="100" value="45" aria-label="Particle Fade">
+                <input class="ui-full" type="range" id="particleFadeRange" min="0" max="100" value="20" aria-label="Particle Fade">
             </div>
             <div class="color-row compact-color-row" id="rowParticleSaturation">
                 <div class="ui-setting-head">
@@ -5506,9 +5489,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
             <button class="btn visual-back-btn" type="button" data-visual-back>← Back</button>
             <div class="color-group-title">Strike Line</div>
             <div class="color-row compact-color-row" id="rowSaberFx">
-                <div class="section-title">Strike Line</div>
-                <div style="display:grid; grid-template-columns:1fr; gap:7px;">
-                    <button class="btn saber-fx-btn active" type="button" id="saberEnabledBtn">Strike On</button>
+                <div class="ui-setting-head-gap">
+                    <div class="section-title">Strike Line</div>
+                    <div class="toggle-switch" id="saberEnabledToggle"><div class="toggle-track active" id="saberEnabledTrack"><div class="toggle-thumb"></div></div></div>
                 </div>
             </div>
             <div class="color-row compact-color-row" id="rowSaberBrightness">
@@ -5624,11 +5607,10 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                     <div class="perf-setting-block ui-mt8">
                         <div class="section-title ui-mb8">Graphics Quality</div>
                         <div class="graphic-grid">
-                            <button class="graphic-btn" id="gfxLow">Potato</button>
-                            <button class="graphic-btn" id="gfxMed">Mobile</button>
-                            <button class="graphic-btn" id="gfxHigh">PC</button>
+                            <button class="graphic-btn" id="gfxPotato">Potato</button>
+                            <button class="graphic-btn" id="gfxDefault">Default</button>
                         </div>
-                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Performance · Mobile = Full Visuals · PC = Maxed Out</div>
+                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Limited (heavy FX hidden) · Default = No Limits (Maxed)</div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="ui-setting-head-gap">
@@ -5746,9 +5728,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                         </div>
                         <div class="ui-setting-head-divided-soft">
                             <span class="ui-label">Particle Count</span>
-                            <span class="ui-value-sm" id="settingsDustAmountVal">69%</span>
+                            <span class="ui-value-sm" id="settingsDustAmountVal">20%</span>
                         </div>
-                        <input class="ui-full" type="range" id="settingsDustAmountRange" min="0" max="100" value="69" aria-label="Dust Amount">
+                        <input class="ui-full" type="range" id="settingsDustAmountRange" min="0" max="50" value="20" aria-label="Dust Amount">
                     </div>
 
                 </div>
@@ -5834,10 +5816,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
         </div>
 
         <div class="sf-page" id="sfPageLayer">
-            <div class="section-title">Layer SoundFont</div>
-            <div class="sf-layer-toggle">
-                <button class="btn sf-toggle-btn active" id="stringOffBtn">Layer Off</button>
-                <button class="btn sf-toggle-btn" id="stringOnBtn">Layer On</button>
+            <div class="ui-setting-head-gap" style="margin:0 0 10px;">
+                <div class="section-title" style="margin:0;">Layer SoundFont</div>
+                <div class="toggle-switch" id="layerToggle"><div class="toggle-track" id="layerTrack"><div class="toggle-thumb"></div></div></div>
             </div>
             <div class="sf-current-card"><span class="sf-current-label">Current</span><span class="sf-current-value" id="layerSfCurrent">String Ensemble</span></div>
             <div class="sf-effect-card ui-mb10">
@@ -5964,7 +5945,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                                     <span class="ui-label">Piano Visibility</span>
                                     <span class="ui-value" id="pianoVisibilityVal">100%</span>
                                 </div>
-                                <input class="ui-full" type="range" id="pianoVisibilityRange" min="40" max="100" value="100" aria-label="Piano Visibility">
+                                <input class="ui-full" type="range" id="pianoVisibilityRange" min="0" max="100" value="100" aria-label="Piano Visibility">
                             </div>
         <div class="height-stepper perf-setting-block" style="margin-top:12px;">
             <div class="ui-setting-head">
@@ -6164,10 +6145,9 @@ async function preparePianoEntryRuntime(){
     const ready = preparePianoRuntimeForEntry();
     setPianoEntryLoading(76, 'Preparing Visuals');
     try{
-        if(typeof getSmokeSprite === 'function'){
+        if(typeof getDustSprite === 'function'){
             const color = (typeof saberColor !== 'undefined' && saberColor) ? saberColor : '#ffffff';
-            getSmokeSprite(color, 'dot');
-            getSmokeSprite(color, 'smoke');
+            getDustSprite(color);
         }
         if(typeof ctx2d !== 'undefined' && ctx2d){
             ctx2d.save();
@@ -6286,12 +6266,23 @@ const audioCtx = (() => {
 })();
 const masterGain = audioCtx.createGain();
 masterGain.gain.value = 1.0;
-masterGain.connect(audioCtx.destination);
+// Brick-wall limiter so many simultaneous voices can't sum past 0 dBFS and
+// hard-clip into the crackle/static the user reported on chords/fast play.
+const masterLimiter = audioCtx.createDynamicsCompressor();
+try {
+    masterLimiter.threshold.value = -3.0;
+    masterLimiter.knee.value = 0.0;
+    masterLimiter.ratio.value = 20.0;
+    masterLimiter.attack.value = 0.003;
+    masterLimiter.release.value = 0.25;
+} catch(e) {}
+masterGain.connect(masterLimiter);
+masterLimiter.connect(audioCtx.destination);
 let _recAudioDest = null;
 function getRecAudioDest() {
     if (_recAudioDest) return _recAudioDest;
     _recAudioDest = audioCtx.createMediaStreamDestination();
-    masterGain.connect(_recAudioDest);
+    masterLimiter.connect(_recAudioDest);
     return _recAudioDest;
 }
 let reverbNode = null, reverbGain = null, reverbEnabled = false, currentSf = "sf1", currentStringSf = "stringSf1", stringEnabled = false, sustainLevel = 1.00, reverbLevel = 0.0, pianoVolume = 1.00, stringVolume = 0.75;
@@ -6377,11 +6368,29 @@ function setMidiSustainPedal(down){
     if(wasActive && !manualSustainEnabled && !midiSustainPedalDown) releaseMidiPedalHeldNotes();
     if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendSustainState === 'function') window.PapianoMultiplayer.sendSustainState();
 }
+// Sustain button (click mode) toggle. If sustain is active for ANY reason —
+// including a MIDI pedal whose "up" was never received and got stuck down —
+// a click force-clears everything so the user can always turn it off. (Before,
+// a stuck MIDI flag made the click button unable to disable sustain; only a
+// reload fixed it.)
+function toggleSustainHold(){
+    if(manualSustainEnabled || midiSustainPedalDown){
+        manualSustainEnabled = false;
+        midiSustainPedalDown = false;
+        isSus = false;
+        refreshSustainButton();
+        releaseMidiPedalHeldNotes();
+        if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendSustainState === 'function') window.PapianoMultiplayer.sendSustainState();
+    } else {
+        setManualSustain(true);
+        isSus = true;
+    }
+}
 let stringRangeLeft = 21;
 let stringRangeRight = 108;
 const sfEffectSettings = {
     sf1: { sustain: 1.00, reverb: 0.00 },
-    sf2: { fadeSec: 5.00, reverb: 0.00 }
+    sf2: { fadeSec: 2.00, reverb: 0.00 }
 };
 let sfBuffers = {};
 let stringBuffers = {};
@@ -6622,7 +6631,11 @@ function playSfBuffer(soundMidi, vel, activeKey, layer='piano') {
     const volume = layer === 'string' ? stringVolume : pianoVolume;
     const layerBoost = layer === 'string' ? 1.2 : 2.25;
     const now = audioCtx.currentTime;
-    gainNode.gain.setValueAtTime((vel || 0.8) * layerBoost * volume, now);
+    const peak = (vel || 0.8) * layerBoost * volume;
+    // Tiny attack ramp instead of an instant jump — a hard step on the first
+    // sample is an audible click/crackle, especially on fast repeated notes.
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.linearRampToValueAtTime(peak, now + 0.006);
     src.connect(gainNode);
     gainNode.connect(masterGain);
     if ((fx.reverb || 0) > 0) {
@@ -6666,7 +6679,7 @@ const PIANO_MIN_RELEASE_TC = 0.22;
 const PIANO_MIN_RELEASE_DELAY = 0.65;
 // Shared so local playback and remote (RTDB) playback use identical values.
 const STRING_VEL_SCALE = 0.82;   // strings sit slightly under the piano
-const STRING_FADE_DEFAULT = 5.0; // matches sfEffectSettings.sf2 default + snapshot
+const STRING_FADE_DEFAULT = 2.0; // layer fade acts like the layer's sustain/release
 // When the cap forces us to reclaim a voice, fade it out smoothly instead of
 // slamming it in 14ms — the slam was the audible string cutoff.
 const VOICE_STEAL_TC = 0.05;
@@ -6787,9 +6800,19 @@ function stopNote(midi, fast=false) {
     keys.forEach(key => {
         const voice = activeNotes.get(key);
         if (!voice) return;
-        const profile = voice.layer === 'string'
-            ? getStringFadeProfile(voice.fadeSec, !!fast)
-            : getReleaseProfile(!!fast, getActivePianoSustain());
+        let profile;
+        if (voice.layer === 'string') {
+            profile = getStringFadeProfile(voice.fadeSec, !!fast);
+            // The layer fade behaves like its sustain: while the sustain pedal /
+            // manual hold is on, don't let the layer cut before the sustained
+            // piano tail (this mismatch was the "weird" doubling on release).
+            if (!fast && (manualSustainEnabled || midiSustainPedalDown)) {
+                const ps = getReleaseProfile(false, getActivePianoSustain());
+                profile = { tc: Math.max(profile.tc, ps.tc), delay: Math.max(profile.delay, ps.delay) };
+            }
+        } else {
+            profile = getReleaseProfile(!!fast, getActivePianoSustain());
+        }
         releaseVoice(voice, profile.tc, profile.delay);
         activeNotes.delete(key);
     });
@@ -6828,11 +6851,9 @@ function setStringLayerEnabled(on, skipConfirm=false) {
             }
         });
     }
-    const onBtn = document.getElementById('stringOnBtn');
-    const offBtn = document.getElementById('stringOffBtn');
+    const layerTrack = document.getElementById('layerTrack');
     const settingsTrack = document.getElementById('settingsStringTrack');
-    if (onBtn) onBtn.classList.toggle('active', stringEnabled);
-    if (offBtn) offBtn.classList.toggle('active', !stringEnabled);
+    if (layerTrack) layerTrack.classList.toggle('active', stringEnabled);
     if (settingsTrack) settingsTrack.classList.toggle('active', stringEnabled);
     updateSoundfontPickerUI();
     if (stringEnabled && currentStringSf !== stringLoadedSfKey && SF_URLS[currentStringSf]) {
@@ -6946,8 +6967,8 @@ document.querySelectorAll('.sf-option[data-layer][data-sf-key]').forEach(btn => 
         if (SF_URLS[sfKey]) selectSf(sfKey, SF_URLS[sfKey], btn, getSoundfontName(sfKey), layer);
     });
 });
-document.getElementById('stringOnBtn').onclick = () => setStringLayerEnabled(true);
-document.getElementById('stringOffBtn').onclick = () => setStringLayerEnabled(false);
+const layerTrack = document.getElementById('layerTrack');
+if(layerTrack) layerTrack.onclick = () => setStringLayerEnabled(!stringEnabled);
 const settingsStringTrack = document.getElementById('settingsStringTrack');
 if(settingsStringTrack) settingsStringTrack.onclick = () => setStringLayerEnabled(!stringEnabled);
 bindStringRangeSliders();
@@ -6967,15 +6988,18 @@ let perfGovScale = 1.0;
 const PERF_DPR_FLOOR = 1.0;
 function getRenderDPR(){
     const native = Math.max(1, window.devicePixelRatio || 1);
-    let cap;
+    let cap; let isDefaultTier = false;
     try {
         const q = typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality;
-        if(q === 'low') cap = 1;
+        isDefaultTier = (q === 'default');
+        if(q === 'potato') cap = 1;
         else if(q === 'medium') cap = Math.min(native, 1.5);
-        else if(q === 'ultra') cap = Math.min(native, 3.0); // PC tier: sharpest
-        else cap = Math.min(native, 2.0); // high / Mobile tier
+        else if(isDefaultTier) cap = native; // Default tier: no DPR cap — full native sharpness
+        else cap = Math.min(native, 2.0); // high / Medium tier
     } catch(e){ cap = Math.min(native, 2.0); }
-    const scaled = cap * (perfGovScale > 0 ? perfGovScale : 1);
+    // Default tier keeps full native sharpness; the governor on other tiers trims only
+    // the cheap stuff (particles/overlay), never DPR.
+    const scaled = isDefaultTier ? cap : cap * (perfGovScale > 0 ? perfGovScale : 1);
     return scaled < PERF_DPR_FLOOR ? PERF_DPR_FLOOR : scaled;
 }
 
@@ -6989,6 +7013,10 @@ const PERF_GOV_COOLDOWN = 850;
 const PERF_SCALE_MIN = 0.6;
 const PERF_SCALE_MAX = 1.0;
 function perfGovernorTick(frameMs, now){
+    // Default tier = NO limits, period. The governor never runs there, so
+    // particle count, key overlay and DPR are NEVER throttled regardless of
+    // load. Only the mobile tiers use the adaptive governor.
+    if(getEffectiveGraphicQuality() === 'default'){ if(perfGovScale !== 1) perfGovScale = 1; return; }
     if(!(frameMs > 0) || frameMs > 240) return;
     _perfEmaMs += (frameMs - _perfEmaMs) * 0.12;
     if(_perfEmaMs > PERF_BUDGET_MS){ _perfSlowStreak++; _perfFastStreak = 0; }
@@ -7321,7 +7349,7 @@ function setBlackKeyHeightPercent(value){
     syncPianoCustomControl('blackKeyHeightRange', 'blackKeyHeightVal', blackKeyHeightPercent);
 }
 function setPianoVisibilityPercent(value){
-    pianoVisibilityPercent = clampPianoCustomPercent(value, 100, 40, 100);
+    pianoVisibilityPercent = clampPianoCustomPercent(value, 100, 0, 100);
     document.documentElement.style.setProperty('--piano-visibility', (pianoVisibilityPercent / 100).toFixed(2));
     syncPianoCustomControl('pianoVisibilityRange', 'pianoVisibilityVal', pianoVisibilityPercent);
 }
@@ -7329,10 +7357,28 @@ function setPianoVisibilityPercent(value){
 function syncActiveKeyLayerTransform(px){
     if(activeKeyLayer) activeKeyLayer.style.transform = `translate3d(-${px}px,0,0)`;
 }
+// Overlay piece pool: reuse hidden <div>s instead of create+append on press and
+// remove on release. The create/remove churn was the dominant per-press reflow
+// cost during glissando / broken-chord spam; pooling keeps the exact same look
+// with no DOM allocation or insertion/removal after warm-up.
+const _overlayFreePool = [];
+function _acquireOverlayPiece(){
+    let el = _overlayFreePool.pop();
+    if(!el){
+        el = document.createElement('div');
+        if(activeKeyLayer) activeKeyLayer.appendChild(el);
+    }
+    return el;
+}
+function _releaseOverlayPiece(el){
+    if(!el) return;
+    el.style.cssText = 'display:none';
+    _overlayFreePool.push(el);
+}
 function clearActiveKeyOverlay(midi){
     const pieces = activeKeyOverlayMap.get(midi);
     if(!pieces) return;
-    pieces.forEach(piece => piece.remove());
+    for(let i=0;i<pieces.length;i++) _releaseOverlayPiece(pieces[i]);
     activeKeyOverlayMap.delete(midi);
 }
 function shouldUseLightKeyVisual(){
@@ -7345,7 +7391,10 @@ function shouldUseLightKeyVisual(){
     return getPerfPressureLevel() >= 3 && activeOverlayNotes.size >= 18;
 }
 function appendActiveKeyPiece(className, left, width, config){
-    const piece = document.createElement('div');
+    const piece = _acquireOverlayPiece();
+    // Full reset: clears any prior taper custom-props / colour / display:none
+    // from a previous use, and makes the reused element visible again.
+    piece.style.cssText = '';
     piece.className = className;
     piece.style.left = formatLayoutPx(left);
     piece.style.width = formatLayoutPx(Math.max(1, width));
@@ -7359,7 +7408,8 @@ function appendActiveKeyPiece(className, left, width, config){
         piece.style.setProperty('--active-white-right-cut-pct', ((rightCutPx / safeWidth) * 100).toFixed(2) + '%');
         piece.style.setProperty('--active-white-taper-depth-pct', taperDepthPct.toFixed(2) + '%');
     }
-    activeKeyLayer.appendChild(piece);
+    // Already attached to activeKeyLayer (on first acquire); reused pieces stay
+    // put, so there is no append/remove cost on the hot path.
     return piece;
 }
 function renderActiveKeyOverlay(midi, keyEl, color){
@@ -7445,6 +7495,9 @@ function refreshActiveKeyLayerGeometry(){
     const notes = Array.from(activeOverlayNotes);
     activeKeyLayer.innerHTML = '';
     activeKeyOverlayMap.clear();
+    // innerHTML wipe also detached every pooled piece — drop the stale pool so
+    // acquire rebuilds fresh, attached elements.
+    _overlayFreePool.length = 0;
     notes.forEach(midi => {
         const color = _resolveKeyColor(midi);
         renderActiveKeyOverlay(midi, noteElementMap.get(midi), color);
@@ -7676,24 +7729,8 @@ noteXFast.fill(NaN);
 const keyElFast = new Array(128);
 let currentPianoTransformPx = viewOffset * whiteKeyWidth;
 let noteCacheTransformPx = viewOffset * whiteKeyWidth;
-function _detectDefaultGraphicQuality(){
-    try {
-        const isCoarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-        const smallScreen = (window.innerWidth || 9999) < 900;
-        const cores = navigator.hardwareConcurrency || 4;
-        const mem = navigator.deviceMemory || 4;
-        const lowCores = cores <= 4;
-        const lowMem = mem <= 4;
-        const ua = (navigator.userAgent || '').toLowerCase();
-        const isMobileUA = /android|iphone|ipad|ipod|mobile|webview/i.test(ua);
-
-        // Tiers exposed in the UI: low = Potato, high = Mobile, ultra = PC.
-        if (cores <= 2 || mem <= 2) return 'low';
-        if (isMobileUA || (isCoarse && smallScreen)) return 'high';   // Mobile
-        if (lowCores || lowMem) return 'high';                        // weak desktop
-        return 'ultra';                                               // capable desktop -> PC
-    } catch(e) { return 'high'; }
-}
+// No device sniffing: the default tier is always Default. Potato is a manual choice.
+function _detectDefaultGraphicQuality(){ return 'default'; }
 let graphicQuality = _detectDefaultGraphicQuality();
 let performanceMode = 'manual';
 function isMobileRenderTarget(){
@@ -7717,23 +7754,26 @@ function getPressureScale(){
     return pressure >= 3 ? 0.34 : pressure === 2 ? 0.56 : pressure === 1 ? 0.78 : 1;
 }
 const GRAPHIC_PROFILES = {
-    low: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
-    medium: { dust:0.55, dustMax:276, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
-    high: { dust:1, dustMax:540, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
-    // PC tier — everything maxed for fast desktops.
-    ultra: { dust:1, dustMax:960, fallingMax:1600, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
+    potato: { dust:0, dustMax:0, fallingMax:260, heavyFx:false, fallingLabel:false, shadow:0, burstDust:false },
+    medium: { dust:0.55, dustMax:800, fallingMax:520, heavyFx:true, fallingLabel:false, shadow:0.35, burstDust:false },
+    high: { dust:1, dustMax:2000, fallingMax:900, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true },
+    // Default tier — no limits: caps lifted to the full buffer so particles, draw
+    // counts and DPR are never throttled. (governor is disabled for 'default'.)
+    default: { dust:1, dustMax:16000, fallingMax:100000, heavyFx:true, fallingLabel:true, shadow:1, burstDust:true }
 };
 const GRAPHIC_MODE_DEFAULTS = {
-    low: { dust:false, particleCount:0, particleSize:42, particleOpacity:58, particleSpeed:22, particleTurbulence:12, particleSaturation:70, particleFade:62, saberAuraSize:34, saberBrightness:58, saberOpacity:100, saberSaturation:92 },
-    medium: { dust:true, particleCount:45, particleSize:52, particleOpacity:74, particleSpeed:26, particleTurbulence:24, particleSaturation:88, particleFade:52, saberAuraSize:44, saberBrightness:64, saberOpacity:100, saberSaturation:100 },
-    high: { dust:true, particleCount:82, particleSize:66, particleOpacity:100, particleSpeed:36, particleTurbulence:36, particleSaturation:100, particleFade:42, saberAuraSize:50, saberBrightness:72, saberOpacity:100, saberSaturation:100 },
-    ultra: { dust:true, particleCount:100, particleSize:76, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:38, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
+    // Potato and Default share IDENTICAL setting percentages so presets never shift
+    // values between tiers; the only difference is Potato keeps heavy FX (dust) off.
+    potato: { dust:false, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
+    medium: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
+    high: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 },
+    default: { dust:true, particleCount:20, particleSize:20, particleOpacity:100, particleSpeed:40, particleTurbulence:46, particleSaturation:100, particleFade:20, saberAuraSize:62, saberBrightness:84, saberOpacity:100, saberSaturation:100 }
 };
 const REMOTE_VISUAL_PROFILES = {
-    low: { level:'light' },
+    potato: { level:'light' },
     medium: { level:'light' },
     high: { level:'full' },
-    ultra: { level:'full' }
+    default: { level:'full' }
 };
 function getRemoteVisualLevel(){
     const q = getEffectiveGraphicQuality();
@@ -7744,7 +7784,7 @@ function getRemoteVisualLevel(){
 }
 function remoteFallingOwnerId(playerId){ return `remote:${playerId || 'unknown'}`; }
 function getGraphicProfile(){ const q=getEffectiveGraphicQuality(); return GRAPHIC_PROFILES[q] || GRAPHIC_PROFILES.high; }
-function isLowGraphic(){ return getEffectiveGraphicQuality() === 'low'; }
+function isLowGraphic(){ return getEffectiveGraphicQuality() === 'potato'; }
 function isWideKeyMode(){ return wCount > 12; }
 function refreshWideKeyModeClass(){
     document.body.classList.toggle('wide-key-mode', isWideKeyMode());
@@ -7824,7 +7864,7 @@ function unregisterDeadFalling(){
         if(!w) fallingByMidi.delete(midi);
     });
 }
-const _smokeSpriteCache = new Map();
+const _dustSpriteCache = new Map();
 function _parseColorToRgb(color){
     color = (color || '').trim();
     if(color.startsWith('#')){
@@ -7837,11 +7877,10 @@ function _parseColorToRgb(color){
     }
     return [120, 220, 255];
 }
-function getSmokeSprite(color, shape){
-    const _shape = shape === 'dot' ? 'dot' : 'smoke';
+function getDustSprite(color){
     const dpr = currentDPR || 1;
-    const cacheKey = color + '@' + (Math.round(dpr * 100) | 0) + '#' + _shape;
-    if(_smokeSpriteCache.has(cacheKey)) return _smokeSpriteCache.get(cacheKey);
+    const cacheKey = color + '@' + (Math.round(dpr * 100) | 0);
+    if(_dustSpriteCache.has(cacheKey)) return _dustSpriteCache.get(cacheKey);
     const SIZE = 192;
     const physSize = Math.max(1, Math.round(SIZE * dpr));
     const cv = document.createElement('canvas');
@@ -7854,27 +7893,15 @@ function getSmokeSprite(color, shape){
     const rgb = _parseColorToRgb(color);
     const r = rgb[0], g = rgb[1], b = rgb[2];
     const grad = c.createRadialGradient(cx, cy, 0, cx, cy, SIZE/2);
-    if(_shape === 'dot'){
-        // "Dust": a tiny FLAT dot in the dust colour — no white-hot core, no
-        // glow halo. Solid to ~0.6 radius then a 1px-ish antialiased edge, so
-        // scaled down it reads as a small plain speck, not a neon mote.
-        grad.addColorStop(0,    `rgba(${r},${g},${b},1)`);
-        grad.addColorStop(0.6,  `rgba(${r},${g},${b},1)`);
-        grad.addColorStop(0.82, `rgba(${r},${g},${b},0.65)`);
-        grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
-    } else {
-        // "Smoke": very soft and diffuse — pure smoke colour (no white-hot /
-        // neon core), low opacity with a long feathered tail so many
-        // overlapping puffs build a gentle, billowing haze.
-        grad.addColorStop(0,    `rgba(${r},${g},${b},0.40)`);
-        grad.addColorStop(0.16, `rgba(${r},${g},${b},0.28)`);
-        grad.addColorStop(0.42, `rgba(${r},${g},${b},0.14)`);
-        grad.addColorStop(0.72, `rgba(${r},${g},${b},0.05)`);
-        grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
-    }
+    // A tiny FLAT dot in the dust colour — solid to ~0.6 radius then a 1px-ish
+    // antialiased edge, so scaled down it reads as a small plain speck.
+    grad.addColorStop(0,    `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.6,  `rgba(${r},${g},${b},1)`);
+    grad.addColorStop(0.82, `rgba(${r},${g},${b},0.65)`);
+    grad.addColorStop(1,    `rgba(${r},${g},${b},0)`);
     c.fillStyle = grad;
     c.fillRect(0, 0, SIZE, SIZE);
-    _smokeSpriteCache.set(cacheKey, cv);
+    _dustSpriteCache.set(cacheKey, cv);
     return cv;
 }
 
@@ -7883,7 +7910,7 @@ function refreshKeyDustColorCache(){
     const css = getComputedStyle(document.documentElement);
     cachedDustWhite = css.getPropertyValue('--accent-white').trim() || css.getPropertyValue('--piano-white-active-mid').trim() || '#70d8ff';
     cachedDustBlack = css.getPropertyValue('--accent-black').trim() || css.getPropertyValue('--piano-black-active-mid').trim() || '#ff7f66';
-    _smokeSpriteCache.clear();
+    _dustSpriteCache.clear();
 }
 // Chord detection is throttled on a wall-clock timer (leading + trailing edge)
 // rather than coalesced into requestAnimationFrame. rAF coupling meant that at
@@ -7902,15 +7929,20 @@ function _runChordDetect(){
 }
 function requestChordUpdate(){
     if(!(window.PapianoMultiplayer && typeof window.PapianoMultiplayer._detectChords === 'function')) return;
+    // Back off chord matching during bursts: a glissando fires note events far
+    // faster than a chord can change, so running matchChords every 28ms there is
+    // wasted work. A longer interval while bursting keeps the heavy detection
+    // off the hot path; normal playing stays responsive.
+    const interval = (typeof getBurstLevel === 'function' && getBurstLevel() > 8) ? 90 : CHORD_MIN_INTERVAL;
     const since = performance.now() - _chordLastRun;
-    if(since >= CHORD_MIN_INTERVAL){
+    if(since >= interval){
         if(_chordTrailingTimer){ clearTimeout(_chordTrailingTimer); _chordTrailingTimer = 0; }
         _runChordDetect();
     } else if(!_chordTrailingTimer){
         _chordTrailingTimer = setTimeout(() => {
             _chordTrailingTimer = 0;
             _runChordDetect();
-        }, Math.max(1, CHORD_MIN_INTERVAL - since));
+        }, Math.max(1, interval - since));
     }
 }
 
@@ -8051,12 +8083,15 @@ function refreshStageHeight(){
     }
 }
 
-const NEON_DUST_MAX = 960;
+// Default tier has no particle cap — give the shared pool real headroom so
+// the Default ceiling never feels limited. Potato stays capped by profile.dustMax
+// (800 / 2000), so this larger buffer never affects them.
+const NEON_DUST_MAX = 16000;
 // Even, hold-independent emission: same initial puff per press, same steady
 // trickle while held. Density never escalates with hold time.
-const DUST_PRESS_BURST = 8;
+const DUST_PRESS_BURST = 20;
 const DUST_EMIT_INTERVAL = 60; // ms between trickle spawns while held
-const DUST_EMIT_COUNT = 2;     // particles per trickle
+const DUST_EMIT_COUNT = 6;     // particles per trickle
 const neonDustX = new Float32Array(NEON_DUST_MAX);
 const neonDustY = new Float32Array(NEON_DUST_MAX);
 const neonDustVX = new Float32Array(NEON_DUST_MAX);
@@ -8071,7 +8106,6 @@ const neonDustSpin = new Float32Array(NEON_DUST_MAX);
 const neonDustAnchorX = new Float32Array(NEON_DUST_MAX);
 let neonDustCount = 0;
 let dustBlendMode = 'glow';
-let particleShape = 'dot';
 let keyGlowEnabled = false;
 let keyGlowIntensity = 50;
 let _dustSprite = null, _dustSpriteKey = '';
@@ -8094,7 +8128,11 @@ function getKeyStageGeom(midi){
 function spawnNeonDust(geom, count){
     if(!saberDustEnabled || !geom || !canvas) return;
     const profile = getGraphicProfile();
-    const loadScale = getPressureScale();
+    const _defaultTier = getEffectiveGraphicQuality() === 'default';
+    // Default tier = no particle limit: the perf governor never trims particle
+    // count or scale, so raising the slider always adds more and density never
+    // collapses under load. (Potato keeps particles off entirely.)
+    const loadScale = _defaultTier ? 1 : getPressureScale();
     const maxDust = Math.max(0, Math.min(Math.round(NEON_DUST_MAX * loadScale), Number(profile.dustMax) || 0));
     const dustScale = Math.max(0, Math.min(1, (Number(profile.dust) || 0) * loadScale));
     if(dustScale <= 0 || neonDustCount >= maxDust) return;
@@ -8105,13 +8143,12 @@ function spawnNeonDust(geom, count){
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     if(countLevel <= 0.005 || opacityLevel <= 0.005 || sizeLevel <= 0.005) return;
-    // Count tripled (1.85 -> 5.55) for a much denser field; caps raised to match.
-    const countMul = countLevel * 5.55 * dustScale;
-    // Max particle size reduced so 100% slider == the old 70% size
-    // (old: 0.08 + 1.76; old 70% ≈ 1.28 -> new 100% slope 1.20). Slider stays 0-100%.
-    const sizeMul = 0.08 + sizeLevel * 1.20;
+    // The Default tier renders denser per unit than the (particle-less) Potato fallback.
+    const countMul = countLevel * (_defaultTier ? 6 : 12) * dustScale;
+    const sizeMul = 0.08 + sizeLevel * (_defaultTier ? 0.78 : 1.56);
     const speedMul = 0.18 + speedLevel * 2.12;
-    const turbEase = turbulenceLevel;
+    // Turbulence +100%: doubled influence at max.
+    const turbEase = turbulenceLevel * 2;
     const fadeLevel = sliderCurve(particleFade, 1.02);
     const fadeMul = 0.25 + fadeLevel * 2.25;
     const n = Math.min(Math.round(count * countMul), maxDust - neonDustCount);
@@ -8147,7 +8184,14 @@ function startNeonDust(midi, key){
     if(!geom) return;
 
     neonDustEmitters.set(midi, { geom, midi, start: performance.now(), last: 0 });
-    spawnNeonDust(geom, DUST_PRESS_BURST);
+    // During fast passages (glissando / broken-chord spam) a full 20-particle
+    // burst per note floods the field — hundreds of sprites spawned in a beat,
+    // all drawn every frame. Shrink the per-press burst when input is bursty so
+    // dense playing stays smooth; single/slow notes keep the full puff.
+    const burstCount = (getEffectiveGraphicQuality() !== 'default' && typeof getBurstLevel === 'function' && getBurstLevel() > 8)
+        ? Math.max(4, DUST_PRESS_BURST >> 2)
+        : DUST_PRESS_BURST;
+    spawnNeonDust(geom, burstCount);
     if(saberLine) saberLine.classList.add('saber-hit');
     ensureAnimLoop();
 }
@@ -8156,7 +8200,8 @@ function stopNeonDust(midi){
     if(!neonDustEmitters.size && saberLine) saberLine.classList.remove('saber-hit');
 }
 function updateDrawNeonDust(dt, now){
-    if(perfGovScale < 0.62 && neonDustCount > 120){
+    // Emergency trim only on the Potato fallback — Default is never capped.
+    if(perfGovScale < 0.62 && neonDustCount > 120 && getEffectiveGraphicQuality() !== 'default'){
         neonDustCount = 120;
     }
     if(isLowGraphic() || !saberDustEnabled){
@@ -8180,27 +8225,23 @@ function updateDrawNeonDust(dt, now){
 
     if(!neonDustCount) return neonDustEmitters.size > 0;
 
-    const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation + '|' + particleShape;
+    const _dustColorKey = (dustColor || saberColor || '#00e5ff') + '|' + particleSaturation;
     if(_dustColorKey !== _dustSpriteKey){
         _dustSpriteKey = _dustColorKey;
-        _dustSprite = getSmokeSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation), particleShape);
+        _dustSprite = getDustSprite(applySaberSaturation(dustColor || saberColor || '#00e5ff', particleSaturation));
     }
     const sprite = _dustSprite;
     const speedLevel = sliderRatio(particleSpeed);
     const turbulenceLevel = sliderCurve(particleTurbulence, 1.05);
     const moveDt = dt * 1000 * (0.18 + speedLevel * 1.85);
-    const turbEase = turbulenceLevel;
-    const isDot = particleShape === 'dot';
-    // Smoke billows into a cloud as it rises; dust stays as drifting points.
-    const wind = (isDot ? 0.000022 : 0.000050) * turbEase;
-    const biasWind = (isDot ? 0.000006 : 0.000017) * turbEase;
-    const maxVX = (isDot ? 0.006 : 0.011) + (isDot ? 0.030 : 0.080) * turbEase;
+    const turbEase = turbulenceLevel * 2; // Turbulence +100%
+    // Dust drifts as discrete points.
+    const wind = 0.000011 * turbEase;
+    const biasWind = 0.000003 * turbEase;
+    const maxVX = 0.003 + 0.015 * turbEase;
     ctx2d.save();
-    // Smoke is additive ('lighter') so soft puffs build a glowing haze. Dust
-    // must NOT be additive — with 'lighter', overlapping specks accumulate into
-    // a bright smoky blob (worse at high counts). 'source-over' keeps each dust
-    // grain a discrete point that never merges into smoke.
-    ctx2d.globalCompositeOperation = isDot ? 'source-over' : 'lighter';
+    // 'source-over' keeps each dust grain a discrete point.
+    ctx2d.globalCompositeOperation = 'source-over';
     let alive = 0;
     for(let i=0;i<neonDustCount;i++){
         neonDustAge[i] += dt * 1000;
@@ -8211,8 +8252,8 @@ function updateDrawNeonDust(dt, now){
             const phaseB = age * 0.0026 + neonDustSeedB[i] * 1.7;
             const wander = Math.sin(phaseA) * 0.66 + Math.sin(phaseB) * 0.34;
             const bias = neonDustSpin[i] * (0.30 + Math.sin(age * 0.0009 + neonDustSeedB[i]) * 0.22);
-            // Smoke spreads with age (cloud); dust barely spreads (points).
-            const ageScale = isDot ? (0.25 + Math.min(1, tLife) * 0.35) : (0.32 + Math.min(1, tLife) * 1.55);
+            // Dust barely spreads as it ages (stays a drifting point).
+            const ageScale = 0.25 + Math.min(1, tLife) * 0.35;
             neonDustVX[i] += (wander * wind + bias * biasWind) * ageScale * moveDt;
             if(neonDustVX[i] > maxVX) neonDustVX[i] = maxVX;
             else if(neonDustVX[i] < -maxVX) neonDustVX[i] = -maxVX;
@@ -8231,11 +8272,9 @@ function updateDrawNeonDust(dt, now){
         if(neonDustAge[i] < neonDustLife[i] && neonDustY[i] > -40){
             const t = tLife;
             const fade = t < 0.14 ? t / 0.14 : Math.max(0, 1 - Math.pow((t - 0.14) / 0.86, 1.9));
-            const alpha = Math.min(1, neonDustA[i] * fade * (isDot ? 1.4 : 1));
+            const alpha = Math.min(1, neonDustA[i] * fade * 1.4);
             if(alpha > 0.02){
-                // Smoke expands into a cloud; dust stays a tiny fixed-size point.
-                const grow = isDot ? 1 : (1 + t * 1.9);
-                const sz = isDot ? Math.max(1.5, neonDustR[i] * 0.5) : (neonDustR[i] * 3.0 * grow);
+                const sz = Math.max(1.5, neonDustR[i] * 0.5);
                 ctx2d.globalAlpha = alpha;
                 ctx2d.drawImage(sprite, neonDustX[i] - sz * 0.5, neonDustY[i] - sz * 0.5, sz, sz);
             }
@@ -8471,9 +8510,10 @@ function clampPercentValue(value, fallback=0){
 function sliderRatio(value, fallback=0){
     return clampPercentValue(value, fallback) / 100;
 }
-function sliderCurve(value, power=1.08, fallback=0){
-    const x = sliderRatio(value, fallback);
-    return x <= 0 ? 0 : Math.pow(x, power);
+function sliderCurve(value, power=1, fallback=0){
+    // Linear mapping: a slider at X% applies exactly X% of the effect, so the
+    // response feels accurate across the whole range (no front/back loading).
+    return sliderRatio(value, fallback);
 }
 const _tunedRgbScratch = new Uint8Array(3);
 let _tunedCacheR = -1, _tunedCacheG = -1, _tunedCacheB = -1;
@@ -8622,12 +8662,18 @@ function anim(now){
     if(!dustInFront){ if(updateDrawNeonDust(dt, now)) hasLive = true; }
 
     const riseSpeed = getAnimRiseSpeed() * dt;
+    // Default tier: a held note keeps growing to fill the screen instead of capping
+    // at 400px — held notes stay drawing for as long as the key is held. Mobile
+    // keeps the shorter fixed cap.
+    const maxNoteH = (graphicQuality === 'default')
+        ? Math.max(MAX_NOTE_HEIGHT, (canvasCssH || MAX_NOTE_HEIGHT))
+        : MAX_NOTE_HEIGHT;
     for(let i=0;i<falling.length;i++){
         const f=falling[i];
         if(f.dead) continue;
         if(f.growing){
-            if(f.height<MAX_NOTE_HEIGHT){
-                f.height=Math.min(f.height+riseSpeed, MAX_NOTE_HEIGHT);
+            if(f.height<maxNoteH){
+                f.height=Math.min(f.height+riseSpeed, maxNoteH);
                 f.y=f.bottomY-f.height;
             } else {
                 f.growing = false;
@@ -8971,7 +9017,8 @@ document.getElementById('sfBtn').onclick=()=>openSfPanelTab('main');
 const audioBtn = document.getElementById('audioBtn');
 if(audioBtn) audioBtn.onclick=()=>toggle('audioPanel');
 document.getElementById('keyBtn').onclick=()=>toggle('keyPanel');
-document.getElementById('holdBtn').onclick=()=>setManualSustain(!manualSustainEnabled);
+document.getElementById('holdBtn').onclick=()=>toggleSustainHold();
+document.getElementById('settingsSustainBtn')?.addEventListener('click', toggleSustainHold);
 refreshSustainButton();
 const logoToggle = document.getElementById('logoToggle');
 if(logoToggle){
@@ -9003,15 +9050,15 @@ if(settingsMidiBtn) settingsMidiBtn.onclick = () => {
 function applyCurrentSfEffects(){
     const fx = sfEffectSettings.sf1 || {sustain:1.00,reverb:0};
     sustainLevel = Math.max(0, Math.min(1, fx.sustain || 0));
-    if (!sfEffectSettings.sf2) sfEffectSettings.sf2 = {fadeSec:5.0,reverb:0};
-    if (sfEffectSettings.sf2.fadeSec === undefined) sfEffectSettings.sf2.fadeSec = 5.0;
+    if (!sfEffectSettings.sf2) sfEffectSettings.sf2 = {fadeSec:STRING_FADE_DEFAULT,reverb:0};
+    if (sfEffectSettings.sf2.fadeSec === undefined) sfEffectSettings.sf2.fadeSec = STRING_FADE_DEFAULT;
     reverbLevel = Math.round(Math.max(sfEffectSettings.sf1.reverb || 0, sfEffectSettings.sf2.reverb || 0) * 100);
     isSus = sustainLevel > 0.01;
     reverbEnabled = reverbLevel > 0;
     if (reverbGain) reverbGain.gain.setTargetAtTime(0.65, audioCtx.currentTime, 0.05);
 }
 function updateSfEffectUI(){
-    if (!sfEffectSettings.sf2) sfEffectSettings.sf2 = {fadeSec:5.0,reverb:0};
+    if (!sfEffectSettings.sf2) sfEffectSettings.sf2 = {fadeSec:STRING_FADE_DEFAULT,reverb:0};
     const pairs = [
         ['sf1','sustainSf1Range','sustainSf1Val','sustain'],
         ['sf1','reverbSf1Range','reverbSf1Val','reverb'],
@@ -9026,7 +9073,7 @@ function updateSfEffectUI(){
     });
     const stringFadeRange = document.getElementById('sustainSf2Range');
     const stringFadeVal = document.getElementById('sustainSf2Val');
-    const fadeSec = Math.max(0.1, Math.min(10.0, Number(sfEffectSettings.sf2.fadeSec) || 10.0));
+    const fadeSec = Math.max(0.1, Math.min(10.0, Number(sfEffectSettings.sf2.fadeSec) || STRING_FADE_DEFAULT));
     if (stringFadeRange) stringFadeRange.value = fadeSec.toFixed(1);
     if (stringFadeVal) stringFadeVal.textContent = fadeSec.toFixed(1) + 's';
     const pianoRange = document.getElementById('pianoVolRange');
@@ -9071,7 +9118,7 @@ document.querySelectorAll('.sf-tab').forEach(btn => btn.onclick=()=>setSfPanelTa
     if (!el) return;
     el.oninput = e => {
         if (id === 'sustainSf2Range') {
-            sfEffectSettings.sf2.fadeSec = Math.max(0.1, Math.min(10.0, parseFloat(e.target.value) || 10.0));
+            sfEffectSettings.sf2.fadeSec = Math.max(0.1, Math.min(10.0, parseFloat(e.target.value) || STRING_FADE_DEFAULT));
         } else {
             const val = parseInt(e.target.value,10) / 100;
             const isSf2 = id.includes('Sf2');
@@ -9272,13 +9319,14 @@ let saberBrightness = 70;
 let saberOpacity = 100;
 let saberSaturation = 100;
 let saberDustSize = 50;
-let particleCount = 69;
-let particleSize = 60;
+let particleCount = 20;
+let particleSize = 20;
 let particleOpacity = 100;
 let particleSpeed = 30;
 let particleTurbulence = 30;
 let particleSaturation = 100;
-let particleFade = 45;
+let particleFade = 20;
+
 var saberMotion = 'static';
 let motionSpeed = 50; // drives the strike aura's drift/billow speed
 // "Motion Speed": 0..100 maps to a slow..fast aura billow duration. Higher = faster.
@@ -9355,7 +9403,7 @@ function getDefaultPianoHeightPercent(){
     // jadi 48 berarti piano ~24% tinggi layar (standar Synthesia/See Music ~20-25%).
     if(!isTouch){
         const maxPx = Math.max(1, vh * 0.5);
-        // 24% viewport, dengan lantai 220px supaya tidak pendek di layar laptop kecil
+        // 24% viewport, with a 220px floor so it isn't too short on small laptop screens
         return Math.min(60, Math.max(48, Math.round(220 / maxPx * 100)));
     }
     if(vw > vh) return 52; // landscape phone/tablet: ~26% viewport (selaras CSS boot 26vh)
@@ -9387,21 +9435,19 @@ function applyFactoryDefaults(clearSavedState){
     setSaberMotion('static');
     setMotionSpeed(50);
     setDustBlendMode('glow');
-    setParticleShape('dot');
     setSaberAuraSize(50);
     setSaberVisualSetting('brightness', 70);
     setSaberVisualSetting('opacity', 100);
     setSaberVisualSetting('saturation', 100);
-    setParticleSetting('count', 69);
-    setParticleSetting('size', 60);
+    setParticleSetting('count', 20);
+    setParticleSetting('size', 20);
     setParticleSetting('opacity', 100);
     setParticleSetting('speed', 30);
     setParticleSetting('turbulence', 30);
     setParticleSetting('saturation', 100);
-    setParticleSetting('fade', 45);
+    setParticleSetting('fade', 20);
     setSaberFx('saber', true);
     setSaberFx('dust', true);
-    setSaberDustAmount(69);
     setAnimRoundness(100);
     setNoteOpacity(100);
     setNoteSpeed(75);
@@ -9411,7 +9457,7 @@ function applyFactoryDefaults(clearSavedState){
     setKeyGlowEnabled(false);
     setKeyGlowIntensity(50);
     sfEffectSettings.sf1 = {sustain:1.00, reverb:0.00};
-    sfEffectSettings.sf2 = {fadeSec:5.00, reverb:0.00};
+    sfEffectSettings.sf2 = {fadeSec:2.00, reverb:0.00};
     currentSf = 'sf1';
     currentStringSf = 'stringSf1';
     pianoVolume = 1.00;
@@ -9557,10 +9603,10 @@ function mountColorPad(id, label, initialColor, handler, resetColor){
         instance.val = clampColorPadValue(v, 0, 1);
         syncUI(emit);
     };
-    // === Standar pro: pointer-driven drag dengan global capture ===
-    // Gunakan window-level listener saat aktif supaya gerakan jari yang
-    // keluar dari area pad (kasus paling sering "tidak bisa digeser") tetap
-    // terlacak; selalu preventDefault agar browser tidak men-cancel jadi scroll.
+    // === Pointer-driven drag with global capture ===
+    // Use a window-level listener while active so finger movement that leaves
+    // the pad area (the most common "can't drag" case) is still tracked;
+    // always preventDefault so the browser doesn't cancel it into a scroll.
     const makeDragger = (target, applyFromXY) => {
         let pid = -1;
         const onDown = event => {
@@ -9733,6 +9779,15 @@ function getCurrentSettings() {
         chordDisplayColors: typeof chordDisplayColors !== 'undefined' ? chordDisplayColors : null,
         keyGlowEnabled,
         keyGlowIntensity,
+        // Persist the explicit "user chose this colour" intent so a chosen
+        // colour (even white) restores correctly instead of collapsing back to
+        // the room seat colour on load.
+        customAnimNote: typeof customAnimNote !== 'undefined' ? (customAnimNote || null) : null,
+        customWhiteKey: typeof customWhiteKey !== 'undefined' ? (customWhiteKey || null) : null,
+        customBlackKey: typeof customBlackKey !== 'undefined' ? (customBlackKey || null) : null,
+        customChordColor: typeof customChordColor !== 'undefined' ? (customChordColor || null) : null,
+        // Settings outside the Visual panel (top bar) so a preset is complete.
+        metronome: (typeof window.getMetronomeState === 'function') ? window.getMetronomeState() : undefined,
     };
 }
 
@@ -9803,7 +9858,16 @@ function applySettings(s) {
         updateSfEffectUI();
         applyCurrentSfEffects();
         if (s.isAnimOn !== undefined) { setAnimationEnabled(s.isAnimOn); }
+        // Restore the note colour using the saved explicit intent when present
+        // (new presets store customAnimNote): a saved colour — including white —
+        // is re-applied as the user's choice, while "no custom" falls back to
+        // the seat/default colour. Older presets keep the legacy value path.
+        if (s.customAnimNote !== undefined) {
+            _activeColorPadIntent = s.customAnimNote ? 'user' : 'reset';
+            try { setAnimColor(s.customAnimNote || '#ffffff'); } finally { _activeColorPadIntent = null; }
+        } else {
         setAnimColor(s.animColor !== undefined ? s.animColor : '#ffffff');
+        }
         setAnimDoubleLeftColor(s.animDoubleLeftColor !== undefined ? s.animDoubleLeftColor : '#ffffff');
         setAnimDoubleRightColor(s.animDoubleRightColor !== undefined ? s.animDoubleRightColor : '#ffffff');
         setAnimDoubleSplitTuts(s.animDoubleSplitTuts !== undefined ? s.animDoubleSplitTuts : 44);
@@ -9848,14 +9912,32 @@ function applySettings(s) {
         setBlackKeyWidthPercent(s.blackKeyWidthPercent !== undefined ? s.blackKeyWidthPercent : 120);
         setBlackKeyHeightPercent(s.blackKeyHeightPercent !== undefined ? s.blackKeyHeightPercent : 60);
         setPianoVisibilityPercent(s.pianoVisibilityPercent !== undefined ? s.pianoVisibilityPercent : 100);
-        setWhiteKeyColor(s.accentWhite !== undefined ? s.accentWhite : NO_COLOR);
-        setBlackKeyColor(s.accentBlack !== undefined ? s.accentBlack : NO_COLOR);
+        if (s.customWhiteKey !== undefined) {
+            _activeColorPadIntent = s.customWhiteKey ? 'user' : 'reset';
+            try { setWhiteKeyColor(s.customWhiteKey || NO_COLOR); } finally { _activeColorPadIntent = null; }
+        } else {
+            setWhiteKeyColor(s.accentWhite !== undefined ? s.accentWhite : NO_COLOR);
+        }
+        if (s.customBlackKey !== undefined) {
+            _activeColorPadIntent = s.customBlackKey ? 'user' : 'reset';
+            try { setBlackKeyColor(s.customBlackKey || NO_COLOR); } finally { _activeColorPadIntent = null; }
+        } else {
+            setBlackKeyColor(s.accentBlack !== undefined ? s.accentBlack : NO_COLOR);
+        }
         setKeyGlowEnabled(s.keyGlowEnabled !== undefined ? !!s.keyGlowEnabled : false);
         setKeyGlowIntensity(s.keyGlowIntensity !== undefined ? s.keyGlowIntensity : 50);
-        if (s.chordDisplayColors) setChordDisplayColors(s.chordDisplayColors);
+        if (s.customChordColor !== undefined) {
+            _activeColorPadIntent = s.customChordColor ? 'user' : 'reset';
+            try { setChordDisplayColors(s.chordDisplayColors || DEFAULT_CHORD_COLORS); } finally { _activeColorPadIntent = null; }
+        } else if (s.chordDisplayColors) {
+            setChordDisplayColors(s.chordDisplayColors);
+        }
+        if (s.metronome && typeof window.setMetronomeState === 'function') window.setMetronomeState(s.metronome);
         if (s.perfHudEnabled !== undefined) setPerformanceMonitor(!!s.perfHudEnabled);
-        if (s.performanceMode === 'auto') performanceMode = 'auto';
-        else if (s.graphicQuality !== undefined) { performanceMode = 'manual'; graphicQuality = GRAPHIC_PROFILES[s.graphicQuality] ? s.graphicQuality : graphicQuality; }
+        // 'auto' retired: old presets that stored it fall back to smart detection.
+        performanceMode = 'manual';
+        // Only Potato and Default exist; old 'ultra' maps to Default, everything else (low/high/medium/mobile) to Potato.
+        if (s.graphicQuality !== undefined) graphicQuality = (s.graphicQuality === 'default' || s.graphicQuality === 'ultra') ? 'default' : 'potato';
         setTimeout(() => {
             if (typeof setBgFitMode === 'function' && s.bgFitMode) setBgFitMode(s.bgFitMode);
             if (typeof setBgPositionMode === 'function' && s.bgPositionMode) setBgPositionMode(s.bgPositionMode);
@@ -9863,7 +9945,7 @@ function applySettings(s) {
             if (s.bgDim !== undefined && document.getElementById('bgDimRange')) document.getElementById('bgDimRange').value = s.bgDim;
             if (s.bgBlur !== undefined && document.getElementById('bgBlurRange')) document.getElementById('bgBlurRange').value = s.bgBlur;
             if (typeof applyBgImageSettings === 'function') applyBgImageSettings();
-            if (typeof window.applyGraphicQuality === 'function') window.applyGraphicQuality(performanceMode === 'auto' ? 'auto' : graphicQuality);
+            if (typeof window.applyGraphicQuality === 'function') window.applyGraphicQuality(graphicQuality);
         }, 0);
         if (s.currentSf && SF_URLS[s.currentSf]) currentSf = s.currentSf;
         if (s.currentStringSf && SF_URLS[s.currentStringSf]) currentStringSf = s.currentStringSf;
@@ -10005,21 +10087,21 @@ function resetBlackKeyBaseColor(){
     root.setProperty('--piano-black-mid','#151a22');
     root.setProperty('--piano-black-bottom','#040506');
 }
-// === Warna custom user vs warna seat (multiplayer) =========================
-// Warna seat hanyalah DEFAULT identitas di dalam room. Begitu user memilih
-// warna sendiri di panel Visual (TERMASUK PUTIH), pilihan user MENANG untuk
-// tampilan lokalnya. Reset/preset mengembalikan ke warna seat.
-// Pemain lain tetap melihat warna seat user ini di layar mereka.
+// === Custom user colour vs seat colour (multiplayer) =======================
+// The seat colour is only the DEFAULT identity inside a room. Once the user
+// picks their own colour in the Visual panel (INCLUDING WHITE), the user's
+// choice WINS for their local view. Reset/preset returns to the seat colour.
+// Other players still see this user's seat colour on their screens.
 //
-// Standar pro: bedakan "default state" dengan "user explicitly chose color".
-// Putih juga bisa dipilih sebagai custom. Cara satu-satunya untuk kembali ke
-// warna seat adalah tombol Reset (yang men-set NO_COLOR).
-var customWhiteKey = null;   // null = belum custom (pakai seat) ; string hex = warna pilihan user
+// Distinguish "default state" from "user explicitly chose a colour". White can
+// also be chosen as custom. The only way back to the seat colour is the Reset
+// button (which sets NO_COLOR).
+var customWhiteKey = null;   // null = not custom yet (use seat) ; hex string = user-chosen colour
 var customBlackKey = null;
 var customAnimNote = null;
 var customChordColor = null;
 function selfSeatKeyColor(){
-    if(customWhiteKey || customBlackKey) return ''; // user sudah custom → tampilan ikut --accent-white global
+    if(customWhiteKey || customBlackKey) return ''; // user already customised → view follows global --accent-white
     return _mpSelfSeatColor || '';
 }
 function selfSeatNoteOpts(){
@@ -10036,10 +10118,10 @@ function selfSeatNoteOpts(){
 function userCustomChordColor(){
     return customChordColor || '';
 }
-// Sinkronkan TAMPILAN color pad ke warna efektif saat ini:
-// custom user kalau ada, kalau tidak warna seat di room, kalau tidak default.
-// Display-only (updateColorPadValue tidak memanggil handler), jadi tidak
-// pernah mengubah state custom.
+// Sync the color pad DISPLAY to the current effective colour:
+// user custom if any, else the seat colour in the room, else the default.
+// Display-only (updateColorPadValue doesn't call the handler), so it never
+// changes the custom state.
 function syncColorPadsToEffectiveColors(){
     try{
         const seat = _mpSelfSeatColor || '';
@@ -10057,10 +10139,10 @@ function syncColorPadsToEffectiveColors(){
 function setWhiteKeyColor(color){
     const root=document.documentElement.style;
     resetWhiteKeyBaseColor();
-    // Update custom flag berdasarkan intent (sumber panggilan):
-    //   'user'  -> user pilih warna di color pad (termasuk putih)  -> custom
-    //   'reset' -> klik tombol Reset                                -> kembali seat
-    //   null    -> load settings / factory defaults                 -> jangan ubah
+    // Update the custom flag based on intent (call source):
+    //   'user'  -> user picked a colour in the color pad (incl. white) -> custom
+    //   'reset' -> clicked the Reset button                            -> back to seat
+    //   null    -> load settings / factory defaults                    -> don't change
     if(_activeColorPadIntent === 'user'){
         customWhiteKey = (color === NO_COLOR || color === null) ? null : (normalizeHexColor(color) || null);
     } else if(_activeColorPadIntent === 'reset' || color === NO_COLOR || color === null){
@@ -10125,11 +10207,12 @@ function populateGrid(id, handler){
 }
 function getSaberAuraMetrics(){
     const level = sliderCurve(saberAuraSize, 1.04);
+    // Aura height +50%: taller, softer aura at the same slider %.
     return {
-        height: Math.round(22 * level),
-        blur: Math.round(5 * level),
-        shadowHeight: Math.round(8 * level),
-        shadowBlur: Math.round(4 * level)
+        height: Math.round(33 * level),
+        blur: Math.round(8 * level),
+        shadowHeight: Math.round(12 * level),
+        shadowBlur: Math.round(6 * level)
     };
 }
 function applySaberAuraHeight(){
@@ -10175,7 +10258,7 @@ function updateSaberLine(){
     if(!el) return;
     const baseColor = normalizeHexColor(saberColor) || '#00e5ff';
     const saturatedColor = applySaberSaturation(baseColor, saberSaturation);
-    const intensity = sliderCurve(saberBrightness, 1.10);
+    const intensity = sliderRatio(saberBrightness) * 2; // Intensity +100%
     const opacityLevel = sliderRatio(saberOpacity);
     const auraLevel = sliderCurve(saberAuraSize, 1.04);
     const lineColor = saturatedColor;
@@ -10244,19 +10327,19 @@ function setSaberColor(color){
 function setDustColor(color){
     dustColor = normalizeHexColor(color) || '#ffffff';
     updateColorPadValue('gridDust', dustColor);
-    _smokeSpriteCache.clear();
+    _dustSpriteCache.clear();
 }
 function syncSaberFxButtons(){
-    const saberBtn = document.getElementById('saberEnabledBtn');
-    const particleBtn = document.getElementById('particleEnabledBtn');
+    const saberTrack = document.getElementById('saberEnabledTrack');
+    const particleTrack = document.getElementById('particleEnabledTrack');
     const settingsSaberTrack = document.getElementById('settingsSaberTrack');
     const settingsDustTrack = document.getElementById('settingsDustTrack');
     const amountRange = document.getElementById('settingsDustAmountRange');
     const amountVal = document.getElementById('settingsDustAmountVal');
-    if(saberBtn){ saberBtn.classList.toggle('active', saberEnabled); saberBtn.textContent = saberEnabled ? 'Strike On' : 'Strike Off'; }
+    if(saberTrack){ saberTrack.classList.toggle('active', saberEnabled); }
     if(settingsSaberTrack){ settingsSaberTrack.classList.toggle('active', saberEnabled); }
     if(settingsDustTrack){ settingsDustTrack.classList.toggle('active', saberDustEnabled); }
-    if(particleBtn){ particleBtn.classList.toggle('active', saberDustEnabled); particleBtn.textContent = saberDustEnabled ? 'Particle ON' : 'Particle OFF'; }
+    if(particleTrack){ particleTrack.classList.toggle('active', saberDustEnabled); }
     const amountRangeMain = document.getElementById('dustAmountRange');
     const amountValMain = document.getElementById('dustAmountVal');
     if(amountRange) amountRange.value = particleCount;
@@ -10273,7 +10356,9 @@ function setSaberFx(part, value){
     updateSaberLine();
 }
 function setParticleSetting(name, value){
-    const v = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    // Count & Size are capped at 50% (0-50 sliders); the rest stay 0-100.
+    const maxV = (name === 'count' || name === 'size') ? 50 : 100;
+    const v = Math.max(0, Math.min(maxV, Math.round(Number(value) || 0)));
     const map = {
         count: ['particleCount', 'particleCountRange', 'particleCountVal'],
         size: ['particleSize', 'particleSizeRange', 'particleSizeVal'],
@@ -10286,7 +10371,7 @@ function setParticleSetting(name, value){
     const meta = map[name];
     if(!meta) return;
     if(name === 'count') { particleCount = v; saberDustAmount = v; }
-    else if(name === 'size') { particleSize = v; saberDustSize = v; _smokeSpriteCache.clear(); }
+    else if(name === 'size') { particleSize = v; saberDustSize = v; _dustSpriteCache.clear(); }
     else if(name === 'opacity') { particleOpacity = v; }
     else if(name === 'speed') { particleSpeed = v; }
     else if(name === 'turbulence') { particleTurbulence = v; }
@@ -10316,23 +10401,11 @@ function setDustBlendMode(mode){
     if(solidBtn) solidBtn.classList.toggle('active', dustBlendMode === 'solid');
     if(typeof ensureAnimLoop === 'function' && falling.length > 0) ensureAnimLoop();
 }
-function setParticleShape(shape){
-    particleShape = shape === 'dot' ? 'dot' : 'smoke';
-    const smokeBtn = document.getElementById('particleShapeSmoke');
-    const dotBtn = document.getElementById('particleShapeDot');
-    if(smokeBtn) smokeBtn.classList.toggle('active', particleShape === 'smoke');
-    if(dotBtn) dotBtn.classList.toggle('active', particleShape === 'dot');
-    _dustSpriteKey = '';
-    if(typeof ensureAnimLoop === 'function' && falling.length > 0) ensureAnimLoop();
-}
 function setKeyGlowEnabled(on){
     keyGlowEnabled = !!on;
     document.body.classList.toggle('key-glow-on', keyGlowEnabled);
-    const btn = document.getElementById('keyGlowEnabledBtn');
-    if(btn){
-        btn.classList.toggle('active', keyGlowEnabled);
-        btn.textContent = keyGlowEnabled ? 'Light On' : 'Light Off';
-    }
+    const track = document.getElementById('keyGlowTrack');
+    if(track){ track.classList.toggle('active', keyGlowEnabled); }
 }
 function setKeyGlowIntensity(v){
     const n = Math.max(0, Math.min(100, parseInt(v, 10) || 0));
@@ -10414,17 +10487,14 @@ populateGrid('gridWhiteTuts', setWhiteKeyColor); populateGrid('gridBlackTuts', s
 setAnimDoubleSplitTuts(animDoubleSplitTuts);
 updateAnimModeControls();
 document.getElementById('animDoubleSplitRange')?.addEventListener('input', e => setAnimDoubleSplitTuts(e.target.value));
-document.getElementById('saberEnabledBtn')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
+document.getElementById('saberEnabledTrack')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
 document.getElementById('settingsSaberTrack')?.addEventListener('click', () => setSaberFx('saber', !saberEnabled));
 document.getElementById('settingsDustTrack')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
-document.getElementById('particleEnabledBtn')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
+document.getElementById('particleEnabledTrack')?.addEventListener('click', () => setSaberFx('dust', !saberDustEnabled));
 document.getElementById('dustBlendGlow')?.addEventListener('click', () => setDustBlendMode('glow'));
 document.getElementById('dustBlendSolid')?.addEventListener('click', () => setDustBlendMode('solid'));
 setDustBlendMode(dustBlendMode);
-document.getElementById('particleShapeSmoke')?.addEventListener('click', () => setParticleShape('smoke'));
-document.getElementById('particleShapeDot')?.addEventListener('click', () => setParticleShape('dot'));
-setParticleShape(particleShape);
-document.getElementById('keyGlowEnabledBtn')?.addEventListener('click', () => setKeyGlowEnabled(!keyGlowEnabled));
+document.getElementById('keyGlowTrack')?.addEventListener('click', () => setKeyGlowEnabled(!keyGlowEnabled));
 document.getElementById('keyGlowIntensityRange')?.addEventListener('input', e => setKeyGlowIntensity(e.target.value));
 setKeyGlowEnabled(keyGlowEnabled);
 setKeyGlowIntensity(keyGlowIntensity);
@@ -11129,7 +11199,24 @@ var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordO
 })();
 
 let midiAccess = null;
+let midiEnabled = false;
 const midiBtn = document.getElementById('midiBtn');
+function _attachMidiInputs(){
+    if(!midiAccess) return;
+    // Property assignment (not addEventListener) so re-running never stacks
+    // duplicate listeners on the same input.
+    midiAccess.inputs.forEach(input => { input.onmidimessage = (msg) => _handleMidiMessage(msg.data); });
+}
+function _detachMidiInputs(){
+    if(!midiAccess) return;
+    midiAccess.inputs.forEach(input => { input.onmidimessage = null; });
+}
+function _onMidiStateChange(){
+    // A device was (un)plugged or one that failed earlier is now ready — re-scan
+    // and re-attach so MIDI reconnects without a reload/relog.
+    if(midiEnabled) _attachMidiInputs();
+}
+function _setMidiUiActive(on){ if(midiBtn) midiBtn.classList.toggle('active', !!on); }
 
 // Web MIDI handler, extracted so the dispatch logic is unit-testable. Note: we
 // deliberately do NOT filter GM channel 10 here. A live controller or DAW track
@@ -11172,32 +11259,31 @@ function _handleMidiMessage(data){
 }
 window._handleMidiMessage = _handleMidiMessage;
 
-midiBtn.onclick = (e) => {
-    const isOn = e.target.classList.toggle('active');
-    if (isOn) {
-        if (navigator.requestMIDIAccess) {
-            navigator.requestMIDIAccess().then(midi => {
-                midiAccess = midi;
-                const inputs = midi.inputs.values();
-                for (let input of inputs) {
-                    input.onmidimessage = (msg) => _handleMidiMessage(msg.data);
-                }
-                midi.onstatechange = () => {};
-            }).catch(err => {
-                e.target.classList.remove('active');
-                showToast('MIDI access was denied or is unavailable. Check your browser permissions.', { type:'error', title:'MIDI unavailable' });
-            });
-        } else {
-            e.target.classList.remove('active');
+midiBtn.onclick = () => {
+    if(!midiEnabled){
+        if(!navigator.requestMIDIAccess){
+            _setMidiUiActive(false);
             showToast('This browser does not support the Web MIDI API. Try Chrome or Edge on desktop.', { type:'error', title:'MIDI not supported' });
+            return;
         }
+        midiEnabled = true;
+        _setMidiUiActive(true);
+        // Reuse an existing access object (instant re-enable + still hot-plug aware).
+        if(midiAccess){ _attachMidiInputs(); return; }
+        navigator.requestMIDIAccess().then(midi => {
+            midiAccess = midi;
+            midi.onstatechange = _onMidiStateChange;
+            if(midiEnabled) _attachMidiInputs(); else _detachMidiInputs();
+        }).catch(() => {
+            midiEnabled = false;
+            _setMidiUiActive(false);
+            showToast('MIDI access was denied or is unavailable. Check your browser permissions.', { type:'error', title:'MIDI unavailable' });
+        });
     } else {
-        if (midiAccess) {
-            const inputs = midiAccess.inputs.values();
-            for (let input of inputs) input.onmidimessage = null;
-            setMidiSustainPedal(false);
-            midiAccess = null;
-        }
+        midiEnabled = false;
+        _setMidiUiActive(false);
+        _detachMidiInputs();
+        setMidiSustainPedal(false);
         stopAllNotes();
     }
 };
@@ -11292,8 +11378,11 @@ midiBtn.onclick = (e) => {
 })();
 
 (function(){
-    const btns = { gfxLow:'low', gfxMed:'high', gfxHigh:'ultra' };
+    const btns = { gfxPotato:'potato', gfxDefault:'default' };
     const lowHiddenRows = ['rowAnimEffect','rowAnimTone'];
+    // Potato locks & hides the heavy-FX menus (particles + strike line) so they
+    // can't be enabled in the limited tier.
+    const lowHiddenSelectors = ['[data-visual-open="particle"]', '[data-visual-open="saber"]'];
     const mediumHiddenRows = [];
     function effectiveQuality(){ return typeof getEffectiveGraphicQuality === 'function' ? getEffectiveGraphicQuality() : graphicQuality; }
     function refreshGraphicButtons(){
@@ -11333,20 +11422,21 @@ midiBtn.onclick = (e) => {
         const nextDPR = typeof getRenderDPR === 'function' ? getRenderDPR() : prevDPR;
         if(nextDPR !== prevDPR){
             if(typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
-            if(typeof _smokeSpriteCache !== 'undefined' && _smokeSpriteCache.clear) _smokeSpriteCache.clear();
+            if(typeof _dustSpriteCache !== 'undefined' && _dustSpriteCache.clear) _dustSpriteCache.clear();
             if(typeof syncCanvasSize === 'function') syncCanvasSize(false);
         }
         refreshGraphicButtons();
     }
     function updateManualQualityUi(q, destructive){
-        const isLow = q === 'low';
+        const isLow = q === 'potato';
         const isMed = q === 'medium';
         if(destructive){
             lowHiddenRows.forEach(id => setDisplayById(id, !isLow));
+            lowHiddenSelectors.forEach(sel => { const el = document.querySelector(sel); if(el) el.style.display = isLow ? 'none' : ''; });
             mediumHiddenRows.forEach(id => setDisplayById(id, !isLow && !isMed));
         }
         const root = document.documentElement;
-        if(q === 'low'){
+        if(q === 'potato'){
             root.style.setProperty('--saber-wave-opacity','0.28');
             root.style.setProperty('--saber-shadow-a','rgba(255,255,255,0.08)');
             root.style.setProperty('--saber-shadow-b','rgba(255,255,255,0.03)');
@@ -11361,7 +11451,7 @@ midiBtn.onclick = (e) => {
         }
         [document.querySelector('.top'), ...document.querySelectorAll('.floating-panel')].forEach(el => {
             if(!el) return;
-            if(q === 'low'){
+            if(q === 'potato'){
                 el.style.backdropFilter = 'none';
                 el.style.webkitBackdropFilter = 'none';
             } else {
@@ -11372,8 +11462,9 @@ midiBtn.onclick = (e) => {
     }
     function applyGraphicQuality(q, applyDefaults){
         const prevDPR = (typeof currentDPR !== 'undefined') ? currentDPR : 1;
+        // Two manual tiers (Potato/Default); 'auto' just falls back to the fixed default.
         const nextQuality = q === 'auto' ? _detectDefaultGraphicQuality() : q;
-        performanceMode = q === 'auto' ? 'auto' : 'manual';
+        performanceMode = 'manual';
         perfGovScale = 1.0; _perfSlowStreak = 0; _perfFastStreak = 0; _perfEmaMs = 1000 / 60; if(document.body) document.body.classList.remove('perf-lite');
         graphicQuality = GRAPHIC_PROFILES[nextQuality] ? nextQuality : _detectDefaultGraphicQuality();
         syncEffectiveGraphicState(prevDPR);
@@ -11553,6 +11644,26 @@ midiBtn.onclick = (e) => {
             btn.classList.add('active');
         };
     });
+
+    // Expose state so presets can save/restore the metronome (it lives in this
+    // private scope; without this it was silently dropped from every preset).
+    function applyBeats(n){
+        metroBeats = Math.max(1, Math.min(12, parseInt(n, 10) || 4));
+        document.querySelectorAll('.metro-beat-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.beats, 10) === metroBeats));
+        buildDots();
+        metroCurBeat = 0;
+    }
+    function applySound(name){
+        metroSound = name || 'click';
+        document.querySelectorAll('.metro-sound-btn').forEach(b => b.classList.toggle('active', b.dataset.sound === metroSound));
+    }
+    window.getMetronomeState = function(){ return { bpm: metroBpm, beats: metroBeats, sound: metroSound }; };
+    window.setMetronomeState = function(st){
+        if(!st || typeof st !== 'object') return;
+        if(st.bpm !== undefined) updateBpm(parseInt(st.bpm, 10) || metroBpm);
+        if(st.beats !== undefined) applyBeats(st.beats);
+        if(st.sound !== undefined) applySound(st.sound);
+    };
 
     buildDots();
 })();
@@ -11922,6 +12033,19 @@ midiBtn.onclick = (e) => {
     }
     let replyTarget = null;
     let selectedPlayer = null;
+    let chatIdleTimer = null;
+    function clearChatIdleTimer(){ if(chatIdleTimer){ clearTimeout(chatIdleTimer); chatIdleTimer = null; } }
+    function bumpChatActivity(){
+        if(!document.body.classList.contains('mp-chat-open')) return;
+        document.body.classList.remove('mp-chat-idle');
+        clearChatIdleTimer();
+        chatIdleTimer = setTimeout(() => {
+            if(document.body.classList.contains('mp-chat-open')) document.body.classList.add('mp-chat-idle');
+        }, 5000);
+    }
+    if(chatPanel){
+        ['pointerdown','keydown','input','focusin','wheel','touchstart'].forEach(ev => chatPanel.addEventListener(ev, bumpChatActivity, { passive:true }));
+    }
     let reportPlayer = null;
     let selectedReportReason = 'Spam';
     let blockedPlayersLoadedFor = '';
@@ -12006,7 +12130,10 @@ midiBtn.onclick = (e) => {
         }
     }
 
-    const MP_PLAYER_COLORS = ['#e63946','#ffffff','#b28cff','#4895ef','#5ee68a','#ffe066'];
+    // Brightest version of each seat hue (top-right corner of the colour picker:
+    // max saturation + max brightness), so default seat colours that drive
+    // falling notes / key visuals are vivid, not muted.
+    const MP_PLAYER_COLORS = ['#ff0013','#ffffff','#5400ff','#0076ff','#00ff52','#ffcb00'];
 
     function colorFromId(id){
         const text = String(id || '');
@@ -12121,7 +12248,7 @@ midiBtn.onclick = (e) => {
         return String(value ?? '').replace(/[&<>"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]));
     }
 
-    // Selaras dengan BASE_ROLE_REGISTRY di js/app.js (common -> PLAYER).
+    // Aligned with BASE_ROLE_REGISTRY in js/app.js (common -> PLAYER).
     const MP_BADGES_BASE = {
         common:    { id:'common',    label:'PLAYER',    rarity:'common' },
         supporter: { id:'supporter', label:'SUPPORTER', rarity:'supporter' },
@@ -13397,6 +13524,10 @@ midiBtn.onclick = (e) => {
             pushMpHistory('chat');
             renderMessages();
             updateChatCounter();
+            bumpChatActivity();
+        }else{
+            clearChatIdleTimer();
+            document.body.classList.remove('mp-chat-idle');
         }
     }
 
@@ -13450,7 +13581,12 @@ midiBtn.onclick = (e) => {
     function touchRoomPresence(){
         if(!firebaseReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
         const now = Date.now();
-        dbApi.update(dbRef(`roomPlayers/${currentRoom.id}/${mpSelfId}`), { lastSeen:now, lastActive:now, room:currentRoom.id }).catch(() => {});
+        // Re-assert the current valid name each heartbeat so a returning player is
+        // never left showing a stale fallback name in the room list.
+        const roomUpdate = { lastSeen:now, lastActive:now, room:currentRoom.id };
+        const selfName = (currentUser() && currentUser().name) || '';
+        if(selfName) roomUpdate.name = selfName;
+        dbApi.update(dbRef(`roomPlayers/${currentRoom.id}/${mpSelfId}`), roomUpdate).catch(() => {});
         dbApi.update(dbRef(`users/${mpSelfId}`), { room:currentRoom.id, online:true, lastSeen:now, lastActive:now, updatedAt:now }).catch(() => {});
         // Prune ghost players on every heartbeat
         const live = roomPlayersByRoom[currentRoom.id];
@@ -13677,24 +13813,20 @@ midiBtn.onclick = (e) => {
     }
 
     function renderMessages(){
+        const meId = currentUser().id;
         messagesBox.innerHTML = visibleRoomMessages().map(message => {
             const player = getPlayer(message.playerId);
-            const quote = message.replyTo ? `<div class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><span>${escapeHtml(message.replyTo.text)}</span></div>` : '';
+            const color = playerColor(player);
+            const quote = message.replyTo ? `<span class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><span>${escapeHtml(message.replyTo.text)}</span></span>` : '';
             return `
-                <div class="mp-message${message.playerId === currentUser().id ? ' mine' : ''}" data-mp-message="${escapeHtml(message.id)}">
-                    <button class="mp-message-avatar" type="button" data-mp-player="${escapeHtml(player.id)}" aria-label="${escapeHtml(player.name)}" style="--mp-player-color:${escapeHtml(playerColor(player))}">${chatAvatarContent(player)}</button>
-                    <article class="mp-bubble">
-                        <header class="mp-message-head">
-                            <div class="mp-message-meta">
-                                <span class="mp-message-name">${escapeHtml(player.name)}</span>
-                                <time class="mp-message-time">${escapeHtml(message.time)}</time>
-                            </div>
-                            <button class="mp-reply" type="button" data-mp-reply="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">${MP_REPLY_ICON}</button>
-                        </header>
+                <button class="mp-message${message.playerId === meId ? ' mine' : ''}" type="button" data-mp-message="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">
+                    <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(player)}</span>
+                    <span class="mp-bubble">
                         ${quote}
-                        <div class="mp-message-text">${escapeHtml(message.text)}</div>
-                    </article>
-                </div>
+                        <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
+                        <span class="mp-message-text">${escapeHtml(message.text)}</span>
+                    </span>
+                </button>
             `;
         }).join('');
         renderChatPreview();
@@ -15361,7 +15493,7 @@ midiBtn.onclick = (e) => {
             return;
         }
 
-        // Color: self = warna custom user (jika ada) atau warna seat; remote = warna seat mereka
+        // Color: self = user custom colour (if any) or seat colour; remote = their seat colour
         var color = playerColor(mpSelfId);
         if(bestSource === 'self'){
             var customChord = (typeof userCustomChordColor === 'function') ? userCustomChordColor() : '';
@@ -15631,10 +15763,13 @@ midiBtn.onclick = (e) => {
         if(currentAuthUser && currentAuthUser.uid === authUser.uid && players.some(player => player.id === authUser.uid)) return currentUser();
         currentAuthUser = authUser;
         mpSelfId = authUser.uid;
+        // Keep a previously-resolved real name so a transient auth refresh with an
+        // empty displayName never downgrades the user to a fallback ("Papiano User").
+        const prevValidName = (players.find(player => player.id === authUser.uid) || {}).name || '';
         purgeLocalGuestPlayers();
         loadRemoteMixer();
         const homeProfile = await ensureHomeProfile(authUser, {
-            name:authUser.displayName || fallbackName(),
+            name:authUser.displayName || prevValidName || fallbackName(),
             photoURL:authUser.photoURL || '',
             badgeId:'common',
             uid:mpSelfId
@@ -15658,7 +15793,7 @@ midiBtn.onclick = (e) => {
             dislikes:homeProfile.dislikes,
             countryCode:homeProfile.countryCode,
             online:true,
-            room:null
+            room:currentRoom ? currentRoom.id : null
         });
         try{
             await dbApi.update(dbRef(`users/${mpSelfId}`), {
@@ -15974,7 +16109,6 @@ midiBtn.onclick = (e) => {
                 attachRoomsListener();
                 attachUsersListener();
                 attachRoleRegistryListener();
-                showToast('Online mode connected.', { type:'success', title:'Papiano' });
             }catch(e){
                 firebaseReady = false;
                 firebaseInitPromise = null;
@@ -16100,19 +16234,13 @@ midiBtn.onclick = (e) => {
     });
 
     function handleMessageAction(event){
-        const reply = event.target.closest('[data-mp-reply]');
-        const player = event.target.closest('[data-mp-player]');
-        if(reply){
-            event.preventDefault(); event.stopPropagation();
-            const message = messages.find(item => item.id === reply.dataset.mpReply);
-            if(message) setReply(message);
-            return;
-        }
-        if(player){ event.preventDefault(); event.stopPropagation(); openProfile(player.dataset.mpPlayer); }
+        const row = event.target.closest('[data-mp-message]');
+        if(!row) return;
+        const message = messages.find(item => item.id === row.dataset.mpMessage);
+        if(message) setReply(message);
     }
 
     messagesBox.addEventListener('click', handleMessageAction);
-    messagesBox.addEventListener('pointerup', event => { if(event.target.closest('[data-mp-reply]')) handleMessageAction(event); }, { passive:false });
     chatForm.addEventListener('submit', event => { event.preventDefault(); addMessage(chatInput.value); });
     chatInput?.addEventListener('keydown', event => {
         if(event.key === 'Enter' && !event.shiftKey){
@@ -16188,8 +16316,14 @@ midiBtn.onclick = (e) => {
     });
 
     document.addEventListener('visibilitychange', () => {
-        if(document.hidden) pauseMpPlayTimeTracker(true);
-        else if(isSignedIn()) startMpPlayTimeTracker();
+        if(document.hidden){ pauseMpPlayTimeTracker(true); return; }
+        if(!isSignedIn()) return;
+        startMpPlayTimeTracker();
+        // Returning from background / another app: re-assert presence immediately so
+        // a valid player isn't left stale (and pruned as a ghost), and resume the
+        // heartbeat that the browser throttled while hidden.
+        if(currentRoom && isInPianoRoom() && typeof startRoomPresenceHeartbeat === 'function') startRoomPresenceHeartbeat();
+        if(typeof touchGlobalPresence === 'function') touchGlobalPresence();
     });
 
     replaceMpHistory('multiHome');
