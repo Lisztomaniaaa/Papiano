@@ -428,6 +428,15 @@
         <div class="visual-subpage" data-visual-subpage="particle">
             <button class="btn visual-back-btn" type="button" data-visual-back>← Back</button>
             <div class="color-group-title">Particles</div>
+            <div class="color-row compact-color-row" id="rowStrikeFxStyle">
+                <div class="section-title">Strike Effect</div>
+                <div class="anim-style-grid" style="grid-template-columns:1fr 1fr;">
+                    <button class="btn active" type="button" id="strikeFxParticles">Particles</button>
+                    <button class="btn" type="button" id="strikeFxBeam">Beam</button>
+                    <button class="btn" type="button" id="strikeFxRipple">Ripple</button>
+                    <button class="btn" type="button" id="strikeFxSpark">Spark</button>
+                </div>
+            </div>
             <div class="color-row compact-color-row" id="rowParticleFx">
                 <div class="ui-setting-head-gap">
                     <div class="section-title">Particles</div>
@@ -493,6 +502,48 @@
             <div class="color-row compact-color-row" id="rowDustColor">
                 <div class="section-title">Particle Color</div>
                 <div class="color-pad-host" id="gridDust"></div>
+            </div>
+            <div class="color-row compact-color-row" id="rowBeamHeight">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Height</span>
+                    <span class="ui-value-sm" id="beamHeightVal">55%</span>
+                </div>
+                <input class="ui-full" type="range" id="beamHeightRange" min="0" max="100" value="55" aria-label="Beam Height">
+            </div>
+            <div class="color-row compact-color-row" id="rowBeamSpeed">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Speed</span>
+                    <span class="ui-value-sm" id="beamSpeedVal">50%</span>
+                </div>
+                <input class="ui-full" type="range" id="beamSpeedRange" min="0" max="100" value="50" aria-label="Beam Speed">
+            </div>
+            <div class="color-row compact-color-row" id="rowRippleSize">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Size</span>
+                    <span class="ui-value-sm" id="rippleSizeVal">50%</span>
+                </div>
+                <input class="ui-full" type="range" id="rippleSizeRange" min="0" max="100" value="50" aria-label="Ripple Size">
+            </div>
+            <div class="color-row compact-color-row" id="rowRippleSpeed">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Speed</span>
+                    <span class="ui-value-sm" id="rippleSpeedVal">50%</span>
+                </div>
+                <input class="ui-full" type="range" id="rippleSpeedRange" min="0" max="100" value="50" aria-label="Ripple Speed">
+            </div>
+            <div class="color-row compact-color-row" id="rowSparkCount">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Count</span>
+                    <span class="ui-value-sm" id="sparkCountVal">50%</span>
+                </div>
+                <input class="ui-full" type="range" id="sparkCountRange" min="0" max="100" value="50" aria-label="Spark Count">
+            </div>
+            <div class="color-row compact-color-row" id="rowSparkSpeed">
+                <div class="ui-setting-head">
+                    <span class="ui-label">Speed</span>
+                    <span class="ui-value-sm" id="sparkSpeedVal">50%</span>
+                </div>
+                <input class="ui-full" type="range" id="sparkSpeedRange" min="0" max="100" value="50" aria-label="Spark Speed">
             </div>
         </div>
 
@@ -1008,7 +1059,7 @@
         </div>
         <button class="metro-start-btn" id="metroStartBtn">Start</button>
     </div>
-    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fxParticles"></canvas><canvas id="fx"></canvas><div id="saberLine"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
+    <div class="stage"><div id="customBgLayer"></div><div id="customBgDimLayer"></div><canvas id="fxParticles"></canvas><canvas id="fx"></canvas><div id="saberLine"></div><div id="strikeFxLayer"></div><div id="chordDisplay"><div class="chord-name primary" id="chordPrimary"></div><div class="chord-name secondary" id="chordSecondary"></div></div><div id="mpChordLive" aria-live="polite"></div></div><div id="perfHud" class="perf-hud"><span class="perf-fps">-- FPS</span></div>
     <div id="swipeStrip"></div>
     <div id="pianoWrap"><div id="pianoViewport"><div id="piano"></div><div id="activeKeyLayer"></div></div></div>
 </div>

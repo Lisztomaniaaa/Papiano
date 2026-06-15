@@ -2011,7 +2011,8 @@ function scheduleKeyVisual(el, active){
 function playPressVisual(n,k,burst){
     if(Number.isFinite(n)) _trackKeyColor(n, _KEY_SELF, selfSeatKeyColor(), k);
     scheduleKeyVisual(k, true);
-    startNeonDust(n, k);
+    if(strikeFxMode === 'particles') startNeonDust(n, k);
+    else spawnStrikeFx(n);
     pressStartTimes.set(n,performance.now());
     if(isAnimOn) addAnim(n);
     requestChordUpdate();
@@ -3472,6 +3473,107 @@ function setMotionSpeed(value){
     if(range && range.value !== String(motionSpeed)) range.value = String(motionSpeed);
     if(label) label.textContent = motionSpeed + '%';
 }
+
+/* ── Strike effect modes ────────────────────────────────────────────────────
+   Lightweight, compositor-only alternatives to the WebGL particles: each hit
+   spawns pooled DOM elements animated purely with transform + opacity (no
+   per-frame JS, no canvas redraw, no animated blur). Default 'particles' keeps
+   the existing behaviour, so this is fully opt-in. */
+let strikeFxMode = 'particles';            // particles | beam | ripple | spark
+let beamHeight = 55, beamSpeed = 50;
+let rippleSize = 50, rippleSpeed = 50;
+let sparkCount = 50, sparkSpeed = 50;
+const _sfxGet = id => document.getElementById(id);
+const _strikeFxLayer = _sfxGet('strikeFxLayer');
+const _strikeFxPool = [];
+function _strikeFxTake(){
+    let el = _strikeFxPool.pop();
+    if(!el){
+        el = document.createElement('div');
+        el.addEventListener('animationend', () => { el.style.display = 'none'; if(_strikeFxPool.length < 80) _strikeFxPool.push(el); else el.remove(); });
+    }
+    el.className = 'strike-fx';
+    el.style.cssText = '';
+    el.style.display = 'none';            // display:none -> '' guarantees the animation restarts on reuse
+    if(_strikeFxLayer && el.parentNode !== _strikeFxLayer) _strikeFxLayer.appendChild(el);
+    return el;
+}
+function spawnStrikeFx(midi){
+    if(!_strikeFxLayer || midi == null || strikeFxMode === 'particles') return;
+    const geom = getKeyStageGeom(midi);
+    if(!geom) return;
+    const cx = geom.x + geom.w * 0.5;
+    const color = getAnimBaseColorForMidi(midi) || '#78dcff';
+    if(strikeFxMode === 'beam'){
+        const el = _strikeFxTake();
+        el.classList.add('strike-beam');
+        el.style.left = cx + 'px';
+        el.style.setProperty('--c', color);
+        el.style.setProperty('--w', Math.max(6, geom.w * 0.7).toFixed(0) + 'px');
+        el.style.setProperty('--h', (40 + (beamHeight / 100) * 240).toFixed(0) + 'px');
+        el.style.setProperty('--dur', (1.05 - (beamSpeed / 100) * 0.72).toFixed(2) + 's');
+        el.style.display = '';
+    } else if(strikeFxMode === 'ripple'){
+        const el = _strikeFxTake();
+        el.classList.add('strike-ripple');
+        el.style.left = cx + 'px';
+        el.style.setProperty('--c', color);
+        el.style.setProperty('--s', (18 + (rippleSize / 100) * 96).toFixed(0) + 'px');
+        el.style.setProperty('--dur', (1.1 - (rippleSpeed / 100) * 0.8).toFixed(2) + 's');
+        el.style.display = '';
+    } else if(strikeFxMode === 'spark'){
+        const n = Math.round(2 + (sparkCount / 100) * 8);
+        const baseDur = 1.0 - (sparkSpeed / 100) * 0.62;
+        for(let i = 0; i < n; i++){
+            const el = _strikeFxTake();
+            el.classList.add('strike-spark');
+            el.style.left = cx + 'px';
+            const ang = (-Math.PI / 2) + (Math.random() - 0.5) * 1.7;
+            const dist = 26 + Math.random() * 64;
+            el.style.setProperty('--c', color);
+            el.style.setProperty('--s', (3 + Math.random() * 3).toFixed(1) + 'px');
+            el.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
+            el.style.setProperty('--dy', (Math.sin(ang) * dist).toFixed(0) + 'px');
+            el.style.setProperty('--dur', (baseDur + Math.random() * 0.22).toFixed(2) + 's');
+            el.style.display = '';
+        }
+    }
+}
+const _strikeFxBtns = { strikeFxParticles:'particles', strikeFxBeam:'beam', strikeFxRipple:'ripple', strikeFxSpark:'spark' };
+const _strikeParticleRows = ['rowParticleFx','rowDustBlend','rowParticleCount','rowParticleSize','rowParticleOpacity','rowParticleSpeed','rowParticleTurbulence','rowParticleFade','rowParticleSaturation','rowDustColor'];
+const _strikeFxRowMap = { beam:['rowBeamHeight','rowBeamSpeed'], ripple:['rowRippleSize','rowRippleSpeed'], spark:['rowSparkCount','rowSparkSpeed'] };
+function syncStrikeFxRows(){
+    const show = (id, on) => { const el = _sfxGet(id); if(el) el.style.display = on ? '' : 'none'; };
+    _strikeParticleRows.forEach(id => show(id, strikeFxMode === 'particles'));
+    Object.keys(_strikeFxRowMap).forEach(m => _strikeFxRowMap[m].forEach(id => show(id, strikeFxMode === m)));
+}
+function setStrikeFxMode(mode){
+    if(mode !== 'particles' && !_strikeFxRowMap[mode]) mode = 'particles';
+    strikeFxMode = mode;
+    Object.keys(_strikeFxBtns).forEach(id => { const b = _sfxGet(id); if(b) b.classList.toggle('active', _strikeFxBtns[id] === mode); });
+    if(mode !== 'particles' && typeof neonDustEmitters !== 'undefined' && neonDustEmitters) neonDustEmitters.clear();
+    syncStrikeFxRows();
+}
+Object.keys(_strikeFxBtns).forEach(id => { const b = _sfxGet(id); if(b) b.addEventListener('click', () => setStrikeFxMode(_strikeFxBtns[id])); });
+function _mkFxSetter(rangeId, labelId, apply){
+    const set = v => {
+        const val = Math.max(0, Math.min(100, Math.round(Number(v) || 0)));
+        apply(val);
+        const r = _sfxGet(rangeId), l = _sfxGet(labelId);
+        if(r && r.value !== String(val)) r.value = val;
+        if(l) l.textContent = val + '%';
+    };
+    const r = _sfxGet(rangeId); if(r) r.addEventListener('input', () => set(r.value));
+    return set;
+}
+const setBeamHeight  = _mkFxSetter('beamHeightRange', 'beamHeightVal', v => { beamHeight = v; });
+const setBeamSpeed   = _mkFxSetter('beamSpeedRange', 'beamSpeedVal', v => { beamSpeed = v; });
+const setRippleSize  = _mkFxSetter('rippleSizeRange', 'rippleSizeVal', v => { rippleSize = v; });
+const setRippleSpeed = _mkFxSetter('rippleSpeedRange', 'rippleSpeedVal', v => { rippleSpeed = v; });
+const setSparkCount  = _mkFxSetter('sparkCountRange', 'sparkCountVal', v => { sparkCount = v; });
+const setSparkSpeed  = _mkFxSetter('sparkSpeedRange', 'sparkSpeedVal', v => { sparkSpeed = v; });
+syncStrikeFxRows();
+
 setKeyDustIntensity(keyDustIntensity);
 refreshKeyDustColorCache();
 
@@ -3886,6 +3988,13 @@ function getCurrentSettings() {
         particleFade,
         saberMotion,
         motionSpeed,
+        strikeFxMode,
+        beamHeight,
+        beamSpeed,
+        rippleSize,
+        rippleSpeed,
+        sparkCount,
+        sparkSpeed,
         dustBlendMode,
         currentGlassColor,
         pianoHeight: Math.max(6, Number(document.getElementById('hRange').value) || 50),
@@ -4035,6 +4144,13 @@ function applySettings(s) {
         setDustBlendMode(s.dustBlendMode === 'solid' ? 'solid' : 'glow');
         setSaberMotion('static');
         setMotionSpeed(s.motionSpeed !== undefined ? s.motionSpeed : motionSpeed);
+        if(s.beamHeight !== undefined) setBeamHeight(s.beamHeight);
+        if(s.beamSpeed !== undefined) setBeamSpeed(s.beamSpeed);
+        if(s.rippleSize !== undefined) setRippleSize(s.rippleSize);
+        if(s.rippleSpeed !== undefined) setRippleSpeed(s.rippleSpeed);
+        if(s.sparkCount !== undefined) setSparkCount(s.sparkCount);
+        if(s.sparkSpeed !== undefined) setSparkSpeed(s.sparkSpeed);
+        setStrikeFxMode(s.strikeFxMode !== undefined ? s.strikeFxMode : strikeFxMode);
         syncSaberFxButtons();
         currentGlassColor = normalizeHexColor(s.currentGlassColor) || '#ffffff';
         const savedPianoHeight = Number(s.pianoHeight);
@@ -8987,7 +9103,9 @@ midiBtn.onclick = () => {
         if(keyEl) scheduleKeyVisual(keyEl, true);
         const level = getRemoteVisualLevel();
         addRemoteAnim(midi, playerId, level, color);
-        if(level === 'full' && saberDustEnabled){
+        if(strikeFxMode !== 'particles'){
+            spawnStrikeFx(midi);
+        } else if(level === 'full' && saberDustEnabled){
             const geom = getKeyStageGeom(midi);
             if(geom) spawnNeonDust(geom, geom.isBlack ? 2 : 3);
         }
