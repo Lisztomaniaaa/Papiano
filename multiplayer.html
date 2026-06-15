@@ -1495,7 +1495,7 @@ body.key-glow-on #piano .black.active{
 }
 #metroBtn.active{ background:linear-gradient(135deg,rgba(91,198,242,0.92),rgba(127,226,255,0.70)) !important; border-color:rgba(157,235,255,0.72) !important; color:#061117 !important; }
 
-.graphic-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin-top:5px; }
+.graphic-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:7px; margin-top:5px; }
 .graphic-btn {
     padding:9px 0; border-radius:12px; border:1px solid rgba(255,255,255,0.1);
     background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.7);
@@ -2237,7 +2237,7 @@ body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-wh
 .chord-name.primary{ color:var(--chord-primary) !important; }
 .chord-name.secondary{ color:var(--chord-secondary) !important; opacity:0; }
 .chord-name.secondary.show{ opacity:.62; }
-.graphic-grid{ grid-template-columns:repeat(4,1fr) !important; }
+.graphic-grid{ grid-template-columns:repeat(2,1fr) !important; }
 .option-grid-3{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; margin-top:6px; }
 .option-grid-3 .btn{ width:100%; padding-left:8px !important; padding-right:8px !important; font-size:11px !important; }
 .color-pad-host{ width:100%; }
@@ -5605,10 +5605,9 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
                         <div class="section-title ui-mb8">Graphics Quality</div>
                         <div class="graphic-grid">
                             <button class="graphic-btn" id="gfxLow">Potato</button>
-                            <button class="graphic-btn" id="gfxMed">Mobile</button>
                             <button class="graphic-btn" id="gfxHigh">PC</button>
                         </div>
-                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Limited (heavy FX hidden) · Mobile = Balanced · PC = No Limits (Maxed)</div>
+                        <div style="color:rgba(255,255,255,0.35); font-size:10px; margin-top:6px;">Potato = Limited (heavy FX hidden) · PC = No Limits (Maxed)</div>
                     </div>
                     <div class="perf-setting-block ui-mt8">
                         <div class="ui-setting-head-gap">
@@ -7735,15 +7734,12 @@ function _detectDefaultGraphicQuality(){
         const ua = (navigator.userAgent || '').toLowerCase();
         const isMobileUA = /android|iphone|ipod|mobile|webview/i.test(ua) || (/ipad/.test(ua) && isCoarse);
 
-        // UI tiers: low = Potato, high = Mobile, ultra = PC. Primary signal is the
-        // device type: a touch/mobile device gets the Mobile tier, anything else is
-        // a real desktop and gets the uncapped PC tier. Core/RAM/screen size do NOT
-        // demote a desktop to Mobile (that misclassified many real PCs). Only a
-        // genuinely tiny device falls back to Potato.
+        // Only two tiers remain: low = Potato (default), ultra = PC. A real desktop
+        // gets the uncapped PC tier; touch/mobile and anything weak default to Potato.
         const tiny = cores <= 2 || mem <= 2;
-        if (isMobileUA || isCoarse) return tiny ? 'low' : 'high';     // mobile/touch -> Mobile
-        return tiny ? 'low' : 'ultra';                               // desktop/PC -> PC
-    } catch(e) { return 'high'; }
+        if (isMobileUA || isCoarse) return 'low';                    // mobile/touch -> Potato (default)
+        return tiny ? 'low' : 'ultra';                              // desktop -> PC, else Potato
+    } catch(e) { return 'low'; }
 }
 let graphicQuality = _detectDefaultGraphicQuality();
 let performanceMode = 'manual';
@@ -9342,7 +9338,7 @@ let particleTurbulence = 30;
 let particleSaturation = 100;
 let particleFade = 45;
 
-// --- Dual particle amounts: mobile (Medium/high tier) vs PC (ultra tier) ---
+// --- Dual particle amounts: non-PC tier (Potato) vs PC (ultra tier) ---
 // Each device "mode" remembers its own particle settings, so switching tiers or
 // loading a preset restores the right amounts per device instead of sharing one
 // value. PC has no particle cap, so the same number renders ~2x denser than
@@ -10019,7 +10015,8 @@ function applySettings(s) {
         if (s.perfHudEnabled !== undefined) setPerformanceMonitor(!!s.perfHudEnabled);
         // 'auto' retired: old presets that stored it fall back to smart detection.
         performanceMode = 'manual';
-        if (s.graphicQuality !== undefined && GRAPHIC_PROFILES[s.graphicQuality]) graphicQuality = s.graphicQuality;
+        // Only Potato (low) and PC (ultra) exist; map any retired tier (mobile/medium/high) to Potato.
+        if (s.graphicQuality !== undefined) graphicQuality = (s.graphicQuality === 'ultra') ? 'ultra' : 'low';
         setTimeout(() => {
             if (typeof setBgFitMode === 'function' && s.bgFitMode) setBgFitMode(s.bgFitMode);
             if (typeof setBgPositionMode === 'function' && s.bgPositionMode) setBgPositionMode(s.bgPositionMode);
@@ -11463,7 +11460,7 @@ midiBtn.onclick = () => {
 })();
 
 (function(){
-    const btns = { gfxLow:'low', gfxMed:'high', gfxHigh:'ultra' };
+    const btns = { gfxLow:'low', gfxHigh:'ultra' };
     const lowHiddenRows = ['rowAnimEffect','rowAnimTone'];
     // Potato locks & hides the heavy-FX menus (particles + strike line) so they
     // can't be enabled in the limited tier.
