@@ -251,6 +251,12 @@ html[data-graphic-quality="potato"] #saberLine::after{
     to{ background-position:240px 100%, 50% 100%; }
 }
 
+/* Solo piano mode: hide all multiplayer chrome (rooms button, player strip, chat). */
+body.solo-mode #mpRoomBtn,
+body.solo-mode #mpPlayerStrip,
+body.solo-mode #mpChatPreview,
+body.solo-mode #mpChatPanel{ display:none !important; }
+
 @media (pointer: coarse) {
     #pianoWrap::before {
         display: none !important;

@@ -7532,6 +7532,7 @@ midiBtn.onclick = () => {
         leaveConfirm?.setAttribute('aria-hidden', 'false');
     }
     function requestLeaveRoom(source = 'button'){
+        if(isSolo()){ window.location.assign('/'); return; }
         if(isInPianoRoom()) openLeaveConfirm(source);
         else leaveRoomToHome();
     }
@@ -7565,6 +7566,7 @@ midiBtn.onclick = () => {
     }
 
     function leaveRoomToHome(){
+        if(isSolo()){ window.location.assign('/'); return; }
         closeLeaveConfirm();
         if(typeof stopAllNotes === 'function') stopAllNotes();
         clearRoomSubscriptions();
@@ -10418,7 +10420,25 @@ midiBtn.onclick = () => {
         if(typeof touchGlobalPresence === 'function') touchGlobalPresence();
     });
 
-    replaceMpHistory('multiHome');
-    showLayer('home', { skipHistory:true });
-    initFirebase().then(processStageIntent);
+    function isSolo(){ return typeof window !== 'undefined' && window.PAPIANO_SOLO === true; }
+    function bootSoloPiano(){
+        // Pure solo piano: no Firebase, no multiplayer home, no chat. A local
+        // "room" lets the existing piano UI render; every Firebase call guards on
+        // firebaseReady (which stays false), so they all no-op. Leave -> index.
+        document.body.classList.add('solo-mode');
+        mpSelfId = 'local_self';
+        currentRoom = { id:'solo', name:'Solo', max:1, ownerId:'local_self', hostId:'local_self', type:'public', count:1 };
+        currentScreen = 'pianoMulti';
+        startBackgroundSoundfont();
+        setRoomActive(true, { skipHistory:true });
+        setPianoInputReady(true);
+        if(typeof forceBootVisible === 'function') forceBootVisible();
+    }
+    if(isSolo()){
+        bootSoloPiano();
+    } else {
+        replaceMpHistory('multiHome');
+        showLayer('home', { skipHistory:true });
+        initFirebase().then(processStageIntent);
+    }
 })();
