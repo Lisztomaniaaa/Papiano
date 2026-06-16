@@ -20,7 +20,7 @@ console.log(`version.json -> ${version}`);
   html = html.replace(/(app\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(auth-email\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(updater\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(multiplayer\.css)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(multiplayer\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(multiplayer\/app\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(multiplayer\/init\.js)\?v=[^"']*/g, '$1?v=' + version);
   fs.writeFileSync(file, html);

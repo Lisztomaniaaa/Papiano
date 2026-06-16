@@ -1341,7 +1341,7 @@
     }
 
     function updateProfileView(profile) {
-        selectedBadgeId = normalizeRoleId(profile.roleId || profile.roleId || profile.badgeId || 'common');
+        selectedBadgeId = normalizeRoleId(profile.roleId || profile.badgeId || 'common');
         const badge = getBadge(selectedBadgeId);
         const playTimeLabel = formatPlayTime(profile.playTimeSeconds);
         const playTimeHourLabel = formatPlayTimeHours(profile.playTimeSeconds);
@@ -3184,7 +3184,9 @@
                 showToast('Only your messages can be edited.');
                 return;
             }
-            const nextText = prompt('Edit message', data.text || '');
+            const nextText = window.__papianoEditModal
+                ? await window.__papianoEditModal.show(data.text || '')
+                : prompt('Edit message', data.text || '');
             if (nextText === null) return;
             await ref.set({
                 text: String(nextText).trim().slice(0, 500),
