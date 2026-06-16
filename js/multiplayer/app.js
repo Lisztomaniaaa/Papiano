@@ -8348,7 +8348,9 @@ midiBtn.onclick = () => {
     function renderProfile(player){
         if(!player) return;
         profileAvatar.textContent = '';
-        profileAvatar.innerHTML = player.photoURL ? `<img src="${escapeHtml(player.photoURL)}" alt="${escapeHtml(player.name)}">` : '';
+        profileAvatar.innerHTML = player.photoURL
+            ? `<img src="${escapeHtml(player.photoURL)}" alt="${escapeHtml(player.name)}">`
+            : escapeHtml((player.name || '?').trim().charAt(0).toUpperCase() || '?');
         profileAvatar.setAttribute('aria-label', player.name);
         profileAvatar.style.setProperty('--mp-player-color', playerColor(player));
         profileName.textContent = player.name;

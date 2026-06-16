@@ -511,16 +511,7 @@
         if (roleEl) roleEl.textContent = signedIn ? 'Profile Menu' : 'Papiano';
 
         if (avImg && avIcon) {
-            if (signedIn && profile.photoURL && isSafeImage(profile.photoURL)) {
-                avImg.src = profile.photoURL;
-                avImg.style.display = 'block';
-                avIcon.style.display = 'none';
-            } else {
-                avImg.removeAttribute('src');
-                avImg.style.display = 'none';
-                avIcon.style.display = '';
-                avIcon.textContent = signedIn ? 'person' : 'account_circle';
-            }
+            applyAvatarSlot(avImg, avIcon, profile.photoURL, profile.name, signedIn, signedIn ? 'person' : 'account_circle');
         }
 
         if (authBtn && authLabel && authIcon) {
@@ -729,6 +720,30 @@
         const clean = String(name || 'User').trim();
         const parts = clean.split(/\s+/).filter(Boolean);
         return ((parts[0]?.[0] || 'U') + (parts[1]?.[0] || '')).toUpperCase();
+    }
+
+    // Render an avatar slot: photo if available, otherwise the first letter of
+    // the signed-in name (email accounts have no photo), else a generic icon.
+    function applyAvatarSlot(imgEl, iconEl, photoURL, name, signedIn, fallbackIcon) {
+        if (!imgEl || !iconEl) return;
+        if (signedIn && photoURL && isSafeImage(photoURL)) {
+            imgEl.src = photoURL;
+            imgEl.style.display = 'block';
+            iconEl.style.display = 'none';
+            iconEl.classList.remove('avatar-initial');
+            return;
+        }
+        imgEl.removeAttribute('src');
+        imgEl.style.display = 'none';
+        iconEl.style.display = '';
+        const letter = signedIn ? String(name || '').trim().charAt(0).toUpperCase() : '';
+        if (letter) {
+            iconEl.classList.add('avatar-initial');
+            iconEl.textContent = letter;
+        } else {
+            iconEl.classList.remove('avatar-initial');
+            iconEl.textContent = fallbackIcon || 'account_circle';
+        }
     }
 
     function countryCodeToFlag(code) {
@@ -1242,15 +1257,7 @@
 
         if (!avatarImg || !avatarIcon) return;
         const photoURL = String(profile.photoURL || currentUser.photoURL || '');
-        if (photoURL && isSafeImage(photoURL)) {
-            avatarImg.src = photoURL;
-            avatarImg.style.display = 'block';
-            avatarIcon.style.display = 'none';
-        } else {
-            avatarImg.removeAttribute('src');
-            avatarImg.style.display = 'none';
-            avatarIcon.style.display = '';
-        }
+        applyAvatarSlot(avatarImg, avatarIcon, photoURL, profile.name, !!currentUser, 'account_circle');
     }
 
     function updateProfileView(profile) {
@@ -1278,15 +1285,7 @@
         syncThemedSelectDisplay(formInputCountry);
         populateAccountRoleSelect(selectedBadgeId);
 
-        if (profile.photoURL && isSafeImage(profile.photoURL)) {
-            masterAvatarImg.src = profile.photoURL;
-            masterAvatarImg.style.display = 'block';
-            masterPlaceholderIcon.style.display = 'none';
-        } else {
-            masterAvatarImg.removeAttribute('src');
-            masterAvatarImg.style.display = 'none';
-            masterPlaceholderIcon.style.display = '';
-        }
+        applyAvatarSlot(masterAvatarImg, masterPlaceholderIcon, profile.photoURL, profile.name, !!currentUser, 'account_circle');
         // Keep brand sheet (mobile) and desktop sidebar auth button in sync
         // with auth/profile state, even when the brand sheet is closed.
         populateBrandSheet();
