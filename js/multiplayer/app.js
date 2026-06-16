@@ -2026,6 +2026,7 @@ function playReleaseVisual(n,k){
 }
 function pressWithVelocity(n,k,vel){
     if(!isPianoInputAllowed()) return;
+    if(window.__mpActivity) window.__mpActivity();
     const burst = markInputBurst();
     if(audioCtx.state==='suspended') audioCtx.resume();
     playNote(n,transpose,vel);
@@ -7573,6 +7574,7 @@ midiBtn.onclick = () => {
         if(roomPlayerDisconnect){ try{ roomPlayerDisconnect.cancel(); }catch(e){} roomPlayerDisconnect = null; }
         if(warmRemoteTimer){ clearTimeout(warmRemoteTimer); warmRemoteTimer = 0; }
         stopRoomPresenceHeartbeat();
+        stopRoomIdleWatch();
         leaveFirebaseRoom();
         const user = currentUser();
         if(user) user.room = null;
@@ -7708,6 +7710,7 @@ midiBtn.onclick = () => {
         // Wait for first roomPlayers snapshot before showing the room
         if(_roomPlayersReadyPromise) await _roomPlayersReadyPromise;
         setRoomActive(true);
+        startRoomIdleWatch();
         scheduleWarmRemoteInstruments(700);
         window.setTimeout(() => {
             if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendSustainState === 'function') window.PapianoMultiplayer.sendSustainState();
@@ -7739,6 +7742,42 @@ midiBtn.onclick = () => {
         if(roomPresenceTimer) clearInterval(roomPresenceTimer);
         roomPresenceTimer = 0;
     }
+
+    // ── AFK auto-leave ───────────────────────────────────────────────────────────
+    // A player sitting in a room without any real interaction for 20 minutes is
+    // sent back to the multiplayer home. The presence heartbeat keeps writing
+    // lastActive on its own, so without this an idle tab would linger forever and
+    // leave a ghost seat / stale name pill in the room.
+    const ROOM_IDLE_TIMEOUT_MS = 20 * 60 * 1000;
+    let _lastRoomActivityTs = Date.now();
+    let _roomIdleTimer = 0;
+
+    function bumpRoomActivity(){ _lastRoomActivityTs = Date.now(); }
+    window.__mpActivity = bumpRoomActivity;
+
+    function startRoomIdleWatch(){
+        stopRoomIdleWatch();
+        if(isSolo()) return; // solo piano never auto-leaves
+        _lastRoomActivityTs = Date.now();
+        _roomIdleTimer = window.setInterval(() => {
+            if(isSolo() || !isInPianoRoom()) return;
+            if(Date.now() - _lastRoomActivityTs >= ROOM_IDLE_TIMEOUT_MS){
+                stopRoomIdleWatch();
+                showToast('You were inactive for 20 minutes, so you left the room.', { type:'info', title:'Online Room' });
+                leaveRoomToHome();
+            }
+        }, 30000);
+    }
+
+    function stopRoomIdleWatch(){
+        if(_roomIdleTimer){ clearInterval(_roomIdleTimer); _roomIdleTimer = 0; }
+    }
+
+    // Any genuine user interaction resets the idle clock. Note playing also calls
+    // window.__mpActivity directly (covers MIDI hardware with no DOM events).
+    ['pointerdown','keydown','touchstart'].forEach(evt => {
+        document.addEventListener(evt, bumpRoomActivity, { passive:true, capture:true });
+    });
 
     function touchGlobalPresence(){
         if(!firebaseReady || !dbApi || !mpSelfId || mpSelfId === 'local_self') return;
