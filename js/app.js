@@ -1444,8 +1444,10 @@
                 label: 'Profile photo'
             });
             if (formInputPhotoUrl) formInputPhotoUrl.value = upload.url;
-            updateProfileView({ ...loadProfile(), photoURL: upload.url });
-            showToast('Photo updated.', 'Saved');
+            // Preview the picked photo in the account form only — it is NOT
+            // persisted (or reflected elsewhere) until the Save button is pressed.
+            applyAvatarSlot(masterAvatarImg, masterPlaceholderIcon, upload.url, formInputName?.value || currentProfile?.name, true, 'account_circle');
+            showToast('Photo ready — tap Save to apply.', 'Photo selected');
         } catch (error) {
             showToast(friendlyError(error, 'Couldn’t upload your photo.'));
         } finally {
