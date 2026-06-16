@@ -1,0 +1,26 @@
+{
+  "name": "Papiano Online",
+  "short_name": "Papiano",
+  "description": "Play piano online — solo or in live multiplayer rooms — with realtime SoundFont sound, chat, and MIDI support.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05132e",
+  "theme_color": "#05132e",
+  "categories": ["music", "entertainment", "games"],
+  "icons": [
+    {
+      "src": "https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp",
+      "sizes": "192x192",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any maskable"
+    }
+  ]
+}
