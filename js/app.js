@@ -645,6 +645,13 @@
 
     async function logoutPapianoAccount() {
         try {
+            // Mark multiplayer presence offline + stop the heartbeat before
+            // signing out, so a logged-out account doesn't linger as "online".
+            if (_mpPresenceRef) {
+                try { _mpPresenceRef.onDisconnect().cancel(); } catch (_e) {}
+                try { await _mpPresenceRef.update({ online: false, updatedAt: Date.now() }); } catch (_e) {}
+                _mpPresenceRef = null;
+            }
             await firebaseAuth.signOut();
         } catch (_error) {}
         // Clear profile cache so UI resets to default (no stale name/avatar)
