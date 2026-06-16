@@ -2,134 +2,244 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#060b14">
 <title>Papiano Admin</title>
 <style>
 :root{
   --bg:#060b14;--s1:#0d1526;--s2:#131e30;--s3:#1b2840;
   --bd:rgba(100,150,220,.10);--bd2:rgba(100,150,220,.20);
-  --accent:#4d90ff;--green:#00D66B;--red:#FB3F5C;--amber:#f59e0b;
+  --accent:#4d90ff;--green:#00D66B;--red:#FB3F5C;--amber:#f59e0b;--purple:#a87bff;
   --text:#e2eaf8;--muted:rgba(226,234,248,.55);--faint:rgba(226,234,248,.28);
-  --r:12px;--sw:220px;
+  --r:12px;--sw:230px;
+  --safe-b:env(safe-area-inset-bottom,0px);
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased}
-button,input,select,textarea{font-family:inherit;font-size:13px;cursor:pointer}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;font-size:14px;min-height:100vh;-webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,select,textarea{font-family:inherit;font-size:13px}
+button{cursor:pointer}
 input,select,textarea{cursor:text}
+::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:var(--s3);border-radius:8px}
 
-.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:100;flex-direction:column;gap:16px}
+/* ── SCREENS ── */
+.screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:100;flex-direction:column;gap:16px;padding:16px}
 .screen.off{display:none}
-.scard{background:var(--s1);border:1px solid var(--bd2);border-radius:20px;padding:36px 32px;width:min(380px,92vw);display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
-.scard-icon{font-size:40px}
+.scard{background:var(--s1);border:1px solid var(--bd2);border-radius:20px;padding:36px 28px;width:min(380px,94vw);display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center}
+.scard-icon{width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:16px;background:var(--s2)}
+.scard-icon svg{width:28px;height:28px}
 .scard h1{font-size:22px;font-weight:900;letter-spacing:-.5px}
 .scard h1 span{color:var(--accent)}
-.scard p{color:var(--muted);font-size:13px;line-height:1.5;max-width:280px}
-.sbtn{width:100%;padding:13px;border-radius:10px;border:none;font-weight:700;font-size:14px;transition:opacity .15s}
-.sbtn:hover{opacity:.82}
-.sbtn.blue{background:var(--accent);color:#fff}
-.sbtn.red{background:var(--red);color:#fff}
+.scard p{color:var(--muted);font-size:13px;line-height:1.5;max-width:290px}
+.sbtn{width:100%;padding:14px;border-radius:11px;border:none;font-weight:700;font-size:14px;transition:opacity .15s;color:#fff}
+.sbtn:active{opacity:.8}
+.sbtn.blue{background:var(--accent)}
+.sbtn.red{background:var(--red)}
 .spinner{width:34px;height:34px;border:3px solid var(--bd2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-#adminApp{display:none;flex-direction:column;height:100vh}
+#adminApp{display:none;flex-direction:column;height:100vh;height:100dvh}
 #adminApp.on{display:flex}
 
-.topbar{height:50px;background:var(--s1);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 18px;gap:10px;flex-shrink:0}
+/* ── TOPBAR ── */
+.topbar{height:54px;background:var(--s1);border-bottom:1px solid var(--bd);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;padding-top:env(safe-area-inset-top,0px);box-sizing:content-box}
 .topbar-logo{font-weight:900;font-size:15px;letter-spacing:-.4px}
 .topbar-logo span{color:var(--accent)}
-.topbadge{font-size:10px;font-weight:700;background:var(--red);color:#fff;padding:2px 7px;border-radius:4px;text-transform:uppercase}
+.topbadge{font-size:9px;font-weight:800;background:var(--red);color:#fff;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em}
 .topuser{margin-left:auto;display:flex;align-items:center;gap:9px;color:var(--muted);font-size:12px}
-.topav{width:26px;height:26px;border-radius:50%;object-fit:cover;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.signout{background:transparent;border:1px solid var(--bd2);color:var(--muted);padding:4px 10px;border-radius:6px;transition:all .15s;font-size:12px}
-.signout:hover{border-color:var(--red);color:var(--red)}
+.topav{width:28px;height:28px;border-radius:50%;object-fit:cover;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.topname{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.signout{background:transparent;border:1px solid var(--bd2);color:var(--muted);padding:5px 11px;border-radius:7px;transition:all .15s;font-size:12px}
+.signout:active{border-color:var(--red);color:var(--red)}
 
-.layout{display:flex;flex:1;overflow:hidden}
-.sidebar{width:var(--sw);background:var(--s1);border-right:1px solid var(--bd);display:flex;flex-direction:column;padding:10px 8px;gap:2px;flex-shrink:0}
-.sidesec{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:8px 8px 4px;margin-top:4px}
-.navbtn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;border:none;background:transparent;color:var(--muted);font-weight:600;text-align:left;transition:all .15s;width:100%;font-size:13px}
-.navbtn:hover{background:var(--s3);color:var(--text)}
+.layout{display:flex;flex:1;overflow:hidden;min-height:0}
+.sidebar{display:none;width:var(--sw);background:var(--s1);border-right:1px solid var(--bd);flex-direction:column;padding:10px 8px;gap:1px;flex-shrink:0;overflow-y:auto}
+.sidesec{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);padding:10px 8px 4px}
+.navbtn{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:9px;border:none;background:transparent;color:var(--muted);font-weight:600;text-align:left;transition:all .15s;width:100%;font-size:13px}
+.navbtn:active{background:var(--s3)}
 .navbtn.active{background:rgba(77,144,255,.13);color:var(--accent)}
-.navbtn svg{flex-shrink:0}
+.navbtn svg{flex-shrink:0;width:17px;height:17px}
+.navbtn .nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:1px 6px;border-radius:9px;min-width:17px;text-align:center}
+.navbtn .nbadge:empty{display:none}
 
-.content{flex:1;overflow-y:auto;padding:22px}
-.page{display:none}
+.content{flex:1;overflow-y:auto;padding:18px;padding-bottom:calc(78px + var(--safe-b));-webkit-overflow-scrolling:touch}
+@media(min-width:980px){.content{padding:24px;padding-bottom:24px}}
+.page{display:none;animation:fade .2s ease}
 .page.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
-.ph{margin-bottom:20px}
-.pt{font-size:19px;font-weight:800;letter-spacing:-.3px}
+.ph{margin-bottom:18px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.pt{font-size:20px;font-weight:800;letter-spacing:-.3px}
 .ps{color:var(--muted);font-size:13px;margin-top:3px}
 
-.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:18px;margin-bottom:14px}
-.ct{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px}
+.card{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:16px;margin-bottom:13px}
+.ct{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
 
-.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-bottom:18px}
-.sc{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:16px}
-.sv{font-size:26px;font-weight:900;letter-spacing:-1px;line-height:1}
-.sl{font-size:11px;color:var(--muted);margin-top:4px}
+/* ── STATS ── */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+@media(min-width:560px){.stats{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:980px){.stats{grid-template-columns:repeat(4,1fr)}}
+.sc{background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);padding:14px;position:relative;overflow:hidden}
+.sc .sci{position:absolute;top:12px;right:12px;opacity:.18}
+.sc .sci svg{width:22px;height:22px}
+.sv{font-size:25px;font-weight:900;letter-spacing:-1px;line-height:1.05}
+.sl{font-size:11px;color:var(--muted);margin-top:5px}
+.sv.dot::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:6px;vertical-align:middle;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-.frow{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+/* ── FORMS ── */
+.frow{display:flex;flex-direction:column;gap:5px;margin-bottom:11px}
 .frow label{font-size:11px;font-weight:700;color:var(--muted)}
-.fc{background:var(--s2);border:1px solid var(--bd2);border-radius:8px;color:var(--text);padding:8px 11px;outline:none;width:100%;transition:border-color .15s}
+.fc{background:var(--s2);border:1px solid var(--bd2);border-radius:9px;color:var(--text);padding:11px 12px;outline:none;width:100%;transition:border-color .15s;font-size:14px}
 .fc:focus{border-color:var(--accent)}
 .fc::placeholder{color:var(--faint)}
-select.fc option{background:var(--s2)}
-.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.fgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+select.fc{cursor:pointer}select.fc option{background:var(--s2)}
+textarea.fc{resize:vertical;min-height:64px;line-height:1.5}
+.fgrid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:560px){.fgrid{grid-template-columns:1fr 1fr}.fgrid3{grid-template-columns:1fr 1fr 1fr}}
+.fgrid3{display:grid;grid-template-columns:1fr;gap:10px}
 .faction{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
 
-.btn{padding:8px 15px;border-radius:8px;border:none;font-weight:700;font-size:13px;transition:opacity .15s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.btn:hover{opacity:.82}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.bp{background:var(--accent);color:#fff}
-.br{background:var(--red);color:#fff}
+/* ── BUTTONS ── */
+.btn{padding:10px 15px;border-radius:9px;border:none;font-weight:700;font-size:13px;transition:opacity .15s,transform .08s;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;color:#fff}
+.btn:active{opacity:.82;transform:scale(.97)}
+.btn:disabled{opacity:.4;pointer-events:none}
+.btn svg{width:15px;height:15px}
+.bp{background:var(--accent)}
+.br{background:var(--red)}
 .bg{background:var(--green);color:#06111f}
+.bam{background:var(--amber);color:#06111f}
 .bgh{background:var(--s3);color:var(--text);border:1px solid var(--bd2)}
-.bam{background:#9f1831;color:#fff;border:2px solid var(--red)}
-.bsm{padding:5px 10px;font-size:12px;border-radius:6px}
+.bsm{padding:7px 11px;font-size:12px;border-radius:7px}
+.bxs{padding:5px 9px;font-size:11px;border-radius:6px}
+.btn-block{width:100%}
 
-table{width:100%;border-collapse:collapse}
-th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:7px 10px;text-align:left;border-bottom:1px solid var(--bd)}
-td{padding:9px 10px;border-bottom:1px solid var(--bd);vertical-align:middle}
+/* ── TABS / SEGMENTS ── */
+.tabs{display:flex;gap:4px;background:var(--s2);border:1px solid var(--bd2);border-radius:11px;padding:4px;margin-bottom:14px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;padding:9px 12px;border:none;background:transparent;color:var(--muted);font-weight:700;font-size:12.5px;border-radius:8px;white-space:nowrap;transition:all .15s}
+.tab.active{background:var(--accent);color:#fff}
+
+/* ── TABLES ── */
+.twrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:420px}
+th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:8px 10px;text-align:left;border-bottom:1px solid var(--bd);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--bd);vertical-align:middle;font-size:13px}
 tr:last-child td{border-bottom:none}
-tr:hover td{background:var(--s2)}
 .tda{display:flex;gap:5px;justify-content:flex-end}
-.twrap{overflow-x:auto}
 
-.bp-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:5px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap;border:1.1px solid rgba(0,0,0,.25)}
+/* ── PILLS / BADGES ── */
+.bp-pill{display:inline-flex;align-items:center;padding:2px 9px;border-radius:5px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;border:1.1px solid rgba(0,0,0,.25)}
+.tag{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.tag.on{background:rgba(0,214,107,.14);color:var(--green)}
+.tag.off{background:rgba(226,234,248,.08);color:var(--faint)}
+.tag.warn{background:rgba(245,158,11,.14);color:var(--amber)}
+.tag.danger{background:rgba(251,63,92,.14);color:var(--red)}
+.tag.info{background:rgba(77,144,255,.14);color:var(--accent)}
 
-.ucard{display:flex;align-items:center;gap:12px;padding:14px;background:var(--s2);border:1px solid var(--bd2);border-radius:var(--r);margin-bottom:12px}
-.uav{width:40px;height:40px;border-radius:50%;object-fit:cover;background:var(--s3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
+/* ── USER / ROW CARDS ── */
+.rcard{display:flex;align-items:center;gap:12px;padding:13px;background:var(--s1);border:1px solid var(--bd);border-radius:var(--r);margin-bottom:10px}
+.rcard.sel{border-color:var(--accent);background:rgba(77,144,255,.06)}
+.uav{width:42px;height:42px;border-radius:50%;object-fit:cover;background:var(--s3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px;flex-shrink:0}
+.uav.sm{width:32px;height:32px;font-size:12px}
 .uinfo{flex:1;min-width:0}
-.uname{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.uid{font-size:11px;color:var(--muted);margin-top:1px}
-.uacts{display:flex;gap:6px;flex-wrap:wrap}
+.uname{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.uid{font-size:11px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.uacts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.rcard-chk{width:20px;height:20px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
 
-.empty{text-align:center;padding:32px;color:var(--faint);font-size:13px}
+.empty{text-align:center;padding:34px 16px;color:var(--faint);font-size:13px}
+.empty svg{width:34px;height:34px;opacity:.4;margin-bottom:8px}
 .lrow{text-align:center;padding:18px;color:var(--faint);font-size:12px}
+.skel{height:62px;border-radius:var(--r);background:linear-gradient(90deg,var(--s1),var(--s2),var(--s1));background-size:200% 100%;animation:shimmer 1.3s infinite;margin-bottom:10px}
+@keyframes shimmer{to{background-position:-200% 0}}
 
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:200;display:none;align-items:center;justify-content:center;padding:16px}
-.modal-bg.open{display:flex}
-.modal{background:var(--s1);border:1px solid var(--bd2);border-radius:16px;padding:22px;width:min(420px,100%);max-height:88vh;overflow-y:auto}
-.modal h3{font-size:15px;font-weight:800;margin-bottom:12px}
-.mfooter{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+/* ── MESSAGE ITEM ── */
+.msg{display:flex;gap:10px;padding:11px;border-bottom:1px solid var(--bd);align-items:flex-start}
+.msg:hover{background:var(--s2)}
+.msg-body{flex:1;min-width:0}
+.msg-head{display:flex;align-items:center;gap:7px;margin-bottom:3px;flex-wrap:wrap}
+.msg-name{font-weight:700;font-size:13px}
+.msg-meta{font-size:10.5px;color:var(--faint)}
+.msg-text{font-size:13px;line-height:1.45;color:var(--text);word-break:break-word}
+.msg-text.del{color:var(--faint);font-style:italic}
+.msg-img{max-width:120px;max-height:90px;border-radius:8px;margin-top:5px;border:1px solid var(--bd2)}
 
-.searchbar{display:flex;gap:8px;margin-bottom:16px}
+/* ── CHARTS ── */
+.chart-wrap{width:100%;overflow:hidden}
+.chart svg{display:block;width:100%;height:auto}
+.chart-bar{fill:var(--accent);transition:fill .15s}
+.chart-grid{stroke:var(--bd);stroke-width:1}
+.chart-lbl{fill:var(--faint);font-size:9px}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px}
+.legend-i{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.legend-d{width:10px;height:10px;border-radius:3px}
+
+/* ── MODAL / SHEET ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.66);z-index:200;display:none;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(2px)}
+.modal-bg.open{display:flex;animation:fade .15s ease}
+.modal{background:var(--s1);border:1px solid var(--bd2);border-radius:16px;padding:20px;width:min(440px,100%);max-height:88vh;overflow-y:auto}
+.modal h3{font-size:16px;font-weight:800;margin-bottom:6px}
+.modal .msub{color:var(--muted);font-size:13px;margin-bottom:14px;line-height:1.5}
+.mfooter{display:flex;gap:8px;margin-top:18px;justify-content:flex-end;flex-wrap:wrap}
+/* bottom sheet on mobile */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;display:none}
+.sheet-bg.open{display:block}
+.sheet{position:fixed;left:0;right:0;bottom:0;background:var(--s1);border-top:1px solid var(--bd2);border-radius:20px 20px 0 0;z-index:301;transform:translateY(100%);transition:transform .26s cubic-bezier(.32,.72,0,1);max-height:86vh;overflow-y:auto;padding:8px 16px calc(20px + var(--safe-b))}
+.sheet.open{transform:translateY(0)}
+.sheet-handle{width:38px;height:4px;border-radius:3px;background:var(--bd2);margin:8px auto 14px}
+.sheet h3{font-size:16px;font-weight:800;margin-bottom:14px}
+.sheet-nav{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sheet-nav .navbtn{background:var(--s2);border:1px solid var(--bd)}
+
+.searchbar{display:flex;gap:8px;margin-bottom:14px}
 .searchbar .fc{flex:1}
-.warn-box{background:rgba(251,63,92,.1);border:1px solid rgba(251,63,92,.35);border-radius:10px;padding:14px;margin-bottom:14px;font-size:12px;color:#ff8a8a;line-height:1.5}
+.warn-box{background:rgba(251,63,92,.09);border:1px solid rgba(251,63,92,.3);border-radius:11px;padding:13px;margin-bottom:13px;font-size:12.5px;color:#ff9a9a;line-height:1.5}
 .warn-box strong{color:var(--red)}
+.info-box{background:rgba(77,144,255,.07);border:1px solid rgba(77,144,255,.22);border-radius:11px;padding:13px;margin-bottom:13px;font-size:12.5px;color:#a9c8ff;line-height:1.55}
 
-.toast-wrap{position:fixed;top:14px;right:14px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
-.toast{background:var(--s1);border:1px solid var(--bd2);border-radius:9px;padding:11px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;pointer-events:auto;animation:tsi .2s ease;max-width:280px}
-.toast.ok{border-color:var(--green);color:var(--green)}
-.toast.err{border-color:var(--red);color:var(--red)}
-.toast.inf{border-color:var(--accent);color:var(--accent)}
-@keyframes tsi{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+/* ── TOAST ── */
+.toast-wrap{position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;width:min(340px,92vw)}
+.toast{background:var(--s1);border:1px solid var(--bd2);border-radius:10px;padding:12px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:9px;pointer-events:auto;animation:tsi .22s ease;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.toast.ok{border-color:var(--green)}.toast.ok .ti{color:var(--green)}
+.toast.err{border-color:var(--red)}.toast.err .ti{color:var(--red)}
+.toast.inf{border-color:var(--accent)}.toast.inf .ti{color:var(--accent)}
+.toast .ti{flex-shrink:0;font-weight:900}
+@keyframes tsi{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
 
-.color-row{display:flex;align-items:center;gap:10px}.perm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:6px;margin-top:4px}.perm-cb{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--bd2);border-radius:7px;padding:7px 10px;cursor:pointer;transition:border-color .15s;user-select:none}.perm-cb:hover{border-color:var(--accent)}.perm-cb input{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0}.perm-cb-label{font-size:12px;font-weight:600;color:var(--text)}.perm-list-item{display:inline-flex;align-items:center;gap:4px;background:rgba(77,144,255,.12);border:1px solid rgba(77,144,255,.3);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700;color:var(--accent);margin:2px}.perm-none{font-size:11px;color:var(--faint);font-style:italic}
-.color-input{width:44px;height:36px;border-radius:7px;border:1px solid var(--bd2);padding:2px;background:var(--s2);cursor:pointer;flex-shrink:0}
+/* ── PERMISSIONS ── */
+.perm-grid{display:grid;grid-template-columns:1fr;gap:6px;margin-top:4px}
+@media(min-width:480px){.perm-grid{grid-template-columns:1fr 1fr}}
+.perm-cb{display:flex;align-items:center;gap:9px;background:var(--s2);border:1px solid var(--bd2);border-radius:8px;padding:10px 11px;cursor:pointer;transition:border-color .15s;user-select:none}
+.perm-cb:active{border-color:var(--accent)}
+.perm-cb input{accent-color:var(--accent);width:17px;height:17px;flex-shrink:0}
+.perm-cb-label{font-size:12.5px;font-weight:600}
+.perm-list-item{display:inline-flex;align-items:center;gap:4px;background:rgba(77,144,255,.12);border:1px solid rgba(77,144,255,.3);border-radius:5px;padding:2px 8px;font-size:10px;font-weight:700;color:var(--accent);margin:2px 2px 0 0}
+.perm-none{font-size:11px;color:var(--faint);font-style:italic}
+.color-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.color-input{width:46px;height:38px;border-radius:8px;border:1px solid var(--bd2);padding:2px;background:var(--s2);cursor:pointer;flex-shrink:0}
 .color-preview{font-size:12px;color:var(--muted);font-family:monospace}
 
-@media(max-width:640px){.sidebar{display:none}.fgrid,.fgrid3{grid-template-columns:1fr}.content{padding:14px}}
+/* ── BULK BAR ── */
+.bulkbar{position:sticky;top:0;z-index:5;background:var(--s3);border:1px solid var(--accent);border-radius:11px;padding:10px 12px;margin-bottom:12px;display:none;align-items:center;gap:10px}
+.bulkbar.show{display:flex}
+.bulkbar .bc{font-weight:800;font-size:13px}
+.bulkbar .bx{margin-left:auto;display:flex;gap:7px}
+
+/* ── BOTTOM NAV (mobile) ── */
+.botnav{position:fixed;left:0;right:0;bottom:0;height:calc(62px + var(--safe-b));padding-bottom:var(--safe-b);background:var(--s1);border-top:1px solid var(--bd);display:flex;z-index:50}
+@media(min-width:980px){.botnav{display:none}.sidebar{display:flex}}
+.botnav button{flex:1;background:none;border:none;color:var(--faint);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:10px;font-weight:700;transition:color .15s;position:relative}
+.botnav button.active{color:var(--accent)}
+.botnav button svg{width:21px;height:21px}
+.botnav .nbadge{position:absolute;top:6px;left:calc(50% + 8px);background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:0 5px;border-radius:8px;min-width:15px;height:15px;line-height:15px;text-align:center}
+.botnav .nbadge:empty{display:none}
+
+.kv{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--bd);font-size:13px}
+.kv:last-child{border-bottom:none}
+.kv .k{color:var(--muted)}
+.kv .v{font-weight:600;text-align:right;word-break:break-word}
+.code{font-family:ui-monospace,monospace;font-size:11px;background:var(--s2);padding:2px 6px;border-radius:5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -141,19 +251,19 @@ tr:hover td{background:var(--s2)}
 
 <div class="screen off" id="sLogin">
   <div class="scard">
-    <div class="scard-icon">🎹</div>
+    <div class="scard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v9M11 4v9M15 4v9M19 4v9" stroke-width="1.5"/></svg></div>
     <h1><span>Papiano</span> Admin</h1>
-    <p>Admin access only. Sign in with your authorized Google account.</p>
-    <button class="sbtn blue" onclick="doGoogleLogin()">Continue with Google</button>
+    <p>Restricted area. Sign in with an authorized Google account.</p>
+    <button class="sbtn blue" data-act="login">Continue with Google</button>
   </div>
 </div>
 
 <div class="screen off" id="sDenied">
   <div class="scard">
-    <div class="scard-icon">🚫</div>
+    <div class="scard-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5.5 5.5l13 13"/></svg></div>
     <h1>Access Denied</h1>
     <p id="deniedMsg">Your account does not have admin access.</p>
-    <button class="sbtn red" onclick="doSignOut()">Sign out</button>
+    <button class="sbtn red" data-act="signout">Sign out</button>
   </div>
 </div>
 
@@ -163,769 +273,874 @@ tr:hover td{background:var(--s2)}
     <div class="topbadge">DEV</div>
     <div class="topuser">
       <div class="topav" id="topAv">—</div>
-      <span id="topName">—</span>
-      <button class="signout" onclick="doSignOut()">Sign out</button>
+      <span class="topname" id="topName">—</span>
+      <button class="signout" data-act="signout">Exit</button>
     </div>
   </div>
 
   <div class="layout">
-    <nav class="sidebar">
-      <div class="sidesec">Panel</div>
-      <button class="navbtn active" data-page="dash" onclick="nav(this)">
-        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-        Dashboard
-      </button>
-      <button class="navbtn" data-page="roles" onclick="nav(this)">
-        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z"/></svg>
-        Roles
-      </button>
-      <button class="navbtn" data-page="users" onclick="nav(this)">
-        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-        Users
-      </button>
-      <div class="sidesec">Finance</div>
-      <button class="navbtn" data-page="dons" onclick="nav(this)">
-        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-        Donations
-      </button>
-      <div class="sidesec">Danger</div>
-      <button class="navbtn" data-page="nuclear" onclick="nav(this)">
-        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/></svg>
-        Reset Zone
-      </button>
-    </nav>
-
-    <main class="content">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="content" id="content">
 
       <!-- DASHBOARD -->
       <div class="page active" id="pageDash">
-        <div class="ph"><div class="pt">Dashboard</div><div class="ps">Papiano community overview.</div></div>
-        <div class="stats" id="statsGrid">
-          <div class="sc"><div class="sv" id="stRoles">—</div><div class="sl">Roles Defined</div></div>
-          <div class="sc"><div class="sv" id="stDonors">—</div><div class="sl">Total Donors</div></div>
-          <div class="sc"><div class="sv" id="stTotal">—</div><div class="sl">Raised (USD)</div></div>
-          <div class="sc"><div class="sv" id="stGoal">—</div><div class="sl">Goal Progress</div></div>
-        </div>
+        <div class="ph"><div><div class="pt">Dashboard</div><div class="ps">Live community overview.</div></div></div>
+        <div class="stats" id="statsGrid"></div>
         <div class="card">
-          <div class="ct">Roles in Firebase</div>
-          <div id="dashRoleList" style="display:flex;flex-wrap:wrap;gap:8px"><span style="color:var(--faint);font-size:12px">No roles defined.</span></div>
+          <div class="ct">Donations (last 14 days)</div>
+          <div class="chart-wrap chart" id="donChart"><div class="lrow">Loading…</div></div>
         </div>
-        <div class="card">
-          <div class="ct">Top Donors</div>
-          <div id="dashDonors"><div class="lrow">Loading…</div></div>
-        </div>
-      </div>
-
-      <!-- ROLES -->
-      <div class="page" id="pageRoles">
-        <div class="ph"><div class="pt">Roles</div><div class="ps">Create roles by label only. The internal key is auto-generated from the label.</div></div>
-        <div class="card">
-          <div class="ct">Current Roles</div>
-          <div class="twrap">
-            <table>
-              <thead><tr><th>Label</th><th>Color</th><th>Preview</th><th>Permissions</th><th style="text-align:right">Actions</th></tr></thead>
-              <tbody id="rolesTbody"><tr><td colspan="4" class="lrow">Loading…</td></tr></tbody>
-            </table>
+        <div class="fgrid" style="display:grid;grid-template-columns:1fr;gap:13px">
+          <div class="card" style="margin:0">
+            <div class="ct">Live Rooms <span id="roomsLiveCount" class="tag info">0</span></div>
+            <div id="dashRooms"><div class="lrow">Loading…</div></div>
+          </div>
+          <div class="card" style="margin:0">
+            <div class="ct">Top Donors</div>
+            <div id="dashDonors"><div class="lrow">Loading…</div></div>
           </div>
         </div>
         <div class="card">
-          <div class="ct">Create Role</div>
-          <div class="frow">
-            <label>Role Label</label>
-            <input class="fc" id="nRoleLabel" placeholder="e.g. VIP" maxlength="28" oninput="updateColorPreview()">
-          </div>
-          <div class="frow" style="margin-top:10px">
-            <label>Badge Color</label>
-            <div class="color-row">
-              <input type="color" class="color-input" id="nRoleColor" value="#4d90ff" oninput="updateColorPreview()">
-              <span class="color-preview" id="colorPreview">#4d90ff</span>
-              <div id="colorSwatch" style="width:80px;padding:3px 10px;border-radius:5px;font-size:11px;font-weight:900;text-align:center;background:#4d90ff;color:#fff">LABEL</div>
-            </div>
-          </div>
-          <div class="frow" style="margin-top:10px">
-            <label>Permissions</label>
-            <div class="perm-grid" id="createPermGrid"></div>
-          </div>
-          <div class="faction">
-            <button class="btn bp" onclick="createRole()">Create Role</button>
-          </div>
+          <div class="ct">Roles in Registry <span id="rolesLiveCount" class="tag info">0</span></div>
+          <div id="dashRoleList" style="display:flex;flex-wrap:wrap;gap:7px"><span class="perm-none">No roles.</span></div>
         </div>
       </div>
 
       <!-- USERS -->
       <div class="page" id="pageUsers">
-        <div class="ph"><div class="pt">Users</div><div class="ps">Search by display name or User ID (e.g. 1) to manage roles.</div></div>
+        <div class="ph"><div><div class="pt">Users</div><div class="ps">Search by display name or User ID (e.g. 12).</div></div></div>
         <div class="searchbar">
-          <input class="fc" id="uSearch" placeholder="Name or ID…" onkeydown="if(event.key==='Enter')searchUsers()">
-          <button class="btn bp" onclick="searchUsers()">Search</button>
+          <input class="fc" id="uSearch" placeholder="Name or ID…" autocomplete="off">
+          <button class="btn bp" data-act="userSearch">Search</button>
         </div>
-        <div id="uResults"></div>
+        <div class="bulkbar" id="userBulk">
+          <span class="bc"><span id="bulkCount">0</span> selected</span>
+          <div class="bx">
+            <button class="btn bp bsm" data-act="bulkGift">Gift Role</button>
+            <button class="btn bgh bsm" data-act="bulkClear">Clear</button>
+          </div>
+        </div>
+        <div id="uResults"><div class="empty">Search to manage users.</div></div>
+      </div>
+
+      <!-- ROLES -->
+      <div class="page" id="pageRoles">
+        <div class="ph"><div><div class="pt">Roles</div><div class="ps">Define roles, colors and permissions.</div></div></div>
+        <div class="card">
+          <div class="ct">Current Roles</div>
+          <div class="twrap"><table>
+            <thead><tr><th>Label</th><th>Preview</th><th>Permissions</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="rolesTbody"><tr><td colspan="4" class="lrow">Loading…</td></tr></tbody>
+          </table></div>
+        </div>
+        <div class="card">
+          <div class="ct">Create Role</div>
+          <div class="frow"><label>Role Label</label><input class="fc" id="nRoleLabel" placeholder="e.g. VIP" maxlength="28" data-act="colorPreview" data-ev="input"></div>
+          <div class="frow"><label>Badge Color</label>
+            <div class="color-row">
+              <input type="color" class="color-input" id="nRoleColor" value="#4d90ff" data-act="colorPreview" data-ev="input">
+              <span class="color-preview" id="colorPreview">#4d90ff</span>
+              <div id="colorSwatch" class="bp-pill" style="background:#4d90ff;color:#fff">LABEL</div>
+            </div>
+          </div>
+          <div class="frow"><label>Permissions</label><div class="perm-grid" id="createPermGrid"></div></div>
+          <div class="faction"><button class="btn bp" data-act="createRole">Create Role</button></div>
+        </div>
+      </div>
+
+      <!-- CHAT -->
+      <div class="page" id="pageChat">
+        <div class="ph"><div><div class="pt">Chat Control</div><div class="ps">Moderate every channel. Delete, post, wipe.</div></div></div>
+        <div class="tabs" id="chatTabs">
+          <button class="tab active" data-act="chatTab" data-ch="group_global">Global</button>
+          <button class="tab" data-act="chatTab" data-ch="group_announcements">Announce</button>
+          <button class="tab" data-act="chatTab" data-ch="custom">DM / Custom</button>
+        </div>
+        <div id="chatCustomBar" class="searchbar" style="display:none">
+          <input class="fc" id="chatRoomId" placeholder="Room ID (dm_uidA_uidB or group_key)…" autocomplete="off">
+          <button class="btn bp" data-act="chatLoadCustom">Open</button>
+        </div>
+        <div class="card" style="padding:13px">
+          <div class="ct"><span id="chatChannelLabel">Global</span>
+            <span style="display:flex;gap:6px">
+              <button class="btn bp bxs" data-act="chatPost">Post</button>
+              <button class="btn br bxs" data-act="chatWipe">Wipe</button>
+              <button class="btn bgh bxs" data-act="chatReload">↻</button>
+            </span>
+          </div>
+          <div id="chatMessages" style="max-height:62vh;overflow-y:auto"><div class="lrow">Select a channel.</div></div>
+        </div>
+      </div>
+
+      <!-- MULTIPLAYER -->
+      <div class="page" id="pageMp">
+        <div class="ph"><div><div class="pt">Multiplayer</div><div class="ps">Live rooms, players & moderation.</div></div>
+          <span id="mpRoomCount" class="tag info">0 rooms</span></div>
+        <div id="mpRooms"><div class="lrow">Loading rooms…</div></div>
+      </div>
+
+      <!-- BANS -->
+      <div class="page" id="pageBans">
+        <div class="ph"><div><div class="pt">Bans</div><div class="ps">Banned accounts & history.</div></div></div>
+        <div class="info-box">A ban blocks login and ejects live sessions immediately (uses the account kill-switch). Use <b>Users</b> → <b>Ban</b> to ban someone, or the quick form below.</div>
+        <div class="card">
+          <div class="ct">Quick Ban by User ID</div>
+          <div class="searchbar"><input class="fc" id="banQuickId" placeholder="User ID (e.g. 12)…" autocomplete="off"><button class="btn br" data-act="banQuick">Find</button></div>
+        </div>
+        <div class="card">
+          <div class="ct">Banned Accounts <span id="bansCount" class="tag danger">0</span></div>
+          <div id="bansList"><div class="lrow">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="page" id="pageReports">
+        <div class="ph"><div><div class="pt">Reports</div><div class="ps">User-submitted reports queue.</div></div>
+          <button class="btn bgh bsm" data-act="reportsReload">↻ Refresh</button></div>
+        <div id="reportsList"><div class="lrow">Loading…</div></div>
       </div>
 
       <!-- DONATIONS -->
       <div class="page" id="pageDons">
-        <div class="ph"><div class="pt">Donations</div><div class="ps">Record donations manually. Adding a donation gifts Supporter role automatically.</div></div>
+        <div class="ph"><div><div class="pt">Donations</div><div class="ps">Record donations & gift Supporter.</div></div></div>
         <div class="card">
           <div class="ct">Donor Records</div>
-          <div class="twrap">
-            <table>
-              <thead><tr><th>Name</th><th>User ID</th><th>Total (USD)</th><th>Date</th><th>Note</th><th style="text-align:right">Actions</th></tr></thead>
-              <tbody id="donTbody"><tr><td colspan="6" class="lrow">Loading…</td></tr></tbody>
-            </table>
-          </div>
+          <div class="twrap"><table>
+            <thead><tr><th>Name</th><th>ID</th><th>Total</th><th>Date</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="donTbody"><tr><td colspan="5" class="lrow">Loading…</td></tr></tbody>
+          </table></div>
         </div>
         <div class="card">
           <div class="ct">Add Donation</div>
-          <div class="searchbar">
-            <input class="fc" id="donorSearch" placeholder="Find donor by name or ID…" onkeydown="if(event.key==='Enter')searchDonor()">
-            <button class="btn bgh" onclick="searchDonor()">Find User</button>
-          </div>
-          <div id="donorCard" style="display:none" class="ucard">
+          <div class="searchbar"><input class="fc" id="donorSearch" placeholder="Find donor by name or ID…" autocomplete="off"><button class="btn bgh" data-act="donorSearch">Find</button></div>
+          <div id="donorCard" style="display:none" class="rcard">
             <div class="uav" id="donorAv">?</div>
             <div class="uinfo"><div class="uname" id="donorName">—</div><div class="uid" id="donorUid">—</div></div>
             <span id="donorBadge"></span>
           </div>
           <div class="fgrid3">
-            <div class="frow"><label>Amount</label><input class="fc" id="donAmt" type="number" min="0.01" step="0.01" placeholder="5.00"></div>
+            <div class="frow"><label>Amount (USD)</label><input class="fc" id="donAmt" type="number" min="0.01" step="0.01" placeholder="5.00"></div>
             <div class="frow"><label>Currency</label><select class="fc" id="donCur"><option>USD</option><option>IDR</option><option>EUR</option><option>GBP</option><option>Other</option></select></div>
             <div class="frow"><label>Note</label><input class="fc" id="donNote" placeholder="PayPal, GoPay…" maxlength="100"></div>
           </div>
-          <div class="faction">
-            <button class="btn bg" id="addDonBtn" onclick="addDonation()" disabled>Add &amp; Gift Supporter</button>
-          </div>
+          <div class="faction"><button class="btn bg" id="addDonBtn" data-act="addDonation" disabled>Add &amp; Gift Supporter</button></div>
         </div>
       </div>
 
-      <!-- RESET ZONE -->
-      <div class="page" id="pageNuclear">
-        <div class="ph"><div class="pt">Reset Zone</div><div class="ps">Irreversible operations. Use with caution.</div></div>
-        <div class="warn-box">
-          <strong>⚠ WARNING:</strong> These actions are permanent and cannot be undone.
-          Make sure you know what you're doing before proceeding.
-        </div>
+      <!-- AUDIT -->
+      <div class="page" id="pageAudit">
+        <div class="ph"><div><div class="pt">Audit Log</div><div class="ps">Recent admin actions.</div></div>
+          <button class="btn bgh bsm" data-act="auditReload">↻ Refresh</button></div>
+        <div class="card"><div id="auditList"><div class="lrow">Loading…</div></div></div>
+      </div>
+
+      <!-- RESET -->
+      <div class="page" id="pageReset">
+        <div class="ph"><div><div class="pt">Reset Zone</div><div class="ps">Irreversible. Handle with care.</div></div></div>
+        <div class="warn-box"><strong>⚠ WARNING:</strong> These actions are permanent and cannot be undone.</div>
         <div class="card">
           <div class="ct">Delete All Roles</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Removes every role definition from Firebase. Users who had roles will show as default (no role label/color) until roles are recreated.</p>
-          <button class="btn br" onclick="deleteAllRoles()">Delete All Roles from Firebase</button>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:13px">Removes every role definition and strips roles from all user profiles.</p>
+          <button class="btn br" data-act="deleteAllRoles">Delete All Roles</button>
         </div>
         <div class="card">
           <div class="ct">Reset All User Roles</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:14px">Scans Firestore profiles and removes badgeId + ownedRoles from every user. This can take a while for large user bases.</p>
-          <button class="btn bam" onclick="resetAllUsers()">Reset All Users (Remove Roles)</button>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:13px">Removes badgeId + ownedRoles from every Firestore profile.</p>
+          <button class="btn bam" data-act="resetAllUsers">Reset All Users</button>
           <div id="resetProgress" style="margin-top:10px;font-size:12px;color:var(--muted);display:none"></div>
         </div>
       </div>
 
     </main>
   </div>
+
+  <!-- BOTTOM NAV (mobile) -->
+  <nav class="botnav" id="botnav"></nav>
 </div>
 
-<!-- Gift Role Modal -->
-<div class="modal-bg" id="mGift">
-  <div class="modal">
-    <h3>Gift Role</h3>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Gift a role to <strong id="giftName">—</strong></p>
-    <div class="frow"><label>Role</label><select class="fc" id="giftSel"></select></div>
-    <div class="mfooter">
-      <button class="btn bgh" onclick="closeModal('mGift')">Cancel</button>
-      <button class="btn bp" onclick="doGiftRole()">Gift Role</button>
-    </div>
-  </div>
+<!-- MORE SHEET -->
+<div class="sheet-bg" id="moreBg" data-act="closeSheet"></div>
+<div class="sheet" id="moreSheet">
+  <div class="sheet-handle"></div>
+  <h3>More</h3>
+  <div class="sheet-nav" id="moreNav"></div>
 </div>
 
-<!-- Remove Role Modal -->
-<div class="modal-bg" id="mRemove">
-  <div class="modal">
-    <h3>Remove Role</h3>
-    <p style="color:var(--muted);font-size:13px">Remove role from <strong id="removeName">—</strong>? They will have no role.</p>
-    <div class="mfooter">
-      <button class="btn bgh" onclick="closeModal('mRemove')">Cancel</button>
-      <button class="btn br" onclick="doRemoveRole()">Remove Role</button>
-    </div>
-  </div>
+<!-- GENERIC DETAIL SHEET -->
+<div class="sheet-bg" id="detailBg" data-act="closeDetail"></div>
+<div class="sheet" id="detailSheet">
+  <div class="sheet-handle"></div>
+  <div id="detailBody"></div>
 </div>
 
-<!-- Edit Role Modal -->
-<div class="modal-bg" id="mEditRole">
-  <div class="modal">
-    <h3>Edit Role Permissions</h3>
-    <p style="color:var(--muted);font-size:13px;margin-bottom:12px">Role: <strong id="editRoleName">—</strong></p>
-    <div class="frow">
-      <label>Permissions</label>
-      <div class="perm-grid" id="editPermGrid"></div>
-    </div>
-    <div class="mfooter">
-      <button class="btn bgh" onclick="closeModal('mEditRole')">Cancel</button>
-      <button class="btn bp" onclick="doEditRole()">Save</button>
-    </div>
-  </div>
-</div>
+<!-- MODALS -->
+<div class="modal-bg" id="mGift"><div class="modal">
+  <h3>Gift Role</h3><p class="msub">Gift a role to <strong id="giftName">—</strong>.</p>
+  <div class="frow"><label>Role</label><select class="fc" id="giftSel"></select></div>
+  <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mGift">Cancel</button><button class="btn bp" data-act="doGift">Gift Role</button></div>
+</div></div>
 
-<!-- Delete Role Modal -->
-<div class="modal-bg" id="mDelRole">
-  <div class="modal">
-    <h3>Delete Role</h3>
-    <p style="color:var(--muted);font-size:13px">Delete role <strong id="delRoleName">—</strong> from Firebase?</p>
-    <div class="mfooter">
-      <button class="btn bgh" onclick="closeModal('mDelRole')">Cancel</button>
-      <button class="btn br" onclick="doDeleteRole()">Delete</button>
-    </div>
-  </div>
-</div>
+<div class="modal-bg" id="mBulkGift"><div class="modal">
+  <h3>Bulk Gift Role</h3><p class="msub">Gift a role to <strong id="bulkGiftCount">0</strong> selected users.</p>
+  <div class="frow"><label>Role</label><select class="fc" id="bulkGiftSel"></select></div>
+  <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mBulkGift">Cancel</button><button class="btn bp" data-act="doBulkGift">Gift to All</button></div>
+</div></div>
 
-<!-- Delete Donation Modal -->
-<div class="modal-bg" id="mDelDon">
-  <div class="modal">
-    <h3>Remove Donation</h3>
-    <p style="color:var(--muted);font-size:13px">Remove donation record for <strong id="delDonName">—</strong>? The Supporter role will NOT be auto-removed.</p>
-    <div class="mfooter">
-      <button class="btn bgh" onclick="closeModal('mDelDon')">Cancel</button>
-      <button class="btn br" onclick="doDeleteDonation()">Remove Record</button>
-    </div>
-  </div>
-</div>
+<div class="modal-bg" id="mEditRole"><div class="modal">
+  <h3>Edit Role</h3><p class="msub">Role: <strong id="editRoleName">—</strong></p>
+  <div class="frow"><label>Permissions</label><div class="perm-grid" id="editPermGrid"></div></div>
+  <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mEditRole">Cancel</button><button class="btn bp" data-act="doEditRole">Save</button></div>
+</div></div>
+
+<div class="modal-bg" id="mBan"><div class="modal">
+  <h3>Ban User</h3><p class="msub">Ban <strong id="banName">—</strong>. They will be signed out and blocked from logging in.</p>
+  <div class="frow"><label>Reason</label><input class="fc" id="banReason" placeholder="Spam, abuse…" maxlength="120"></div>
+  <div class="frow"><label>Duration</label><select class="fc" id="banDuration"><option value="0">Permanent</option><option value="1">1 day</option><option value="7">7 days</option><option value="30">30 days</option></select></div>
+  <div class="info-box" style="margin:4px 0 0">Temporary bans record an expiry but are not auto-lifted (no server). Unban manually from the Bans page.</div>
+  <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mBan">Cancel</button><button class="btn br" data-act="doBan">Ban User</button></div>
+</div></div>
+
+<div class="modal-bg" id="mPost"><div class="modal">
+  <h3>Post Message</h3><p class="msub">Post to <strong id="postChannel">—</strong> as <strong id="postAs">you</strong>.</p>
+  <div class="frow"><label>Message</label><textarea class="fc" id="postText" placeholder="Type a message…" maxlength="2000"></textarea></div>
+  <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mPost">Cancel</button><button class="btn bp" data-act="doPost">Post</button></div>
+</div></div>
+
+<div class="modal-bg" id="mConfirm"><div class="modal">
+  <h3 id="cfTitle">Confirm</h3><p class="msub" id="cfMsg">Are you sure?</p>
+  <div class="frow" id="cfTypeWrap" style="display:none"><label>Type <strong id="cfTypeWord">CONFIRM</strong> to proceed</label><input class="fc" id="cfTypeInput" autocomplete="off"></div>
+  <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mConfirm">Cancel</button><button class="btn br" id="cfOk" data-act="confirmOk">Confirm</button></div>
+</div></div>
 
 <div class="toast-wrap" id="toasts"></div>
 
 <script type="module">
-/* ── CONFIG ── */
-const VER = '10.12.5';
-const BASE = `https://www.gstatic.com/firebasejs/${VER}`;
-const CONFIG = {
-  apiKey:'AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY',
-  authDomain:'papianoverse.firebaseapp.com',
-  databaseURL:'https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app',
-  projectId:'papianoverse',
-  storageBucket:'papianoverse.appspot.com'
-};
-const RTDB_ROOT = 'papianoOnlineBeta';
-const PERMISSIONS = [
-  {id:'write_announcement', label:'Post Announcements'},
-  {id:'delete_any_message', label:'Delete Any Message'},
-  {id:'mute_chat', label:'Mute Chat'},
-  {id:'mute_playing', label:'Mute Playing'},
-  {id:'kick_player', label:'Kick Player'},
-  {id:'ban_user', label:'Ban User'},
-  {id:'manage_rooms', label:'Manage Rooms'},
+/* ───────── CONFIG ───────── */
+const VER='10.12.5', BASE=`https://www.gstatic.com/firebasejs/${VER}`;
+const CONFIG={apiKey:'AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY',authDomain:'papianoverse.firebaseapp.com',databaseURL:'https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app',projectId:'papianoverse',storageBucket:'papianoverse.appspot.com'};
+const PRESENCE='papianoOnlineBeta';            // RTDB presence + multiplayer namespace
+const ADMIN_EMAILS=new Set(['utamairfan44@gmail.com','akunpolos0444000@gmail.com','papianobase@gmail.com']);
+const DON_GOAL=100, ONLINE_FRESH_MS=70000, ROOM_STALE_MS=60000;
+const PERMISSIONS=[
+  {id:'write_announcement',label:'Post Announcements'},
+  {id:'delete_any_message',label:'Delete Any Message'},
+  {id:'mute_chat',label:'Mute Chat'},
+  {id:'mute_playing',label:'Mute Playing'},
+  {id:'kick_player',label:'Kick Player'},
+  {id:'ban_user',label:'Ban User'},
+  {id:'manage_rooms',label:'Manage Rooms'},
 ];
-function renderPermGrid(containerId, selectedIds = []) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML = PERMISSIONS.map(p =>
-    `<label class="perm-cb">
-      <input type="checkbox" value="${x(p.id)}" ${selectedIds.includes(p.id)?'checked':''}>
-      <span class="perm-cb-label">${x(p.label)}</span>
-    </label>`
-  ).join('');
-}
-function getCheckedPerms(containerId) {
-  const el = document.getElementById(containerId);
-  if (!el) return [];
-  return [...el.querySelectorAll('input[type="checkbox"]:checked')].map(cb => cb.value);
-}
-function renderPermPills(perms) {
-  if (!Array.isArray(perms) || !perms.length) return '<span class="perm-none">None</span>';
-  return perms.map(pid => {
-    const p = PERMISSIONS.find(p => p.id === pid);
-    return p ? `<span class="perm-list-item">${x(p.label)}</span>` : '';
-  }).join('');
-}
-const DON_GOAL = 100;
-// Allowed admin emails (always granted access regardless of role)
-const ADMIN_EMAILS = new Set(['utamairfan44@gmail.com','akunpolos0444000@gmail.com','papianobase@gmail.com']);
+const NAV=[
+  {id:'dash',label:'Dashboard',sec:'Overview',icon:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'},
+  {id:'users',label:'Users',sec:'Community',icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'},
+  {id:'roles',label:'Roles',sec:'Community',icon:'M12 2l3 6 6 1-4.5 4.5L18 21l-6-3-6 3 1.5-7.5L3 9l6-1z'},
+  {id:'chat',label:'Chat',sec:'Community',icon:'M21 11.5a8.38 8.38 0 0 1-9 8 9 9 0 0 1-4-1L3 21l2.5-5a8.5 8.5 0 1 1 15.5-4.5z'},
+  {id:'mp',label:'Multiplayer',sec:'Community',icon:'M3 5h18v14H3zM8 9v6M16 9v6M12 9v6'},
+  {id:'bans',label:'Bans',sec:'Moderation',icon:'M18.36 6.64A9 9 0 1 1 5.64 19.36M5.64 6.64l12.72 12.72'},
+  {id:'reports',label:'Reports',sec:'Moderation',icon:'M4 22V4a2 2 0 0 1 2-2h9l5 5v15M4 13h16'},
+  {id:'dons',label:'Donations',sec:'Finance',icon:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z'},
+  {id:'audit',label:'Audit Log',sec:'System',icon:'M12 8v4l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'},
+  {id:'reset',label:'Reset Zone',sec:'System',icon:'M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01'},
+];
+const BOTTOM=['dash','users','chat','mp'];
 
-/* ── STATE ── */
-let AUTH, RTDB, FS;
-let fbR = {}; // firebase modules
-let allRoles = {};
-let selectedDonorUid = null, selectedDonorData = null;
-let pendingGiftUid = null, pendingRemoveUid = null;
-let pendingDelRoleId = null, pendingDelDonUid = null;
+/* ───────── STATE ───────── */
+let AUTH,RTDB,FS,fbR={};
+let ADMIN={uid:'',name:'Admin',userId:'',photoURL:'',badgeId:'dev'};
+let allRoles={}, presenceUsers={}, liveRooms={}, currentPage='dash';
+let listeners=[], userSelection=new Map(), userResults=[];
+let selectedDonorUid=null, selectedDonorData=null;
+let ctx={}; // transient handler context
+const $=id=>document.getElementById(id);
 
-/* ── INIT ── */
-async function init() {
-  try {
-    // Load Firebase modules — names match their actual contents
-    const [appMod, authMod, rtdbMod, fsMod] = await Promise.all([
-      import(`${BASE}/firebase-app.js`),        // app init
-      import(`${BASE}/firebase-auth.js`),        // auth
-      import(`${BASE}/firebase-database.js`),    // RTDB (getDatabase lives here)
-      import(`${BASE}/firebase-firestore.js`)    // Firestore (getFirestore lives here)
-    ]);
-    fbR = { appMod, authMod, rtdbMod, fsMod };
-    const app = appMod.initializeApp(CONFIG);
-    AUTH  = authMod.getAuth(app);
-    RTDB  = rtdbMod.getDatabase(app);    // RTDB from firebase-database module
-    FS    = fsMod.getFirestore(app);     // Firestore from firebase-firestore module
-
-    authMod.onAuthStateChanged(AUTH, onAuthChange);
-  } catch(e) {
-    toast('Firebase failed to load: ' + e.message, 'err');
-    show('sLoad', false); show('sLogin', true);
-  }
+/* ───────── INIT ───────── */
+async function init(){
+  try{
+    const [appMod,authMod,rtdbMod,fsMod]=await Promise.all([
+      import(`${BASE}/firebase-app.js`),import(`${BASE}/firebase-auth.js`),
+      import(`${BASE}/firebase-database.js`),import(`${BASE}/firebase-firestore.js`)]);
+    fbR={appMod,authMod,rtdbMod,fsMod};
+    const app=appMod.initializeApp(CONFIG);
+    AUTH=authMod.getAuth(app); RTDB=rtdbMod.getDatabase(app); FS=fsMod.getFirestore(app);
+    buildNav();
+    authMod.onAuthStateChanged(AUTH,onAuthChange);
+  }catch(e){ toast('Firebase failed: '+e.message,'err'); show('sLoad',false); show('sLogin',true); }
 }
 
-async function onAuthChange(user) {
-  if (!user) { show('sLoad', false); show('sLogin', true); return; }
-  show('sLoad', true); show('sLogin', false); show('sDenied', false);
-  try {
-    // Check by email whitelist first
-    const isAdmin = ADMIN_EMAILS.has(user.email || '');
-    if (!isAdmin) {
-      // Fallback: check Firestore role
-      const snap = await fbR.fsMod.getDoc(fbR.fsMod.doc(FS, 'profiles', user.uid));
-      const role = snap.data()?.badgeId || '';
-      if (role !== 'dev') {
-        document.getElementById('deniedMsg').textContent =
-          `${user.email} — role "${role||'none'}" — admin requires DEV or authorized email.`;
-        show('sLoad', false); show('sDenied', true); return;
-      }
+async function onAuthChange(user){
+  detachAll();
+  if(!user){ show('sLoad',false); show('sLogin',true); $('adminApp').classList.remove('on'); return; }
+  show('sLoad',true); show('sLogin',false); show('sDenied',false);
+  try{
+    let isAdmin=ADMIN_EMAILS.has(user.email||''), badge='';
+    const snap=await fbR.fsMod.getDoc(fbR.fsMod.doc(FS,'profiles',user.uid));
+    const pd=snap.data()||{}; badge=pd.badgeId||'';
+    if(!isAdmin && badge!=='dev'){
+      $('deniedMsg').textContent=`${user.email} — role "${badge||'none'}" — admin requires DEV or an authorized email.`;
+      show('sLoad',false); show('sDenied',true); return;
     }
-    // Setup topbar
-    document.getElementById('topName').textContent = user.displayName || user.email;
-    const av = document.getElementById('topAv');
-    if (user.photoURL) {
-      av.outerHTML = `<img class="topav" src="${user.photoURL}" alt="av" id="topAv">`;
-    } else {
-      av.textContent = (user.displayName || user.email || 'A')[0].toUpperCase();
-    }
-    document.getElementById('adminApp').classList.add('on');
-    show('sLoad', false);
-    await loadRoles();
-    await loadDonations();
-  } catch(e) {
-    document.getElementById('deniedMsg').textContent = 'Error: ' + e.message;
-    show('sLoad', false); show('sDenied', true);
-  }
+    ADMIN={uid:user.uid,name:pd.name||user.displayName||user.email,userId:pd.userId||'',photoURL:pd.photoURL||user.photoURL||'',badgeId:badge||'dev'};
+    $('topName').textContent=ADMIN.name;
+    const av=$('topAv');
+    if(ADMIN.photoURL){ av.outerHTML=`<img class="topav" src="${x(ADMIN.photoURL)}" alt="" id="topAv">`; }
+    else av.textContent=(ADMIN.name||'A')[0].toUpperCase();
+    $('adminApp').classList.add('on'); show('sLoad',false);
+    startListeners();
+    go('dash');
+  }catch(e){ $('deniedMsg').textContent='Error: '+e.message; show('sLoad',false); show('sDenied',true); }
 }
 
-window.doGoogleLogin = async () => {
-  try { await fbR.authMod.signInWithPopup(AUTH, new fbR.authMod.GoogleAuthProvider()); }
-  catch(e) { toast(e.message, 'err'); }
-};
-window.doSignOut = async () => {
-  try { await fbR.authMod.signOut(AUTH); } catch(e) {}
-  document.getElementById('adminApp').classList.remove('on');
-  show('sLogin', true);
-};
-
-/* ── NAVIGATION ── */
-window.nav = function(btn) {
-  document.querySelectorAll('.navbtn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  const pageId = 'page' + btn.dataset.page[0].toUpperCase() + btn.dataset.page.slice(1);
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(pageId).classList.add('active');
-};
-
-/* ── ROLES ── */
-async function loadRoles() {
-  const snap = await fbR.rtdbMod.get(fbR.rtdbMod.ref(RTDB, 'roles'));
-  allRoles = snap.val() || {};
-  renderRolesTable();
-  renderDashRoles();
-  renderGiftSelect();
-  document.getElementById('stRoles').textContent = Object.keys(allRoles).length;
-  renderPermGrid('createPermGrid', []);
+/* ───────── REALTIME LISTENERS ───────── */
+function track(unsub){ if(typeof unsub==='function') listeners.push(unsub); }
+function detachAll(){ listeners.forEach(u=>{try{u();}catch(e){}}); listeners=[]; }
+function startListeners(){
+  const {rtdbMod}=fbR;
+  // roles (RTDB root)
+  track(rtdbMod.onValue(rtdbMod.ref(RTDB,'roles'),s=>{ allRoles=s.val()||{}; renderRoles(); renderDashRoles(); refreshStats(); },()=>{}));
+  // presence
+  track(rtdbMod.onValue(rtdbMod.ref(RTDB,`${PRESENCE}/users`),s=>{ presenceUsers=s.val()||{}; refreshStats(); },()=>{}));
+  // rooms
+  track(rtdbMod.onValue(rtdbMod.ref(RTDB,`${PRESENCE}/rooms`),s=>{ liveRooms=s.val()||{}; renderDashRooms(); if(currentPage==='mp') renderMpRooms(); refreshStats(); },()=>{}));
+  // bans ledger
+  track(rtdbMod.onValue(rtdbMod.ref(RTDB,`${PRESENCE}/bans`),s=>{ ctx.bans=s.val()||{}; renderBans(); refreshStats(); },()=>{}));
+  loadDonations();
 }
 
-function renderRolesTable() {
-  const tbody = document.getElementById('rolesTbody');
-  const keys = Object.keys(allRoles).sort();
-  if (!keys.length) { tbody.innerHTML = '<tr><td colspan="4" class="lrow">No roles. Create one below.</td></tr>'; return; }
-  tbody.innerHTML = keys.map(id => {
-    const r = allRoles[id] || {};
-    const color = safeColor(r.color, '#888888');
-    const label = r.label || id.toUpperCase();
-    const textColor = luminance(color) > 128 ? '#06111f' : '#ffffff';
-    return `<tr>
-      <td style="font-weight:700">${x(label)}</td>
-      <td><span style="font-family:monospace;font-size:12px;color:var(--muted)">${x(color)}</span></td>
-      <td><span class="bp-pill" style="background:${x(color)};color:${textColor};border-color:rgba(0,0,0,.25)">${x(label)}</span></td>
+/* ───────── NAV ───────── */
+function buildNav(){
+  // sidebar
+  const sb=$('sidebar'); let html='', sec='';
+  NAV.forEach(n=>{ if(n.sec!==sec){ sec=n.sec; html+=`<div class="sidesec">${x(sec)}</div>`; }
+    html+=navBtn(n,''); });
+  sb.innerHTML=html;
+  // bottom nav
+  $('botnav').innerHTML=BOTTOM.map(id=>{const n=NAV.find(x=>x.id===id);return botBtn(n);}).join('')
+    +`<button data-act="openMore"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>More</button>`;
+  // more sheet
+  $('moreNav').innerHTML=NAV.filter(n=>!BOTTOM.includes(n.id)).map(n=>navBtn(n,'sheet')).join('');
+}
+function navBtn(n,scope){ return `<button class="navbtn${n.id===currentPage?' active':''}" data-act="nav" data-page="${n.id}" data-scope="${scope}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${n.icon}"/></svg>${x(n.label)}<span class="nbadge" id="nb_${n.id}_${scope}"></span></button>`; }
+function botBtn(n){ return `<button class="${n.id===currentPage?'active':''}" data-act="nav" data-page="${n.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${n.icon}"/></svg>${x(n.label)}<span class="nbadge" id="bn_${n.id}"></span></button>`; }
+
+function go(page){
+  currentPage=page;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const pg=$('page'+page[0].toUpperCase()+page.slice(1)); if(pg) pg.classList.add('active');
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+  $('botnav').querySelectorAll('button[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+  $('content').scrollTop=0;
+  closeSheet();
+  if(page==='reports') loadReports();
+  if(page==='audit') loadAudit();
+  if(page==='mp') renderMpRooms();
+  if(page==='roles') renderPermGrid('createPermGrid',[]);
+  if(page==='chat' && !ctx.chatChannel) chatTab('group_global');
+}
+
+/* ───────── STATS + CHARTS ───────── */
+function onlineNow(){ const now=Date.now(); return Object.values(presenceUsers).filter(u=>u&&u.online&&(now-(u.lastSeen||0)<ONLINE_FRESH_MS)).length; }
+function activeRooms(){ const now=Date.now(); return Object.values(liveRooms).filter(r=>r&&(now-(r.updatedAt||r.createdAt||0)<3600000)).length; }
+function bansActive(){ return Object.values(ctx.bans||{}).filter(b=>b&&b.active).length; }
+async function refreshStats(){
+  const stats=[
+    {id:'users',v:ctx.totalUsers??'…',l:'Total Users',icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'},
+    {id:'online',v:onlineNow(),l:'Online Now',dot:true,icon:'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z'},
+    {id:'rooms',v:Object.keys(liveRooms).length,l:'Live Rooms',icon:'M3 5h18v14H3z'},
+    {id:'msgs',v:ctx.msgsToday??'…',l:'Global Msgs Today',icon:'M21 11.5a8.4 8.4 0 0 1-9 8 9 9 0 0 1-4-1L3 21l2.5-5a8.5 8.5 0 1 1 15.5-4.5z'},
+    {id:'banned',v:bansActive(),l:'Banned',icon:'M18.4 6.6A9 9 0 1 1 5.6 19.4'},
+    {id:'roles',v:Object.keys(allRoles).length,l:'Roles',icon:'M12 2l3 6 6 1-4.5 4.5L18 21l-6-3-6 3 1.5-7.5L3 9l6-1z'},
+    {id:'donors',v:ctx.donorCount??'…',l:'Donors',icon:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7'},
+    {id:'raised',v:'$'+(ctx.raised??0).toFixed(0),l:'Raised (USD)',icon:'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6'},
+  ];
+  $('statsGrid').innerHTML=stats.map(s=>`<div class="sc"><div class="sci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="${s.icon}"/></svg></div><div class="sv${s.dot?' dot':''}">${x(s.v)}</div><div class="sl">${x(s.l)}</div></div>`).join('');
+  $('roomsLiveCount').textContent=Object.keys(liveRooms).length;
+  $('rolesLiveCount').textContent=Object.keys(allRoles).length;
+  const bc=$('bn_bans'); if(bc) bc.textContent=bansActive()||'';
+  // lazy one-shot counts
+  if(ctx.totalUsers===undefined){ ctx.totalUsers='…'; try{ const c=await fbR.fsMod.getDoc(fbR.fsMod.doc(FS,'counters','publicUserId')); ctx.totalUsers=Math.max(0,(c.data()?.next||1)-1); }catch(e){ ctx.totalUsers='—'; } refreshStats(); }
+  if(ctx.msgsToday===undefined){ ctx.msgsToday='…'; countMsgsToday(); }
+}
+async function countMsgsToday(){
+  try{ const {fsMod}=fbR; const midnight=new Date(); midnight.setHours(0,0,0,0);
+    const q=fsMod.query(fsMod.collection(FS,'chatRooms','group_global','messages'),fsMod.where('createdAt','>=',midnight));
+    const c=await fsMod.getCountFromServer(q); ctx.msgsToday=c.data().count;
+  }catch(e){ ctx.msgsToday='—'; }
+  refreshStats();
+}
+function renderDashRoles(){
+  const el=$('dashRoleList'), keys=Object.keys(allRoles).sort();
+  if(!keys.length){ el.innerHTML='<span class="perm-none">No roles.</span>'; return; }
+  el.innerHTML=keys.map(id=>{const r=allRoles[id]||{},c=safeColor(r.color,'#888'),l=r.label||r.name||id.toUpperCase();
+    return `<span class="bp-pill" style="background:${x(c)};color:${ink(c)}">${x(l)}</span>`;}).join('');
+}
+function renderDashRooms(){
+  const el=$('dashRooms'), arr=Object.values(liveRooms);
+  if(!arr.length){ el.innerHTML='<div class="empty">No active rooms.</div>'; return; }
+  el.innerHTML=arr.sort((a,b)=>(b.count||0)-(a.count||0)).slice(0,6).map(r=>`
+    <div class="kv"><span class="k">${x(r.name||'Room')} ${r.mode==='Private'?'<span class="tag warn">🔒</span>':''}</span>
+    <span class="v">${x(r.count||0)}/${x(r.max||6)} • ${x(r.mode||'Public')}</span></div>`).join('');
+}
+
+/* ───────── ROLES ───────── */
+function renderRoles(){
+  const tb=$('rolesTbody'); if(!tb) return;
+  const keys=Object.keys(allRoles).sort();
+  if(!keys.length){ tb.innerHTML='<tr><td colspan="4" class="lrow">No roles. Create one below.</td></tr>'; }
+  else tb.innerHTML=keys.map(id=>{const r=allRoles[id]||{},c=safeColor(r.color,'#888'),l=r.label||r.name||id.toUpperCase();
+    return `<tr><td style="font-weight:700">${x(l)}</td>
+      <td><span class="bp-pill" style="background:${x(c)};color:${ink(c)}">${x(l)}</span></td>
       <td>${renderPermPills(r.permissions||[])}</td>
-      <td class="tda"><button class="btn bp bsm" onclick="openEditRole(${j(id)},${j(label)})">Edit</button><button class="btn br bsm" onclick="openDelRole(${j(id)},${j(label)})">Delete</button></td>
-    </tr>`;
-  }).join('');
+      <td class="tda"><button class="btn bp bxs" data-act="editRole" data-id="${x(id)}" data-name="${x(l)}">Edit</button><button class="btn br bxs" data-act="delRole" data-id="${x(id)}" data-name="${x(l)}">Del</button></td></tr>`;}).join('');
+  renderGiftSelect($('giftSel')); renderGiftSelect($('bulkGiftSel'));
+}
+function renderGiftSelect(sel){ if(!sel) return; sel.innerHTML='<option value="">— select role —</option>'+Object.keys(allRoles).sort().map(id=>`<option value="${x(id)}">${x(allRoles[id].label||allRoles[id].name||id.toUpperCase())}</option>`).join(''); }
+function renderPermGrid(cid,sel=[]){ const el=$(cid); if(!el) return; el.innerHTML=PERMISSIONS.map(p=>`<label class="perm-cb"><input type="checkbox" value="${x(p.id)}" ${sel.includes(p.id)?'checked':''}><span class="perm-cb-label">${x(p.label)}</span></label>`).join(''); }
+function getCheckedPerms(cid){ const el=$(cid); return el?[...el.querySelectorAll('input:checked')].map(c=>c.value):[]; }
+function renderPermPills(perms){ if(!Array.isArray(perms)||!perms.length) return '<span class="perm-none">None</span>'; return perms.map(pid=>{const p=PERMISSIONS.find(p=>p.id===pid);return p?`<span class="perm-list-item">${x(p.label)}</span>`:'';}).join(''); }
+function colorPreview(){ const c=$('nRoleColor').value; $('colorPreview').textContent=c; const sw=$('colorSwatch'); sw.style.background=c; sw.style.color=ink(c); sw.textContent=($('nRoleLabel').value||'LABEL').toUpperCase().slice(0,10); }
+async function createRole(){
+  const raw=$('nRoleLabel').value.trim(); if(!raw) return toast('Label required','err');
+  const id=raw.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); if(!id) return toast('Label needs letters/numbers','err');
+  try{ await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB,`roles/${id}`),{label:raw.toUpperCase(),name:raw.toUpperCase(),color:$('nRoleColor').value,rarity:'custom',permissions:getCheckedPerms('createPermGrid'),createdAt:Date.now()});
+    await logAction('role.create',id,raw.toUpperCase()); toast(`Role "${raw.toUpperCase()}" created`,'ok');
+    $('nRoleLabel').value=''; $('nRoleColor').value='#4d90ff'; colorPreview(); renderPermGrid('createPermGrid',[]);
+  }catch(e){ toast('Failed: '+e.message,'err'); }
 }
 
-function renderDashRoles() {
-  const el = document.getElementById('dashRoleList');
-  const keys = Object.keys(allRoles).sort();
-  if (!keys.length) { el.innerHTML = '<span style="color:var(--faint);font-size:12px">No roles.</span>'; return; }
-  el.innerHTML = keys.map(id => {
-    const r = allRoles[id] || {}; const color = safeColor(r.color, '#888888'); const label = r.label||id.toUpperCase();
-    const ink = luminance(color) > 128 ? '#06111f' : '#fff';
-    return `<span class="bp-pill" style="background:${x(color)};color:${ink};border-color:rgba(0,0,0,.25)">${x(label)}</span>`;
-  }).join('');
+/* ───────── USERS ───────── */
+async function userSearch(){
+  const q=$('uSearch').value.trim(); if(!q) return;
+  const el=$('uResults'); el.innerHTML='<div class="skel"></div><div class="skel"></div>';
+  userResults=await queryUsers(q); renderUserCards();
 }
-
-function renderGiftSelect() {
-  const sel = document.getElementById('giftSel');
-  sel.innerHTML = '<option value="">— select role —</option>' + Object.keys(allRoles).sort().map(id => {
-    const r = allRoles[id];
-    return `<option value="${x(id)}">${x(r.label||id.toUpperCase())}</option>`;
-  }).join('');
-}
-
-window.updateColorPreview = function() {
-  const color = document.getElementById('nRoleColor').value;
-  document.getElementById('colorPreview').textContent = color;
-  const sw = document.getElementById('colorSwatch');
-  sw.style.background = color;
-  sw.style.color = luminance(color) > 128 ? '#06111f' : '#fff';
-  const label = document.getElementById('nRoleLabel').value || 'LABEL';
-  sw.textContent = label.toUpperCase().slice(0,8);
-};
-
-window.createRole = async function() {
-  const rawLabel = document.getElementById('nRoleLabel').value.trim();
-  const label = rawLabel.toUpperCase();
-  const color = document.getElementById('nRoleColor').value;
-  if (!label) { toast('Label required', 'err'); return; }
-  // Auto-derive key from label: lowercase, spaces→underscore, strip non-alphanumeric
-  const id = rawLabel.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-  if (!id) { toast('Label must contain letters or numbers', 'err'); return; }
-  try {
-    const permissions = getCheckedPerms('createPermGrid');
-    await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB, `roles/${id}`), { label, color, permissions, createdAt: Date.now() });
-    toast(`Role "${label}" created`, 'ok');
-    document.getElementById('nRoleLabel').value = '';
-    document.getElementById('nRoleColor').value = '#4d90ff';
-    window.updateColorPreview();
-    await loadRoles();
-  } catch(e) { toast('Failed: ' + e.message, 'err'); }
-};
-
-window.openEditRole = function(id, label) {
-  pendingDelRoleId = id;
-  document.getElementById('editRoleName').textContent = label;
-  const currentPerms = (allRoles[id]?.permissions) || [];
-  renderPermGrid('editPermGrid', currentPerms);
-  openModal('mEditRole');
-};
-window.doEditRole = async function() {
-  if (!pendingDelRoleId) return;
-  const permissions = getCheckedPerms('editPermGrid');
-  try {
-    await fbR.rtdbMod.update(fbR.rtdbMod.ref(RTDB, `roles/${pendingDelRoleId}`), { permissions });
-    toast('Permissions updated', 'ok');
-    closeModal('mEditRole');
-    await loadRoles();
-  } catch(e) { toast('Failed: ' + e.message, 'err'); }
-};
-window.openDelRole = function(id, label) {
-  pendingDelRoleId = id;
-  document.getElementById('delRoleName').textContent = label;
-  openModal('mDelRole');
-};
-window.doDeleteRole = async function() {
-  if (!pendingDelRoleId) return;
-  try {
-    await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB, `roles/${pendingDelRoleId}`));
-    // Cascade: remove this role from all Firestore profiles
-    await cascadeRemoveRole(pendingDelRoleId);
-    toast('Role deleted + user profiles cleaned', 'ok');
-    closeModal('mDelRole');
-    await loadRoles();
-  } catch(e) { toast('Failed: ' + e.message, 'err'); }
-};
-
-async function cascadeRemoveRole(roleId) {
-  const { fsMod } = fbR;
-  const col = fsMod.collection(FS, 'profiles');
-  // Batch update users whose badgeId matches
-  const q1 = await fsMod.getDocs(fsMod.query(col, fsMod.where('badgeId','==',roleId)));
-  // Batch update users whose ownedRoles contains roleId
-  const q2 = await fsMod.getDocs(fsMod.query(col, fsMod.where('ownedRoles','array-contains',roleId)));
-  const affected = new Map();
-  q1.docs.forEach(d => affected.set(d.id, { ...d.data(), _ref: d.ref, _clearBadge: true }));
-  q2.docs.forEach(d => {
-    const ex = affected.get(d.id);
-    if (ex) ex._removeOwned = true;
-    else affected.set(d.id, { ...d.data(), _ref: d.ref, _removeOwned: true });
-  });
-  if (affected.size === 0) return;
-  const batch = fsMod.writeBatch(FS);
-  affected.forEach(({ _ref, _clearBadge, _removeOwned }) => {
-    const upd = {};
-    if (_clearBadge) upd.badgeId = null;
-    if (_removeOwned) upd.ownedRoles = fsMod.arrayRemove(roleId);
-    batch.update(_ref, upd);
-  });
-  await batch.commit();
-}
-
-/* ── USERS ── */
-window.searchUsers = async function() {
-  const q = document.getElementById('uSearch').value.trim();
-  if (!q) return;
-  const el = document.getElementById('uResults');
-  el.innerHTML = '<div class="lrow">Searching…</div>';
-  const users = await queryUsers(q);
-  renderUserCards(users, el);
-};
-
-async function queryUsers(q) {
-  const { fsMod } = fbR;
-  const map = new Map();
-  const qClean = q.replace(/^#/, '');
-  for (const uid of [qClean, '#' + qClean]) {
-    try {
-      const s = await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'), fsMod.where('userId','==',uid), fsMod.limit(10)));
-      s.docs.forEach(d => map.set(d.id,{uid:d.id,...d.data()}));
-    } catch(e){}
-  }
-  try {
-    const s = await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'), fsMod.orderBy('name'), fsMod.startAt(q), fsMod.endAt(q+''), fsMod.limit(15)));
-    s.docs.forEach(d => map.set(d.id,{uid:d.id,...d.data()}));
-  } catch(e){}
+async function queryUsers(q){
+  const {fsMod}=fbR, map=new Map(), clean=q.replace(/^#/,'');
+  for(const uid of [clean,'#'+clean]){ try{ const s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'),fsMod.where('userId','==',uid),fsMod.limit(10))); s.docs.forEach(d=>map.set(d.id,{uid:d.id,...d.data()})); }catch(e){} }
+  try{ const s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'),fsMod.orderBy('searchName'),fsMod.startAt(q.toLowerCase()),fsMod.endAt(q.toLowerCase()+''),fsMod.limit(15))); s.docs.forEach(d=>map.set(d.id,{uid:d.id,...d.data()})); }catch(e){}
+  try{ const s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'),fsMod.orderBy('name'),fsMod.startAt(q),fsMod.endAt(q+''),fsMod.limit(15))); s.docs.forEach(d=>map.set(d.id,{uid:d.id,...d.data()})); }catch(e){}
   return [...map.values()];
 }
+function renderUserCards(){
+  const el=$('uResults');
+  if(!userResults.length){ el.innerHTML='<div class="empty">No users found.</div>'; return; }
+  el.innerHTML=userResults.map(u=>userCard(u)).join('');
+  updateBulkBar();
+}
+function userCard(u){
+  const r=allRoles[u.badgeId||''], c=safeColor(r?.color,'#555'), l=r?.label||r?.name||(u.badgeId?u.badgeId.toUpperCase():'NO ROLE');
+  const banned=isBanned(u.uid), sel=userSelection.has(u.uid);
+  const av=u.photoURL?`<img class="uav" src="${x(u.photoURL)}" alt="">`:`<div class="uav">${x((u.name||'?')[0].toUpperCase())}</div>`;
+  return `<div class="rcard${sel?' sel':''}">
+    <input type="checkbox" class="rcard-chk" data-act="userSel" data-uid="${x(u.uid)}" ${sel?'checked':''}>
+    ${av}
+    <div class="uinfo" data-act="userDetail" data-uid="${x(u.uid)}" style="cursor:pointer">
+      <div class="uname">${x(u.name||'Unknown')} ${banned?'<span class="tag danger">BANNED</span>':''}</div>
+      <div class="uid">${x((u.userId||u.uid||'').replace(/^#/,'#'))} · <span class="bp-pill" style="background:${c};color:${ink(c)}">${x(l)}</span></div>
+    </div>
+    <div class="uacts">
+      <button class="btn bp bxs" data-act="gift" data-uid="${x(u.uid)}" data-name="${x(u.name||'User')}">Gift</button>
+      ${banned?`<button class="btn bg bxs" data-act="unban" data-uid="${x(u.uid)}" data-name="${x(u.name||'User')}">Unban</button>`:`<button class="btn br bxs" data-act="ban" data-uid="${x(u.uid)}" data-name="${x(u.name||'User')}">Ban</button>`}
+    </div></div>`;
+}
+function findUser(uid){ return userResults.find(u=>u.uid===uid)||(selectedDonorUid===uid?selectedDonorData:null); }
+function toggleSel(uid){ if(userSelection.has(uid)) userSelection.delete(uid); else { const u=findUser(uid); if(u) userSelection.set(uid,u); } renderUserCards(); }
+function updateBulkBar(){ const n=userSelection.size; $('bulkCount').textContent=n; $('userBulk').classList.toggle('show',n>0); }
 
-function renderUserCards(users, el) {
-  if (!users.length) { el.innerHTML = '<div class="empty">No users found.</div>'; return; }
-  el.innerHTML = users.map(u => {
-    const roleId = u.badgeId || '';
-    const r = allRoles[roleId];
-    const color = safeColor(r?.color, '#555555');
-    const label = r?.label || (roleId ? roleId.toUpperCase() : 'NO ROLE');
-    const ink = luminance(color) > 128 ? '#06111f' : '#fff';
-    const pillStyle = r ? `background:${color};color:${ink};border-color:rgba(0,0,0,.25)` : 'background:var(--s3);color:var(--muted);border-color:var(--bd2)';
-    const av = u.photoURL ? `<img class="uav" src="${x(u.photoURL)}" alt="av">` : `<div class="uav">${(u.name||'?')[0].toUpperCase()}</div>`;
-    return `<div class="ucard">
-      ${av}
-      <div class="uinfo">
-        <div class="uname">${x(u.name||'Unknown')}</div>
-        <div class="uid">${x((u.userId||u.uid||'').replace(/^#/,''))}</div>
-      </div>
-      <div class="uacts">
-        <span class="bp-pill" style="${pillStyle}">${x(label)}</span>
-        <button class="btn bp bsm" onclick="openGift(${j(u.uid)},${j(u.name||'User')})">Gift Role</button>
-        <button class="btn br bsm" onclick="openRemove(${j(u.uid)},${j(u.name||'User')})">Remove Role</button>
-      </div>
+async function userDetail(uid){
+  const u=findUser(uid)||(await getProfile(uid)); if(!u) return toast('User not found','err');
+  const r=allRoles[u.badgeId||''], c=safeColor(r?.color,'#555'), l=r?.label||r?.name||'NO ROLE', banned=isBanned(uid);
+  const av=u.photoURL?`<img class="uav" src="${x(u.photoURL)}" alt="" style="width:56px;height:56px">`:`<div class="uav" style="width:56px;height:56px;font-size:20px">${x((u.name||'?')[0].toUpperCase())}</div>`;
+  $('detailBody').innerHTML=`
+    <h3 style="margin-bottom:14px">User Detail</h3>
+    <div class="rcard" style="background:var(--s2)">${av}<div class="uinfo"><div class="uname" style="font-size:16px">${x(u.name||'Unknown')} ${banned?'<span class="tag danger">BANNED</span>':''}</div><div class="uid">${x(u.userId||'')} · <span class="bp-pill" style="background:${c};color:${ink(c)}">${x(l)}</span></div></div></div>
+    <div class="card" style="margin:12px 0">
+      <div class="kv"><span class="k">UID</span><span class="v"><span class="code">${x(uid)}</span></span></div>
+      <div class="kv"><span class="k">Public ID</span><span class="v">${x(u.publicId??'—')}</span></div>
+      <div class="kv"><span class="k">Country</span><span class="v">${x(u.countryCode||'—')}</span></div>
+      <div class="kv"><span class="k">Play time</span><span class="v">${x(u.playTime||fmtDur(u.playTimeSeconds||0))}</span></div>
+      <div class="kv"><span class="k">Likes / Dislikes</span><span class="v">${x(u.likes||0)} / ${x(u.dislikes||0)}</span></div>
+      <div class="kv"><span class="k">Owned roles</span><span class="v">${x((u.ownedRoles||[]).join(', ')||'—')}</span></div>
+      <div class="kv"><span class="k">Bio</span><span class="v">${x(u.desc||u.bio||'—')}</span></div>
+    </div>
+    <div class="faction">
+      <button class="btn bp btn-block" data-act="gift" data-uid="${x(uid)}" data-name="${x(u.name||'User')}">Gift Role</button>
+      <button class="btn bgh" data-act="removeRole" data-uid="${x(uid)}" data-name="${x(u.name||'User')}">Remove Role</button>
+      ${banned?`<button class="btn bg btn-block" data-act="unban" data-uid="${x(uid)}" data-name="${x(u.name||'User')}">Unban</button>`:`<button class="btn br btn-block" data-act="ban" data-uid="${x(uid)}" data-name="${x(u.name||'User')}">Ban User</button>`}
     </div>`;
-  }).join('');
+  openDetail();
+}
+async function getProfile(uid){ try{ const s=await fbR.fsMod.getDoc(fbR.fsMod.doc(FS,'profiles',uid)); return s.exists()?{uid,...s.data()}:null; }catch(e){ return null; } }
+
+/* role grant/remove */
+async function setUserRole(uid,roleId){ const {fsMod,rtdbMod}=fbR;
+  await fsMod.updateDoc(fsMod.doc(FS,'profiles',uid),{roleId,badgeId:roleId,ownedRoles:fsMod.arrayUnion(roleId)});
+  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{badgeId:roleId,role:roleId}); }catch(e){}
+}
+async function clearUserRole(uid){ const {fsMod,rtdbMod}=fbR;
+  await fsMod.updateDoc(fsMod.doc(FS,'profiles',uid),{roleId:'common',badgeId:'common'});
+  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{badgeId:'common',role:'common'}); }catch(e){}
 }
 
-window.openGift = function(uid, name) {
-  pendingGiftUid = uid;
-  document.getElementById('giftName').textContent = name;
-  renderGiftSelect();
-  openModal('mGift');
-};
-window.doGiftRole = async function() {
-  const roleId = document.getElementById('giftSel').value;
-  if (!roleId) { toast('Select a role', 'err'); return; }
-  try {
-    await setUserRole(pendingGiftUid, roleId);
-    toast('Role gifted!', 'ok');
-    closeModal('mGift');
-    window.searchUsers();
-  } catch(e) { toast('Failed: ' + e.message, 'err'); }
-};
-
-window.openRemove = function(uid, name) {
-  pendingRemoveUid = uid;
-  document.getElementById('removeName').textContent = name;
-  openModal('mRemove');
-};
-window.doRemoveRole = async function() {
-  try {
-    await clearUserRole(pendingRemoveUid);
-    toast('Role removed', 'ok');
-    closeModal('mRemove');
-    window.searchUsers();
-  } catch(e) { toast('Failed: ' + e.message, 'err'); }
-};
-
-async function setUserRole(uid, roleId) {
-  const { fsMod, rtdbMod } = fbR;
-  const ref = fsMod.doc(FS, 'profiles', uid);
-  await fsMod.updateDoc(ref, { badgeId: roleId, ownedRoles: fsMod.arrayUnion(roleId) });
-  try { await rtdbMod.update(rtdbMod.ref(RTDB,`${RTDB_ROOT}/users/${uid}`),{badgeId:roleId}); } catch(e){}
+/* ───────── BANS ───────── */
+function isBanned(uid){ return !!(ctx.bans&&ctx.bans[uid]&&ctx.bans[uid].active); }
+async function banUser(uid,data,reason,days){
+  const {rtdbMod}=fbR, now=Date.now(), exp=days>0?now+days*86400000:0;
+  await rtdbMod.set(rtdbMod.ref(RTDB,`${PRESENCE}/bans/${uid}`),{uid,name:data?.name||'Unknown',userId:data?.userId||'',photoURL:data?.photoURL||'',reason:reason||'',bannedBy:ADMIN.uid,bannedByName:ADMIN.name,createdAt:now,expiresAt:exp,active:true});
+  // enforcement: reuse the account kill-switch watched live by app + multiplayer
+  await rtdbMod.set(rtdbMod.ref(RTDB,`deletedAccounts/${uid}`),{deleted:true,banned:true,type:'ban',reason:reason||'',bannedBy:ADMIN.uid,bannedAt:now,publicId:data?.publicId||null,userId:data?.userId||null});
+  // also force-offline + eject from any room
+  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{online:false,room:null}); }catch(e){}
+  await logAction('user.ban',uid,`${data?.name||uid} — ${reason||'no reason'}${days>0?` (${days}d)`:' (permanent)'}`);
+}
+async function unbanUser(uid,name){ const {rtdbMod}=fbR;
+  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/bans/${uid}`),{active:false,unbannedAt:Date.now(),unbannedBy:ADMIN.uid}); }catch(e){}
+  await rtdbMod.remove(rtdbMod.ref(RTDB,`deletedAccounts/${uid}`));
+  await logAction('user.unban',uid,name||uid);
+}
+function renderBans(){
+  const el=$('bansList'); if(!el) return;
+  const arr=Object.values(ctx.bans||{}).filter(b=>b&&b.active).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  $('bansCount').textContent=arr.length;
+  if(!arr.length){ el.innerHTML='<div class="empty">No active bans.</div>'; return; }
+  el.innerHTML=arr.map(b=>`<div class="rcard">
+    <div class="uav">${x((b.name||'?')[0].toUpperCase())}</div>
+    <div class="uinfo"><div class="uname">${x(b.name||'Unknown')} <span class="tag danger">BANNED</span></div>
+      <div class="uid">${x(b.userId||'')} · ${x(b.reason||'no reason')} · ${b.expiresAt?('exp '+fmtDate(b.expiresAt)):'permanent'}</div>
+      <div class="uid">by ${x(b.bannedByName||'admin')} · ${x(timeAgo(b.createdAt))}</div></div>
+    <div class="uacts"><button class="btn bg bsm" data-act="unban" data-uid="${x(b.uid)}" data-name="${x(b.name||'User')}">Unban</button></div></div>`).join('');
+}
+async function banQuick(){
+  const q=$('banQuickId').value.trim(); if(!q) return;
+  const users=await queryUsers(q); if(!users.length) return toast('No user found','err');
+  openBan(users[0].uid,users[0].name||'User',users[0]);
 }
 
-async function clearUserRole(uid) {
-  const { fsMod, rtdbMod } = fbR;
-  const ref = fsMod.doc(FS, 'profiles', uid);
-  await fsMod.updateDoc(ref, { badgeId: null, ownedRoles: [] });
-  try { await rtdbMod.update(rtdbMod.ref(RTDB,`${RTDB_ROOT}/users/${uid}`),{badgeId:null}); } catch(e){}
+/* ───────── CHAT CONTROL ───────── */
+const CH_LABEL={group_global:'Global',group_announcements:'Announcements'};
+function chatTab(ch){
+  ctx.chatChannel=ch;
+  document.querySelectorAll('#chatTabs .tab').forEach(t=>t.classList.toggle('active',t.dataset.ch===ch));
+  $('chatCustomBar').style.display=ch==='custom'?'flex':'none';
+  if(ch==='custom'){ $('chatChannelLabel').textContent='Custom'; $('chatMessages').innerHTML='<div class="lrow">Enter a room ID above.</div>'; ctx.chatRoom=null; return; }
+  ctx.chatRoom=ch; $('chatChannelLabel').textContent=CH_LABEL[ch]||ch; loadChat(ch);
+}
+function chatLoadCustom(){ const id=$('chatRoomId').value.trim(); if(!id) return; ctx.chatRoom=id; $('chatChannelLabel').textContent=id; loadChat(id); }
+async function loadChat(roomId){
+  const el=$('chatMessages'); el.innerHTML='<div class="lrow">Loading…</div>';
+  try{ const {fsMod}=fbR;
+    const s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'chatRooms',roomId,'messages'),fsMod.orderBy('createdAt','desc'),fsMod.limit(80)));
+    if(s.empty){ el.innerHTML='<div class="empty">No messages.</div>'; return; }
+    const msgs=s.docs.map(d=>({id:d.id,...d.data()}));
+    el.innerHTML=msgs.map(m=>chatMsg(roomId,m)).join('');
+  }catch(e){ el.innerHTML=`<div class="empty">Failed: ${x(e.message)}</div>`; }
+}
+function chatMsg(roomId,m){
+  const del=m.deletedForAll, ts=m.createdAt?.toMillis?m.createdAt.toMillis():(m.createdAt?.seconds?m.createdAt.seconds*1000:0);
+  const av=m.senderPhotoURL?`<img class="uav sm" src="${x(m.senderPhotoURL)}" alt="">`:`<div class="uav sm">${x((m.senderName||'?')[0].toUpperCase())}</div>`;
+  return `<div class="msg">${av}<div class="msg-body">
+    <div class="msg-head"><span class="msg-name">${x(m.senderName||'Unknown')}</span><span class="msg-meta">${x(m.senderUserId||'')} · ${x(ts?timeAgo(ts):'')}</span></div>
+    <div class="msg-text${del?' del':''}">${del?'[deleted]':x(m.text||'')}</div>
+    ${(!del&&m.imageURL)?`<img class="msg-img" src="${x(m.imageURL)}" alt="">`:''}</div>
+    ${del?'':`<button class="btn br bxs" data-act="delMsg" data-room="${x(roomId)}" data-id="${x(m.id)}">Del</button>`}</div>`;
+}
+async function delMsg(roomId,id){
+  try{ await fbR.fsMod.updateDoc(fbR.fsMod.doc(FS,'chatRooms',roomId,'messages',id),{deletedForAll:true,text:'',imageURL:'',imagePath:''});
+    await logAction('chat.delete',roomId,'msg '+id); toast('Message deleted','ok'); loadChat(roomId);
+  }catch(e){ toast('Failed: '+e.message,'err'); }
+}
+async function doPost(){
+  const text=$('postText').value.trim(), roomId=ctx.chatRoom; if(!text||!roomId) return toast('Empty','err');
+  try{ const {fsMod}=fbR; const ts=fsMod.serverTimestamp();
+    await fsMod.addDoc(fsMod.collection(FS,'chatRooms',roomId,'messages'),{senderId:ADMIN.uid,senderName:ADMIN.name,senderUserId:ADMIN.userId,senderPhotoURL:ADMIN.photoURL,senderBadgeId:ADMIN.badgeId||'dev',text,imageURL:'',imagePath:'',replyTo:null,hiddenFor:[],createdAt:ts,updatedAt:ts});
+    await fsMod.setDoc(fsMod.doc(FS,'chatRooms',roomId),{type:roomId.startsWith('dm_')?'dm':'group',lastMessage:text,lastSenderId:ADMIN.uid,updatedAt:ts},{merge:true});
+    await logAction('chat.post',roomId,text.slice(0,60)); toast('Posted','ok'); closeModal('mPost'); $('postText').value=''; loadChat(roomId);
+  }catch(e){ toast('Failed: '+e.message,'err'); }
+}
+function chatWipe(){
+  const roomId=ctx.chatRoom; if(!roomId) return toast('Open a channel first','err');
+  confirmAction('Wipe channel?',`Soft-delete ALL messages in ${roomId}. This cannot be undone.`,async()=>{
+    try{ const {fsMod}=fbR; let cur=null,total=0;
+      while(true){ let q=fsMod.query(fsMod.collection(FS,'chatRooms',roomId,'messages'),fsMod.orderBy('createdAt','desc'),fsMod.limit(400));
+        if(cur) q=fsMod.query(fsMod.collection(FS,'chatRooms',roomId,'messages'),fsMod.orderBy('createdAt','desc'),fsMod.startAfter(cur),fsMod.limit(400));
+        const s=await fsMod.getDocs(q); if(s.empty) break;
+        const b=fsMod.writeBatch(FS); s.docs.forEach(d=>b.update(d.ref,{deletedForAll:true,text:'',imageURL:'',imagePath:''})); await b.commit();
+        total+=s.docs.length; cur=s.docs[s.docs.length-1]; if(s.docs.length<400) break; }
+      await logAction('chat.wipe',roomId,total+' msgs'); toast(`Wiped ${total} messages`,'ok'); loadChat(roomId);
+    }catch(e){ toast('Failed: '+e.message,'err'); }
+  },'WIPE');
 }
 
-/* ── DONATIONS ── */
-async function loadDonations() {
-  const snap = await fbR.rtdbMod.get(fbR.rtdbMod.ref(RTDB, `${RTDB_ROOT}/donations`));
-  const data = snap.val() || {};
-  renderDonationsTable(data);
-  updateDonStats(data);
-  renderDashDonors(data);
+/* ───────── MULTIPLAYER ───────── */
+function renderMpRooms(){
+  const el=$('mpRooms'); if(!el) return;
+  const arr=Object.values(liveRooms); $('mpRoomCount').textContent=arr.length+' rooms';
+  if(!arr.length){ el.innerHTML='<div class="empty">No active rooms.</div>'; return; }
+  el.innerHTML=arr.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).map(r=>`
+    <div class="rcard" style="flex-wrap:wrap">
+      <div class="uav" style="border-radius:11px;background:var(--s3)"><svg viewBox="0 0 24 24" width="20" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M3 5h18v14H3zM8 9v6M12 9v6M16 9v6"/></svg></div>
+      <div class="uinfo"><div class="uname">${x(r.name||'Room')} ${r.mode==='Private'?'<span class="tag warn">🔒 Private</span>':'<span class="tag info">Public</span>'}</div>
+        <div class="uid">host: ${x(r.owner||'?')} · ${x(r.count||0)}/${x(r.max||6)} players${r.mode==='Private'&&r.password?` · pass: <span class="code">${x(r.password)}</span>`:''}</div></div>
+      <div class="uacts">
+        <button class="btn bgh bxs" data-act="mpRoom" data-id="${x(r.id)}">Manage</button>
+        <button class="btn br bxs" data-act="mpClose" data-id="${x(r.id)}" data-name="${x(r.name||'Room')}">Close</button>
+      </div></div>`).join('');
+}
+async function mpRoomDetail(roomId){
+  const room=liveRooms[roomId]; if(!room) return toast('Room gone','err');
+  const {rtdbMod}=fbR;
+  let players={},mod={};
+  try{ players=(await rtdbMod.get(rtdbMod.ref(RTDB,`${PRESENCE}/roomPlayers/${roomId}`))).val()||{}; }catch(e){}
+  try{ mod=(await rtdbMod.get(rtdbMod.ref(RTDB,`${PRESENCE}/moderation/${roomId}`))).val()||{}; }catch(e){}
+  const parr=Object.values(players);
+  $('detailBody').innerHTML=`<h3 style="margin-bottom:6px">${x(room.name||'Room')}</h3>
+    <p class="msub">${x(room.mode||'Public')} · host ${x(room.owner||'?')} · ${parr.length}/${x(room.max||6)}</p>
+    <div class="card" style="margin:0 0 12px">
+      <div class="kv"><span class="k">Room ID</span><span class="v"><span class="code">${x(roomId)}</span></span></div>
+      ${room.password?`<div class="kv"><span class="k">Password</span><span class="v"><span class="code">${x(room.password)}</span></span></div>`:''}
+      <div class="kv"><span class="k">Created</span><span class="v">${x(timeAgo(room.createdAt))}</span></div>
+      <div class="kv"><span class="k">Chat</span><span class="v">${room.chatEnabled===false?'disabled':'enabled'}</span></div>
+    </div>
+    <div class="ct">Players (${parr.length})</div>
+    ${parr.length?parr.map(p=>{const m=mod[p.id]||{};return `<div class="rcard" style="background:var(--s2)">
+      <div class="uav sm">${x((p.name||'?')[0].toUpperCase())}</div>
+      <div class="uinfo"><div class="uname" style="font-size:13px">${x(p.name||'Player')} ${m.banned?'<span class="tag danger">banned</span>':''}${m.muteChat?'<span class="tag warn">muted</span>':''}${m.muteInstrument?'<span class="tag warn">🔇</span>':''}</div><div class="uid">seat ${x(p.seat??'—')}</div></div>
+      <div class="uacts">
+        <button class="btn bgh bxs" data-act="mpMute" data-room="${x(roomId)}" data-uid="${x(p.id)}" data-f="muteInstrument" data-v="${m.muteInstrument?'0':'1'}">🔇</button>
+        <button class="btn bgh bxs" data-act="mpMute" data-room="${x(roomId)}" data-uid="${x(p.id)}" data-f="muteChat" data-v="${m.muteChat?'0':'1'}">💬</button>
+        <button class="btn br bxs" data-act="mpKick" data-room="${x(roomId)}" data-uid="${x(p.id)}" data-name="${x(p.name||'Player')}">Kick</button>
+      </div></div>`;}).join(''):'<div class="empty">No players.</div>'}
+    <div class="faction" style="margin-top:14px"><button class="btn br btn-block" data-act="mpClose" data-id="${x(roomId)}" data-name="${x(room.name||'Room')}">Force-Close Room</button></div>`;
+  openDetail();
+}
+async function mpMute(roomId,uid,field,val){
+  try{ await fbR.rtdbMod.update(fbR.rtdbMod.ref(RTDB,`${PRESENCE}/moderation/${roomId}/${uid}`),{[field]:val==='1'});
+    await logAction('mp.'+field,roomId,uid+'='+(val==='1')); toast('Updated','ok'); mpRoomDetail(roomId);
+  }catch(e){ toast('Failed: '+e.message,'err'); }
+}
+async function mpKick(roomId,uid,name){
+  confirmAction('Kick player?',`Remove ${name} from the room and ban them from re-joining it.`,async()=>{
+    try{ const {rtdbMod}=fbR;
+      await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/moderation/${roomId}/${uid}`),{banned:true,muteChat:true,muteInstrument:true});
+      await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/roomPlayers/${roomId}/${uid}`));
+      try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{room:null}); }catch(e){}
+      await logAction('mp.kick',roomId,name); toast('Player kicked','ok'); mpRoomDetail(roomId);
+    }catch(e){ toast('Failed: '+e.message,'err'); }
+  });
+}
+function mpClose(roomId,name){
+  confirmAction('Force-close room?',`Permanently delete "${name}" and disconnect everyone.`,async()=>{
+    try{ const {rtdbMod}=fbR, room=liveRooms[roomId]||{};
+      const nodes=['roomPlayers','roomSeats','roomSeatClaims','messages','streams','moderation'];
+      for(const n of nodes){ try{ await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/${n}/${roomId}`)); }catch(e){} }
+      try{ if(room.ownerUid) await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/ownerRooms/${room.ownerUid}`)); }catch(e){}
+      try{ if(room.roomNumber) await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/roomSlots/${room.roomNumber}`)); }catch(e){}
+      await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/rooms/${roomId}`));
+      await logAction('mp.close',roomId,name); toast('Room closed','ok'); closeDetail();
+    }catch(e){ toast('Failed: '+e.message,'err'); }
+  },'CLOSE');
 }
 
-function renderDonationsTable(data) {
-  const tbody = document.getElementById('donTbody');
-  const entries = Object.entries(data).sort((a,b)=>(b[1].total||0)-(a[1].total||0));
-  if (!entries.length) { tbody.innerHTML='<tr><td colspan="6" class="lrow">No donations yet.</td></tr>'; return; }
-  tbody.innerHTML = entries.map(([uid,d]) => `<tr>
-    <td><strong>${x(d.name||'Unknown')}</strong></td>
+/* ───────── REPORTS ───────── */
+async function loadReports(){
+  const el=$('reportsList'); el.innerHTML='<div class="skel"></div><div class="skel"></div>';
+  try{ const {fsMod}=fbR; let s;
+    try{ s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'reports'),fsMod.orderBy('createdAt','desc'),fsMod.limit(60))); }
+    catch(e){ s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'reports'),fsMod.limit(60))); }
+    if(s.empty){ el.innerHTML='<div class="empty">No reports.</div>'; return; }
+    el.innerHTML=s.docs.map(d=>{const r=d.data(),ts=r.createdAt?.toMillis?r.createdAt.toMillis():0;
+      return `<div class="rcard" style="flex-wrap:wrap">
+        <div class="uav sm" style="background:rgba(251,63,92,.15)"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
+        <div class="uinfo"><div class="uname">${x(r.targetName||r.targetId||'?')} <span class="tag danger">${x(r.reason||'report')}</span></div>
+          <div class="uid">by ${x(r.reporterId||'?')} · ${x(r.source||'')} ${ts?'· '+timeAgo(ts):''}</div>
+          ${r.messageTextSnapshot?`<div class="uid">"${x(r.messageTextSnapshot.slice(0,80))}"</div>`:''}</div>
+        <div class="uacts">
+          ${r.targetId?`<button class="btn bgh bxs" data-act="userDetail" data-uid="${x(r.targetId)}">View</button><button class="btn br bxs" data-act="ban" data-uid="${x(r.targetId)}" data-name="${x(r.targetName||'User')}">Ban</button>`:''}
+          <button class="btn bg bxs" data-act="resolveReport" data-id="${x(d.id)}">Resolve</button>
+        </div></div>`;}).join('');
+  }catch(e){ el.innerHTML=`<div class="empty">Failed: ${x(e.message)}</div>`; }
+}
+async function resolveReport(id){ try{ await fbR.fsMod.deleteDoc(fbR.fsMod.doc(FS,'reports',id)); await logAction('report.resolve',id,''); toast('Resolved','ok'); loadReports(); }catch(e){ toast('Failed: '+e.message,'err'); } }
+
+/* ───────── DONATIONS ───────── */
+async function loadDonations(){
+  try{ const snap=await fbR.rtdbMod.get(fbR.rtdbMod.ref(RTDB,`${PRESENCE}/donations`)); const data=snap.val()||{};
+    ctx.donations=data; renderDonTable(data); renderDashDonors(data); renderDonChart(data);
+    const arr=Object.values(data); ctx.donorCount=arr.length; ctx.raised=arr.reduce((s,d)=>s+Number(d.total||0),0); refreshStats();
+  }catch(e){}
+}
+function renderDonTable(data){ const tb=$('donTbody'); if(!tb) return;
+  const e=Object.entries(data).sort((a,b)=>(b[1].total||0)-(a[1].total||0));
+  if(!e.length){ tb.innerHTML='<tr><td colspan="5" class="lrow">No donations.</td></tr>'; return; }
+  tb.innerHTML=e.map(([uid,d])=>`<tr><td><strong>${x(d.name||'Unknown')}</strong></td>
     <td style="color:var(--muted);font-size:12px">${x((d.userId||'—').replace(/^#/,''))}</td>
-    <td><strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong>${d.currency&&d.currency!=='USD'?`<span style="font-size:11px;color:var(--muted)"> ${x(d.currency)}</span>`:''}</td>
-    <td style="font-size:12px;color:var(--muted)">${d.date?new Date(d.date).toLocaleDateString():'—'}</td>
-    <td style="font-size:12px;color:var(--muted)">${x(d.note||'—')}</td>
-    <td class="tda"><button class="btn br bsm" onclick="openDelDon(${j(uid)},${j(d.name||'?')})">Remove</button></td>
-  </tr>`).join('');
+    <td><strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong></td>
+    <td style="font-size:12px;color:var(--muted)">${d.date?fmtDate(Date.parse(d.date)):'—'}</td>
+    <td class="tda"><button class="btn br bxs" data-act="delDon" data-uid="${x(uid)}" data-name="${x(d.name||'?')}">Remove</button></td></tr>`).join('');
+}
+function renderDashDonors(data){ const el=$('dashDonors'); if(!el) return;
+  const e=Object.entries(data).sort((a,b)=>(b[1].total||0)-(a[1].total||0)).slice(0,5);
+  if(!e.length){ el.innerHTML='<div class="empty">No donors.</div>'; return; }
+  el.innerHTML=e.map(([,d])=>`<div class="kv"><span class="k">${x(d.name||'Unknown')}</span><strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong></div>`).join('');
+}
+function renderDonChart(data){
+  const el=$('donChart'); if(!el) return;
+  const days=14, now=new Date(), buckets=new Array(days).fill(0), labels=[];
+  for(let i=days-1;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); d.setHours(0,0,0,0); labels.push(d.getMonth()+1+'/'+d.getDate()); }
+  const start=new Date(now); start.setDate(now.getDate()-(days-1)); start.setHours(0,0,0,0);
+  Object.values(data).forEach(d=>{ const t=Date.parse(d.date); if(!isNaN(t)&&t>=start.getTime()){ const idx=Math.floor((t-start.getTime())/86400000); if(idx>=0&&idx<days) buckets[idx]+=Number(d.total||0); } });
+  el.innerHTML=barChart(buckets,labels,'$');
+}
+function searchDonor(){ const q=$('donorSearch').value.trim(); if(!q) return; queryUsers(q).then(users=>{
+  if(!users.length) return toast('No user found','err'); const u=users[0]; selectedDonorUid=u.uid; selectedDonorData=u;
+  const r=allRoles[u.badgeId||''],c=safeColor(r?.color,'#555'),l=r?.label||r?.name||'NO ROLE';
+  $('donorCard').style.display='flex'; $('donorName').textContent=u.name||'Unknown'; $('donorUid').textContent=(u.userId||u.uid||'').replace(/^#/,'');
+  $('donorBadge').innerHTML=`<span class="bp-pill" style="background:${c};color:${ink(c)}">${x(l)}</span>`; $('donorAv').textContent=(u.name||'?')[0].toUpperCase(); $('addDonBtn').disabled=false;
+}); }
+async function addDonation(){
+  if(!selectedDonorUid) return toast('Find a user first','err');
+  const amt=parseFloat($('donAmt').value); if(!amt||amt<=0) return toast('Invalid amount','err');
+  const cur=$('donCur').value, note=$('donNote').value.trim();
+  try{ const {rtdbMod,fsMod}=fbR, uid=selectedDonorUid, u=selectedDonorData;
+    const ex=(await rtdbMod.get(rtdbMod.ref(RTDB,`${PRESENCE}/donations/${uid}`))).val()||{};
+    const total=Number(ex.total||0)+amt;
+    await rtdbMod.set(rtdbMod.ref(RTDB,`${PRESENCE}/donations/${uid}`),{uid,name:u.name||'Unknown',userId:u.userId||null,photoURL:u.photoURL||null,total,currency:cur,date:new Date().toISOString(),note:note||null});
+    // mirror to Firestore donations so it shows in the in-app leaderboard
+    try{ await fsMod.setDoc(fsMod.doc(FS,'donations',uid),{uid,name:u.name||'Unknown',userId:u.userId||null,photoURL:u.photoURL||null,amountUSD:cur==='USD'?total:Number(ex.amountUSD||0),currency:'USD',status:'approved',visible:true,updatedAt:fsMod.serverTimestamp()},{merge:true}); }catch(e){}
+    const supporter=allRoles['supporter']?'supporter':null;
+    if(supporter) await setUserRole(uid,supporter);
+    await logAction('donation.add',uid,`$${amt.toFixed(2)} ${cur}`);
+    toast(`+$${amt.toFixed(2)} recorded${supporter?' · Supporter gifted':''}`,'ok');
+    $('donAmt').value=''; $('donNote').value=''; $('donorCard').style.display='none'; $('addDonBtn').disabled=true; selectedDonorUid=null; selectedDonorData=null;
+    loadDonations();
+  }catch(e){ toast('Failed: '+e.message,'err'); }
 }
 
-function renderDashDonors(data) {
-  const el = document.getElementById('dashDonors');
-  const entries = Object.entries(data).sort((a,b)=>(b[1].total||0)-(a[1].total||0)).slice(0,5);
-  if (!entries.length) { el.innerHTML='<div class="empty">No donors yet.</div>'; return; }
-  el.innerHTML = entries.map(([,d])=>`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bd)">
-    <div><div style="font-weight:700;font-size:13px">${x(d.name||'Unknown')}</div><div style="font-size:11px;color:var(--muted)">${x((d.userId||'—').replace(/^#/,''))}</div></div>
-    <strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong>
-  </div>`).join('');
+/* ───────── AUDIT LOG ───────── */
+async function logAction(action,target,detail){
+  try{ const {rtdbMod}=fbR; await rtdbMod.push(rtdbMod.ref(RTDB,`${PRESENCE}/adminLog`),{action,target:String(target||''),detail:String(detail||''),by:ADMIN.uid,byName:ADMIN.name,at:Date.now()}); }catch(e){}
+}
+async function loadAudit(){
+  const el=$('auditList'); el.innerHTML='<div class="lrow">Loading…</div>';
+  try{ const {rtdbMod}=fbR; const s=await rtdbMod.get(rtdbMod.query(rtdbMod.ref(RTDB,`${PRESENCE}/adminLog`),rtdbMod.limitToLast(80)));
+    const data=s.val()||{}; const arr=Object.values(data).sort((a,b)=>(b.at||0)-(a.at||0));
+    if(!arr.length){ el.innerHTML='<div class="empty">No actions logged yet.</div>'; return; }
+    el.innerHTML=arr.map(a=>`<div class="kv"><span class="k"><span class="tag info">${x(a.action||'')}</span> ${x(a.detail||'')}</span><span class="v" style="font-size:11px;color:var(--faint)">${x(a.byName||'')} · ${x(timeAgo(a.at))}</span></div>`).join('');
+  }catch(e){ el.innerHTML=`<div class="empty">Failed: ${x(e.message)}</div>`; }
 }
 
-function updateDonStats(data) {
-  const entries = Object.values(data);
-  const total = entries.reduce((s,d)=>s+Number(d.total||0),0);
-  document.getElementById('stDonors').textContent = entries.length;
-  document.getElementById('stTotal').textContent = '$'+total.toFixed(2);
-  document.getElementById('stGoal').textContent = Math.min(100,Math.round(total/DON_GOAL*100))+'%';
+/* ───────── RESET ZONE ───────── */
+function deleteAllRoles(){
+  confirmAction('Delete ALL roles?','Removes every role definition and strips roles from all profiles.',async()=>{
+    try{ const {rtdbMod}=fbR; const snap=await rtdbMod.get(rtdbMod.ref(RTDB,'roles')); const ids=snap.exists()?Object.keys(snap.val()):[];
+      await rtdbMod.remove(rtdbMod.ref(RTDB,'roles')); await resetAllRoleData();
+      await logAction('roles.deleteAll','',ids.length+' roles'); toast(`Deleted ${ids.length} roles + cleaned profiles`,'ok');
+    }catch(e){ toast('Failed: '+e.message,'err'); }
+  },'DELETE');
 }
-
-window.searchDonor = async function() {
-  const q = document.getElementById('donorSearch').value.trim();
-  if (!q) return;
-  const users = await queryUsers(q);
-  if (!users.length) { toast('No user found', 'err'); return; }
-  const u = users[0];
-  selectedDonorUid = u.uid; selectedDonorData = u;
-  const roleId = u.badgeId||''; const r = allRoles[roleId]; const color=safeColor(r?.color, '#555555'); const label=r?.label||(roleId?roleId.toUpperCase():'NO ROLE');
-  const ink = luminance(color)>128?'#06111f':'#fff';
-  document.getElementById('donorCard').style.display='flex';
-  document.getElementById('donorName').textContent = u.name||'Unknown';
-  document.getElementById('donorUid').textContent = (u.userId||u.uid||'').replace(/^#/,'');
-  document.getElementById('donorBadge').innerHTML = `<span class="bp-pill" style="background:${color};color:${ink};border-color:rgba(0,0,0,.25)">${x(label)}</span>`;
-  const av = document.getElementById('donorAv');
-  av.textContent=(u.name||'?')[0].toUpperCase();
-  document.getElementById('addDonBtn').disabled=false;
-};
-
-window.addDonation = async function() {
-  if (!selectedDonorUid) { toast('Find a user first', 'err'); return; }
-  const amount = parseFloat(document.getElementById('donAmt').value);
-  if (!amount||amount<=0) { toast('Enter a valid amount', 'err'); return; }
-  const currency = document.getElementById('donCur').value;
-  const note = document.getElementById('donNote').value.trim();
-  try {
-    const { rtdbMod } = fbR;
-    const uid = selectedDonorUid; const u = selectedDonorData;
-    const ex = (await rtdbMod.get(rtdbMod.ref(RTDB,`${RTDB_ROOT}/donations/${uid}`))).val()||{};
-    const total = Number(ex.total||0)+amount;
-    await rtdbMod.set(rtdbMod.ref(RTDB,`${RTDB_ROOT}/donations/${uid}`),{
-      uid, name:u.name||'Unknown', userId:u.userId||null,
-      total, currency, date:new Date().toISOString(), note:note||null
-    });
-    // Gift supporter role — find it by ID 'supporter' if it exists
-    const supporterRoleId = allRoles['supporter'] ? 'supporter' : Object.keys(allRoles)[0] || 'supporter';
-    await setUserRole(uid, supporterRoleId);
-    toast(`Donation +$${amount.toFixed(2)} recorded. Total: $${total.toFixed(2)}. Role gifted!`, 'ok');
-    document.getElementById('donAmt').value=''; document.getElementById('donNote').value='';
-    document.getElementById('donorCard').style.display='none';
-    document.getElementById('addDonBtn').disabled=true;
-    selectedDonorUid=null; selectedDonorData=null;
-    await loadDonations();
-  } catch(e) { toast('Failed: '+e.message,'err'); }
-};
-
-window.openDelDon = function(uid, name) {
-  pendingDelDonUid=uid;
-  document.getElementById('delDonName').textContent=name;
-  openModal('mDelDon');
-};
-window.doDeleteDonation = async function() {
-  try {
-    await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,`${RTDB_ROOT}/donations/${pendingDelDonUid}`));
-    toast('Record removed','ok');
-    closeModal('mDelDon');
-    await loadDonations();
-  } catch(e) { toast('Failed: '+e.message,'err'); }
-};
-
-/* ── NUCLEAR ── */
-window.deleteAllRoles = async function() {
-  if (!confirm('Delete ALL roles from Firebase? This cannot be undone.\n\nThis will also remove role data from all user profiles.')) return;
-  try {
-    const snap = await fbR.rtdbMod.get(fbR.rtdbMod.ref(RTDB,'roles'));
-    const roleIds = snap.exists() ? Object.keys(snap.val()) : [];
-    await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,'roles'));
-    await resetAllUserRoleData();
-    toast(`All roles deleted (${roleIds.length} role defs + all user profiles cleaned)`,'ok');
-    await loadRoles();
-  } catch(e) { toast('Failed: '+e.message,'err'); }
-};
-
-async function resetAllUserRoleData(onProgress) {
-  const { fsMod } = fbR;
-  let cursor = null;
-  let total = 0;
-  while (true) {
-    let q = fsMod.query(fsMod.collection(FS,'profiles'), fsMod.limit(400));
-    if (cursor) q = fsMod.query(fsMod.collection(FS,'profiles'), fsMod.startAfter(cursor), fsMod.limit(400));
-    const snap = await fsMod.getDocs(q);
-    if (snap.empty) break;
-    const batch = fsMod.writeBatch(FS);
-    snap.docs.forEach(d => batch.update(d.ref, { badgeId: null, ownedRoles: [] }));
-    await batch.commit();
-    total += snap.docs.length;
-    cursor = snap.docs[snap.docs.length - 1];
-    if (typeof onProgress === 'function') onProgress(total);
-    if (snap.docs.length < 400) break;
-  }
+async function resetAllRoleData(onProg){ const {fsMod}=fbR; let cur=null,total=0;
+  while(true){ let q=fsMod.query(fsMod.collection(FS,'profiles'),fsMod.limit(400));
+    if(cur) q=fsMod.query(fsMod.collection(FS,'profiles'),fsMod.startAfter(cur),fsMod.limit(400));
+    const s=await fsMod.getDocs(q); if(s.empty) break;
+    const b=fsMod.writeBatch(FS); s.docs.forEach(d=>b.update(d.ref,{badgeId:'common',roleId:'common',ownedRoles:[]})); await b.commit();
+    total+=s.docs.length; cur=s.docs[s.docs.length-1]; if(onProg) onProg(total); if(s.docs.length<400) break; }
   return total;
 }
-
-window.resetAllUsers = async function() {
-  if (!confirm('Remove badgeId and ownedRoles from ALL Firestore profiles? This cannot be undone.')) return;
-  const prog = document.getElementById('resetProgress');
-  prog.style.display='block'; prog.textContent='Starting…';
-  try {
-    const total = await resetAllUserRoleData(count => {
-      prog.textContent = `Processed ${count} profiles…`;
-    });
-    prog.textContent = `Done! ${total} profiles reset.`;
-    toast(`${total} users reset to no role`, 'ok');
-  } catch(e) {
-    prog.textContent = 'Error: '+e.message;
-    toast('Failed: '+e.message,'err');
-  }
-};
-
-/* ── MODALS ── */
-function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
-window.openModal = openModal;
-window.closeModal = closeModal;
-document.querySelectorAll('.modal-bg').forEach(el=>{
-  el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); });
-});
-
-/* ── TOAST ── */
-function toast(msg, type='inf') {
-  const c=document.getElementById('toasts');
-  const t=document.createElement('div');
-  t.className=`toast ${type}`;
-  t.innerHTML=`<span>${{ok:'✓',err:'✕',inf:'ℹ'}[type]||'•'}</span><span>${x(msg)}</span>`;
-  c.appendChild(t);
-  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity .3s';setTimeout(()=>t.remove(),300);},3500);
+function resetAllUsers(){
+  confirmAction('Reset ALL user roles?','Removes badgeId + ownedRoles from every Firestore profile.',async()=>{
+    const p=$('resetProgress'); p.style.display='block'; p.textContent='Starting…';
+    try{ const total=await resetAllRoleData(c=>p.textContent=`Processed ${c}…`); p.textContent=`Done! ${total} profiles reset.`;
+      await logAction('users.resetRoles','',total+' profiles'); toast(`${total} users reset`,'ok');
+    }catch(e){ p.textContent='Error: '+e.message; toast('Failed: '+e.message,'err'); }
+  },'RESET');
 }
 
-/* ── UTIL ── */
+/* ───────── MODAL / SHEET helpers ───────── */
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){ $(id).classList.remove('open'); }
+function openMore(){ $('moreBg').classList.add('open'); $('moreSheet').classList.add('open'); }
+function closeSheet(){ $('moreBg').classList.remove('open'); $('moreSheet').classList.remove('open'); }
+function openDetail(){ $('detailBg').classList.add('open'); $('detailSheet').classList.add('open'); }
+function closeDetail(){ $('detailBg').classList.remove('open'); $('detailSheet').classList.remove('open'); }
+function openGift(uid,name){ ctx.giftUid=uid; $('giftName').textContent=name; renderGiftSelect($('giftSel')); openModal('mGift'); }
+function openBan(uid,name,data){ ctx.banUid=uid; ctx.banData=data||findUser(uid); $('banName').textContent=name; $('banReason').value=''; $('banDuration').value='0'; openModal('mBan'); }
+function openEditRole(id,name){ ctx.editRoleId=id; $('editRoleName').textContent=name; renderPermGrid('editPermGrid',allRoles[id]?.permissions||[]); openModal('mEditRole'); }
+function confirmAction(title,msg,fn,typeWord){ $('cfTitle').textContent=title; $('cfMsg').textContent=msg; ctx.confirmFn=fn;
+  if(typeWord){ $('cfTypeWrap').style.display='flex'; $('cfTypeWord').textContent=typeWord; $('cfTypeInput').value=''; ctx.confirmWord=typeWord; }
+  else { $('cfTypeWrap').style.display='none'; ctx.confirmWord=null; } openModal('mConfirm'); }
+
+/* ───────── EVENT DELEGATION ───────── */
+const H={
+  login:()=>fbR.authMod.signInWithPopup(AUTH,new fbR.authMod.GoogleAuthProvider()).catch(e=>toast(e.message,'err')),
+  signout:async()=>{ try{ await fbR.authMod.signOut(AUTH); }catch(e){} $('adminApp').classList.remove('on'); show('sLogin',true); show('sDenied',false); },
+  nav:d=>{ go(d.page); },
+  openMore,closeSheet,closeDetail,
+  closeModal:d=>closeModal(d.id),
+  colorPreview,createRole,userSearch,
+  userSel:d=>toggleSel(d.uid),
+  userDetail:d=>userDetail(d.uid),
+  bulkClear:()=>{ userSelection.clear(); renderUserCards(); },
+  bulkGift:()=>{ if(!userSelection.size) return; $('bulkGiftCount').textContent=userSelection.size; renderGiftSelect($('bulkGiftSel')); openModal('mBulkGift'); },
+  doBulkGift:async()=>{ const role=$('bulkGiftSel').value; if(!role) return toast('Select a role','err');
+    const ids=[...userSelection.keys()]; let ok=0; for(const uid of ids){ try{ await setUserRole(uid,role); ok++; }catch(e){} }
+    await logAction('role.bulkGift',role,ok+' users'); toast(`Gifted to ${ok}/${ids.length}`,'ok'); closeModal('mBulkGift'); userSelection.clear(); userSearch(); },
+  gift:d=>openGift(d.uid,d.name),
+  doGift:async()=>{ const role=$('giftSel').value; if(!role) return toast('Select a role','err'); try{ await setUserRole(ctx.giftUid,role); await logAction('role.gift',role,ctx.giftUid); toast('Role gifted','ok'); closeModal('mGift'); userSearch(); }catch(e){ toast('Failed: '+e.message,'err'); } },
+  removeRole:async d=>{ try{ await clearUserRole(d.uid); await logAction('role.remove',d.uid,d.name); toast('Role removed','ok'); closeDetail(); userSearch(); }catch(e){ toast('Failed: '+e.message,'err'); } },
+  ban:d=>openBan(d.uid,d.name,findUser(d.uid)),
+  doBan:async()=>{ const uid=ctx.banUid; if(!uid) return; try{ await banUser(uid,ctx.banData,$('banReason').value.trim(),parseInt($('banDuration').value)||0); toast('User banned','ok'); closeModal('mBan'); closeDetail(); if(userResults.length) userSearch(); }catch(e){ toast('Failed: '+e.message,'err'); } },
+  unban:d=>confirmAction('Unban user?',`Lift the ban on ${d.name}.`,async()=>{ try{ await unbanUser(d.uid,d.name); toast('Unbanned','ok'); closeDetail(); if(userResults.length) userSearch(); }catch(e){ toast('Failed: '+e.message,'err'); } }),
+  banQuick,
+  editRole:d=>openEditRole(d.id,d.name),
+  doEditRole:async()=>{ if(!ctx.editRoleId) return; try{ await fbR.rtdbMod.update(fbR.rtdbMod.ref(RTDB,`roles/${ctx.editRoleId}`),{permissions:getCheckedPerms('editPermGrid')}); await logAction('role.edit',ctx.editRoleId,''); toast('Saved','ok'); closeModal('mEditRole'); }catch(e){ toast('Failed: '+e.message,'err'); } },
+  delRole:d=>confirmAction('Delete role?',`Delete "${d.name}" and strip it from all users.`,async()=>{ try{ await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,`roles/${d.id}`)); await cascadeRemoveRole(d.id); await logAction('role.delete',d.id,d.name); toast('Role deleted','ok'); }catch(e){ toast('Failed: '+e.message,'err'); } },'DELETE'),
+  chatTab:d=>chatTab(d.ch), chatLoadCustom, chatReload:()=>ctx.chatRoom&&loadChat(ctx.chatRoom),
+  chatPost:()=>{ if(!ctx.chatRoom) return toast('Open a channel','err'); $('postChannel').textContent=$('chatChannelLabel').textContent; $('postAs').textContent=ADMIN.name; $('postText').value=''; openModal('mPost'); },
+  doPost, chatWipe, delMsg:d=>delMsg(d.room,d.id),
+  mpRoom:d=>mpRoomDetail(d.id), mpClose:d=>mpClose(d.id,d.name),
+  mpMute:d=>mpMute(d.room,d.uid,d.f,d.v), mpKick:d=>mpKick(d.room,d.uid,d.name),
+  reportsReload:loadReports, resolveReport:d=>resolveReport(d.id),
+  auditReload:loadAudit,
+  donorSearch:searchDonor, addDonation, delDon:d=>confirmAction('Remove donation?',`Remove record for ${d.name}? Supporter role stays.`,async()=>{ try{ await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,`${PRESENCE}/donations/${d.uid}`)); await logAction('donation.remove',d.uid,d.name); toast('Removed','ok'); loadDonations(); }catch(e){ toast('Failed: '+e.message,'err'); } }),
+  deleteAllRoles, resetAllUsers,
+  confirmOk:()=>{ if(ctx.confirmWord && $('cfTypeInput').value.trim().toUpperCase()!==ctx.confirmWord) return toast(`Type ${ctx.confirmWord} to confirm`,'err'); const fn=ctx.confirmFn; closeModal('mConfirm'); ctx.confirmFn=null; fn&&fn(); },
+};
+async function cascadeRemoveRole(roleId){ const {fsMod}=fbR, col=fsMod.collection(FS,'profiles');
+  const q1=await fsMod.getDocs(fsMod.query(col,fsMod.where('badgeId','==',roleId)));
+  const q2=await fsMod.getDocs(fsMod.query(col,fsMod.where('ownedRoles','array-contains',roleId)));
+  const aff=new Map(); q1.docs.forEach(d=>aff.set(d.id,{_ref:d.ref,_b:true})); q2.docs.forEach(d=>{const e=aff.get(d.id); if(e)e._o=true; else aff.set(d.id,{_ref:d.ref,_o:true});});
+  if(!aff.size) return; const b=fsMod.writeBatch(FS); aff.forEach(({_ref,_b,_o})=>{const u={}; if(_b){u.badgeId='common';u.roleId='common';} if(_o)u.ownedRoles=fsMod.arrayRemove(roleId); b.update(_ref,u);}); await b.commit();
+}
+document.addEventListener('click',e=>{ const el=e.target.closest('[data-act]'); if(!el) return;
+  if(el.dataset.ev) return; // input-driven handlers bound separately
+  const fn=H[el.dataset.act]; if(fn){ fn(el.dataset,el); } });
+document.addEventListener('input',e=>{ const el=e.target.closest('[data-act][data-ev="input"]'); if(!el) return; const fn=H[el.dataset.act]; fn&&fn(el.dataset,el); });
+$('uSearch').addEventListener('keydown',e=>{ if(e.key==='Enter') userSearch(); });
+$('donorSearch').addEventListener('keydown',e=>{ if(e.key==='Enter') searchDonor(); });
+$('banQuickId').addEventListener('keydown',e=>{ if(e.key==='Enter') banQuick(); });
+$('chatRoomId').addEventListener('keydown',e=>{ if(e.key==='Enter') chatLoadCustom(); });
+document.querySelectorAll('.modal-bg').forEach(el=>el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); }));
+
+/* ───────── TOAST + UTIL ───────── */
+function toast(msg,type='inf'){ const c=$('toasts'),t=document.createElement('div'); t.className=`toast ${type}`;
+  t.innerHTML=`<span class="ti">${{ok:'✓',err:'✕',inf:'ℹ'}[type]||'•'}</span><span>${x(msg)}</span>`; c.appendChild(t);
+  setTimeout(()=>{ t.style.opacity='0'; t.style.transition='opacity .3s'; setTimeout(()=>t.remove(),300); },3500); }
 function x(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function j(s){ return x(JSON.stringify(String(s??''))); }
-function safeColor(value, fallback='#888888'){ const hex=String(value||'').trim(); return /^#[0-9a-f]{6}$/i.test(hex) ? hex : fallback; }
+function safeColor(v,f='#888888'){ const h=String(v||'').trim(); return /^#[0-9a-f]{6}$/i.test(h)?h:f; }
 function luminance(hex){ if(!hex||hex.length<7) return 128; return (parseInt(hex.slice(1,3),16)*299+parseInt(hex.slice(3,5),16)*587+parseInt(hex.slice(5,7),16)*114)/1000; }
-function show(id,v){ document.getElementById(id).classList.toggle('off',!v); }
+function ink(hex){ return luminance(hex)>140?'#06111f':'#ffffff'; }
+function show(id,v){ $(id).classList.toggle('off',!v); }
+function fmtDate(ms){ if(!ms||isNaN(ms)) return '—'; return new Date(ms).toLocaleDateString(); }
+function fmtDur(s){ s=Math.floor(s||0); if(s<60) return s+'s'; if(s<3600) return Math.floor(s/60)+'m'; return Math.floor(s/3600)+'h '+Math.floor(s%3600/60)+'m'; }
+function timeAgo(ms){ if(!ms) return '—'; const d=Date.now()-ms; if(d<60000) return 'just now'; if(d<3600000) return Math.floor(d/60000)+'m ago'; if(d<86400000) return Math.floor(d/3600000)+'h ago'; return Math.floor(d/86400000)+'d ago'; }
+function barChart(values,labels,prefix=''){
+  const w=600,h=140,pad=20,max=Math.max(1,...values),n=values.length,bw=(w-pad*2)/n;
+  let bars='',lbls='';
+  values.forEach((v,i)=>{ const bh=Math.max(1,(v/max)*(h-pad*2)),bx=pad+i*bw+bw*0.18,by=h-pad-bh;
+    bars+=`<rect class="chart-bar" x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${(bw*0.64).toFixed(1)}" height="${bh.toFixed(1)}" rx="2"><title>${prefix}${v.toFixed(2)}</title></rect>`;
+    if(i%2===0||n<=8) lbls+=`<text class="chart-lbl" x="${(pad+i*bw+bw/2).toFixed(1)}" y="${h-6}" text-anchor="middle">${x(labels[i]||'')}</text>`; });
+  const total=values.reduce((a,b)=>a+b,0);
+  return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" role="img" aria-label="chart"><line class="chart-grid" x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}"/>${bars}${lbls}</svg><div class="sl" style="text-align:right;margin-top:4px">Total: ${prefix}${total.toFixed(2)}</div>`;
+}
 
 init();
 </script>
