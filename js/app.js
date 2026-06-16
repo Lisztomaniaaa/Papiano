@@ -1099,17 +1099,18 @@
     function handleRoleSelectChange() {
         const select = document.getElementById('accountRoleSelect');
         if (!select) return;
+        // Track the pending choice for Save, and update the select's own label.
+        // The profile card itself is NOT touched until the Save button is pressed.
         selectedBadgeId = normalizeRoleId(select.value || 'common');
-        if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
         syncThemedSelectDisplay(select);
     }
 
-    // Country select change - keep flag preview in sync.
+    // Country select change - update the select's own label only. The profile
+    // card flag is not changed until the Save button is pressed.
     function handleCountrySelectChange() {
         const select = document.getElementById('formInputCountry');
         if (!select) return;
         syncThemedSelectDisplay(select);
-        renderFlagRow(select.value, document.getElementById('displayProfileFlag'));
     }
 
     // ============ Themed picker overlay ============
