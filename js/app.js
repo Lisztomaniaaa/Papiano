@@ -135,6 +135,7 @@
     let unsubscribeSystemRooms = [];
     let privateUnreadTotal = 0;
     let friendRequestUnreadTotal = 0;
+    let systemUnreadTotal = 0;
     const LOCAL_READ_STORE_KEY_PREFIX = 'papiano_locally_read_rooms_';
     function getLocalReadStoreKey() {
         const uid = currentUser?.uid || '';
@@ -2028,7 +2029,7 @@
     }
 
     function updateNotificationBadges() {
-        const total = privateUnreadTotal + friendRequestUnreadTotal;
+        const total = privateUnreadTotal + friendRequestUnreadTotal + systemUnreadTotal;
         renderSmallBadge(chatNavUnreadBadge, total);
         renderSmallBadge(friendRequestsBadge, friendRequestUnreadTotal);
     }
@@ -2132,13 +2133,31 @@
     }
 
     // === System rooms (Announcement / Global / Feedback) last-message preview ===
+    const systemRoomUnread = new Map();
+
+    function recomputeSystemUnread() {
+        let total = 0;
+        systemRoomUnread.forEach(count => { total += Math.max(0, Number(count) || 0); });
+        systemUnreadTotal = total;
+        updateNotificationBadges();
+    }
+
+    function clearSystemRoomUnread(docId) {
+        if (!docId || !systemRoomUnread.has(docId)) return;
+        systemRoomUnread.set(docId, 0);
+        const badgeId = docId === getGroupRoomId('announcements') ? 'announcementUnreadBadge'
+            : docId === getGroupRoomId('global') ? 'globalChatUnreadBadge' : '';
+        if (badgeId) renderSmallBadge(document.getElementById(badgeId), 0);
+        recomputeSystemUnread();
+    }
+
     function startSystemRoomListeners() {
         const map = [
-            { roomKey: 'announcements', stampId: 'announcementStamp', snippetId: 'announcementSnippet', defaultStamp: 'PUBLIC', defaultSnippet: 'Papiano updates.' },
-            { roomKey: 'global',        stampId: 'globalChatStamp',   snippetId: 'globalChatSnippet',   defaultStamp: 'PUBLIC', defaultSnippet: 'Community chat room.' },
-            { roomKey: 'feedback',      stampId: 'feedbackStamp',     snippetId: 'feedbackSnippet',     defaultStamp: 'FEEDBACK', defaultSnippet: 'Feedback panel.' }
+            { roomKey: 'announcements', stampId: 'announcementStamp', snippetId: 'announcementSnippet', badgeId: 'announcementUnreadBadge', defaultStamp: 'PUBLIC', defaultSnippet: 'Papiano updates.', alert: true },
+            { roomKey: 'global',        stampId: 'globalChatStamp',   snippetId: 'globalChatSnippet',   badgeId: 'globalChatUnreadBadge', defaultStamp: 'PUBLIC', defaultSnippet: 'Community chat room.', alert: true },
+            { roomKey: 'feedback',      stampId: 'feedbackStamp',     snippetId: 'feedbackSnippet',     defaultStamp: 'FEEDBACK', defaultSnippet: 'Feedback panel.', alert: false }
         ];
-        map.forEach(({ roomKey, stampId, snippetId, defaultStamp, defaultSnippet }) => {
+        map.forEach(({ roomKey, stampId, snippetId, badgeId, defaultStamp, defaultSnippet, alert }) => {
             const docId = getGroupRoomId(roomKey);
             const unsub = firestoreDb.collection('chatRooms').doc(docId).onSnapshot(snap => {
                 const data = snap.exists ? (snap.data() || {}) : {};
@@ -2153,6 +2172,15 @@
                     stampNode.textContent = date
                         ? formatChatDayTime(date)
                         : defaultStamp;
+                }
+                if (alert && badgeId) {
+                    // Treat the room as unread when it was updated by someone else
+                    // after our last read (suppressed while we're viewing it).
+                    const isViewing = activeChatRoomId === docId;
+                    const unread = isViewing ? 0 : getRoomUnreadForMe({ id: docId, ...data });
+                    systemRoomUnread.set(docId, unread);
+                    renderSmallBadge(document.getElementById(badgeId), unread);
+                    recomputeSystemUnread();
                 }
             }, _err => {
                 // On error keep defaults silently
@@ -2451,6 +2479,7 @@
         listenToActiveRoomMessages();
         ensureGroupRoomHistoryVisible(normalizedRoomId);
         markActiveRoomRead();
+        clearSystemRoomUnread(activeChatRoomId);
     }
 
     async function ensureGroupRoomHistoryVisible(roomId) {
@@ -2628,6 +2657,34 @@
         return `${formatChatDateLabel(value)} - ${time}`;
     }
 
+    // Clock only (HH:MM) for message bubbles — the day is shown by the
+    // day divider that separates messages across the 00:00 boundary.
+    function formatMessageClock(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'Sending';
+        return date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+
+    // Full day label for the divider shown between messages of different days.
+    function formatChatDayDivider(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return '';
+        const now = new Date();
+        const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
+        if (dayDiff <= 0) return 'Today';
+        if (dayDiff === 1) return 'Yesterday';
+        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'long' });
+        const sameYear = date.getFullYear() === now.getFullYear();
+        return date.toLocaleDateString(CHAT_LOCALE, sameYear
+            ? { day: 'numeric', month: 'long' }
+            : { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    // Compact day + time stamp used by chat-list row previews.
+    function formatChatDayTime(value) {
+        return formatMessageTime(value);
+    }
+
     function getMessageSenderProfile(message) {
         if (message.senderId === currentUser?.uid && currentProfile) return currentProfile;
         return messageProfiles.get(message.senderId) || friendProfiles.get(message.senderId) || directChatProfiles.get(message.senderId) || searchProfiles.get(message.senderId) || normalizeProfile(message.senderId || '', {
@@ -2659,7 +2716,16 @@
         }
         activeMessagesCache.clear();
         messages.forEach(message => activeMessagesCache.set(message.id, message));
+        let lastDayKey = null;
         chatMessagesScrollArea.innerHTML = messages.map(message => {
+            // Day divider at the 00:00 boundary between consecutive messages.
+            const mDate = chatTimestampToDate(message.createdAt);
+            const dayKey = mDate ? startOfChatDay(mDate) : null;
+            let dayDivider = '';
+            if (dayKey && dayKey !== lastDayKey) {
+                dayDivider = `<div class="chat-day-divider"><span>${escapeHtml(formatChatDayDivider(message.createdAt))}</span></div>`;
+                lastDayKey = dayKey;
+            }
             const mine = message.senderId === currentUser?.uid;
             const rowClass = mine ? 'row-outgoing msg-outgoing' : 'row-incoming msg-incoming';
             const profile = getMessageSenderProfile(message);
@@ -2672,6 +2738,7 @@
             const actions = buildMessageActionStrip(message, mine, announcementLocked);
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
             return `
+                ${dayDivider}
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
                     <div class="msg-container-with-avatar">
                         ${renderMessageAvatar(profile)}
@@ -2680,7 +2747,7 @@
                             ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
-                            <div class="msg-meta-line"><time>${formatMessageTime(message.createdAt)}</time></div>
+                            <div class="msg-meta-line"><time>${formatMessageClock(message.createdAt)}</time></div>
                         </div>
                     </div>
                     ${actions}
