@@ -481,6 +481,10 @@
                 await ensureUserProfile(result.user);
             } catch (error) {
                 appContainer.classList.remove('auth-pending');
+                if (error?.code === 'auth/account-exists-with-different-credential') {
+                    await handleGoogleSignInConflict(error);
+                    return;
+                }
                 if (isAccountRestrictionError(error)) {
                     try { await firebaseAuth.signOut(); } catch (_error) {}
                     showLoginScreen();
@@ -495,6 +499,35 @@
         currentUser = null;
         currentProfile = loadProfile();
         openMainApp();
+    }
+
+    // Google sign-in hit an email that already has a password account. Ask the
+    // user to sign in with that password; the pending Google credential is then
+    // linked in the email sign-in success path (auth-email.js), so both methods
+    // end up on one account instead of erroring out.
+    async function handleGoogleSignInConflict(error) {
+        const email = error?.email || error?.customData?.email || '';
+        let pendingCred = error?.credential || null;
+        try {
+            if (!pendingCred && firebase?.auth?.GoogleAuthProvider?.credentialFromError) {
+                pendingCred = firebase.auth.GoogleAuthProvider.credentialFromError(error);
+            }
+        } catch (_) {}
+        if (!email || !pendingCred) {
+            showToast('Couldn’t connect Google automatically. Sign in with your email instead.');
+            return;
+        }
+        let methods = [];
+        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
+        if (methods.includes('password')) {
+            window._pendingGoogleLinkCredential = pendingCred;
+            openAuthEntryPopup('signin');
+            const emailInput = document.getElementById('authSigninEmail');
+            if (emailInput) emailInput.value = email;
+            showToast('This email already uses a password. Sign in to connect Google.', 'Connect Google');
+        } else {
+            showToast('This email is registered with a different sign-in method.');
+        }
     }
 
     function populateBrandSheet() {
@@ -1291,6 +1324,7 @@
         // Keep brand sheet (mobile) and desktop sidebar auth button in sync
         // with auth/profile state, even when the brand sheet is closed.
         populateBrandSheet();
+        if (typeof refreshAccountSecurityUI === 'function') refreshAccountSecurityUI();
     }
 
     function isSafeImage(src) {

@@ -1506,3 +1506,72 @@ select.form-input-control::-ms-expand{display:none}
     background: #06111f;
     box-shadow: 0 1px 0 #b91c1c;
 }
+
+.account-security {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    border-radius: 18px;
+    background: var(--surface-raised, #d7edff);
+    border: 1px solid var(--glass-border-col, rgba(6, 17, 31, .16));
+    margin-top: 4px;
+}
+.account-security-label {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--text-muted, rgba(6, 17, 31, .72));
+}
+.account-security-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.account-conn-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.account-conn-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main, #06111f);
+}
+.account-conn-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 800;
+    color: #007a3e;
+    background: rgba(0, 214, 107, .16);
+    padding: 4px 10px;
+    border-radius: 999px;
+}
+.account-conn-chip .material-symbols-rounded {
+    font-size: 15px;
+}
+.account-conn-btn {
+    font-size: 12px;
+    font-weight: 800;
+    color: #fff;
+    background: var(--accent, #005BFF);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    letter-spacing: .02em;
+}
+.account-conn-btn:active {
+    background: var(--accent-strong, #0047C7);
+}
+.account-delete-action.is-primary {
+    background: var(--accent, #005BFF);
+    color: #fff;
+}
+.account-delete-action.is-primary:active {
+    background: var(--accent-strong, #0047C7);
+}

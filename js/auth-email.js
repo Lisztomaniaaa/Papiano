@@ -158,6 +158,15 @@ async function authEntryWithEmail(mode) {
             }
 
             const cred = await firebaseAuth.signInWithEmailAndPassword(email, pass);
+            // If we arrived here to resolve a Google-link conflict, attach the
+            // pending Google credential now that the password owner is verified.
+            if (window._pendingGoogleLinkCredential) {
+                try {
+                    await cred.user.linkWithCredential(window._pendingGoogleLinkCredential);
+                    if (typeof showToast === 'function') showToast('Google account connected to your profile.', 'Connected');
+                } catch (_) {}
+                window._pendingGoogleLinkCredential = null;
+            }
             if (typeof ensureUserProfile === 'function') await ensureUserProfile(cred.user);
             if (typeof closeAuthEntryPopup === 'function') closeAuthEntryPopup();
         } catch (err) {
@@ -306,6 +315,138 @@ async function requestAccountPasswordReset() {
     }
 }
 window.requestAccountPasswordReset = requestAccountPasswordReset;
+
+// ── Account linking (Google + Email/Password integrity) ─────────────────────────
+// A Firebase user can have several sign-in providers attached to ONE account.
+// Google sign-in has no password, so we let those users SET one (link a password
+// provider), and let password users CONNECT Google. This keeps a single account
+// reachable by either method, and makes password reset universally available.
+function getUserProviderIds() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user) return [];
+    return (user.providerData || []).map(p => p?.providerId).filter(Boolean);
+}
+
+// The account-settings password button is context-aware: reset when a password
+// already exists, otherwise set one (which links the password provider).
+function handleAccountPasswordAction() {
+    if (getUserProviderIds().includes('password')) {
+        requestAccountPasswordReset();
+    } else {
+        openLinkPasswordModal();
+    }
+}
+window.handleAccountPasswordAction = handleAccountPasswordAction;
+
+function _securityRow(label, connected, connectAction) {
+    const status = connected
+        ? '<span class="account-conn-chip is-on"><span class="material-symbols-rounded">check_circle</span>Connected</span>'
+        : `<button class="account-conn-btn" type="button" onclick="${connectAction}">Connect</button>`;
+    return `<div class="account-conn-row"><span class="account-conn-name">${escapeHtmlSafe(label)}</span>${status}</div>`;
+}
+
+function escapeHtmlSafe(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function refreshAccountSecurityUI() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    const section = document.getElementById('accountSecurity');
+    const rows = document.getElementById('accountSecurityRows');
+    const pwdBtn = document.getElementById('accountResetPwdBtn');
+    if (!user) { if (section) section.style.display = 'none'; return; }
+    const providers = getUserProviderIds();
+    const hasPassword = providers.includes('password');
+    const hasGoogle = providers.includes('google.com');
+    if (pwdBtn) pwdBtn.textContent = hasPassword ? 'Reset Password' : 'Set Password';
+    if (section) section.style.display = '';
+    if (rows) {
+        rows.innerHTML =
+            _securityRow('Google', hasGoogle, 'linkGoogleAccount()') +
+            _securityRow('Email & Password', hasPassword, 'openLinkPasswordModal()');
+    }
+}
+window.refreshAccountSecurityUI = refreshAccountSecurityUI;
+
+async function linkGoogleAccount() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user) { if (typeof showToast === 'function') showToast('Sign in first.'); return; }
+    if (getUserProviderIds().includes('google.com')) { refreshAccountSecurityUI(); return; }
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await user.linkWithPopup(provider);
+        if (typeof showToast === 'function') showToast('Google account connected.', 'Connected');
+        refreshAccountSecurityUI();
+    } catch (err) {
+        const code = err?.code || '';
+        if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+            if (typeof showToast === 'function') showToast('That Google account is already linked elsewhere.', 'Error');
+        } else if (code === 'auth/requires-recent-login') {
+            if (typeof showToast === 'function') showToast('Please sign in again, then connect Google.', 'Error');
+        } else if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+            if (typeof showToast === 'function') showToast(_friendly(err), 'Error');
+        }
+    }
+}
+window.linkGoogleAccount = linkGoogleAccount;
+
+function openLinkPasswordModal() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user) { if (typeof showToast === 'function') showToast('Sign in first.'); return; }
+    if (!user.email) {
+        if (typeof showToast === 'function') showToast('Your account has no email to attach a password to.', 'Unavailable');
+        return;
+    }
+    const emailEl = document.getElementById('linkPasswordEmail');
+    if (emailEl) emailEl.value = user.email;
+    ['linkPasswordNew', 'linkPasswordConfirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    _showErr('linkPasswordErr', '');
+    const ov = document.getElementById('linkPasswordOverlay');
+    if (ov) { ov.classList.add('active'); ov.setAttribute('aria-hidden', 'false'); }
+}
+window.openLinkPasswordModal = openLinkPasswordModal;
+
+function closeLinkPasswordModal() {
+    const ov = document.getElementById('linkPasswordOverlay');
+    if (ov) { ov.classList.remove('active'); ov.setAttribute('aria-hidden', 'true'); }
+}
+window.closeLinkPasswordModal = closeLinkPasswordModal;
+
+async function submitLinkPassword() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user || !user.email) { closeLinkPasswordModal(); return; }
+    const pass    = document.getElementById('linkPasswordNew')?.value || '';
+    const confirm = document.getElementById('linkPasswordConfirm')?.value || '';
+    const req = _validPass(pass);
+    if (!req.length || !req.upper || !req.symbol) {
+        _showErr('linkPasswordErr', 'Password needs 8+ chars, one uppercase letter, and one symbol.');
+        return;
+    }
+    if (pass !== confirm) { _showErr('linkPasswordErr', 'Passwords do not match.'); return; }
+
+    const btn = document.getElementById('linkPasswordConfirmBtn');
+    if (btn) btn.disabled = true;
+    try {
+        const cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
+        await user.linkWithCredential(cred);
+        closeLinkPasswordModal();
+        if (typeof showToast === 'function') showToast('Password set — you can now sign in with email and reset it anytime.', 'Password Added');
+        refreshAccountSecurityUI();
+    } catch (err) {
+        const code = err?.code || '';
+        if (code === 'auth/requires-recent-login') {
+            _showErr('linkPasswordErr', 'For security, sign out and sign in with Google again, then retry.');
+        } else if (code === 'auth/provider-already-linked' || code === 'auth/email-already-in-use') {
+            _showErr('linkPasswordErr', 'A password is already set for this account.');
+            refreshAccountSecurityUI();
+        } else {
+            _showErr('linkPasswordErr', _friendly(err));
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+window.submitLinkPassword = submitLinkPassword;
 
 // ── Delete account — complete override ────────────────────────────────────────
 // Replaces deletePapianoAccount() entirely to fix:
