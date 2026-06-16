@@ -90,21 +90,51 @@
     let firestoreDb = null;
     let supabaseStorageClient = null;
 
-    function initPapianoSDKs() {
+    let _authBootstrapped = false;
+
+    function ensureFirebaseApp() {
+        if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(firebaseConfig);
+    }
+
+    // Phase 1: auth only. Resolves the signed-in/out state as soon as possible
+    // (no waiting for database/firestore/supabase to download).
+    function initAuthEarly() {
         if (firebaseAuth) return;
-        firebase.initializeApp(firebaseConfig);
+        ensureFirebaseApp();
         firebaseAuth = firebase.auth();
+        if (!_authBootstrapped) {
+            _authBootstrapped = true;
+            startPapianoAuthBootstrap();
+        }
+    }
+
+    // Phase 2: the heavier clients. Also picks up a logged-in user that resolved
+    // before Firestore was ready and finishes loading their profile.
+    function initPapianoSDKs() {
+        ensureFirebaseApp();
+        if (!firebaseAuth) firebaseAuth = firebase.auth();
         realtimeDb = firebase.database();
         firestoreDb = firebase.firestore();
         supabaseStorageClient = window.supabase.createClient(
             supabaseStorageConfig.url,
             supabaseStorageConfig.key
         );
-        if (typeof startPapianoAuthBootstrap === 'function') {
+        if (!_authBootstrapped) {
+            _authBootstrapped = true;
             startPapianoAuthBootstrap();
+        }
+        if (_deferredAuthUser) {
+            const user = _deferredAuthUser;
+            _deferredAuthUser = null;
+            finishLoggedInBoot(user);
         }
     }
 
+    if (window.__papianoAuthReady) {
+        initAuthEarly();
+    } else {
+        window.addEventListener('papiano-auth-ready', initAuthEarly, { once: true });
+    }
     if (window.__papianoSDKsReady) {
         initPapianoSDKs();
     } else {
@@ -114,6 +144,21 @@
     let currentUser = null;
     let currentProfile = null;
     let authStateResolved = false;
+    let _deferredAuthUser = null;
+    let _authBootHidden = false;
+
+    // Hide the boot overlay exactly once the auth state is known (or as a safety
+    // fallback if the SDKs never load), so users never see a confusing flicker
+    // between "logged out" and "logged in".
+    function hideAuthBootOverlay() {
+        if (_authBootHidden) return;
+        _authBootHidden = true;
+        const ov = document.getElementById('authBootOverlay');
+        if (!ov) return;
+        ov.classList.add('hide');
+        setTimeout(() => { ov.remove(); }, 400);
+    }
+    setTimeout(() => { if (!authStateResolved) hideAuthBootOverlay(); }, 6000);
     let accessSessionActive = localStorage.getItem('papiano_access_session') === '1';
     let authEntryMode = 'signin';
     let authEntryBusy = false;
@@ -357,7 +402,7 @@
         updateProfileView(loadProfile());
         if (currentUser?.uid) {
             startPlayTimeTracker();
-            startCommunityListeners();
+            if (firestoreDb) startCommunityListeners();
         } else {
             pausePlayTimeTracker(false);
             stopCommunityListeners();
@@ -3922,29 +3967,48 @@
         firebaseAuth.onAuthStateChanged(async user => {
             authStateResolved = true;
             if (user?.uid) {
-                try {
-                    localStorage.removeItem('papiano_access_session');
-                    await ensureUserProfile(user);
-                    startRoleRegistryListener();
-                    startDeletedAccountWatcher(user.uid);
-                    restoreMultiplayerPresence(user.uid);
-                } catch (error) {
-                    if (isAccountRestrictionError(error)) {
-                        await exitDeletedAccount();
-                        return;
-                    }
-                    showToast('Could not load your profile. Please refresh.');
+                currentUser = user; // mark signed-in now so the UI stops looking "logged out"
+                if (!firestoreDb) {
+                    // Auth resolved before Firestore finished downloading. Reveal the
+                    // app immediately as "signed in" using the cached profile, and
+                    // finish loading once initPapianoSDKs() runs.
+                    _deferredAuthUser = user;
+                    currentProfile = currentProfile || loadProfile();
+                    openMainApp();
+                    navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
+                    hideAuthBootOverlay();
+                    return;
                 }
-                openMainApp();
-                navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
+                await finishLoggedInBoot(user);
+                hideAuthBootOverlay();
                 return;
             }
 
             accessSessionActive = true;
             currentUser = null;
             currentProfile = null;
+            _deferredAuthUser = null;
             openMainApp();
+            hideAuthBootOverlay();
         });
+    }
+
+    async function finishLoggedInBoot(user) {
+        try {
+            localStorage.removeItem('papiano_access_session');
+            await ensureUserProfile(user);
+            startRoleRegistryListener();
+            startDeletedAccountWatcher(user.uid);
+            restoreMultiplayerPresence(user.uid);
+        } catch (error) {
+            if (isAccountRestrictionError(error)) {
+                await exitDeletedAccount();
+                return;
+            }
+            showToast('Could not load your profile. Please refresh.');
+        }
+        openMainApp();
+        navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
     }
 
     window.addEventListener('DOMContentLoaded', () => {
