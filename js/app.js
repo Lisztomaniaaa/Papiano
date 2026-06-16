@@ -163,6 +163,7 @@
     let authEntryMode = 'signin';
     let authEntryBusy = false;
     let accountDeleteBusy = false;
+    let profileSaveBusy = false;
     let friendProfiles = new Map();
     let pendingFriendRequests = new Map();
     let directChatProfiles = new Map();
@@ -1458,6 +1459,8 @@
             showToast('Sign in to save profile.');
             return;
         }
+        if (profileSaveBusy) return;
+        profileSaveBusy = true;
         const cleanName = (formInputName?.value || '').trim().slice(0, 24) || 'Papiano User';
         const cleanDesc = (formInputDesc?.value || '').trim().slice(0, 160);
         const countryEl = document.getElementById('formInputCountry');
@@ -1502,6 +1505,8 @@
             showToast('Profile saved.', 'Saved');
         } catch (error) {
             showToast('Couldn’t save your profile.');
+        } finally {
+            profileSaveBusy = false;
         }
     }
 
