@@ -1,17 +1,7 @@
 // === Papiano — Email Auth Extension ===
 // Requires: app.min.js (firebaseAuth, firestoreDb, ensureUserProfile,
 //           closeAuthEntryPopup, showToast, friendlyError)
-// Requires: EmailJS CDN loaded before this file
-
-// ── EmailJS config — set these after creating your emailjs.com account ─────────
-// 1. Sign up at https://www.emailjs.com
-// 2. Add an Email Service (Gmail / Outlook / etc.) → copy Service ID
-// 3. Create an Email Template with variables: {{to_email}} {{to_name}} {{otp_code}} {{expiry_min}}
-//    Copy Template ID
-// 4. Go to Account → API Keys → copy Public Key
-const _EJS_SERVICE_ID  = 'service_r2zj9dn';
-const _EJS_TEMPLATE_ID = 'template_yxhiqyo';
-const _EJS_PUBLIC_KEY  = '8sOe4jrGJCBwHhx06';
+// Uses Firebase native email verification (no third-party OTP service).
 
 // ── Allowed email domains ──────────────────────────────────────────────────────
 const _ALLOWED_DOMAINS = new Set([
@@ -42,181 +32,6 @@ function _isDomainAllowed(email) {
 // ── State ──────────────────────────────────────────────────────────────────────
 let _authCurrentScreen = 'signin';
 let _authBusy = false;
-let _otpTimerHandle = null;
-let _otpExpiry = 0;
-
-// ── SessionStorage helpers ─────────────────────────────────────────────────────
-const _SS = 'papiano_auth_';
-function _ssSet(k, v) { try { sessionStorage.setItem(_SS + k, JSON.stringify(v)); } catch (_) {} }
-function _ssGet(k)    { try { return JSON.parse(sessionStorage.getItem(_SS + k)); } catch (_) { return null; } }
-function _ssDel(...keys) { keys.forEach(k => { try { sessionStorage.removeItem(_SS + k); } catch (_) {} }); }
-
-// ── OTP core ───────────────────────────────────────────────────────────────────
-function _genOTP() {
-    const buf = new Uint8Array(6);
-    crypto.getRandomValues(buf);
-    return Array.from(buf).map(b => b % 10).join('');
-}
-
-async function _hashOTP(otp, email) {
-    const data = new TextEncoder().encode(otp.trim() + ':' + email.toLowerCase().trim());
-    const buf  = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function _storeOTP(otp, email) {
-    const hash   = await _hashOTP(otp, email);
-    const expiry = Date.now() + 10 * 60 * 1000;
-    _ssSet('otp_hash',     hash);
-    _ssSet('otp_expiry',   expiry);
-    _ssSet('otp_attempts', 0);
-    _otpExpiry = expiry;
-}
-
-async function _checkOTP(inputOtp, email) {
-    const hash     = _ssGet('otp_hash');
-    const expiry   = _ssGet('otp_expiry');
-    const attempts = _ssGet('otp_attempts') || 0;
-
-    if (!hash)                return { ok: false, reason: 'no_otp' };
-    if (Date.now() > expiry)  return { ok: false, reason: 'expired' };
-    if (attempts >= 5)        return { ok: false, reason: 'locked' };
-
-    _ssSet('otp_attempts', attempts + 1);
-
-    const inputHash = await _hashOTP(inputOtp.trim(), email);
-    if (inputHash !== hash) return { ok: false, reason: 'wrong', attempts: attempts + 1 };
-
-    return { ok: true };
-}
-
-function _clearOTPSession() {
-    _ssDel('otp_hash', 'otp_expiry', 'otp_attempts', 'pending_name', 'pending_email');
-}
-
-// ── EmailJS init ───────────────────────────────────────────────────────────────
-(function () {
-    function tryInit() {
-        if (typeof emailjs === 'undefined') return;
-        if (_EJS_PUBLIC_KEY && !_EJS_PUBLIC_KEY.startsWith('YOUR_')) {
-            emailjs.init({ publicKey: _EJS_PUBLIC_KEY });
-        }
-    }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', tryInit);
-    else tryInit();
-})();
-
-async function _sendOTPEmail(toEmail, toName, otp) {
-    if (typeof emailjs === 'undefined') throw new Error('Email service not loaded. Please refresh.');
-    if (!_EJS_SERVICE_ID  || _EJS_SERVICE_ID.startsWith('YOUR_') ||
-        !_EJS_TEMPLATE_ID || _EJS_TEMPLATE_ID.startsWith('YOUR_') ||
-        !_EJS_PUBLIC_KEY  || _EJS_PUBLIC_KEY.startsWith('YOUR_')) {
-        throw new Error('Email service not configured. Contact the site owner.');
-    }
-    await emailjs.send(_EJS_SERVICE_ID, _EJS_TEMPLATE_ID, {
-        to_email:   toEmail,
-        to_name:    toName || 'Papiano User',
-        otp_code:   otp,
-        expiry_min: '10',
-    });
-}
-
-// ── OTP Timer ──────────────────────────────────────────────────────────────────
-function _startOtpTimer() {
-    _stopOtpTimer();
-    const saved = _ssGet('otp_expiry');
-    if (saved) _otpExpiry = saved;
-    if (!_otpExpiry) return;
-    _updateOtpTimer();
-    _otpTimerHandle = setInterval(_updateOtpTimer, 1000);
-}
-
-function _stopOtpTimer() {
-    if (_otpTimerHandle) { clearInterval(_otpTimerHandle); _otpTimerHandle = null; }
-}
-
-function _updateOtpTimer() {
-    const el = document.getElementById('authOtpTimer');
-    if (!el) return;
-    const secs = Math.max(0, Math.ceil((_otpExpiry - Date.now()) / 1000));
-    if (secs <= 0) {
-        el.textContent   = 'Code expired. Click "Resend Code" for a new one.';
-        el.style.color   = '#c62828';
-        const btn = document.getElementById('authVerifyBtn');
-        if (btn) btn.disabled = true;
-        _stopOtpTimer();
-        return;
-    }
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    el.textContent = `Code expires in ${m}:${String(s).padStart(2, '0')}`;
-    el.style.color = '';
-}
-
-// ── OTP box helpers ────────────────────────────────────────────────────────────
-function _getOtpValue() {
-    let code = '';
-    for (let i = 0; i < 6; i++) code += document.getElementById('authOtp' + i)?.value || '';
-    return code;
-}
-
-function _clearOtpBoxes(markError) {
-    for (let i = 0; i < 6; i++) {
-        const box = document.getElementById('authOtp' + i);
-        if (!box) continue;
-        if (markError) {
-            box.classList.add('otp-error');
-        } else {
-            box.value = '';
-            box.classList.remove('otp-filled', 'otp-error');
-        }
-    }
-    if (!markError) document.getElementById('authOtp0')?.focus();
-}
-
-function authOtpInput(el, idx) {
-    const raw = el.value.replace(/\D/g, '');
-    if (raw.length > 1) {
-        // Paste: fill from current position
-        const digits = raw.slice(0, 6 - idx);
-        for (let i = 0; i < digits.length; i++) {
-            const box = document.getElementById('authOtp' + (idx + i));
-            if (box) { box.value = digits[i]; box.classList.remove('otp-error'); box.classList.add('otp-filled'); }
-        }
-        const lastIdx = Math.min(idx + digits.length - 1, 5);
-        document.getElementById('authOtp' + lastIdx)?.focus();
-        if (idx + digits.length >= 6) { setTimeout(authCheckOtp, 80); }
-        return;
-    }
-    el.value = raw ? raw[0] : '';
-    el.classList.remove('otp-error');
-    el.classList.toggle('otp-filled', !!el.value);
-    if (el.value && idx < 5) document.getElementById('authOtp' + (idx + 1))?.focus();
-    if (idx === 5 && el.value && _getOtpValue().length === 6) setTimeout(authCheckOtp, 80);
-}
-
-function authOtpPaste(e, el, idx) {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text');
-    const digits = text.replace(/\D/g, '').slice(0, 6 - idx);
-    if (!digits) return;
-    for (let i = 0; i < digits.length; i++) {
-        const box = document.getElementById('authOtp' + (idx + i));
-        if (box) { box.value = digits[i]; box.classList.remove('otp-error'); box.classList.add('otp-filled'); }
-    }
-    const lastIdx = Math.min(idx + digits.length - 1, 5);
-    document.getElementById('authOtp' + lastIdx)?.focus();
-    if (idx + digits.length >= 6) setTimeout(authCheckOtp, 80);
-}
-
-function authOtpKey(e, el, idx) {
-    if (e.key === 'Backspace' && !el.value && idx > 0) {
-        const prev = document.getElementById('authOtp' + (idx - 1));
-        if (prev) { prev.value = ''; prev.classList.remove('otp-filled', 'otp-error'); prev.focus(); }
-    }
-    if (e.key === 'ArrowLeft' && idx > 0) document.getElementById('authOtp' + (idx - 1))?.focus();
-    if (e.key === 'ArrowRight' && idx < 5) document.getElementById('authOtp' + (idx + 1))?.focus();
-}
 
 // ── Overlay observer ───────────────────────────────────────────────────────────
 (function () {
@@ -228,7 +43,6 @@ function authOtpKey(e, el, idx) {
                 authShowScreen(_authCurrentScreen);
             } else {
                 _authCurrentScreen = 'signin';
-                _stopOtpTimer();
             }
         }).observe(ov, { attributes: true, attributeFilter: ['class'] });
     }
@@ -260,13 +74,6 @@ function authShowScreen(screen) {
     if (tabs)  tabs.style.display = c.tabs ? '' : 'none';
     document.querySelectorAll('.auth-tab-btn').forEach(b =>
         b.classList.toggle('auth-tab-active', b.dataset.tab === screen));
-
-    if (screen === 'verify') {
-        _startOtpTimer();
-        setTimeout(() => document.getElementById('authOtp0')?.focus(), 100);
-    } else {
-        _stopOtpTimer();
-    }
 }
 
 // ── Generic helpers ────────────────────────────────────────────────────────────
@@ -314,6 +121,17 @@ function authTogglePwd(inputId, btn) {
     if (icon) icon.textContent = show ? 'visibility_off' : 'visibility';
 }
 
+// ── Email verification helpers ──────────────────────────────────────────────────
+async function _sendVerification(user) {
+    if (!user) return;
+    try {
+        await user.sendEmailVerification({ url: location.origin, handleCodeInApp: false });
+    } catch (err) {
+        // Non-fatal; surface a friendly message where the caller renders it.
+        throw err;
+    }
+}
+
 // ── Sign In / Sign Up entry point ──────────────────────────────────────────────
 async function authEntryWithEmail(mode) {
     if (_authBusy) return;
@@ -340,6 +158,15 @@ async function authEntryWithEmail(mode) {
             }
 
             const cred = await firebaseAuth.signInWithEmailAndPassword(email, pass);
+            // If we arrived here to resolve a Google-link conflict, attach the
+            // pending Google credential now that the password owner is verified.
+            if (window._pendingGoogleLinkCredential) {
+                try {
+                    await cred.user.linkWithCredential(window._pendingGoogleLinkCredential);
+                    if (typeof showToast === 'function') showToast('Google account connected to your profile.', 'Connected');
+                } catch (_) {}
+                window._pendingGoogleLinkCredential = null;
+            }
             if (typeof ensureUserProfile === 'function') await ensureUserProfile(cred.user);
             if (typeof closeAuthEntryPopup === 'function') closeAuthEntryPopup();
         } catch (err) {
@@ -383,24 +210,36 @@ async function authEntryWithEmail(mode) {
                 return;
             }
 
-            // Generate OTP and send via EmailJS
-            const otp = _genOTP();
-            await _storeOTP(otp, email);
-            _ssSet('pending_name',  name);
-            _ssSet('pending_email', email);
+            // Create the Firebase account, set the display name, then send the
+            // verification link via Firebase.
+            const cred = await firebaseAuth.createUserWithEmailAndPassword(email, pass);
+            await cred.user.updateProfile({ displayName: name });
 
-            await _sendOTPEmail(email, name, otp);
+            if (typeof firestoreDb !== 'undefined' && firestoreDb && name) {
+                try {
+                    await firestoreDb.collection('profiles').doc(cred.user.uid).set(
+                        { name: name, searchName: name.toLowerCase() },
+                        { merge: true }
+                    );
+                } catch (_) {}
+            }
 
-            // Show verify screen
+            try {
+                await _sendVerification(cred.user);
+            } catch (verifyErr) {
+                // Account exists but the email failed to send — let them resend.
+                if (typeof showToast === 'function')
+                    showToast('Account created, but the verification email failed. Tap "Resend Link".', 'Heads up');
+            }
+
             const addr = document.getElementById('authVerifyEmailAddr');
             if (addr) addr.textContent = email;
             authShowScreen('verify');
-            _clearOtpBoxes(false);
 
             if (typeof showToast === 'function')
-                showToast('Check your inbox (and spam) for the 6-digit code.', 'Code sent!');
+                showToast('Check your inbox (and spam) for the verification link.', 'Verify your email');
         } catch (err) {
-            _showErr('authSignupErr', err.message || _friendly(err));
+            _showErr('authSignupErr', _friendly(err));
         } finally {
             _setLoading(false);
         }
@@ -408,104 +247,206 @@ async function authEntryWithEmail(mode) {
     }
 }
 
-// ── OTP verification ───────────────────────────────────────────────────────────
-async function authCheckOtp() {
+// ── Email verification — continue / resend ──────────────────────────────────────
+async function authCheckVerification() {
     if (_authBusy) return;
-    const code = _getOtpValue();
-    if (code.length !== 6) { _showErr('authVerifyErr', 'Enter all 6 digits of the code.'); return; }
-
-    const email = _ssGet('pending_email');
-    if (!email) {
-        _showErr('authVerifyErr', 'Session expired. Please sign up again.');
-        authShowScreen('signup');
+    const user = firebaseAuth?.currentUser;
+    if (!user) {
+        _showErr('authVerifyErr', 'Session expired. Please sign in again.');
+        authShowScreen('signin');
         return;
     }
 
     _setLoading(true); _authClearErr();
     try {
-        const result = await _checkOTP(code, email);
-
-        if (!result.ok) {
-            _clearOtpBoxes(true);
-            if (result.reason === 'expired') {
-                _showErr('authVerifyErr', 'Code expired. Click "Resend Code" for a new one.');
-            } else if (result.reason === 'locked') {
-                _showErr('authVerifyErr', 'Too many incorrect attempts. Click "Resend Code" to start over.');
-            } else if (result.reason === 'no_otp') {
-                _showErr('authVerifyErr', 'No active code found. Click "Resend Code".');
-            } else {
-                const left = 5 - (result.attempts || 0);
-                _showErr('authVerifyErr', `Incorrect code. ${left} attempt${left !== 1 ? 's' : ''} remaining.`);
-            }
+        await user.reload();
+        const fresh = firebaseAuth.currentUser;
+        if (fresh && typeof ensureUserProfile === 'function') await ensureUserProfile(fresh);
+        if (fresh && !fresh.emailVerified) {
+            _showErr('authVerifyErr', "We haven't received your verification yet. Open the link in your inbox (check spam), then tap this button again.");
             return;
         }
-
-        // OTP correct — create Firebase account
-        const name = _ssGet('pending_name') || '';
-        const pass = document.getElementById('authSignupPassword')?.value || '';
-        if (!pass) {
-            _showErr('authVerifyErr', 'Session expired. Please go back and sign up again.');
-            _clearOTPSession();
-            authShowScreen('signup');
-            return;
-        }
-
-        const cred = await firebaseAuth.createUserWithEmailAndPassword(email, pass);
-        // updateProfile immediately to set displayName before ensureUserProfile race
-        await cred.user.updateProfile({ displayName: name });
-
-        // Write name to Firestore profiles collection — overwrites any 'Papiano User' from race
-        if (typeof firestoreDb !== 'undefined' && firestoreDb && name) {
-            try {
-                await firestoreDb.collection('profiles').doc(cred.user.uid).set(
-                    { name: name, searchName: name.toLowerCase() },
-                    { merge: true }
-                );
-            } catch (_) {}
-        }
-
-        _clearOTPSession();
-        _stopOtpTimer();
-
-        if (typeof ensureUserProfile === 'function') await ensureUserProfile(cred.user);
         if (typeof closeAuthEntryPopup === 'function') closeAuthEntryPopup();
-        if (typeof showToast === 'function') showToast('Welcome to Papiano!', 'Account created');
+        if (typeof showToast === 'function') showToast('Email verified — welcome to Papiano!', 'Verified');
     } catch (err) {
-        if (err?.code === 'auth/email-already-in-use') {
-            _showErr('authVerifyErr', 'This email is already registered. Please sign in instead.');
-            setTimeout(() => authShowScreen('signin'), 1800);
-        } else {
-            _showErr('authVerifyErr', _friendly(err));
-        }
-        _clearOtpBoxes(true);
+        _showErr('authVerifyErr', _friendly(err));
     } finally {
         _setLoading(false);
     }
 }
 
-async function authResendOtp() {
-    const email = _ssGet('pending_email');
-    const name  = _ssGet('pending_name') || '';
-    if (!email) {
+async function authResendVerification() {
+    const user = firebaseAuth?.currentUser;
+    if (!user) {
         _showErr('authVerifyErr', 'Session expired. Please sign up again.');
         authShowScreen('signup');
         return;
     }
-
     try {
-        const otp = _genOTP();
-        await _storeOTP(otp, email);
-        await _sendOTPEmail(email, name, otp);
-        _clearOtpBoxes(false);
-        _stopOtpTimer(); _startOtpTimer();
+        await _sendVerification(user);
         _showErr('authVerifyErr', '');
-        const btn = document.getElementById('authVerifyBtn');
-        if (btn) btn.disabled = false;
-        if (typeof showToast === 'function') showToast('New code sent! Check your inbox.', 'Resent');
+        if (typeof showToast === 'function') showToast('New verification link sent! Check your inbox.', 'Resent');
     } catch (err) {
-        _showErr('authVerifyErr', err.message || _friendly(err));
+        _showErr('authVerifyErr', _friendly(err));
     }
 }
+
+// ── Account settings — reset password ───────────────────────────────────────────
+// Sends a Firebase password-reset link to the signed-in account's email.
+async function requestAccountPasswordReset() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user?.email) {
+        if (typeof showToast === 'function') showToast('Sign in with an email account to reset your password.');
+        return;
+    }
+    try {
+        let methods = [];
+        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(user.email); } catch (_) {}
+        if (methods.includes('google.com') && !methods.includes('password')) {
+            if (typeof showToast === 'function')
+                showToast('This account uses Google sign-in — there is no password to reset.', 'Google account');
+            return;
+        }
+        await firebaseAuth.sendPasswordResetEmail(user.email, { url: location.origin });
+        if (typeof showToast === 'function')
+            showToast('Password reset link sent to ' + user.email + '. Check inbox and spam.', 'Email Sent');
+    } catch (err) {
+        if (typeof showToast === 'function') showToast(_friendly(err), 'Error');
+    }
+}
+window.requestAccountPasswordReset = requestAccountPasswordReset;
+
+// ── Account linking (Google + Email/Password integrity) ─────────────────────────
+// A Firebase user can have several sign-in providers attached to ONE account.
+// Google sign-in has no password, so we let those users SET one (link a password
+// provider), and let password users CONNECT Google. This keeps a single account
+// reachable by either method, and makes password reset universally available.
+function getUserProviderIds() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user) return [];
+    return (user.providerData || []).map(p => p?.providerId).filter(Boolean);
+}
+
+// The account-settings password button is context-aware: reset when a password
+// already exists, otherwise set one (which links the password provider).
+function handleAccountPasswordAction() {
+    if (getUserProviderIds().includes('password')) {
+        requestAccountPasswordReset();
+    } else {
+        openLinkPasswordModal();
+    }
+}
+window.handleAccountPasswordAction = handleAccountPasswordAction;
+
+function _securityRow(label, connected, connectAction) {
+    const status = connected
+        ? '<span class="account-conn-chip is-on"><span class="material-symbols-rounded">check_circle</span>Connected</span>'
+        : `<button class="account-conn-btn" type="button" onclick="${connectAction}">Connect</button>`;
+    return `<div class="account-conn-row"><span class="account-conn-name">${escapeHtmlSafe(label)}</span>${status}</div>`;
+}
+
+function escapeHtmlSafe(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function refreshAccountSecurityUI() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    const section = document.getElementById('accountSecurity');
+    const rows = document.getElementById('accountSecurityRows');
+    const pwdBtn = document.getElementById('accountResetPwdBtn');
+    if (!user) { if (section) section.style.display = 'none'; return; }
+    const providers = getUserProviderIds();
+    const hasPassword = providers.includes('password');
+    const hasGoogle = providers.includes('google.com');
+    if (pwdBtn) pwdBtn.textContent = hasPassword ? 'Reset Password' : 'Set Password';
+    if (section) section.style.display = '';
+    if (rows) {
+        rows.innerHTML =
+            _securityRow('Google', hasGoogle, 'linkGoogleAccount()') +
+            _securityRow('Email & Password', hasPassword, 'openLinkPasswordModal()');
+    }
+}
+window.refreshAccountSecurityUI = refreshAccountSecurityUI;
+
+async function linkGoogleAccount() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user) { if (typeof showToast === 'function') showToast('Sign in first.'); return; }
+    if (getUserProviderIds().includes('google.com')) { refreshAccountSecurityUI(); return; }
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        await user.linkWithPopup(provider);
+        if (typeof showToast === 'function') showToast('Google account connected.', 'Connected');
+        refreshAccountSecurityUI();
+    } catch (err) {
+        const code = err?.code || '';
+        if (code === 'auth/credential-already-in-use' || code === 'auth/email-already-in-use') {
+            if (typeof showToast === 'function') showToast('That Google account is already linked elsewhere.', 'Error');
+        } else if (code === 'auth/requires-recent-login') {
+            if (typeof showToast === 'function') showToast('Please sign in again, then connect Google.', 'Error');
+        } else if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+            if (typeof showToast === 'function') showToast(_friendly(err), 'Error');
+        }
+    }
+}
+window.linkGoogleAccount = linkGoogleAccount;
+
+function openLinkPasswordModal() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user) { if (typeof showToast === 'function') showToast('Sign in first.'); return; }
+    if (!user.email) {
+        if (typeof showToast === 'function') showToast('Your account has no email to attach a password to.', 'Unavailable');
+        return;
+    }
+    const emailEl = document.getElementById('linkPasswordEmail');
+    if (emailEl) emailEl.value = user.email;
+    ['linkPasswordNew', 'linkPasswordConfirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    _showErr('linkPasswordErr', '');
+    const ov = document.getElementById('linkPasswordOverlay');
+    if (ov) { ov.classList.add('active'); ov.setAttribute('aria-hidden', 'false'); }
+}
+window.openLinkPasswordModal = openLinkPasswordModal;
+
+function closeLinkPasswordModal() {
+    const ov = document.getElementById('linkPasswordOverlay');
+    if (ov) { ov.classList.remove('active'); ov.setAttribute('aria-hidden', 'true'); }
+}
+window.closeLinkPasswordModal = closeLinkPasswordModal;
+
+async function submitLinkPassword() {
+    const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+    if (!user || !user.email) { closeLinkPasswordModal(); return; }
+    const pass    = document.getElementById('linkPasswordNew')?.value || '';
+    const confirm = document.getElementById('linkPasswordConfirm')?.value || '';
+    const req = _validPass(pass);
+    if (!req.length || !req.upper || !req.symbol) {
+        _showErr('linkPasswordErr', 'Password needs 8+ chars, one uppercase letter, and one symbol.');
+        return;
+    }
+    if (pass !== confirm) { _showErr('linkPasswordErr', 'Passwords do not match.'); return; }
+
+    const btn = document.getElementById('linkPasswordConfirmBtn');
+    if (btn) btn.disabled = true;
+    try {
+        const cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
+        await user.linkWithCredential(cred);
+        closeLinkPasswordModal();
+        if (typeof showToast === 'function') showToast('Password set — you can now sign in with email and reset it anytime.', 'Password Added');
+        refreshAccountSecurityUI();
+    } catch (err) {
+        const code = err?.code || '';
+        if (code === 'auth/requires-recent-login') {
+            _showErr('linkPasswordErr', 'For security, sign out and sign in with Google again, then retry.');
+        } else if (code === 'auth/provider-already-linked' || code === 'auth/email-already-in-use') {
+            _showErr('linkPasswordErr', 'A password is already set for this account.');
+            refreshAccountSecurityUI();
+        } else {
+            _showErr('linkPasswordErr', _friendly(err));
+        }
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+window.submitLinkPassword = submitLinkPassword;
 
 // ── Delete account — complete override ────────────────────────────────────────
 // Replaces deletePapianoAccount() entirely to fix:
@@ -615,7 +556,7 @@ async function authResendOtp() {
     else setTimeout(install, 300);
 })();
 
-// ── Password reset ─────────────────────────────────────────────────────────────
+// ── Password reset (login overlay "forgot password") ────────────────────────────
 async function authSendReset() {
     if (_authBusy || !firebaseAuth) return;
     const email = (document.getElementById('authForgotEmail')?.value || '').trim();

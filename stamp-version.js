@@ -11,7 +11,7 @@ fs.writeFileSync('version.json', JSON.stringify({ version }) + '\n');
 console.log(`version.json -> ${version}`);
 
 // Stamp cache-bust in every HTML entry served by Vercel.
-['index.html', 'multiplayer.html'].forEach(file => {
+['index.html', 'multiplayer.html', 'solo.html'].forEach(file => {
   if (!fs.existsSync(file)) return;
   let html = fs.readFileSync(file, 'utf8');
   html = html.replace(/(bundle\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
@@ -20,6 +20,9 @@ console.log(`version.json -> ${version}`);
   html = html.replace(/(app\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(auth-email\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(updater\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(multiplayer\.css)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(multiplayer\/app\.js)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(multiplayer\/init\.js)\?v=[^"']*/g, '$1?v=' + version);
   fs.writeFileSync(file, html);
   console.log(`${file} stamped -> ?v=${version}`);
 });

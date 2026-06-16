@@ -90,21 +90,51 @@
     let firestoreDb = null;
     let supabaseStorageClient = null;
 
-    function initPapianoSDKs() {
+    let _authBootstrapped = false;
+
+    function ensureFirebaseApp() {
+        if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(firebaseConfig);
+    }
+
+    // Phase 1: auth only. Resolves the signed-in/out state as soon as possible
+    // (no waiting for database/firestore/supabase to download).
+    function initAuthEarly() {
         if (firebaseAuth) return;
-        firebase.initializeApp(firebaseConfig);
+        ensureFirebaseApp();
         firebaseAuth = firebase.auth();
+        if (!_authBootstrapped) {
+            _authBootstrapped = true;
+            startPapianoAuthBootstrap();
+        }
+    }
+
+    // Phase 2: the heavier clients. Also picks up a logged-in user that resolved
+    // before Firestore was ready and finishes loading their profile.
+    function initPapianoSDKs() {
+        ensureFirebaseApp();
+        if (!firebaseAuth) firebaseAuth = firebase.auth();
         realtimeDb = firebase.database();
         firestoreDb = firebase.firestore();
         supabaseStorageClient = window.supabase.createClient(
             supabaseStorageConfig.url,
             supabaseStorageConfig.key
         );
-        if (typeof startPapianoAuthBootstrap === 'function') {
+        if (!_authBootstrapped) {
+            _authBootstrapped = true;
             startPapianoAuthBootstrap();
+        }
+        if (_deferredAuthUser) {
+            const user = _deferredAuthUser;
+            _deferredAuthUser = null;
+            finishLoggedInBoot(user);
         }
     }
 
+    if (window.__papianoAuthReady) {
+        initAuthEarly();
+    } else {
+        window.addEventListener('papiano-auth-ready', initAuthEarly, { once: true });
+    }
     if (window.__papianoSDKsReady) {
         initPapianoSDKs();
     } else {
@@ -114,6 +144,21 @@
     let currentUser = null;
     let currentProfile = null;
     let authStateResolved = false;
+    let _deferredAuthUser = null;
+    let _authBootHidden = false;
+
+    // Hide the boot overlay exactly once the auth state is known (or as a safety
+    // fallback if the SDKs never load), so users never see a confusing flicker
+    // between "logged out" and "logged in".
+    function hideAuthBootOverlay() {
+        if (_authBootHidden) return;
+        _authBootHidden = true;
+        const ov = document.getElementById('authBootOverlay');
+        if (!ov) return;
+        ov.classList.add('hide');
+        setTimeout(() => { ov.remove(); }, 400);
+    }
+    setTimeout(() => { if (!authStateResolved) hideAuthBootOverlay(); }, 6000);
     let accessSessionActive = localStorage.getItem('papiano_access_session') === '1';
     let authEntryMode = 'signin';
     let authEntryBusy = false;
@@ -135,6 +180,7 @@
     let unsubscribeSystemRooms = [];
     let privateUnreadTotal = 0;
     let friendRequestUnreadTotal = 0;
+    let systemUnreadTotal = 0;
     const LOCAL_READ_STORE_KEY_PREFIX = 'papiano_locally_read_rooms_';
     function getLocalReadStoreKey() {
         const uid = currentUser?.uid || '';
@@ -356,7 +402,7 @@
         updateProfileView(loadProfile());
         if (currentUser?.uid) {
             startPlayTimeTracker();
-            startCommunityListeners();
+            if (firestoreDb) startCommunityListeners();
         } else {
             pausePlayTimeTracker(false);
             stopCommunityListeners();
@@ -480,6 +526,10 @@
                 await ensureUserProfile(result.user);
             } catch (error) {
                 appContainer.classList.remove('auth-pending');
+                if (error?.code === 'auth/account-exists-with-different-credential') {
+                    await handleGoogleSignInConflict(error);
+                    return;
+                }
                 if (isAccountRestrictionError(error)) {
                     try { await firebaseAuth.signOut(); } catch (_error) {}
                     showLoginScreen();
@@ -494,6 +544,35 @@
         currentUser = null;
         currentProfile = loadProfile();
         openMainApp();
+    }
+
+    // Google sign-in hit an email that already has a password account. Ask the
+    // user to sign in with that password; the pending Google credential is then
+    // linked in the email sign-in success path (auth-email.js), so both methods
+    // end up on one account instead of erroring out.
+    async function handleGoogleSignInConflict(error) {
+        const email = error?.email || error?.customData?.email || '';
+        let pendingCred = error?.credential || null;
+        try {
+            if (!pendingCred && firebase?.auth?.GoogleAuthProvider?.credentialFromError) {
+                pendingCred = firebase.auth.GoogleAuthProvider.credentialFromError(error);
+            }
+        } catch (_) {}
+        if (!email || !pendingCred) {
+            showToast('Couldn’t connect Google automatically. Sign in with your email instead.');
+            return;
+        }
+        let methods = [];
+        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
+        if (methods.includes('password')) {
+            window._pendingGoogleLinkCredential = pendingCred;
+            openAuthEntryPopup('signin');
+            const emailInput = document.getElementById('authSigninEmail');
+            if (emailInput) emailInput.value = email;
+            showToast('This email already uses a password. Sign in to connect Google.', 'Connect Google');
+        } else {
+            showToast('This email is registered with a different sign-in method.');
+        }
     }
 
     function populateBrandSheet() {
@@ -511,16 +590,7 @@
         if (roleEl) roleEl.textContent = signedIn ? 'Profile Menu' : 'Papiano';
 
         if (avImg && avIcon) {
-            if (signedIn && profile.photoURL && isSafeImage(profile.photoURL)) {
-                avImg.src = profile.photoURL;
-                avImg.style.display = 'block';
-                avIcon.style.display = 'none';
-            } else {
-                avImg.removeAttribute('src');
-                avImg.style.display = 'none';
-                avIcon.style.display = '';
-                avIcon.textContent = signedIn ? 'person' : 'account_circle';
-            }
+            applyAvatarSlot(avImg, avIcon, profile.photoURL, profile.name, signedIn, signedIn ? 'person' : 'account_circle');
         }
 
         if (authBtn && authLabel && authIcon) {
@@ -729,6 +799,30 @@
         const clean = String(name || 'User').trim();
         const parts = clean.split(/\s+/).filter(Boolean);
         return ((parts[0]?.[0] || 'U') + (parts[1]?.[0] || '')).toUpperCase();
+    }
+
+    // Render an avatar slot: photo if available, otherwise the first letter of
+    // the signed-in name (email accounts have no photo), else a generic icon.
+    function applyAvatarSlot(imgEl, iconEl, photoURL, name, signedIn, fallbackIcon) {
+        if (!imgEl || !iconEl) return;
+        if (signedIn && photoURL && isSafeImage(photoURL)) {
+            imgEl.src = photoURL;
+            imgEl.style.display = 'block';
+            iconEl.style.display = 'none';
+            iconEl.classList.remove('avatar-initial');
+            return;
+        }
+        imgEl.removeAttribute('src');
+        imgEl.style.display = 'none';
+        iconEl.style.display = '';
+        const letter = signedIn ? String(name || '').trim().charAt(0).toUpperCase() : '';
+        if (letter) {
+            iconEl.classList.add('avatar-initial');
+            iconEl.textContent = letter;
+        } else {
+            iconEl.classList.remove('avatar-initial');
+            iconEl.textContent = fallbackIcon || 'account_circle';
+        }
     }
 
     function countryCodeToFlag(code) {
@@ -1084,17 +1178,18 @@
     function handleRoleSelectChange() {
         const select = document.getElementById('accountRoleSelect');
         if (!select) return;
+        // Track the pending choice for Save, and update the select's own label.
+        // The profile card itself is NOT touched until the Save button is pressed.
         selectedBadgeId = normalizeRoleId(select.value || 'common');
-        if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
         syncThemedSelectDisplay(select);
     }
 
-    // Country select change - keep flag preview in sync.
+    // Country select change - update the select's own label only. The profile
+    // card flag is not changed until the Save button is pressed.
     function handleCountrySelectChange() {
         const select = document.getElementById('formInputCountry');
         if (!select) return;
         syncThemedSelectDisplay(select);
-        renderFlagRow(select.value, document.getElementById('displayProfileFlag'));
     }
 
     // ============ Themed picker overlay ============
@@ -1242,15 +1337,7 @@
 
         if (!avatarImg || !avatarIcon) return;
         const photoURL = String(profile.photoURL || currentUser.photoURL || '');
-        if (photoURL && isSafeImage(photoURL)) {
-            avatarImg.src = photoURL;
-            avatarImg.style.display = 'block';
-            avatarIcon.style.display = 'none';
-        } else {
-            avatarImg.removeAttribute('src');
-            avatarImg.style.display = 'none';
-            avatarIcon.style.display = '';
-        }
+        applyAvatarSlot(avatarImg, avatarIcon, photoURL, profile.name, !!currentUser, 'account_circle');
     }
 
     function updateProfileView(profile) {
@@ -1278,18 +1365,11 @@
         syncThemedSelectDisplay(formInputCountry);
         populateAccountRoleSelect(selectedBadgeId);
 
-        if (profile.photoURL && isSafeImage(profile.photoURL)) {
-            masterAvatarImg.src = profile.photoURL;
-            masterAvatarImg.style.display = 'block';
-            masterPlaceholderIcon.style.display = 'none';
-        } else {
-            masterAvatarImg.removeAttribute('src');
-            masterAvatarImg.style.display = 'none';
-            masterPlaceholderIcon.style.display = '';
-        }
+        applyAvatarSlot(masterAvatarImg, masterPlaceholderIcon, profile.photoURL, profile.name, !!currentUser, 'account_circle');
         // Keep brand sheet (mobile) and desktop sidebar auth button in sync
         // with auth/profile state, even when the brand sheet is closed.
         populateBrandSheet();
+        if (typeof refreshAccountSecurityUI === 'function') refreshAccountSecurityUI();
     }
 
     function isSafeImage(src) {
@@ -1445,8 +1525,10 @@
                 label: 'Profile photo'
             });
             if (formInputPhotoUrl) formInputPhotoUrl.value = upload.url;
-            updateProfileView({ ...loadProfile(), photoURL: upload.url });
-            showToast('Photo updated.', 'Saved');
+            // Preview the picked photo in the account form only — it is NOT
+            // persisted (or reflected elsewhere) until the Save button is pressed.
+            applyAvatarSlot(masterAvatarImg, masterPlaceholderIcon, upload.url, formInputName?.value || currentProfile?.name, true, 'account_circle');
+            showToast('Photo ready — tap Save to apply.', 'Photo selected');
         } catch (error) {
             showToast(friendlyError(error, 'Couldn’t upload your photo.'));
         } finally {
@@ -2026,7 +2108,7 @@
     }
 
     function updateNotificationBadges() {
-        const total = privateUnreadTotal + friendRequestUnreadTotal;
+        const total = privateUnreadTotal + friendRequestUnreadTotal + systemUnreadTotal;
         renderSmallBadge(chatNavUnreadBadge, total);
         renderSmallBadge(friendRequestsBadge, friendRequestUnreadTotal);
     }
@@ -2130,13 +2212,31 @@
     }
 
     // === System rooms (Announcement / Global / Feedback) last-message preview ===
+    const systemRoomUnread = new Map();
+
+    function recomputeSystemUnread() {
+        let total = 0;
+        systemRoomUnread.forEach(count => { total += Math.max(0, Number(count) || 0); });
+        systemUnreadTotal = total;
+        updateNotificationBadges();
+    }
+
+    function clearSystemRoomUnread(docId) {
+        if (!docId || !systemRoomUnread.has(docId)) return;
+        systemRoomUnread.set(docId, 0);
+        const badgeId = docId === getGroupRoomId('announcements') ? 'announcementUnreadBadge'
+            : docId === getGroupRoomId('global') ? 'globalChatUnreadBadge' : '';
+        if (badgeId) renderSmallBadge(document.getElementById(badgeId), 0);
+        recomputeSystemUnread();
+    }
+
     function startSystemRoomListeners() {
         const map = [
-            { roomKey: 'announcements', stampId: 'announcementStamp', snippetId: 'announcementSnippet', defaultStamp: 'PUBLIC', defaultSnippet: 'Papiano updates.' },
-            { roomKey: 'global',        stampId: 'globalChatStamp',   snippetId: 'globalChatSnippet',   defaultStamp: 'PUBLIC', defaultSnippet: 'Community chat room.' },
-            { roomKey: 'feedback',      stampId: 'feedbackStamp',     snippetId: 'feedbackSnippet',     defaultStamp: 'FEEDBACK', defaultSnippet: 'Feedback panel.' }
+            { roomKey: 'announcements', stampId: 'announcementStamp', snippetId: 'announcementSnippet', badgeId: 'announcementUnreadBadge', defaultStamp: 'PUBLIC', defaultSnippet: 'Papiano updates.', alert: true },
+            { roomKey: 'global',        stampId: 'globalChatStamp',   snippetId: 'globalChatSnippet',   badgeId: 'globalChatUnreadBadge', defaultStamp: 'PUBLIC', defaultSnippet: 'Community chat room.', alert: true },
+            { roomKey: 'feedback',      stampId: 'feedbackStamp',     snippetId: 'feedbackSnippet',     defaultStamp: 'FEEDBACK', defaultSnippet: 'Feedback panel.', alert: false }
         ];
-        map.forEach(({ roomKey, stampId, snippetId, defaultStamp, defaultSnippet }) => {
+        map.forEach(({ roomKey, stampId, snippetId, badgeId, defaultStamp, defaultSnippet, alert }) => {
             const docId = getGroupRoomId(roomKey);
             const unsub = firestoreDb.collection('chatRooms').doc(docId).onSnapshot(snap => {
                 const data = snap.exists ? (snap.data() || {}) : {};
@@ -2151,6 +2251,15 @@
                     stampNode.textContent = date
                         ? formatChatDayTime(date)
                         : defaultStamp;
+                }
+                if (alert && badgeId) {
+                    // Treat the room as unread when it was updated by someone else
+                    // after our last read (suppressed while we're viewing it).
+                    const isViewing = activeChatRoomId === docId;
+                    const unread = isViewing ? 0 : getRoomUnreadForMe({ id: docId, ...data });
+                    systemRoomUnread.set(docId, unread);
+                    renderSmallBadge(document.getElementById(badgeId), unread);
+                    recomputeSystemUnread();
                 }
             }, _err => {
                 // On error keep defaults silently
@@ -2449,6 +2558,7 @@
         listenToActiveRoomMessages();
         ensureGroupRoomHistoryVisible(normalizedRoomId);
         markActiveRoomRead();
+        clearSystemRoomUnread(activeChatRoomId);
     }
 
     async function ensureGroupRoomHistoryVisible(roomId) {
@@ -2626,6 +2736,34 @@
         return `${formatChatDateLabel(value)} - ${time}`;
     }
 
+    // Clock only (HH:MM) for message bubbles — the day is shown by the
+    // day divider that separates messages across the 00:00 boundary.
+    function formatMessageClock(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'Sending';
+        return date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+
+    // Full day label for the divider shown between messages of different days.
+    function formatChatDayDivider(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return '';
+        const now = new Date();
+        const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
+        if (dayDiff <= 0) return 'Today';
+        if (dayDiff === 1) return 'Yesterday';
+        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'long' });
+        const sameYear = date.getFullYear() === now.getFullYear();
+        return date.toLocaleDateString(CHAT_LOCALE, sameYear
+            ? { day: 'numeric', month: 'long' }
+            : { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    // Compact day + time stamp used by chat-list row previews.
+    function formatChatDayTime(value) {
+        return formatMessageTime(value);
+    }
+
     function getMessageSenderProfile(message) {
         if (message.senderId === currentUser?.uid && currentProfile) return currentProfile;
         return messageProfiles.get(message.senderId) || friendProfiles.get(message.senderId) || directChatProfiles.get(message.senderId) || searchProfiles.get(message.senderId) || normalizeProfile(message.senderId || '', {
@@ -2657,7 +2795,16 @@
         }
         activeMessagesCache.clear();
         messages.forEach(message => activeMessagesCache.set(message.id, message));
+        let lastDayKey = null;
         chatMessagesScrollArea.innerHTML = messages.map(message => {
+            // Day divider at the 00:00 boundary between consecutive messages.
+            const mDate = chatTimestampToDate(message.createdAt);
+            const dayKey = mDate ? startOfChatDay(mDate) : null;
+            let dayDivider = '';
+            if (dayKey && dayKey !== lastDayKey) {
+                dayDivider = `<div class="chat-day-divider"><span>${escapeHtml(formatChatDayDivider(message.createdAt))}</span></div>`;
+                lastDayKey = dayKey;
+            }
             const mine = message.senderId === currentUser?.uid;
             const rowClass = mine ? 'row-outgoing msg-outgoing' : 'row-incoming msg-incoming';
             const profile = getMessageSenderProfile(message);
@@ -2670,6 +2817,7 @@
             const actions = buildMessageActionStrip(message, mine, announcementLocked);
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
             return `
+                ${dayDivider}
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
                     <div class="msg-container-with-avatar">
                         ${renderMessageAvatar(profile)}
@@ -2678,7 +2826,7 @@
                             ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
-                            <div class="msg-meta-line"><time>${formatMessageTime(message.createdAt)}</time></div>
+                            <div class="msg-meta-line"><time>${formatMessageClock(message.createdAt)}</time></div>
                         </div>
                     </div>
                     ${actions}
@@ -3819,29 +3967,48 @@
         firebaseAuth.onAuthStateChanged(async user => {
             authStateResolved = true;
             if (user?.uid) {
-                try {
-                    localStorage.removeItem('papiano_access_session');
-                    await ensureUserProfile(user);
-                    startRoleRegistryListener();
-                    startDeletedAccountWatcher(user.uid);
-                    restoreMultiplayerPresence(user.uid);
-                } catch (error) {
-                    if (isAccountRestrictionError(error)) {
-                        await exitDeletedAccount();
-                        return;
-                    }
-                    showToast('Could not load your profile. Please refresh.');
+                currentUser = user; // mark signed-in now so the UI stops looking "logged out"
+                if (!firestoreDb) {
+                    // Auth resolved before Firestore finished downloading. Reveal the
+                    // app immediately as "signed in" using the cached profile, and
+                    // finish loading once initPapianoSDKs() runs.
+                    _deferredAuthUser = user;
+                    currentProfile = currentProfile || loadProfile();
+                    openMainApp();
+                    navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
+                    hideAuthBootOverlay();
+                    return;
                 }
-                openMainApp();
-                navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
+                await finishLoggedInBoot(user);
+                hideAuthBootOverlay();
                 return;
             }
 
             accessSessionActive = true;
             currentUser = null;
             currentProfile = null;
+            _deferredAuthUser = null;
             openMainApp();
+            hideAuthBootOverlay();
         });
+    }
+
+    async function finishLoggedInBoot(user) {
+        try {
+            localStorage.removeItem('papiano_access_session');
+            await ensureUserProfile(user);
+            startRoleRegistryListener();
+            startDeletedAccountWatcher(user.uid);
+            restoreMultiplayerPresence(user.uid);
+        } catch (error) {
+            if (isAccountRestrictionError(error)) {
+                await exitDeletedAccount();
+                return;
+            }
+            showToast('Could not load your profile. Please refresh.');
+        }
+        openMainApp();
+        navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
     }
 
     window.addEventListener('DOMContentLoaded', () => {

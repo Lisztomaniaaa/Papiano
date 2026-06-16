@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Papiano Online — Multiplayer Piano Rooms</title>
+<title>Papiano — Solo Piano</title>
 <meta name="description" content="Create or join Papiano online piano rooms, chat, and play live on the stage piano with realtime SoundFont performance.">
 <meta name="keywords" content="Papiano, Papiano Online, multiplayer piano, online piano room, stage piano, realtime piano, MIDI piano, SoundFont piano">
 <meta name="application-name" content="Papiano Online">
@@ -32,8 +32,8 @@
 
 <link rel="stylesheet" href="/css/multiplayer.css?v=dev">
 </head>
-<body class="render-fixed">
-<script>window.PAPIANO_MULTIPLAYER_PAGE=(function(){try{var p=new URLSearchParams(location.search);if(p.get('stage')==='1'||p.has('room'))return 'stage';}catch(e){}return 'home';})();try{document.body.dataset.mpPage=window.PAPIANO_MULTIPLAYER_PAGE;}catch(e){}</script>
+<body class="render-fixed solo-mode">
+<script>window.PAPIANO_SOLO=true;window.PAPIANO_MULTIPLAYER_PAGE=(function(){try{var p=new URLSearchParams(location.search);if(p.get('stage')==='1'||p.has('room'))return 'stage';}catch(e){}return 'home';})();try{document.body.dataset.mpPage=window.PAPIANO_MULTIPLAYER_PAGE;}catch(e){}</script>
 
 <div id="loadingScreen" aria-hidden="true" style="display:none;">
     <div class="ld-card">

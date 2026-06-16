@@ -1,7 +1,8 @@
 (function () {
-    var SDK_URLS = [
-        'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
-        'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
+    var APP_URL  = 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js';
+    var AUTH_URL = 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js';
+    // Heavier modules are loaded AFTER auth so login state resolves first.
+    var REST_URLS = [
         'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
         'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js',
         'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
@@ -10,26 +11,33 @@
         return new Promise(function (resolve, reject) {
             var s = document.createElement('script');
             s.src = src;
-            s.async = false
+            s.async = false;
             s.onload = resolve;
             s.onerror = function () { reject(new Error('Failed to load ' + src)); };
             document.head.appendChild(s);
         });
     }
     function loadAll() {
-        SDK_URLS.reduce(function (chain, url) {
-            return chain.then(function () { return loadScript(url); });
-        }, Promise.resolve())
-        .then(function () {
-            window.__papianoSDKsReady = true;
-            window.dispatchEvent(new Event('papiano-sdks-ready'));
-        })
-        .catch(function (err) {
-            console.error('[papiano] SDK load failed:', err);
-            if (typeof window.showToast === 'function') {
-                window.showToast('Network busy. Refresh to retry.', 'Offline');
-            }
-        });
+        // Phase 1: app + auth → announce auth-ready so the app can resolve the
+        // signed-in/out state immediately, without waiting for db/firestore.
+        loadScript(APP_URL)
+            .then(function () { return loadScript(AUTH_URL); })
+            .then(function () {
+                window.__papianoAuthReady = true;
+                window.dispatchEvent(new Event('papiano-auth-ready'));
+                // Phase 2: the rest, in parallel.
+                return Promise.all(REST_URLS.map(loadScript));
+            })
+            .then(function () {
+                window.__papianoSDKsReady = true;
+                window.dispatchEvent(new Event('papiano-sdks-ready'));
+            })
+            .catch(function (err) {
+                console.error('[papiano] SDK load failed:', err);
+                if (typeof window.showToast === 'function') {
+                    window.showToast('Network busy. Refresh to retry.', 'Offline');
+                }
+            });
     }
     function schedule() {
         if ('requestIdleCallback' in window) {
