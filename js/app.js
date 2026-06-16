@@ -163,6 +163,7 @@
     let authEntryMode = 'signin';
     let authEntryBusy = false;
     let accountDeleteBusy = false;
+    let profileSaveBusy = false;
     let friendProfiles = new Map();
     let pendingFriendRequests = new Map();
     let directChatProfiles = new Map();
@@ -645,6 +646,13 @@
 
     async function logoutPapianoAccount() {
         try {
+            // Mark multiplayer presence offline + stop the heartbeat before
+            // signing out, so a logged-out account doesn't linger as "online".
+            if (_mpPresenceRef) {
+                try { _mpPresenceRef.onDisconnect().cancel(); } catch (_e) {}
+                try { await _mpPresenceRef.update({ online: false, updatedAt: Date.now() }); } catch (_e) {}
+                _mpPresenceRef = null;
+            }
             await firebaseAuth.signOut();
         } catch (_error) {}
         // Clear profile cache so UI resets to default (no stale name/avatar)
@@ -1341,7 +1349,7 @@
     }
 
     function updateProfileView(profile) {
-        selectedBadgeId = normalizeRoleId(profile.roleId || profile.roleId || profile.badgeId || 'common');
+        selectedBadgeId = normalizeRoleId(profile.roleId || profile.badgeId || 'common');
         const badge = getBadge(selectedBadgeId);
         const playTimeLabel = formatPlayTime(profile.playTimeSeconds);
         const playTimeHourLabel = formatPlayTimeHours(profile.playTimeSeconds);
@@ -1451,6 +1459,8 @@
             showToast('Sign in to save profile.');
             return;
         }
+        if (profileSaveBusy) return;
+        profileSaveBusy = true;
         const cleanName = (formInputName?.value || '').trim().slice(0, 24) || 'Papiano User';
         const cleanDesc = (formInputDesc?.value || '').trim().slice(0, 160);
         const countryEl = document.getElementById('formInputCountry');
@@ -1495,6 +1505,8 @@
             showToast('Profile saved.', 'Saved');
         } catch (error) {
             showToast('Couldn’t save your profile.');
+        } finally {
+            profileSaveBusy = false;
         }
     }
 
@@ -3184,7 +3196,9 @@
                 showToast('Only your messages can be edited.');
                 return;
             }
-            const nextText = prompt('Edit message', data.text || '');
+            const nextText = window.__papianoEditModal
+                ? await window.__papianoEditModal.show(data.text || '')
+                : prompt('Edit message', data.text || '');
             if (nextText === null) return;
             await ref.set({
                 text: String(nextText).trim().slice(0, 500),

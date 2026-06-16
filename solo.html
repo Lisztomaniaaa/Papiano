@@ -4,33 +4,34 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Papiano — Solo Piano</title>
-<meta name="description" content="Create or join Papiano online piano rooms, chat, and play live on the stage piano with realtime SoundFont performance.">
-<meta name="keywords" content="Papiano, Papiano Online, multiplayer piano, online piano room, stage piano, realtime piano, MIDI piano, SoundFont piano">
+<meta name="description" content="Play piano solo in your browser with Papiano — realtime SoundFont sound, MIDI support, and a clean stage. No sign-in required.">
+<meta name="keywords" content="Papiano, solo piano, online piano, browser piano, realtime piano, MIDI piano, SoundFont piano">
 <meta name="application-name" content="Papiano Online">
 <meta name="apple-mobile-web-app-title" content="Papiano Online">
 <meta name="theme-color" content="#05132e">
 <meta name="color-scheme" content="dark">
 <meta name="robots" content="index, follow">
-<link rel="canonical" href="https://papiano.fun/multiplayer">
+<link rel="canonical" href="https://papiano.fun/solo">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Papiano">
-<meta property="og:url" content="https://papiano.fun/multiplayer">
-<meta property="og:title" content="Papiano Online — Multiplayer Piano Rooms">
-<meta property="og:description" content="Create or join online piano rooms, chat, and play live with realtime SoundFont performance.">
+<meta property="og:url" content="https://papiano.fun/solo">
+<meta property="og:title" content="Papiano — Solo Piano">
+<meta property="og:description" content="Play piano solo in your browser with realtime SoundFont sound and MIDI support. No sign-in required.">
 <meta property="og:image" content="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/71f9794f-6420-4e9c-8988-4f71e54530e6.webp">
 <meta property="og:image:alt" content="Papiano Online multiplayer piano rooms">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Papiano Online — Multiplayer Piano Rooms">
-<meta name="twitter:description" content="Create or join online piano rooms, chat, and play live with realtime SoundFont performance.">
+<meta name="twitter:title" content="Papiano — Solo Piano">
+<meta name="twitter:description" content="Play piano solo in your browser with realtime SoundFont sound and MIDI support. No sign-in required.">
 <meta name="twitter:image" content="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/71f9794f-6420-4e9c-8988-4f71e54530e6.webp">
 <link rel="icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
 <link rel="apple-touch-icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
+<link rel="manifest" href="/manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=Nunito:wght@600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=Quicksand:wght@600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@700;800&family=Nunito:wght@600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=Quicksand:wght@600;700;800&display=swap"></noscript>
 
-<link rel="stylesheet" href="/css/multiplayer.css?v=dev">
+<link rel="stylesheet" href="/css/multiplayer.min.css?v=dev">
 </head>
 <body class="render-fixed solo-mode">
 <script>window.PAPIANO_SOLO=true;window.PAPIANO_MULTIPLAYER_PAGE=(function(){try{var p=new URLSearchParams(location.search);if(p.get('stage')==='1'||p.has('room'))return 'stage';}catch(e){}return 'home';})();try{document.body.dataset.mpPage=window.PAPIANO_MULTIPLAYER_PAGE;}catch(e){}</script>

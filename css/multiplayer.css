@@ -5020,3 +5020,15 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
     #settingsPanel{ width:min(400px,calc(100vw - 28px)) !important; }
     #colorPanel{ width:min(380px,calc(100vw - 28px)) !important; }
 }
+
+/* Respect the OS "reduce motion" preference (WCAG 2.3.3). Stops the
+   infinite saber smoke, spinners and record pulses that otherwise run
+   continuously and drain battery/CPU on phones. */
+@media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{
+        animation-duration:.001ms !important;
+        animation-iteration-count:1 !important;
+        transition-duration:.001ms !important;
+        scroll-behavior:auto !important;
+    }
+}
