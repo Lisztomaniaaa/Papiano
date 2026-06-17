@@ -1,63 +1,40 @@
-# Firebase Security Rules — DRAFT (review & test before deploying)
+# Firebase Security Rules
 
-These two files close the audit's **#1 finding**: today every authority decision
-(admin access, role grants, moderation/ban, the admin "Reset Zone") is enforced
-**only in client-side JavaScript**, so any signed-in user can bypass it from the
-browser console. The repo had **no rules at all**.
+Two files:
 
-- `firestore.rules` — profiles, chat, reports, donations
-- `database.rules.json` — RTDB: roles, presence, rooms, moderation, bans, admin log
+- `firestore.rules` — profiles, chat, friendships, blocks, reports, donations
+- `database.rules.json` — Realtime Database (roles, presence, rooms, moderation, bans, admin log, donations)
 
-> ⚠️ **These are starting drafts, not a finished policy.** They lock the
-> *critical* escalation paths while leaving normal room/chat flows permissive so
-> the app keeps working. **Test every flow in the Firebase Rules Playground / the
-> emulator before publishing** — any write path the app uses that isn't covered
-> will start failing in production.
+## Admins
 
-## Step 1 — Set the `admin` custom claim (REQUIRED first)
+Admins are matched by email inside the rules, so the admin panel works with no
+extra setup. The allowed accounts are:
 
-The rules trust `request.auth.token.admin == true`, **not** the email allow‑list
-or `badgeId:'dev'`. If you publish the rules without setting this claim, the
-admin panel can no longer write. Set it once per admin account with the Admin SDK:
+- `utamairfan44@gmail.com`
+- `akunpolos0444000@gmail.com`
+- `papianobase@gmail.com`
 
-```js
-// run once, e.g. in a trusted Node script or a callable Cloud Function
-const admin = require('firebase-admin');
-admin.initializeApp();
-const ADMIN_UIDS = ['<uid-of-utamairfan44>', '<uid-of-akunpolos0444000>', '<uid-of-papianobase>'];
-await Promise.all(ADMIN_UIDS.map(uid => admin.auth().setCustomUserClaims(uid, { admin: true })));
-```
+To change the admin list, edit the email arrays in `firestore.rules` and
+`database.rules.json` (and re-deploy). A `request.auth.token.admin == true`
+custom claim is also accepted if you prefer claims later.
 
-The admin then signs out/in once (or call `getIdToken(true)`) to pick up the claim.
-
-## Step 2 — Deploy
+## Deploy
 
 ```bash
 npm i -g firebase-tools
 firebase login
-# firebase.json should point at these files:
-#   { "firestore": { "rules": "firestore.rules" },
-#     "database": { "rules": "database.rules.json" } }
 firebase deploy --only firestore:rules,database
 ```
 
-## What the drafts lock vs. leave open
+## What is enforced
 
-| Path | Policy |
-|---|---|
-| `profiles/{uid}` `badgeId`/`roleId`/`ownedRoles` | only **admin** can change (kills the self‑promote‑to‑dev hole) |
-| RTDB `roles`, `bans`, `adminLog` | admin‑only write |
-| RTDB `moderation/{room}` | **room owner or admin** only (was: anyone) |
-| `deletedAccounts/{uid}` | the user themselves or admin |
-| `reports`, `donations` (FS) | admin‑only read/write (donations world‑readable) |
-| chat messages | author writes own; admin moderates any |
-| rooms / players / seats / streams / presence | any signed‑in user (kept permissive so play works) |
+- A user can edit their own profile but cannot grant themselves a role: `badgeId`
+  and `roleId` may only be set to a role already in their `ownedRoles`, and
+  `ownedRoles` is admin-only. This closes the self-promote-to-admin path.
+- `roles`, `bans`, `adminLog` and donations are admin-only writes.
+- Room moderation (`moderation/{roomId}`) is limited to the room owner or an admin.
+- Likes/dislikes, friends, blocks, DM clearing and chat all work for any signed-in
+  user, which keeps the profile and chat features functional.
 
-## Still recommended after this (not covered by rules alone)
-
-- **Room passwords are plaintext** in `rooms/{id}` and broadcast to everyone.
-  Move join‑auth to a Cloud Function or store a hash the client can't read.
-- **App Check** + **Email Enumeration Protection** in the Firebase console to
-  curb abuse/brute‑force.
-- Optionally enforce `request.auth.token.email_verified == true` on chat/room
-  writes once you confirm all active accounts are verified.
+Room passwords are still stored in plaintext under `rooms/{id}`; move join-auth to
+a Cloud Function if that matters for your threat model.

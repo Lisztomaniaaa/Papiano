@@ -1,72 +1,96 @@
 rules_version = '2';
 
-// DRAFT Firestore rules for Papiano. Closes the privilege-escalation hole the
-// audit flagged (a user writing badgeId:'dev' to their own profile to unlock
-// admin) and locks reports/donations to admins, while keeping normal profile
-// and chat use working. TEST in the Rules Playground / emulator against real
-// app flows BEFORE publishing. Requires an 'admin' custom claim on admin
-// accounts (see RULES-README.md).
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() { return request.auth != null; }
-    function isAdmin()  { return signedIn() && request.auth.token.admin == true; }
+    function signed() {
+      return request.auth != null;
+    }
 
-    // Fields a normal user must NOT be able to set on their own profile.
-    function touchesPrivileged() {
-      return request.resource.data.diff(resource.data).affectedKeys()
-               .hasAny(['badgeId', 'roleId', 'ownedRoles']);
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.admin == true ||
+        request.auth.token.email in [
+          'utamairfan44@gmail.com',
+          'akunpolos0444000@gmail.com',
+          'papianobase@gmail.com'
+        ]
+      );
+    }
+
+    function owns(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    // A user may switch their badge/role only to one they already own.
+    function badgeWithinInventory() {
+      return roleAllowed(request.resource.data.badgeId)
+        && roleAllowed(request.resource.data.roleId);
+    }
+
+    function roleAllowed(role) {
+      return role == 'common'
+        || role == resource.data.badgeId
+        || role == resource.data.roleId
+        || (resource.data.ownedRoles is list && role in resource.data.ownedRoles);
     }
 
     match /profiles/{uid} {
-      allow read:   if signedIn();
-      allow create: if signedIn() && request.auth.uid == uid;
-      // Owner may edit their own profile but NOT the privileged badge/role
-      // fields; admins may edit anything.
+      allow read: if signed();
+
+      allow create: if isAdmin() || (
+        owns(uid)
+        && request.resource.data.get('badgeId', 'common') == 'common'
+        && request.resource.data.get('roleId', 'common') == 'common'
+        && request.resource.data.get('ownedRoles', ['common']).hasOnly(['common'])
+      );
+
       allow update: if isAdmin()
-                    || (signedIn() && request.auth.uid == uid && !touchesPrivileged());
+        || (owns(uid) && !changedKeys().hasAny(['ownedRoles']) && badgeWithinInventory())
+        || (signed() && changedKeys().hasOnly(['likes', 'dislikes', 'updatedAt']));
+
       allow delete: if isAdmin();
 
-      match /reactions/{voter} {
-        allow read:  if signedIn();
-        allow write: if signedIn() && request.auth.uid == voter;
+      match /reactions/{voterUid} {
+        allow read: if signed();
+        allow write: if owns(voterUid);
       }
     }
 
-    // Sequential public-id counter, claimed inside a signup transaction.
-    match /counters/{doc} {
-      allow read, write: if signedIn();
+    match /counters/{docId} {
+      allow read, write: if signed();
     }
 
     match /chatRooms/{roomId} {
-      allow read:          if signedIn();
-      allow create, update: if signedIn();
-      allow delete:        if isAdmin();
+      allow read, create, update: if signed();
+      allow delete: if isAdmin();
 
-      match /messages/{msgId} {
-        allow read:   if signedIn();
-        // Author posts as themselves; admins may post/moderate anything.
-        allow create: if isAdmin()
-                      || (signedIn() && request.resource.data.senderId == request.auth.uid);
-        allow update: if isAdmin()
-                      || (signedIn() && resource.data.senderId == request.auth.uid);
-        allow delete: if isAdmin();
+      match /messages/{messageId} {
+        allow read: if signed();
+        allow create: if isAdmin() || request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if signed();
       }
     }
 
-    match /friendships/{pairId} { allow read, write: if signedIn(); }
-    match /blocks/{blockId}     { allow read, write: if signedIn(); }
+    match /friendships/{pairId} {
+      allow read, write: if signed();
+    }
 
-    // Reports: anyone signed-in can file one; only admins can read/resolve.
+    match /blocks/{blockId} {
+      allow read, write: if signed();
+    }
+
     match /reports/{reportId} {
-      allow create:              if signedIn();
+      allow create: if signed();
       allow read, update, delete: if isAdmin();
     }
 
-    // Donations: world-readable (in-app leaderboard); admin-only writes.
-    match /donations/{id} {
-      allow read:  if true;
+    match /donations/{donationId} {
+      allow read: if true;
       allow write: if isAdmin();
     }
   }
