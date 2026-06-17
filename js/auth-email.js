@@ -237,7 +237,7 @@ async function authEntryWithEmail(mode) {
             authShowScreen('verify');
 
             if (typeof showToast === 'function')
-                showToast('Check your inbox (and spam) for the verification link.', 'Verify your email');
+                showToast('We just emailed you a verification link — check your inbox, and your spam folder just in case.', 'Verify your email');
         } catch (err) {
             _showErr('authSignupErr', _friendly(err));
         } finally {
@@ -285,7 +285,7 @@ async function authResendVerification() {
     try {
         await _sendVerification(user);
         _showErr('authVerifyErr', '');
-        if (typeof showToast === 'function') showToast('New verification link sent! Check your inbox.', 'Resent');
+        if (typeof showToast === 'function') showToast('Fresh verification link on its way — check your inbox.', 'Resent');
     } catch (err) {
         _showErr('authVerifyErr', _friendly(err));
     }
@@ -309,7 +309,7 @@ async function requestAccountPasswordReset() {
         }
         await firebaseAuth.sendPasswordResetEmail(user.email, { url: location.origin });
         if (typeof showToast === 'function')
-            showToast('Password reset link sent to ' + user.email + '. Check inbox and spam.', 'Email Sent');
+            showToast('Reset link sent to ' + user.email + ' — check your inbox, and your spam folder just in case.', 'Email Sent');
     } catch (err) {
         if (typeof showToast === 'function') showToast(_friendly(err), 'Error');
     }
@@ -588,7 +588,7 @@ async function authSendReset() {
         }
 
         await firebaseAuth.sendPasswordResetEmail(email, { url: location.origin });
-        if (typeof showToast === 'function') showToast('Reset link sent! Check inbox and spam.', 'Email Sent');
+        if (typeof showToast === 'function') showToast('Reset link sent — check your inbox, and your spam folder just in case.', 'Email Sent');
         authShowScreen('signin');
     } catch (err) {
         _showErr('authForgotErr', _friendly(err));

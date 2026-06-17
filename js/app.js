@@ -291,13 +291,57 @@
         feedback: 'Suggestions & Feedback'
     };
 
-    function showToast(message, title = 'Info') {
+    const TOAST_ICON = {
+        success: 'check_circle',
+        error: 'error',
+        warning: 'warning',
+        info: 'info',
+        email: 'mark_email_unread'
+    };
+    // Known toast titles → visual type, so the existing showToast(msg, 'Title')
+    // call sites light up with the right colour + icon without being touched.
+    const TOAST_TITLE_TYPE = {
+        'connected': 'success', 'verified': 'success', 'password added': 'success',
+        'done': 'success', 'saved': 'success', 'success': 'success', 'welcome': 'success',
+        'error': 'error', 'failed': 'error',
+        'unavailable': 'warning', 'required': 'warning', 'locked': 'warning',
+        'offline': 'warning', 'heads up': 'warning',
+        'email sent': 'email', 'resent': 'email', 'verify your email': 'email'
+    };
+
+    // A single themed toast: pass a string title for the simple case, or an
+    // { title, type, icon, duration } object to override. Type drives the icon,
+    // accent colour and the depleting progress bar.
+    function showToast(message, opts) {
+        if (typeof opts === 'string') opts = { title: opts };
+        opts = opts || {};
         if (!soonPopupToast || !soonPopupText) return;
+        const title = opts.title || 'Info';
+        const type = opts.type || TOAST_TITLE_TYPE[title.toLowerCase()] || 'info';
+        const duration = opts.duration || (type === 'error' ? 4200 : type === 'email' ? 3800 : 2600);
+
         if (soonPopupTitle) soonPopupTitle.textContent = title;
         soonPopupText.textContent = message || 'Action completed.';
+
+        const iconEl = soonPopupToast.querySelector('.material-symbols-rounded');
+        if (iconEl) iconEl.textContent = opts.icon || TOAST_ICON[type] || 'info';
+
+        soonPopupToast.classList.remove('t-success', 't-error', 't-warning', 't-info', 't-email');
+        soonPopupToast.classList.add('t-' + type);
+
+        let bar = soonPopupToast.querySelector('.soon-popup-bar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.className = 'soon-popup-bar';
+            soonPopupToast.appendChild(bar);
+        }
+        bar.style.animation = 'none';
+        void bar.offsetWidth; // reflow so the countdown restarts on every toast
+        bar.style.animation = 'toastBarDeplete ' + duration + 'ms linear forwards';
+
         soonPopupToast.classList.add('show');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => soonPopupToast.classList.remove('show'), 2200);
+        toastTimer = setTimeout(() => soonPopupToast.classList.remove('show'), duration);
     }
 
     function showSoonFeature(featureName) {
