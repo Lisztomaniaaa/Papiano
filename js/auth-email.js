@@ -426,9 +426,23 @@ async function submitLinkPassword() {
 
     const btn = document.getElementById('linkPasswordConfirmBtn');
     if (btn) btn.disabled = true;
+    _showErr('linkPasswordErr', '');
     try {
         const cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
-        await user.linkWithCredential(cred);
+        try {
+            await user.linkWithCredential(cred);
+        } catch (err) {
+            // Attaching a password is security-sensitive, so a Google session
+            // restored from an earlier visit is rejected with
+            // auth/requires-recent-login. Re-verify Google in place and retry once
+            // — the user never has to manually sign out and back in.
+            if (err?.code === 'auth/requires-recent-login' && getUserProviderIds().includes('google.com')) {
+                await user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+                await user.linkWithCredential(cred);
+            } else {
+                throw err;
+            }
+        }
         closeLinkPasswordModal();
         if (typeof showToast === 'function') showToast('Password set — you can now sign in with email and reset it anytime.', 'Password Added');
         refreshAccountSecurityUI();
@@ -439,6 +453,8 @@ async function submitLinkPassword() {
         } else if (code === 'auth/provider-already-linked' || code === 'auth/email-already-in-use') {
             _showErr('linkPasswordErr', 'A password is already set for this account.');
             refreshAccountSecurityUI();
+        } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+            _showErr('linkPasswordErr', 'Google verification was cancelled — try again to set your password.');
         } else {
             _showErr('linkPasswordErr', _friendly(err));
         }
