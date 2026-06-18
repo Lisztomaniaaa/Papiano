@@ -291,13 +291,71 @@
         feedback: 'Suggestions & Feedback'
     };
 
-    function showToast(message, title = 'Info') {
+    const TOAST_ICON = {
+        success: 'check_circle',
+        error: 'error',
+        warning: 'warning',
+        info: 'info',
+        email: 'mark_email_unread'
+    };
+    // Known toast titles → visual type, so the existing showToast(msg, 'Title')
+    // call sites light up with the right colour + icon without being touched.
+    const TOAST_TITLE_TYPE = {
+        'connected': 'success', 'verified': 'success', 'password added': 'success',
+        'done': 'success', 'saved': 'success', 'success': 'success', 'welcome': 'success',
+        'friends': 'success', 'chat': 'success',
+        'error': 'error', 'failed': 'error',
+        'unavailable': 'warning', 'required': 'warning', 'locked': 'warning',
+        'offline': 'warning', 'heads up': 'warning', 'connect google': 'warning',
+        'google account': 'warning',
+        'email sent': 'email', 'resent': 'email', 'verify your email': 'email'
+    };
+    // Most untitled toasts are errors (showToast('Couldn't…')) with no title to
+    // map, so fall back to sniffing the message for clear failure wording.
+    const TOAST_ERROR_HINT = /(couldn|can.?t|cannot|unable|failed|wrong|invalid|denied|not found|no access|went wrong|too many|try again|already (in use|registered|taken)|expired|disabled|restricted)/i;
+
+    // A single themed toast: pass a string title for the simple case, or an
+    // { title, type, icon, duration } object to override. Type drives the icon,
+    // accent colour and the depleting progress bar.
+    function showToast(message, opts) {
+        if (typeof opts === 'string') opts = { title: opts };
+        opts = opts || {};
         if (!soonPopupToast || !soonPopupText) return;
+        let title = opts.title || '';
+        let type = opts.type || TOAST_TITLE_TYPE[title.toLowerCase()];
+        if (!type) {
+            // Untitled / unmapped toast — sniff the message so the many
+            // showToast('Couldn't…') error calls render red, not neutral blue.
+            type = TOAST_ERROR_HINT.test(message || '') ? 'error' : 'info';
+        }
+        if (!title) title = type === 'error' ? 'Error' : type === 'success' ? 'Done' : 'Info';
+        const duration = opts.duration || (type === 'error' ? 4200 : type === 'email' ? 3800 : 2600);
+
         if (soonPopupTitle) soonPopupTitle.textContent = title;
         soonPopupText.textContent = message || 'Action completed.';
+
+        const iconEl = soonPopupToast.querySelector('.material-symbols-rounded');
+        if (iconEl) {
+            iconEl.textContent = opts.icon || TOAST_ICON[type] || 'info';
+            iconEl.setAttribute('aria-hidden', 'true');
+        }
+
+        soonPopupToast.classList.remove('t-success', 't-error', 't-warning', 't-info', 't-email');
+        soonPopupToast.classList.add('t-' + type);
+
+        let bar = soonPopupToast.querySelector('.soon-popup-bar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.className = 'soon-popup-bar';
+            soonPopupToast.appendChild(bar);
+        }
+        bar.style.animation = 'none';
+        void bar.offsetWidth; // reflow so the countdown restarts on every toast
+        bar.style.animation = 'toastBarDeplete ' + duration + 'ms linear forwards';
+
         soonPopupToast.classList.add('show');
         clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => soonPopupToast.classList.remove('show'), 2200);
+        toastTimer = setTimeout(() => soonPopupToast.classList.remove('show'), duration);
     }
 
     function showSoonFeature(featureName) {
@@ -1959,7 +2017,7 @@
         // The right-side stamp is suppressed for blocked rows to avoid duplication.
         const stamp = isBlocked
             ? ''
-            : type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? formatMessageTime(profile.lastMessageAt) : 'Friend';
+            : type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? formatChatListStamp(profile.lastMessageAt) : 'Friend';
         // Bio/description is shown ONLY in the profile modal (tap the row).
         // Inline rows show a snippet only for DM (last message), search hint, or blocked notice.
         // Friend and request rows stay clean - no bio in the list.
@@ -2261,7 +2319,7 @@
                     const ts = data.updatedAt;
                     const date = ts?.toDate ? ts.toDate() : null;
                     stampNode.textContent = date
-                        ? formatChatDayTime(date)
+                        ? formatChatListStamp(date)
                         : defaultStamp;
                 }
                 if (alert && badgeId) {
@@ -2727,27 +2785,6 @@
         return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
     }
 
-    function formatChatDateLabel(value) {
-        const date = chatTimestampToDate(value);
-        if (!date || Number.isNaN(date.getTime())) return 'Sending';
-        const now = new Date();
-        const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
-        if (dayDiff <= 0) return 'Tdy';
-        if (dayDiff === 1) return 'Yday';
-        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'short' });
-        const sameYear = date.getFullYear() === now.getFullYear();
-        return date.toLocaleDateString(CHAT_LOCALE, sameYear
-            ? { day: 'numeric', month: 'short' }
-            : { day: 'numeric', month: 'short', year: '2-digit' });
-    }
-
-    function formatMessageTime(value) {
-        const date = chatTimestampToDate(value);
-        if (!date || Number.isNaN(date.getTime())) return 'Sending';
-        const time = date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
-        return `${formatChatDateLabel(value)} - ${time}`;
-    }
-
     // Clock only (HH:MM) for message bubbles — the day is shown by the
     // day divider that separates messages across the 00:00 boundary.
     function formatMessageClock(value) {
@@ -2771,9 +2808,28 @@
             : { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    // Compact day + time stamp used by chat-list row previews.
-    function formatChatDayTime(value) {
-        return formatMessageTime(value);
+    // Telegram-style single-token stamp for chat-list rows (folders):
+    //   today        → 02:00         (24-hour clock only)
+    //   1–6 days ago → Sunday        (weekday)
+    //   this year    → 9 July        (day + month, day-first)
+    //   older        → 9 July 2024   (day + month + year)
+    // Day+month is built manually so it stays day-first ('en-US' would give "July 9").
+    function formatChatListStamp(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'Sending';
+        const now = new Date();
+        const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
+        if (dayDiff <= 0) {
+            return date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+        if (dayDiff < 7) {
+            return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'long' });
+        }
+        const day = date.getDate();
+        const month = date.toLocaleDateString(CHAT_LOCALE, { month: 'long' });
+        return date.getFullYear() === now.getFullYear()
+            ? `${day} ${month}`
+            : `${day} ${month} ${date.getFullYear()}`;
     }
 
     function getMessageSenderProfile(message) {

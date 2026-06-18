@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "firebase": {
+      "command": "firebase",
+      "args": ["experimental:mcp"],
+      "env": {
+        "FIREBASE_PROJECT": "papianoverse",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/home/user/sa.json"
+      }
+    }
+  }
+}

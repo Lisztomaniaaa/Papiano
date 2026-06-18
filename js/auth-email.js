@@ -237,7 +237,7 @@ async function authEntryWithEmail(mode) {
             authShowScreen('verify');
 
             if (typeof showToast === 'function')
-                showToast('Check your inbox (and spam) for the verification link.', 'Verify your email');
+                showToast('We just emailed you a verification link — check your inbox, and your spam folder just in case.', 'Verify your email');
         } catch (err) {
             _showErr('authSignupErr', _friendly(err));
         } finally {
@@ -285,7 +285,7 @@ async function authResendVerification() {
     try {
         await _sendVerification(user);
         _showErr('authVerifyErr', '');
-        if (typeof showToast === 'function') showToast('New verification link sent! Check your inbox.', 'Resent');
+        if (typeof showToast === 'function') showToast('Fresh verification link on its way — check your inbox.', 'Resent');
     } catch (err) {
         _showErr('authVerifyErr', _friendly(err));
     }
@@ -300,16 +300,17 @@ async function requestAccountPasswordReset() {
         return;
     }
     try {
-        let methods = [];
-        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(user.email); } catch (_) {}
-        if (methods.includes('google.com') && !methods.includes('password')) {
+        // The signed-in user's own providers are authoritative. Don't rely on
+        // fetchSignInMethodsForEmail — it returns [] under Email Enumeration
+        // Protection, which would let this guard fall open for a Google-only account.
+        if (!getUserProviderIds().includes('password')) {
             if (typeof showToast === 'function')
                 showToast('This account uses Google sign-in — there is no password to reset.', 'Google account');
             return;
         }
         await firebaseAuth.sendPasswordResetEmail(user.email, { url: location.origin });
         if (typeof showToast === 'function')
-            showToast('Password reset link sent to ' + user.email + '. Check inbox and spam.', 'Email Sent');
+            showToast('Reset link sent to ' + user.email + ' — check your inbox, and your spam folder just in case.', 'Email Sent');
     } catch (err) {
         if (typeof showToast === 'function') showToast(_friendly(err), 'Error');
     }
@@ -426,9 +427,23 @@ async function submitLinkPassword() {
 
     const btn = document.getElementById('linkPasswordConfirmBtn');
     if (btn) btn.disabled = true;
+    _showErr('linkPasswordErr', '');
     try {
         const cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
-        await user.linkWithCredential(cred);
+        try {
+            await user.linkWithCredential(cred);
+        } catch (err) {
+            // Attaching a password is security-sensitive, so a Google session
+            // restored from an earlier visit is rejected with
+            // auth/requires-recent-login. Re-verify Google in place and retry once
+            // — the user never has to manually sign out and back in.
+            if (err?.code === 'auth/requires-recent-login' && getUserProviderIds().includes('google.com')) {
+                await user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
+                await user.linkWithCredential(cred);
+            } else {
+                throw err;
+            }
+        }
         closeLinkPasswordModal();
         if (typeof showToast === 'function') showToast('Password set — you can now sign in with email and reset it anytime.', 'Password Added');
         refreshAccountSecurityUI();
@@ -436,9 +451,13 @@ async function submitLinkPassword() {
         const code = err?.code || '';
         if (code === 'auth/requires-recent-login') {
             _showErr('linkPasswordErr', 'For security, sign out and sign in with Google again, then retry.');
-        } else if (code === 'auth/provider-already-linked' || code === 'auth/email-already-in-use') {
+        } else if (code === 'auth/provider-already-linked') {
             _showErr('linkPasswordErr', 'A password is already set for this account.');
             refreshAccountSecurityUI();
+        } else if (code === 'auth/email-already-in-use' || code === 'auth/credential-already-in-use') {
+            _showErr('linkPasswordErr', 'That email is already linked to a different account.');
+        } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+            _showErr('linkPasswordErr', 'Google verification was cancelled — try again to set your password.');
         } else {
             _showErr('linkPasswordErr', _friendly(err));
         }
@@ -572,7 +591,7 @@ async function authSendReset() {
         }
 
         await firebaseAuth.sendPasswordResetEmail(email, { url: location.origin });
-        if (typeof showToast === 'function') showToast('Reset link sent! Check inbox and spam.', 'Email Sent');
+        if (typeof showToast === 'function') showToast('Reset link sent — check your inbox, and your spam folder just in case.', 'Email Sent');
         authShowScreen('signin');
     } catch (err) {
         _showErr('authForgotErr', _friendly(err));
