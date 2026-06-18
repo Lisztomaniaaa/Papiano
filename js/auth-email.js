@@ -300,9 +300,10 @@ async function requestAccountPasswordReset() {
         return;
     }
     try {
-        let methods = [];
-        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(user.email); } catch (_) {}
-        if (methods.includes('google.com') && !methods.includes('password')) {
+        // The signed-in user's own providers are authoritative. Don't rely on
+        // fetchSignInMethodsForEmail — it returns [] under Email Enumeration
+        // Protection, which would let this guard fall open for a Google-only account.
+        if (!getUserProviderIds().includes('password')) {
             if (typeof showToast === 'function')
                 showToast('This account uses Google sign-in — there is no password to reset.', 'Google account');
             return;
@@ -450,9 +451,11 @@ async function submitLinkPassword() {
         const code = err?.code || '';
         if (code === 'auth/requires-recent-login') {
             _showErr('linkPasswordErr', 'For security, sign out and sign in with Google again, then retry.');
-        } else if (code === 'auth/provider-already-linked' || code === 'auth/email-already-in-use') {
+        } else if (code === 'auth/provider-already-linked') {
             _showErr('linkPasswordErr', 'A password is already set for this account.');
             refreshAccountSecurityUI();
+        } else if (code === 'auth/email-already-in-use' || code === 'auth/credential-already-in-use') {
+            _showErr('linkPasswordErr', 'That email is already linked to a different account.');
         } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
             _showErr('linkPasswordErr', 'Google verification was cancelled — try again to set your password.');
         } else {

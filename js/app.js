@@ -303,11 +303,16 @@
     const TOAST_TITLE_TYPE = {
         'connected': 'success', 'verified': 'success', 'password added': 'success',
         'done': 'success', 'saved': 'success', 'success': 'success', 'welcome': 'success',
+        'friends': 'success', 'chat': 'success',
         'error': 'error', 'failed': 'error',
         'unavailable': 'warning', 'required': 'warning', 'locked': 'warning',
-        'offline': 'warning', 'heads up': 'warning',
+        'offline': 'warning', 'heads up': 'warning', 'connect google': 'warning',
+        'google account': 'warning',
         'email sent': 'email', 'resent': 'email', 'verify your email': 'email'
     };
+    // Most untitled toasts are errors (showToast('Couldn't…')) with no title to
+    // map, so fall back to sniffing the message for clear failure wording.
+    const TOAST_ERROR_HINT = /(couldn|can.?t|cannot|unable|failed|wrong|invalid|denied|not found|no access|went wrong|too many|try again|already (in use|registered|taken)|expired|disabled|restricted)/i;
 
     // A single themed toast: pass a string title for the simple case, or an
     // { title, type, icon, duration } object to override. Type drives the icon,
@@ -316,15 +321,24 @@
         if (typeof opts === 'string') opts = { title: opts };
         opts = opts || {};
         if (!soonPopupToast || !soonPopupText) return;
-        const title = opts.title || 'Info';
-        const type = opts.type || TOAST_TITLE_TYPE[title.toLowerCase()] || 'info';
+        let title = opts.title || '';
+        let type = opts.type || TOAST_TITLE_TYPE[title.toLowerCase()];
+        if (!type) {
+            // Untitled / unmapped toast — sniff the message so the many
+            // showToast('Couldn't…') error calls render red, not neutral blue.
+            type = TOAST_ERROR_HINT.test(message || '') ? 'error' : 'info';
+        }
+        if (!title) title = type === 'error' ? 'Error' : type === 'success' ? 'Done' : 'Info';
         const duration = opts.duration || (type === 'error' ? 4200 : type === 'email' ? 3800 : 2600);
 
         if (soonPopupTitle) soonPopupTitle.textContent = title;
         soonPopupText.textContent = message || 'Action completed.';
 
         const iconEl = soonPopupToast.querySelector('.material-symbols-rounded');
-        if (iconEl) iconEl.textContent = opts.icon || TOAST_ICON[type] || 'info';
+        if (iconEl) {
+            iconEl.textContent = opts.icon || TOAST_ICON[type] || 'info';
+            iconEl.setAttribute('aria-hidden', 'true');
+        }
 
         soonPopupToast.classList.remove('t-success', 't-error', 't-warning', 't-info', 't-email');
         soonPopupToast.classList.add('t-' + type);
@@ -2769,27 +2783,6 @@
 
     function startOfChatDay(date) {
         return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-    }
-
-    function formatChatDateLabel(value) {
-        const date = chatTimestampToDate(value);
-        if (!date || Number.isNaN(date.getTime())) return 'Sending';
-        const now = new Date();
-        const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
-        if (dayDiff <= 0) return 'Tdy';
-        if (dayDiff === 1) return 'Yday';
-        if (dayDiff < 7) return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'short' });
-        const sameYear = date.getFullYear() === now.getFullYear();
-        return date.toLocaleDateString(CHAT_LOCALE, sameYear
-            ? { day: 'numeric', month: 'short' }
-            : { day: 'numeric', month: 'short', year: '2-digit' });
-    }
-
-    function formatMessageTime(value) {
-        const date = chatTimestampToDate(value);
-        if (!date || Number.isNaN(date.getTime())) return 'Sending';
-        const time = date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
-        return `${formatChatDateLabel(value)} - ${time}`;
     }
 
     // Clock only (HH:MM) for message bubbles — the day is shown by the
