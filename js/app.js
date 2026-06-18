@@ -2003,7 +2003,7 @@
         // The right-side stamp is suppressed for blocked rows to avoid duplication.
         const stamp = isBlocked
             ? ''
-            : type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? formatMessageTime(profile.lastMessageAt) : 'Friend';
+            : type === 'request' ? 'Request' : type === 'search' ? 'User' : type === 'dm' ? formatChatListStamp(profile.lastMessageAt) : 'Friend';
         // Bio/description is shown ONLY in the profile modal (tap the row).
         // Inline rows show a snippet only for DM (last message), search hint, or blocked notice.
         // Friend and request rows stay clean - no bio in the list.
@@ -2305,7 +2305,7 @@
                     const ts = data.updatedAt;
                     const date = ts?.toDate ? ts.toDate() : null;
                     stampNode.textContent = date
-                        ? formatChatDayTime(date)
+                        ? formatChatListStamp(date)
                         : defaultStamp;
                 }
                 if (alert && badgeId) {
@@ -2815,9 +2815,28 @@
             : { day: 'numeric', month: 'long', year: 'numeric' });
     }
 
-    // Compact day + time stamp used by chat-list row previews.
-    function formatChatDayTime(value) {
-        return formatMessageTime(value);
+    // Telegram-style single-token stamp for chat-list rows (folders):
+    //   today        → 02:00         (24-hour clock only)
+    //   1–6 days ago → Sunday        (weekday)
+    //   this year    → 9 July        (day + month, day-first)
+    //   older        → 9 July 2024   (day + month + year)
+    // Day+month is built manually so it stays day-first ('en-US' would give "July 9").
+    function formatChatListStamp(value) {
+        const date = chatTimestampToDate(value);
+        if (!date || Number.isNaN(date.getTime())) return 'Sending';
+        const now = new Date();
+        const dayDiff = Math.round((startOfChatDay(now) - startOfChatDay(date)) / 86400000);
+        if (dayDiff <= 0) {
+            return date.toLocaleTimeString(CHAT_LOCALE, { hour: '2-digit', minute: '2-digit', hour12: false });
+        }
+        if (dayDiff < 7) {
+            return date.toLocaleDateString(CHAT_LOCALE, { weekday: 'long' });
+        }
+        const day = date.getDate();
+        const month = date.toLocaleDateString(CHAT_LOCALE, { month: 'long' });
+        return date.getFullYear() === now.getFullYear()
+            ? `${day} ${month}`
+            : `${day} ${month} ${date.getFullYear()}`;
     }
 
     function getMessageSenderProfile(message) {
