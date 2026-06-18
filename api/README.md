@@ -7,32 +7,44 @@ together with the static site on every push to the connected GitHub repo.
 Files are CommonJS (`module.exports = (req, res) => { ... }`) because the repo
 has no root `package.json` with `"type": "module"`.
 
-## Phase 1 (live now): `ping.js`
+## Live now (no dependencies, no secrets needed)
 
-Health check that proves the pipeline works. No dependencies, no secrets:
+- **`ping.js`** — health check that proves the pipeline works:
+  `GET /api/ping` → `{ "ok": true, ... }`
+- **`firebase-check.js`** — confirms the `FIREBASE_SERVICE_ACCOUNT` env var is
+  set correctly: `GET /api/firebase-check` → `{ "ok": true, ... }`. It only
+  inspects the shape of the credential and never returns any secret. Temporary
+  diagnostic — safe to delete once it returns `ok: true`.
 
+## The secret: `FIREBASE_SERVICE_ACCOUNT`
+
+Privileged functions (ban / delete user, etc.) need Firebase Admin access. The
+whole service-account JSON is stored as a SINGLE environment variable:
+
+- **Where:** Vercel dashboard → Settings → Environment Variables (Production +
+  Preview). **Never** commit it; never paste it anywhere it gets logged.
+- **Name:** `FIREBASE_SERVICE_ACCOUNT`
+- **Value:** the entire contents of the service-account `.json` file downloaded
+  from Firebase Console → Project settings → Service accounts → *Generate new
+  private key*.
+
+In code, parse it once and init the Admin SDK:
+
+```js
+const admin = require('firebase-admin');
+const svc = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+if (!admin.apps.length) {
+  admin.initializeApp({ credential: admin.credential.cert(svc) });
+}
 ```
-GET https://<your-domain>/api/ping   ->   { "ok": true, ... }
-```
 
-If that returns JSON, Vercel Functions are live and later phases can build on it.
+`JSON.parse` handles the `\n` inside `private_key` automatically — no manual
+escaping needed.
 
-## Phase 2 (next): privileged functions
+## Next phase: privileged functions
 
-Anything that touches Firebase with **admin** rights (ban / delete user, set a
-role, etc.) MUST run here — never in the browser — and MUST verify the caller
-first. Pattern:
-
-1. Add the dependency in a `package.json` at the repo root (Vercel installs it
-   on build): `{ "dependencies": { "firebase-admin": "^12" } }`.
-2. Set these in **Vercel dashboard → Settings → Environment Variables**. Never
-   commit them and never send them to anyone — this is the security line:
-   - `FIREBASE_PROJECT_ID`
-   - `FIREBASE_CLIENT_EMAIL`
-   - `FIREBASE_PRIVATE_KEY` (the service-account private key)
-3. In the function: init `firebase-admin` from those env vars, read the
-   `Authorization: Bearer <Firebase ID token>` header, call
-   `admin.auth().verifyIdToken(token)`, confirm the caller is allowed, then act.
-
-Shared helpers can live in files prefixed with `_` (e.g. `_admin.js`) — Vercel
-does **not** expose underscore-prefixed files as public endpoints.
+When a real admin function lands, add `firebase-admin` to a root `package.json`
+(Vercel installs it on build), verify the caller's Firebase ID token
+(`Authorization: Bearer <token>` → `admin.auth().verifyIdToken(...)`), confirm
+they're allowed, then act. Shared helpers can live in `_`-prefixed files, which
+Vercel does not expose as public endpoints.
