@@ -52,6 +52,7 @@ let _authBusy = false;
 
 // ── Screen management ──────────────────────────────────────────────────────────
 function authShowScreen(screen) {
+    authHydratePasswordFields(document.getElementById('authEntryOverlay') || document);
     _authCurrentScreen = screen;
     ['signin', 'signup', 'verify', 'forgot'].forEach(s => {
         const el = document.getElementById('authScreen_' + s);
@@ -112,9 +113,17 @@ function authPwdStrength() {
         if (el) el.classList.toggle('met', v[k]);
     });
 }
+function authHydratePasswordFields(scope = document) {
+    scope.querySelectorAll?.('[data-secure-type="password"]').forEach(input => {
+        if (input.type !== 'password') input.type = 'password';
+    });
+}
+window.authHydratePasswordFields = authHydratePasswordFields;
+
 function authTogglePwd(inputId, btn) {
     const inp = document.getElementById(inputId);
     if (!inp) return;
+    if (inp.dataset.secureType === 'password' && inp.type !== 'password') inp.type = 'password';
     const show = inp.type === 'password';
     inp.type = show ? 'text' : 'password';
     const icon = btn?.querySelector?.('.material-symbols-rounded');
@@ -398,6 +407,7 @@ function openLinkPasswordModal() {
         if (typeof showToast === 'function') showToast('Your account has no email to attach a password to.', 'Unavailable');
         return;
     }
+    authHydratePasswordFields(document.getElementById('linkPasswordOverlay') || document);
     const emailEl = document.getElementById('linkPasswordEmail');
     if (emailEl) emailEl.value = user.email;
     ['linkPasswordNew', 'linkPasswordConfirm'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -536,6 +546,7 @@ window.finishPendingPasswordLink = finishPendingPasswordLink;
                     const passEl = document.getElementById('accountDeletePasswordInput');
                     const pass   = (passEl?.value || '').trim();
                     if (!pass) {
+                        authHydratePasswordFields(document.getElementById('accountDeleteOverlay') || document);
                         if (wrap) wrap.style.display = '';
                         passEl?.focus();
                         if (typeof showToast === 'function') showToast('Enter your password to confirm.', 'Required');

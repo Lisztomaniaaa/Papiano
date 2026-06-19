@@ -568,24 +568,58 @@
         await processAppAuth('google');
     }
 
+    async function authEntryAnonymous() {
+        closeAuthEntryPopup();
+        document.getElementById('authGateOverlay')?.style.setProperty('display', 'none');
+        await processAppAuth('anonymous');
+    }
+    window.authEntryAnonymous = authEntryAnonymous;
+
+    function installAnonymousAuthButtons() {
+        const googleButton = document.getElementById('authEntryGoogleBtn');
+        if (googleButton && !document.getElementById('authEntryGuestBtn')) {
+            const guestButton = document.createElement('button');
+            guestButton.className = 'auth-entry-google auth-entry-guest';
+            guestButton.id = 'authEntryGuestBtn';
+            guestButton.type = 'button';
+            guestButton.innerHTML = '<span class="material-symbols-rounded">person</span><span>Continue as Guest</span>';
+            guestButton.addEventListener('click', authEntryAnonymous);
+            googleButton.insertAdjacentElement('afterend', guestButton);
+        }
+
+        const gateGoogleButton = document.querySelector('#authGateOverlay .auth-gate-btn');
+        if (gateGoogleButton && !document.getElementById('authGateGuestBtn')) {
+            const gateGuestButton = document.createElement('button');
+            gateGuestButton.className = 'auth-gate-btn auth-gate-email';
+            gateGuestButton.id = 'authGateGuestBtn';
+            gateGuestButton.type = 'button';
+            gateGuestButton.innerHTML = '<span class="material-symbols-rounded">person</span><span>Continue as Guest</span>';
+            gateGuestButton.addEventListener('click', () => processAppAuth('anonymous'));
+            gateGoogleButton.insertAdjacentElement('afterend', gateGuestButton);
+        }
+    }
+
+    installAnonymousAuthButtons();
+
     async function processAppAuth(mode) {
-        if (mode === 'google') {
+        if (mode === 'google' || mode === 'anonymous') {
             // Guard against the user clicking before lazy-loaded SDKs are ready.
             if (!firebaseAuth || typeof firebase === 'undefined') {
                 showToast('Hold on, signing-in service is still loading…', 'Please wait');
                 // Retry once SDKs are ready.
-                window.addEventListener('papiano-sdks-ready', () => processAppAuth('google'), { once: true });
+                window.addEventListener('papiano-sdks-ready', () => processAppAuth(mode), { once: true });
                 return;
             }
             accessSessionActive = false;
             try {
                 appContainer.classList.add('auth-pending');
-                const provider = new firebase.auth.GoogleAuthProvider();
-                const result = await firebaseAuth.signInWithPopup(provider);
+                const result = mode === 'anonymous'
+                    ? await firebaseAuth.signInAnonymously()
+                    : await firebaseAuth.signInWithPopup(new firebase.auth.GoogleAuthProvider());
                 await ensureUserProfile(result.user);
             } catch (error) {
                 appContainer.classList.remove('auth-pending');
-                if (error?.code === 'auth/account-exists-with-different-credential') {
+                if (mode === 'google' && error?.code === 'auth/account-exists-with-different-credential') {
                     await handleGoogleSignInConflict(error);
                     return;
                 }
@@ -595,7 +629,7 @@
                     showAccountRestrictionNotice();
                     return;
                 }
-                showToast(friendlyError(error, 'Sign in didn’t work. Please try again.'));
+                showToast(friendlyError(error, mode === 'anonymous' ? 'Guest login didn’t work. Please try again.' : 'Sign in didn’t work. Please try again.'));
             }
             return;
         }
@@ -1029,8 +1063,8 @@
         const profileRef = firestoreDb.collection('profiles').doc(user.uid);
         const counterRef = firestoreDb.collection('counters').doc('publicUserId');
         const base = {
-            name: user.displayName || 'Papiano User',
-            searchName: String(user.displayName || 'Papiano User').toLowerCase(),
+            name: user.displayName || (user.isAnonymous ? 'Guest Player' : 'Papiano User'),
+            searchName: String(user.displayName || (user.isAnonymous ? 'Guest Player' : 'Papiano User')).toLowerCase(),
             desc: '',
             badgeId: 'common',
             photoURL: user.photoURL || '',
