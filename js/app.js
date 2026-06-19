@@ -575,6 +575,32 @@
     }
     window.authEntryAnonymous = authEntryAnonymous;
 
+    function installAnonymousAuthButtons() {
+        const googleButton = document.getElementById('authEntryGoogleBtn');
+        if (googleButton && !document.getElementById('authEntryGuestBtn')) {
+            const guestButton = document.createElement('button');
+            guestButton.className = 'auth-entry-google auth-entry-guest';
+            guestButton.id = 'authEntryGuestBtn';
+            guestButton.type = 'button';
+            guestButton.innerHTML = '<span class="material-symbols-rounded">person</span><span>Continue as Guest</span>';
+            guestButton.addEventListener('click', authEntryAnonymous);
+            googleButton.insertAdjacentElement('afterend', guestButton);
+        }
+
+        const gateGoogleButton = document.querySelector('#authGateOverlay .auth-gate-btn');
+        if (gateGoogleButton && !document.getElementById('authGateGuestBtn')) {
+            const gateGuestButton = document.createElement('button');
+            gateGuestButton.className = 'auth-gate-btn auth-gate-email';
+            gateGuestButton.id = 'authGateGuestBtn';
+            gateGuestButton.type = 'button';
+            gateGuestButton.innerHTML = '<span class="material-symbols-rounded">person</span><span>Continue as Guest</span>';
+            gateGuestButton.addEventListener('click', () => processAppAuth('anonymous'));
+            gateGoogleButton.insertAdjacentElement('afterend', gateGuestButton);
+        }
+    }
+
+    installAnonymousAuthButtons();
+
     async function processAppAuth(mode) {
         if (mode === 'google' || mode === 'anonymous') {
             // Guard against the user clicking before lazy-loaded SDKs are ready.
