@@ -53,7 +53,7 @@ let _authBusy = false;
 // ── Screen management ──────────────────────────────────────────────────────────
 function authShowScreen(screen) {
     _authCurrentScreen = screen;
-    ['signin', 'signup', 'verify', 'forgot'].forEach(s => {
+    ['signin', 'signup', 'verify', 'forgot', 'sent'].forEach(s => {
         const el = document.getElementById('authScreen_' + s);
         if (el) el.style.display = s === screen ? '' : 'none';
     });
@@ -67,6 +67,7 @@ function authShowScreen(screen) {
         signup: { t: 'Create Account', s: "Join Papiano — it's free.",                     tabs: true  },
         verify: { t: 'Verify Email',   s: '',                                               tabs: false },
         forgot: { t: 'Reset Password', s: 'Enter your email to receive a reset link.',      tabs: false },
+        sent:   { t: 'Check Your Email', s: '',                                             tabs: false },
     };
     const c = cfg[screen] || cfg.signin;
     if (title) title.textContent = c.t;
@@ -235,9 +236,6 @@ async function authEntryWithEmail(mode) {
             const addr = document.getElementById('authVerifyEmailAddr');
             if (addr) addr.textContent = email;
             authShowScreen('verify');
-
-            if (typeof showToast === 'function')
-                showToast('We just emailed you a verification link — check your inbox, and your spam folder just in case.', 'Verify your email');
         } catch (err) {
             _showErr('authSignupErr', _friendly(err));
         } finally {
@@ -261,13 +259,16 @@ async function authCheckVerification() {
     try {
         await user.reload();
         const fresh = firebaseAuth.currentUser;
-        if (fresh && typeof ensureUserProfile === 'function') await ensureUserProfile(fresh);
-        if (fresh && !fresh.emailVerified) {
+        // Check verification BEFORE touching the profile, so an early tap doesn't
+        // close the popup or boot a still-unverified user.
+        if (!fresh || !fresh.emailVerified) {
             _showErr('authVerifyErr', "We haven't received your verification yet. Open the link in your inbox (check spam), then tap this button again.");
             return;
         }
-        if (typeof closeAuthEntryPopup === 'function') closeAuthEntryPopup();
+        // Verified — reload so the app boots cleanly as a fully signed-in user
+        // (starts profile, listeners, presence via the normal auth-state path).
         if (typeof showToast === 'function') showToast('Email verified — welcome to Papiano!', 'Verified');
+        setTimeout(() => location.reload(), 700);
     } catch (err) {
         _showErr('authVerifyErr', _friendly(err));
     } finally {
@@ -416,8 +417,9 @@ async function authSendReset() {
         }
 
         await firebaseAuth.sendPasswordResetEmail(email, { url: location.origin });
-        if (typeof showToast === 'function') showToast('Reset link sent — check your inbox, and your spam folder just in case.', 'Email Sent');
-        authShowScreen('signin');
+        const addr = document.getElementById('authSentEmailAddr');
+        if (addr) addr.textContent = email;
+        authShowScreen('sent');
     } catch (err) {
         _showErr('authForgotErr', _friendly(err));
     } finally {

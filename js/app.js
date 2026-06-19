@@ -4086,6 +4086,25 @@
         firebaseAuth.onAuthStateChanged(async user => {
             authStateResolved = true;
             if (user?.uid) {
+                // Email/password accounts must confirm their email before they
+                // get into the app. Creating an account auto-signs-in the user,
+                // so without this gate an unverified user would be booted straight
+                // in (and the "check your inbox" verify screen would be replaced
+                // by a fleeting toast). Hold them on the verification screen.
+                const needsEmailVerify = !user.emailVerified
+                    && (user.providerData || []).some(p => p && p.providerId === 'password');
+                if (needsEmailVerify) {
+                    currentUser = null;
+                    currentProfile = null;
+                    _deferredAuthUser = null;
+                    openMainApp();
+                    hideAuthBootOverlay();
+                    const verifyAddr = document.getElementById('authVerifyEmailAddr');
+                    if (verifyAddr) verifyAddr.textContent = user.email || 'your email';
+                    openAuthEntryPopup('signin');
+                    if (typeof authShowScreen === 'function') authShowScreen('verify');
+                    return;
+                }
                 currentUser = user; // mark signed-in now so the UI stops looking "logged out"
                 if (!firestoreDb) {
                     // Auth resolved before Firestore finished downloading. Reveal the
