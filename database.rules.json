@@ -1,0 +1,88 @@
+{
+  "rules": {
+    "papianoOnlineBeta": {
+      "rooms": {
+        ".read": "auth != null",
+        "$roomId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      },
+      "roomSlots": {
+        ".read": "auth != null",
+        "$roomId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      },
+      "ownerRooms": {
+        "$uid": {
+          ".read": "auth != null",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      },
+      "roomPlayers": {
+        "$roomId": {
+          ".read": "auth != null",
+          "$playerId": {
+            ".write": "auth != null && auth.uid === $playerId"
+          }
+        }
+      },
+      "roomSeats": {
+        "$roomId": {
+          ".read": "auth != null",
+          "$seatNum": {
+            ".write": "auth != null"
+          }
+        }
+      },
+      "roomSeatClaims": {
+        "$roomId": {
+          ".read": "auth != null",
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid"
+          }
+        }
+      },
+      "users": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      },
+      "moderation": {
+        "$roomId": {
+          ".read": "auth != null",
+          "$playerId": {
+            ".write": "auth != null"
+          }
+        }
+      },
+      "messages": {
+        "$roomId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      },
+      "streams": {
+        "$roomId": {
+          ".read": "auth != null",
+          "$playerId": {
+            ".write": "auth != null && auth.uid === $playerId"
+          }
+        }
+      }
+    },
+    "roles": {
+      ".read": "auth != null",
+      ".write": false
+    },
+    "deletedAccounts": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    }
+  }
+}
