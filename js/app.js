@@ -1440,7 +1440,6 @@
         // Keep brand sheet (mobile) and desktop sidebar auth button in sync
         // with auth/profile state, even when the brand sheet is closed.
         populateBrandSheet();
-        if (typeof refreshAccountSecurityUI === 'function') refreshAccountSecurityUI();
     }
 
     function isSafeImage(src) {
