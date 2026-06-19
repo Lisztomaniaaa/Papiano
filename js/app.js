@@ -2901,6 +2901,13 @@
                 </div>
             `;
         }).join('');
+        // Tap-to-reveal edit/delete must survive re-renders: busy rooms (Global)
+        // rebuild this list on every snapshot, which would otherwise wipe the tap.
+        const keepActiveMsg = chatMessagesScrollArea.dataset.activeMsg || '';
+        if (keepActiveMsg) {
+            const keepRow = chatMessagesScrollArea.querySelector(`.msg-node-row[data-message-id="${keepActiveMsg}"]`);
+            if (keepRow) keepRow.classList.add('active-actions');
+        }
         chatMessagesScrollArea.scrollTop = chatMessagesScrollArea.scrollHeight;
     }
 
@@ -2926,6 +2933,13 @@
     function handleMessageRowClick(event, row) {
         if (swipeMoved || event.target.closest('button, a')) return;
         row.classList.toggle('active-actions');
+        // Remember the revealed message so renderChatMessages() can restore it after a
+        // re-render (busy rooms rebuild the whole list and would otherwise wipe the tap).
+        if (chatMessagesScrollArea) {
+            chatMessagesScrollArea.dataset.activeMsg = row.classList.contains('active-actions')
+                ? (row.getAttribute('data-message-id') || '')
+                : '';
+        }
     }
 
     function startMessageSwipe(event, bubble) {

@@ -438,8 +438,14 @@ async function submitLinkPassword() {
             // auth/requires-recent-login. Re-verify Google in place and retry once
             // — the user never has to manually sign out and back in.
             if (err?.code === 'auth/requires-recent-login' && getUserProviderIds().includes('google.com')) {
-                await user.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());
-                await user.linkWithCredential(cred);
+                // Re-verifying Google is required. Popups are unreliable on mobile — the
+                // popup frequently can't hand control back to the opener, so the original
+                // reauthenticateWithPopup() just hangs ("nothing happens"). Use a full-page
+                // redirect instead and finish linking on return, see finishPendingPasswordLink().
+                try { sessionStorage.setItem('_pendingPwLink', JSON.stringify({ email: user.email, pass })); } catch (_) {}
+                if (typeof showToast === 'function') showToast('Verifying with Google…', 'One moment');
+                await user.reauthenticateWithRedirect(new firebase.auth.GoogleAuthProvider());
+                return;
             } else {
                 throw err;
             }
@@ -466,6 +472,36 @@ async function submitLinkPassword() {
     }
 }
 window.submitLinkPassword = submitLinkPassword;
+
+// Finish a password link that required a fresh Google sign-in. On mobile,
+// submitLinkPassword() stashes the new password and triggers a redirect-based
+// reauth; when Google redirects back to the app, complete the linkWithCredential
+// here. No-op unless a pending link is waiting in sessionStorage.
+async function finishPendingPasswordLink() {
+    let pending = null;
+    try { pending = JSON.parse(sessionStorage.getItem('_pendingPwLink') || 'null'); } catch (_) {}
+    if (!pending || !pending.pass) return;
+    if (typeof firebaseAuth === 'undefined' || !firebaseAuth) return;
+    try {
+        let res = null;
+        try { res = await firebaseAuth.getRedirectResult(); } catch (_) {}
+        const user = (res && res.user) || firebaseAuth.currentUser;
+        if (!user || !user.email) return;
+        await user.linkWithCredential(firebase.auth.EmailAuthProvider.credential(pending.email || user.email, pending.pass));
+        if (typeof showToast === 'function') showToast('Password set — you can now sign in with email and reset it anytime.', 'Password Added');
+        if (typeof refreshAccountSecurityUI === 'function') refreshAccountSecurityUI();
+    } catch (e) {
+        if (typeof showToast === 'function') showToast('Couldn’t finish setting your password — please try again.', 'Try again');
+    } finally {
+        try { sessionStorage.removeItem('_pendingPwLink'); } catch (_) {}
+    }
+}
+window.finishPendingPasswordLink = finishPendingPasswordLink;
+(function () {
+    function run() { finishPendingPasswordLink(); }
+    if (typeof firebaseAuth !== 'undefined' && firebaseAuth) run();
+    else window.addEventListener('papiano-sdks-ready', run, { once: true });
+})();
 
 // ── Delete account — complete override ────────────────────────────────────────
 // Replaces deletePapianoAccount() entirely to fix:
