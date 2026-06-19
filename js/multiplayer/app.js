@@ -8700,12 +8700,19 @@ midiBtn.onclick = () => {
         passwordModal?.setAttribute('aria-hidden', 'true');
         if(passwordError) passwordError.textContent = '';
     }
+    let passwordSubmitBusy = false;
     async function submitPasswordModal(){
-        if(!pendingPasswordRoom) return;
+        if(!pendingPasswordRoom || passwordSubmitBusy) return;
         const value = passwordInput?.value || '';
         const room = pendingPasswordRoom;
         if(firebaseReady && dbApi){
-            const result = await callPrivateRoomApi('check', room.id, value);
+            // Guard against double-submit (Enter + click, or impatient taps):
+            // the API round-trip is async, so without this two joins could race.
+            passwordSubmitBusy = true;
+            if(passwordSubmit) passwordSubmit.disabled = true;
+            let result;
+            try{ result = await callPrivateRoomApi('check', room.id, value); }
+            finally{ passwordSubmitBusy = false; if(passwordSubmit) passwordSubmit.disabled = false; }
             if(!result?.ok){
                 if(passwordError){
                     passwordError.textContent = result?.reason === 'wrong password' ? 'Incorrect password.'

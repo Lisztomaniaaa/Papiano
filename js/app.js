@@ -2108,7 +2108,14 @@
                     html += escapeHtml(match[0]);
                 }
             } else if (match[2]) {
-                html += `<span class="mention-tag">${escapeHtml(match[2])}</span>`;
+                // Only treat @<digits> as a mention at a token boundary, so an
+                // email or "word@123" doesn't get its digits mis-highlighted.
+                const before = match.index > 0 ? raw[match.index - 1] : '';
+                if (before && /[\w@]/.test(before)) {
+                    html += escapeHtml(match[0]);
+                } else {
+                    html += `<span class="mention-tag">${escapeHtml(match[2])}</span>`;
+                }
             }
             index = pattern.lastIndex;
         }

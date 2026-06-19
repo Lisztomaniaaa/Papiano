@@ -24,7 +24,7 @@
       "roomSlots": {
         ".read": "auth != null",
         "$slot": {
-          ".write": "auth != null && ( (newData.exists() && newData.child('ownerUid').val() === auth.uid && (!data.exists() || data.child('ownerUid').val() === auth.uid || data.child('createdAt').val() < now - 15000)) || (!newData.exists() && data.exists() && (data.child('ownerUid').val() === auth.uid || !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists())) )"
+          ".write": "auth != null && ( (newData.exists() && newData.child('ownerUid').val() === auth.uid && (!data.exists() || data.child('ownerUid').val() === auth.uid || (data.child('createdAt').val() < now - 15000 && !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists()))) || (!newData.exists() && data.exists() && (data.child('ownerUid').val() === auth.uid || !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists())) )"
         }
       },
       "ownerRooms": {
@@ -87,7 +87,7 @@
       "streams": {
         "$roomId": {
           ".read": "auth != null",
-          ".write": "auth != null && ( root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || !root.child('papianoOnlineBeta/rooms').child($roomId).exists() )",
+          ".write": "auth != null && !root.child('papianoOnlineBeta/rooms').child($roomId).exists()",
           "$playerId": {
             ".write": "auth != null && auth.uid === $playerId",
             ".validate": "!newData.exists() || newData.child('p').val() === $playerId"
