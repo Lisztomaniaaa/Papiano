@@ -997,6 +997,7 @@
             playTime: formatPlayTime(playTimeSeconds),
             publicId: Number.isInteger(publicId) && publicId > 0 ? publicId : 0,
             userId: (/^#\d+$/.test(String(data.userId || '')) ? data.userId : (publicId > 0 ? formatPublicUserId(publicId) : safeUserId(uid))),
+            username: String(data.username || '').trim().toLowerCase().slice(0, 20),
             searchName: String(data.searchName || data.name || data.displayName || '').toLowerCase(),
             likes: Number(data.likes || 0),
             dislikes: Number(data.dislikes || 0),
@@ -1056,6 +1057,9 @@
                 ...oldData,
                 publicId,
                 userId: formatPublicUserId(publicId),
+                // Auto-assign a unique @username handle (user{publicId}) the first time
+                // we see this profile; an existing handle is always preserved.
+                username: String(oldData.username || ('user' + publicId)).trim().toLowerCase().slice(0, 20),
                 searchName: String(oldData.searchName || oldData.name || base.name || 'Papiano User').toLowerCase(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -1416,7 +1420,10 @@
 
         if (displayProfileName) displayProfileName.textContent = profile.name || 'Papiano User';
         if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
-        if (displayProfileId) displayProfileId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
+        if (displayProfileId) {
+            const idText = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
+            displayProfileId.textContent = profile.username ? `${idText}  ·  @${profile.username}` : idText;
+        }
         if (displayTotalPlayTrack) animateCountUp(displayTotalPlayTrack, playTimeLabel);
         if (displayProfilePlayPill) displayProfilePlayPill.textContent = playTimeHourLabel;
         if (displayAuthStatus) displayAuthStatus.textContent = currentUser ? 'Online' : '—';
