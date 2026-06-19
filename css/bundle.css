@@ -518,7 +518,7 @@ button:focus-visible,.nav-tab-action:focus-visible,.friend-nav-btn:focus-visible
 .msg-edited-label{opacity:0.8}
 .msg-status-label.status-failed{color:#B91C1C;opacity:1}
 .msg-action-strip{display:none;gap:6px;margin-top:6px;justify-content:flex-end}
-.msg-node-row.row-outgoing .msg-action-strip{display:flex}
+.msg-node-row.row-outgoing.active-actions .msg-action-strip{display:flex}
 .msg-action-btn{min-height:26px;padding:0 8px;border:1px solid var(--glass-border-col);border-radius:8px;background:var(--surface);color:var(--dark-block);font-size:9px;font-weight:900;text-transform:uppercase;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,0.34)}
 .msg-action-btn.danger{background:#06111f}
 .friend-action-button.block-user-action{background:rgba(251,113,133,0.16);color:#FB7185}
