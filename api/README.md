@@ -4,47 +4,32 @@ Every file in this folder is auto-deployed by Vercel as an endpoint at
 `/api/<filename>` — no extra config, no separate deploy step. Functions ship
 together with the static site on every push to the connected GitHub repo.
 
-Files are CommonJS (`module.exports = (req, res) => { ... }`) because the repo
-has no root `package.json` with `"type": "module"`.
+Files are CommonJS (`module.exports = ...`). Files whose name starts with `_`
+are **helpers**, not endpoints — Vercel does not expose them publicly.
 
-## Live now (no dependencies, no secrets needed)
+## Endpoints
 
-- **`ping.js`** — health check that proves the pipeline works:
-  `GET /api/ping` → `{ "ok": true, ... }`
-- **`firebase-check.js`** — confirms the `FIREBASE_SERVICE_ACCOUNT` env var is
-  set correctly: `GET /api/firebase-check` → `{ "ok": true, ... }`. It only
-  inspects the shape of the credential and never returns any secret. Temporary
-  diagnostic — safe to delete once it returns `ok: true`.
+- **`ping.js`** — dependency-free health check: `GET /api/ping` → `{ ok: true }`.
+- **`private-room.js`** — server-side gate for private multiplayer rooms.
+  `POST /api/private-room` with `{ action, idToken, roomId, password }`.
+  - `action:'set'` — owner stores the SHA-256 password hash at
+    `roomSecrets/{roomId}` (Admin-SDK-only) and wipes any legacy plaintext.
+  - `action:'check'` — verifies the caller's Firebase ID token and password,
+    then mints a short-lived grant at `roomGrants/{roomId}/{uid}` that the RTDB
+    rules require before a join write into `roomPlayers` is allowed.
 
-## The secret: `FIREBASE_SERVICE_ACCOUNT`
+## Helpers
 
-Privileged functions (ban / delete user, etc.) need Firebase Admin access. The
-whole service-account JSON is stored as a SINGLE environment variable:
+- **`_admin.js`** — lazily initialises the `firebase-admin` SDK once per warm
+  instance and hands back the shared `admin` object.
 
-- **Where:** Vercel dashboard → Settings → Environment Variables (Production +
-  Preview). **Never** commit it; never paste it anywhere it gets logged.
-- **Name:** `FIREBASE_SERVICE_ACCOUNT`
-- **Value:** the entire contents of the service-account `.json` file downloaded
-  from Firebase Console → Project settings → Service accounts → *Generate new
-  private key*.
+## Required environment variables (Vercel → Settings → Environment Variables)
 
-In code, parse it once and init the Admin SDK:
+| Name | Value |
+| --- | --- |
+| `FIREBASE_SERVICE_ACCOUNT` | The entire service-account `.json` (Firebase Console → Project settings → Service accounts → *Generate new private key*). Never commit it. `JSON.parse` handles the `\n` in `private_key` automatically. |
+| `FIREBASE_DATABASE_URL` | `https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app` |
 
-```js
-const admin = require('firebase-admin');
-const svc = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-if (!admin.apps.length) {
-  admin.initializeApp({ credential: admin.credential.cert(svc) });
-}
-```
-
-`JSON.parse` handles the `\n` inside `private_key` automatically — no manual
-escaping needed.
-
-## Next phase: privileged functions
-
-When a real admin function lands, add `firebase-admin` to a root `package.json`
-(Vercel installs it on build), verify the caller's Firebase ID token
-(`Authorization: Bearer <token>` → `admin.auth().verifyIdToken(...)`), confirm
-they're allowed, then act. Shared helpers can live in `_`-prefixed files, which
-Vercel does not expose as public endpoints.
+Privileged functions verify the caller's Firebase ID token
+(`admin.auth().verifyIdToken(idToken)`) before acting — never trust a UID sent
+in the body on its own.
