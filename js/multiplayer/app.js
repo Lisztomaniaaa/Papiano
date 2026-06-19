@@ -8662,6 +8662,28 @@ midiBtn.onclick = () => {
         if(selectedPlayer && profile.classList.contains('show')) openProfile(selectedPlayer.id);
     }
 
+    // Private rooms are gated server-side at /api/private-room — the RTDB
+    // rules require a fresh roomGrants/{roomId}/{uid} entry before allowing
+    // a non-owner write into roomPlayers, and only the Vercel function can
+    // mint that grant (it owns roomSecrets via Admin SDK). callPrivateRoomApi
+    // returns { ok:true } on success or { ok:false, reason } on failure.
+    async function callPrivateRoomApi(action, roomId, password){
+        try{
+            const user = firebaseAuth?.currentUser;
+            if(!user) return { ok:false, reason:'not signed in' };
+            const idToken = await user.getIdToken();
+            const response = await fetch('/api/private-room', {
+                method:'POST',
+                headers:{ 'Content-Type':'application/json' },
+                body:JSON.stringify({ action, idToken, roomId, password:String(password || '') })
+            });
+            const data = await response.json().catch(() => ({}));
+            return data && typeof data === 'object' ? data : { ok:false, reason:'bad response' };
+        }catch(e){
+            return { ok:false, reason:'network' };
+        }
+    }
+
     function openPasswordModal(room){
         pendingPasswordRoom = room;
         if(passwordRoom) passwordRoom.textContent = `${room.name} · ${roomCount(room)}/${room.max}`;
@@ -8678,11 +8700,24 @@ midiBtn.onclick = () => {
         passwordModal?.setAttribute('aria-hidden', 'true');
         if(passwordError) passwordError.textContent = '';
     }
-    function submitPasswordModal(){
+    async function submitPasswordModal(){
         if(!pendingPasswordRoom) return;
         const value = passwordInput?.value || '';
-        if(value !== pendingPasswordRoom.password){ if(passwordError) passwordError.textContent = 'Incorrect password.'; return; }
         const room = pendingPasswordRoom;
+        if(firebaseReady && dbApi){
+            const result = await callPrivateRoomApi('check', room.id, value);
+            if(!result?.ok){
+                if(passwordError){
+                    passwordError.textContent = result?.reason === 'wrong password' ? 'Incorrect password.'
+                        : result?.reason === 'not signed in' ? 'Sign in to join.'
+                        : 'Couldn’t verify. Try again.';
+                }
+                return;
+            }
+        }else if(value !== room.password){
+            if(passwordError) passwordError.textContent = 'Incorrect password.';
+            return;
+        }
         closePasswordModal();
         if(isHomeMultiplayerPage()){ openStagePiano({ action:'join', roomId:room.id, password:value }); return; }
         enterRoom(room);
@@ -8981,7 +9016,11 @@ midiBtn.onclick = () => {
             max:maxPlayers,
             count:0,
             activeCount:0,
-            password:roomPassword,
+            // Private-room passwords are NEVER stored at rooms/{id}/password
+            // anymore — every signed-in user can read this node, so plaintext
+            // there is trivially harvestable. The real secret lives at
+            // roomSecrets/{id} (Admin-SDK only) and is set via /api/private-room.
+            password:'',
             chatEnabled:true,
             createdAt:now,
             updatedAt:now
@@ -8997,6 +9036,18 @@ midiBtn.onclick = () => {
                     return;
                 }
                 await dbApi.set(dbRef(`rooms/${room.id}`), room);
+                if(mode === 'Private'){
+                    const result = await callPrivateRoomApi('set', room.id, roomPassword);
+                    if(!result?.ok){
+                        await Promise.allSettled([
+                            dbApi.remove(dbRef(`rooms/${room.id}`)),
+                            releaseOwnerRoom(room),
+                            releaseRoomSlot(room)
+                        ]);
+                        showToast('Couldn’t set room password. Try again.', { type:'error', title:'Host Room' });
+                        return;
+                    }
+                }
             }catch(e){
                 if(claimed) await releaseOwnerRoom(room);
                 await releaseRoomSlot(room);
@@ -10072,7 +10123,14 @@ midiBtn.onclick = () => {
             const room = rooms.find(item => item.id === intent.roomId);
             if(!room){ window.location.replace('multiplayer.html'); return; }
             if(!(await requireSignedInAccount())) return;
-            if(room.mode === 'Private' && String(intent.password || '') !== room.password){ openPasswordModal(room); return; }
+            if(room.mode === 'Private'){
+                if(firebaseReady && dbApi){
+                    const result = await callPrivateRoomApi('check', room.id, intent.password || '');
+                    if(!result?.ok){ openPasswordModal(room); return; }
+                }else if(String(intent.password || '') !== room.password){
+                    openPasswordModal(room); return;
+                }
+            }
             await enterRoom(room);
         }
     }

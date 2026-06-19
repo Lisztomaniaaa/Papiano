@@ -38,7 +38,7 @@
           ".read": "auth != null",
           ".write": "auth != null && ( root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true )",
           "$playerId": {
-            ".write": "auth != null && ( auth.uid === $playerId || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true || (!newData.exists() && (!data.child('lastSeen').exists() || data.child('lastSeen').val() < now - 45000)) )",
+            ".write": "auth != null && ( root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true || (!newData.exists() && data.exists() && (!data.child('lastSeen').exists() || data.child('lastSeen').val() < (now - 45000))) || (auth.uid === $playerId && ( !newData.exists() || (data.exists() && newData.exists()) || (newData.exists() && !data.exists() && (root.child('papianoOnlineBeta/rooms').child($roomId).child('mode').val() !== 'Private' || root.child('papianoOnlineBeta/roomGrants').child($roomId).child(auth.uid).child('grantedAt').val() > (now - 60000))) )) )",
             ".validate": "!newData.exists() || newData.child('id').val() === $playerId"
           }
         }
@@ -91,6 +91,20 @@
           "$playerId": {
             ".write": "auth != null && auth.uid === $playerId",
             ".validate": "!newData.exists() || newData.child('p').val() === $playerId"
+          }
+        }
+      },
+      "roomSecrets": {
+        "$roomId": {
+          ".read": false,
+          ".write": false
+        }
+      },
+      "roomGrants": {
+        "$roomId": {
+          "$uid": {
+            ".read": "auth != null && auth.uid === $uid",
+            ".write": false
           }
         }
       }

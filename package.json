@@ -1,0 +1,8 @@
+{
+  "name": "papiano",
+  "private": true,
+  "description": "Vercel-only runtime deps. Static site + build scripts use npx; the browser app has no bundler.",
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}
