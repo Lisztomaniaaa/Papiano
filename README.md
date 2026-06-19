@@ -8,11 +8,12 @@ backed by Firebase (Auth, Firestore, Realtime Database).
 
 Vercel serves these from the repo root with `cleanUrls`, so the file
 `solo.html` is reachable at `/solo`. They **must stay at the root** — the URLs,
-`vercel.json` redirects, and `sitemap.xml` all depend on it.
+`vercel.json` redirects/rewrites, and `sitemap.xml` all depend on it.
 
 | URL | File | What it is |
 | --- | --- | --- |
-| `/` | `index.html` | Home, profile, chat, friends, account |
+| `/` | `landing.html` | Public trust landing page with no account form |
+| `/app` | `index.html` | Home, profile, chat, friends, account |
 | `/solo` | `solo.html` | Solo piano (uses the multiplayer engine, offline) |
 | `/multiplayer` | `multiplayer.html` | Realtime multiplayer rooms |
 | `/admin` | `admin.html` | Admin panel (noindex) |
@@ -24,7 +25,6 @@ api/        Vercel serverless functions (see api/README.md)
 css/        Stylesheets — *.css are the editable sources, *.min.css are served
 js/         App scripts — *.js are sources, *.min.js are served
   app.js            main app (home/profile/chat)  -> app.min.js
-  auth-email.js     email/password auth (served as-is)
   edit-modal.js     shared edit modal (served as-is)
   sdk-loader.js     lazy Firebase SDK loader      -> sdk-loader.min.js
   updater.js        version/cache refresh         -> updater.min.js

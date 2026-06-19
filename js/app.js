@@ -301,7 +301,7 @@
     // Known toast titles → visual type, so the existing showToast(msg, 'Title')
     // call sites light up with the right colour + icon without being touched.
     const TOAST_TITLE_TYPE = {
-        'connected': 'success', 'verified': 'success', 'password added': 'success',
+        'connected': 'success', 'verified': 'success',
         'done': 'success', 'saved': 'success', 'success': 'success', 'welcome': 'success',
         'friends': 'success', 'chat': 'success',
         'error': 'error', 'failed': 'error',
@@ -396,8 +396,7 @@
         if (!raw) return fallback;
         if (raw.includes('invalid-email')) return 'Enter a valid email address.';
         if (raw.includes('email-already-in-use')) return 'That email is already registered. Sign in instead.';
-        if (raw.includes('user-not-found') || raw.includes('wrong-password') || raw.includes('invalid-credential')) return 'Email or password is incorrect.';
-        if (raw.includes('weak-password')) return 'Use at least 6 characters for your password.';
+        if (raw.includes('user-not-found') || raw.includes('invalid-credential')) return 'Sign-in details are incorrect.';
         if (raw.includes('too-many-requests')) return 'Too many attempts. Try again later.';
         if (raw.includes('popup-closed')) return 'Sign in was cancelled.';
         if (raw.includes('user-disabled')) return 'Your account has been restricted from Papiano online features.';
@@ -568,6 +567,7 @@
         await processAppAuth('google');
     }
 
+
     async function processAppAuth(mode) {
         if (mode === 'google') {
             // Guard against the user clicking before lazy-loaded SDKs are ready.
@@ -605,33 +605,14 @@
         openMainApp();
     }
 
-    // Google sign-in hit an email that already has a password account. Ask the
-    // user to sign in with that password; the pending Google credential is then
-    // linked in the email sign-in success path (auth-email.js), so both methods
-    // end up on one account instead of erroring out.
+    // Direct account-secret prompts were removed from the public app. If Firebase
+    // reports an older account collision, direct the user to support.
     async function handleGoogleSignInConflict(error) {
         const email = error?.email || error?.customData?.email || '';
-        let pendingCred = error?.credential || null;
-        try {
-            if (!pendingCred && firebase?.auth?.GoogleAuthProvider?.credentialFromError) {
-                pendingCred = firebase.auth.GoogleAuthProvider.credentialFromError(error);
-            }
-        } catch (_) {}
-        if (!email || !pendingCred) {
-            showToast('Couldn’t connect Google automatically. Sign in with your email instead.');
-            return;
-        }
-        let methods = [];
-        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
-        if (methods.includes('password')) {
-            window._pendingGoogleLinkCredential = pendingCred;
-            openAuthEntryPopup('signin');
-            const emailInput = document.getElementById('authSigninEmail');
-            if (emailInput) emailInput.value = email;
-            showToast('This email already uses a password. Sign in to connect Google.', 'Connect Google');
-        } else {
-            showToast('This email is registered with a different sign-in method.');
-        }
+        showToast(email
+            ? 'This email needs account help before Google sign-in can continue. Contact Papiano support.'
+            : 'Google sign-in needs account help. Contact Papiano support.',
+            'Account help');
     }
 
     function populateBrandSheet() {
@@ -3985,7 +3966,7 @@
         btn.appendChild(r);
         setTimeout(() => r.remove(), 620);
     }
-    const RIPPLE_SELECTOR = '.btn-auth-google,.btn-auth-email,.btn-auth-access,.auth-entry-google,.auth-entry-close,.auth-entry-submit,.auth-entry-link,.email-auth-submit,.email-auth-close,.email-auth-link,.top-action-btn,.msg-reply-icon-btn,.lang-toggle-btn,.btn-send-message,.profile-upload-button,.account-delete-action,.support-link-button,.wallet-copy-btn,.vote-btn-panel,.friend-action-button,.account-lock-login,.btn-submit-config,.friend-nav-btn,.btn-global-rank-trigger,.m3-btn';
+    const RIPPLE_SELECTOR = '.btn-auth-google,.btn-auth-access,.auth-entry-google,.auth-entry-close,.auth-entry-submit,.auth-entry-link,.top-action-btn,.msg-reply-icon-btn,.lang-toggle-btn,.btn-send-message,.profile-upload-button,.account-delete-action,.support-link-button,.wallet-copy-btn,.vote-btn-panel,.friend-action-button,.account-lock-login,.btn-submit-config,.friend-nav-btn,.btn-global-rank-trigger,.m3-btn';
     document.addEventListener('pointerdown', (e) => {
         const btn = e.target.closest(RIPPLE_SELECTOR);
         if (!btn || btn.disabled) return;
