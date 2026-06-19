@@ -1588,6 +1588,4 @@ select.form-input-control::-ms-expand{display:none}
     background: var(--accent-strong, #0047C7);
 }
 
-.username-avail-msg{font-size:11px;margin-top:5px;min-height:14px;line-height:1.3;color:rgba(6,17,31,.55)}
-.username-avail-msg.ok{color:#1a8f3c}
-.username-avail-msg.bad{color:#d23b3b}
+.mention-tag{color:#3578e5;font-weight:600}

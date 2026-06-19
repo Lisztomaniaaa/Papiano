@@ -25,8 +25,6 @@
     const displayProfilePlayPill = document.getElementById('displayProfilePlayPill');
     const displayAuthStatus = document.getElementById('displayAuthStatus');
     const formInputName = document.getElementById('formInputName');
-    const formInputUsername = document.getElementById('formInputUsername');
-    const usernameAvailMsg = document.getElementById('usernameAvailMsg');
     const accountLockedUserId = document.getElementById('accountLockedUserId');
     const accountLockedTotalPlay = document.getElementById('accountLockedTotalPlay');
     const accountDeleteOverlay = document.getElementById('accountDeleteOverlay');
@@ -999,7 +997,6 @@
             playTime: formatPlayTime(playTimeSeconds),
             publicId: Number.isInteger(publicId) && publicId > 0 ? publicId : 0,
             userId: (/^#\d+$/.test(String(data.userId || '')) ? data.userId : (publicId > 0 ? formatPublicUserId(publicId) : safeUserId(uid))),
-            username: String(data.username || '').trim().toLowerCase().slice(0, 20),
             searchName: String(data.searchName || data.name || data.displayName || '').toLowerCase(),
             likes: Number(data.likes || 0),
             dislikes: Number(data.dislikes || 0),
@@ -1059,9 +1056,6 @@
                 ...oldData,
                 publicId,
                 userId: formatPublicUserId(publicId),
-                // Auto-assign a unique @username handle (user{publicId}) the first time
-                // we see this profile; an existing handle is always preserved.
-                username: String(oldData.username || ('user' + publicId)).trim().toLowerCase().slice(0, 20),
                 searchName: String(oldData.searchName || oldData.name || base.name || 'Papiano User').toLowerCase(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
@@ -1078,11 +1072,9 @@
             return merged;
         });
 
-        // Mirror the handle into the usernames index so it's reservable and
-        // @mention-resolvable (auto user{publicId} is unique; idempotent).
         try {
-            const handle = String(profileData.username || '').trim().toLowerCase();
-            if (handle) await firestoreDb.collection('usernames').doc(handle).set({ uid: user.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+            const nameKey = String(profileData.name || '').trim().toLowerCase();
+            if (nameKey) await firestoreDb.collection('displayNames').doc(nameKey).set({ uid: user.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
         } catch (_) {}
 
         currentUser = user;
@@ -1429,18 +1421,13 @@
 
         if (displayProfileName) displayProfileName.textContent = profile.name || 'Papiano User';
         if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
-        if (displayProfileId) {
-            const idText = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
-            displayProfileId.textContent = profile.username ? `${idText}  ·  @${profile.username}` : idText;
-        }
+        if (displayProfileId) displayProfileId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (displayTotalPlayTrack) animateCountUp(displayTotalPlayTrack, playTimeLabel);
         if (displayProfilePlayPill) displayProfilePlayPill.textContent = playTimeHourLabel;
         if (displayAuthStatus) displayAuthStatus.textContent = currentUser ? 'Online' : '—';
         if (accountLockedUserId) accountLockedUserId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = playTimeLabel;
         if (formInputName) formInputName.value = profile.name || '';
-        if (formInputUsername) formInputUsername.value = profile.username || '';
-        if (usernameAvailMsg) { usernameAvailMsg.textContent = ''; usernameAvailMsg.className = 'username-avail-msg'; }
         if (formInputDesc) formInputDesc.value = profile.desc || '';
         if (formInputPhotoUrl) formInputPhotoUrl.value = profile.photoURL || '';
         const formInputCountry = document.getElementById('formInputCountry');
@@ -1530,36 +1517,6 @@
         return { url: data.publicUrl, path };
     }
 
-    let usernameCheckTimer = null;
-    function usernameFormatError(u) {
-        if (!u) return 'isi dulu';
-        if (u.length < 3) return 'min 3 karakter';
-        if (u.length > 20) return 'maks 20 karakter';
-        if (!/^[a-z0-9_]+$/.test(u)) return 'huruf kecil / angka / _ aja';
-        if (/^user\d+$/.test(u)) return 'format "user+angka" khusus bawaan';
-        return '';
-    }
-    function checkUsernameAvailability() {
-        const el = formInputUsername, msg = usernameAvailMsg;
-        if (!el || !msg) return;
-        const raw = String(el.value || '').trim().toLowerCase();
-        clearTimeout(usernameCheckTimer);
-        const current = String(currentProfile?.username || '').toLowerCase();
-        if (!raw || raw === current) { msg.textContent = ''; msg.className = 'username-avail-msg'; return; }
-        const err = usernameFormatError(raw);
-        if (err) { msg.textContent = '✗ ' + err; msg.className = 'username-avail-msg bad'; return; }
-        msg.textContent = 'mengecek…'; msg.className = 'username-avail-msg';
-        usernameCheckTimer = setTimeout(async () => {
-            try {
-                const snap = await firestoreDb.collection('usernames').doc(raw).get();
-                const taken = snap.exists && snap.data()?.uid !== currentUser?.uid;
-                msg.textContent = taken ? '✗ udah dipakai' : '✓ tersedia';
-                msg.className = 'username-avail-msg ' + (taken ? 'bad' : 'ok');
-            } catch (_) { msg.textContent = ''; msg.className = 'username-avail-msg'; }
-        }, 450);
-    }
-    window.checkUsernameAvailability = checkUsernameAvailability;
-
     async function applyProfileConfiguration() {
         if (!currentUser?.uid) {
             showToast('Sign in to save profile.');
@@ -1589,25 +1546,20 @@
         const remoteSafe = { ...cached };
         delete remoteSafe.ownedRoles; // never overwrite admin-managed inventory
 
-        // Unique @username. Claim atomically through the usernames index so two
-        // people can't grab the same handle; an unchanged handle does no work.
-        const currentUsername = String(currentProfile?.username || cached.username || '').toLowerCase();
-        let finalUsername = currentUsername;
-        const typedUsername = String(formInputUsername?.value || '').trim().toLowerCase().slice(0, 20);
-        if (currentUser?.uid && typedUsername && typedUsername !== currentUsername) {
-            const fmtErr = usernameFormatError(typedUsername);
-            if (fmtErr) { showToast('Username: ' + fmtErr); profileSaveBusy = false; return; }
+        const currentName = String(currentProfile?.name || cached.name || '').trim();
+        const normalizedNew = cleanName.toLowerCase();
+        const normalizedOld = currentName.toLowerCase();
+        if (currentUser?.uid && normalizedNew !== normalizedOld) {
             try {
                 await firestoreDb.runTransaction(async tx => {
-                    const newRef = firestoreDb.collection('usernames').doc(typedUsername);
+                    const newRef = firestoreDb.collection('displayNames').doc(normalizedNew);
                     const newSnap = await tx.get(newRef);
-                    if (newSnap.exists && newSnap.data()?.uid !== currentUser.uid) throw new Error('USERNAME_TAKEN');
+                    if (newSnap.exists && newSnap.data()?.uid !== currentUser.uid) throw new Error('NAME_TAKEN');
                     tx.set(newRef, { uid: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-                    if (currentUsername) tx.delete(firestoreDb.collection('usernames').doc(currentUsername));
+                    if (normalizedOld) tx.delete(firestoreDb.collection('displayNames').doc(normalizedOld));
                 });
-                finalUsername = typedUsername;
             } catch (e) {
-                showToast(e?.message === 'USERNAME_TAKEN' ? 'Username udah dipakai — pilih yang lain.' : 'Gagal update username.');
+                showToast(e?.message === 'NAME_TAKEN' ? 'Nama udah dipakai user lain.' : 'Gagal update nama.');
                 profileSaveBusy = false;
                 return;
             }
@@ -1617,7 +1569,6 @@
             ...remoteSafe,
             uid: profileUid,
             name: cleanName,
-            username: finalUsername,
             searchName: cleanName.toLowerCase(),
             desc: cleanDesc,
             roleId: safeRoleId,
@@ -2137,23 +2088,27 @@
 
     function linkifyText(value) {
         const raw = String(value || '');
-        const pattern = /\b((?:https?:\/\/|www\.)[^\s<>'"]+)/gi;
+        const pattern = /(\b(?:https?:\/\/|www\.)[^\s<>'"]+)|(@#?\d+)/gi;
         let html = '';
         let index = 0;
         let match;
         while ((match = pattern.exec(raw)) !== null) {
             html += escapeHtml(raw.slice(index, match.index));
-            let label = match[0];
-            let suffix = '';
-            while (/[.,!?;:)\]]$/.test(label)) {
-                suffix = label.slice(-1) + suffix;
-                label = label.slice(0, -1);
-            }
-            if (label) {
-                const href = /^https?:\/\//i.test(label) ? label : `https://${label}`;
-                html += `<a class="msg-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>${escapeHtml(suffix)}`;
-            } else {
-                html += escapeHtml(match[0]);
+            if (match[1]) {
+                let label = match[1];
+                let suffix = '';
+                while (/[.,!?;:)\]]$/.test(label)) {
+                    suffix = label.slice(-1) + suffix;
+                    label = label.slice(0, -1);
+                }
+                if (label) {
+                    const href = /^https?:\/\//i.test(label) ? label : `https://${label}`;
+                    html += `<a class="msg-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>${escapeHtml(suffix)}`;
+                } else {
+                    html += escapeHtml(match[0]);
+                }
+            } else if (match[2]) {
+                html += `<span class="mention-tag">${escapeHtml(match[2])}</span>`;
             }
             index = pattern.lastIndex;
         }
