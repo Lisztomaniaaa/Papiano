@@ -65,8 +65,8 @@
     const chatNavUnreadBadge = document.getElementById('chatNavUnreadBadge');
     const friendRequestsBadge = document.getElementById('friendRequestsBadge');
 
-    const appTabHeaderTitles = ['Papiano', 'Community', 'Account'];
-    const tabPages = ['pageHome', 'pageChat', 'pageAccount'];
+    const appTabHeaderTitles = ['Post', 'Games', 'Chat', 'Setting'];
+    const tabPages = ['pagePost', 'pageGames', 'pageChat', 'pageAccount'];
     let currentActiveTabIndex = 0;
     let nativeBackGuardReady = false;
     const storageKey = 'papiano_profile_cache_v2';
@@ -1646,7 +1646,7 @@
         }, { passive: true });
     }
 
-    const GATED_TABS = { 1: 'Chat', 2: 'Account' };
+    const GATED_TABS = { 2: 'Chat', 3: 'Account' };
 
     function updateHomeTopBarVisibility() {
         const bar = document.getElementById('appTopBar');
