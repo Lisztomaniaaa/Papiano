@@ -13,33 +13,34 @@ Vercel serves these from the repo root with `cleanUrls`, so the file
 | URL | File | What it is |
 | --- | --- | --- |
 | `/` | `index.html` | Home, profile, chat, friends, account |
-| `/solo` | `solo.html` | Solo piano — boots the shared engine offline (no network) |
+| `/solo` | `solo.html` | Solo piano — its own offline engine, no network |
 | `/multiplayer` | `multiplayer.html` | Realtime multiplayer rooms |
 | `/admin` | `admin.html` | Admin panel (noindex) |
 
-**Solo and multiplayer are separate entry points that share one engine.**
-`js/engine/piano.js` is the shared piano engine; it does NOT decide the mode.
-Each page loads the engine, then its own tiny boot file:
-`js/solo/boot.js` (solo, offline) or `js/multiplayer/boot.js` (rooms + chat +
-Firebase). Neither the engine nor a single file does "both functions".
+**Solo and multiplayer are fully independent.** Each has its OWN copy of the
+piano engine and its OWN stylesheet, so editing one never affects the other:
+`js/solo/piano.js` + `css/solo.css` (solo, offline) vs.
+`js/multiplayer/piano.js` + `css/multiplayer.css` (rooms + chat + Firebase).
+Each engine file self-boots its single mode — no shared file, no mode branch.
+(Trade-off: a piano-engine fix that should apply to both must be made in both
+copies.)
 
 ## Folders
 
 ```
 api/        Vercel serverless functions (see api/README.md)
-css/        Stylesheets — *.css are the editable sources, *.min.css are served
 js/         App scripts — *.js are sources, *.min.js are served
-  app.js            main app (home/profile/chat)  -> app.min.js
-  auth-email.js     email/password auth (served as-is)
-  edit-modal.js     shared edit modal (served as-is)
-  sdk-loader.js     lazy Firebase SDK loader      -> sdk-loader.min.js
-  updater.js        version/cache refresh (all 3 pages) -> updater.min.js
-  engine/piano.js   shared piano engine, used by solo + multiplayer (served as-is)
-  solo/boot.js      solo entry — boots the engine offline (served as-is)
-  multiplayer/boot.js  multiplayer entry — boots engine + rooms/chat/Firebase
+  app.js               main app (home/profile/chat)  -> app.min.js
+  auth-email.js        email/password auth (served as-is)
+  edit-modal.js        shared edit modal (served as-is)
+  sdk-loader.js        lazy Firebase SDK loader      -> sdk-loader.min.js
+  updater.js           version/cache refresh (all 3 pages) -> updater.min.js
+  solo/piano.js        SOLO piano engine — independent copy (served as-is)
+  multiplayer/piano.js MULTIPLAYER piano engine — independent copy (served as-is)
 css/        Stylesheets — *.css sources, *.min.css served
-  bundle.css        styles for the main app (index.html)
-  engine.css        styles for the shared piano engine (solo + multiplayer)
+  bundle.css           styles for the main app (index.html)
+  solo.css             SOLO piano-engine styles (independent copy)
+  multiplayer.css      MULTIPLAYER piano-engine styles (independent copy)
 rules/      Firebase security rules
   firestore.rules        Firestore rules
   database.rules.json    Realtime Database rules (multiplayer)

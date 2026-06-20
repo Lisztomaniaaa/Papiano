@@ -10540,17 +10540,10 @@ midiBtn.onclick = () => {
         setPianoInputReady(true);
         if(typeof forceBootVisible === 'function') forceBootVisible();
     }
-    // Solo and multiplayer are separate entry points that share this one engine.
-    // This file no longer decides the mode — it exposes both boots and the
-    // per-page entry script (js/solo/boot.js or js/multiplayer/boot.js) picks one.
-    window.papianoBootSolo = function(){
-        window.PAPIANO_SOLO = true;
-        bootSoloPiano();
-    };
-    window.papianoBootMultiplayer = function(){
-        replaceMpHistory('multiHome');
-        showLayer('home', { skipHistory:true });
-        initFirebase().then(processStageIntent);
-    };
-    try { window.dispatchEvent(new Event('papiano-engine-ready')); } catch (e) {}
+    // Solo build — loaded ONLY by solo.html. This is a standalone copy of the
+    // piano engine that only ever runs solo (no Firebase, rooms or chat).
+    // Multiplayer has its OWN copy in js/multiplayer/piano.js, so editing one
+    // never affects the other.
+    window.PAPIANO_SOLO = true;
+    bootSoloPiano();
 })();

@@ -23,7 +23,9 @@ const steps = [
   // CSS: level-1 only (whitespace/comments) — no rule reordering, so the
   // cascade is preserved exactly.
   'npx --yes clean-css-cli -O1 css/bundle.css -o css/bundle.min.css',
-  'npx --yes clean-css-cli -O1 css/engine.css -o css/engine.min.css',
+  // Solo and multiplayer have independent piano-engine stylesheets on purpose.
+  'npx --yes clean-css-cli -O1 css/solo.css -o css/solo.min.css',
+  'npx --yes clean-css-cli -O1 css/multiplayer.css -o css/multiplayer.min.css',
 ];
 
 for (const cmd of steps) {
