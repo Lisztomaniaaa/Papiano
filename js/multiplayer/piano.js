@@ -9903,9 +9903,18 @@ midiBtn.onclick = () => {
         chatViewportRaf = requestAnimationFrame(() => {
             chatViewportRaf = 0;
             const vv = window.visualViewport;
+            // Track only the keyboard inset so the panel can dock ABOVE the
+            // keyboard. The panel SIZE is fixed in CSS and must never follow the
+            // live viewport — doing so made it go tiny or full-screen before.
             const inset = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
             document.documentElement.style.setProperty('--mp-chat-keyboard-inset', `${inset}px`);
-            if (lastKeyboardInset > 0 && inset === 0) {
+            // Drive the keyboard class from real viewport + focus state, not the
+            // one-shot focus/blur events: the keyboard can close (Android Back)
+            // or reopen (tap a still-focused input) without firing either, so a
+            // one-directional toggle would strand the panel out of position.
+            if (inset > 0 && document.activeElement === chatInput) {
+                document.body.classList.add('mp-chat-keyboard');
+            } else if (lastKeyboardInset > 0 && inset === 0) {
                 document.body.classList.remove('mp-chat-keyboard');
                 lockUiLayout(260);
             }
