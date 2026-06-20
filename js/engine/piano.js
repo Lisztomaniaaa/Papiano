@@ -10540,11 +10540,17 @@ midiBtn.onclick = () => {
         setPianoInputReady(true);
         if(typeof forceBootVisible === 'function') forceBootVisible();
     }
-    if(isSolo()){
+    // Solo and multiplayer are separate entry points that share this one engine.
+    // This file no longer decides the mode — it exposes both boots and the
+    // per-page entry script (js/solo/boot.js or js/multiplayer/boot.js) picks one.
+    window.papianoBootSolo = function(){
+        window.PAPIANO_SOLO = true;
         bootSoloPiano();
-    } else {
+    };
+    window.papianoBootMultiplayer = function(){
         replaceMpHistory('multiHome');
         showLayer('home', { skipHistory:true });
         initFirebase().then(processStageIntent);
-    }
+    };
+    try { window.dispatchEvent(new Event('papiano-engine-ready')); } catch (e) {}
 })();

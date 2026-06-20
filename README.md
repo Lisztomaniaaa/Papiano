@@ -13,9 +13,15 @@ Vercel serves these from the repo root with `cleanUrls`, so the file
 | URL | File | What it is |
 | --- | --- | --- |
 | `/` | `index.html` | Home, profile, chat, friends, account |
-| `/solo` | `solo.html` | Solo piano (uses the multiplayer engine, offline) |
+| `/solo` | `solo.html` | Solo piano — boots the shared engine offline (no network) |
 | `/multiplayer` | `multiplayer.html` | Realtime multiplayer rooms |
 | `/admin` | `admin.html` | Admin panel (noindex) |
+
+**Solo and multiplayer are separate entry points that share one engine.**
+`js/engine/piano.js` is the shared piano engine; it does NOT decide the mode.
+Each page loads the engine, then its own tiny boot file:
+`js/solo/boot.js` (solo, offline) or `js/multiplayer/boot.js` (rooms + chat +
+Firebase). Neither the engine nor a single file does "both functions".
 
 ## Folders
 
@@ -27,8 +33,13 @@ js/         App scripts — *.js are sources, *.min.js are served
   auth-email.js     email/password auth (served as-is)
   edit-modal.js     shared edit modal (served as-is)
   sdk-loader.js     lazy Firebase SDK loader      -> sdk-loader.min.js
-  updater.js        version/cache refresh         -> updater.min.js
-  multiplayer/      multiplayer engine (app.js + init.js, served as-is)
+  updater.js        version/cache refresh (all 3 pages) -> updater.min.js
+  engine/piano.js   shared piano engine, used by solo + multiplayer (served as-is)
+  solo/boot.js      solo entry — boots the engine offline (served as-is)
+  multiplayer/boot.js  multiplayer entry — boots engine + rooms/chat/Firebase
+css/        Stylesheets — *.css sources, *.min.css served
+  bundle.css        styles for the main app (index.html)
+  engine.css        styles for the shared piano engine (solo + multiplayer)
 rules/      Firebase security rules
   firestore.rules        Firestore rules
   database.rules.json    Realtime Database rules (multiplayer)
