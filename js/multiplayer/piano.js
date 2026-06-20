@@ -6226,6 +6226,7 @@ midiBtn.onclick = () => {
     let remoteMixerLoadedFor = '';
     let searchRenderToken = 0;
     let chatViewportRaf = 0;
+    let lastKeyboardInset = 0;
     const playerActivity = new Map();
     const friendIds = new Set();
     const friendProfiles = new Map();
@@ -9902,12 +9903,13 @@ midiBtn.onclick = () => {
         chatViewportRaf = requestAnimationFrame(() => {
             chatViewportRaf = 0;
             const vv = window.visualViewport;
-            // Only track the keyboard inset so the panel can sit ABOVE the
-            // keyboard. The panel SIZE is fixed in CSS and must never follow the
-            // live viewport — doing so made it go tiny (non-fullscreen) or
-            // full-screen (fullscreen/cancel).
             const inset = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
             document.documentElement.style.setProperty('--mp-chat-keyboard-inset', `${inset}px`);
+            if (lastKeyboardInset > 0 && inset === 0) {
+                document.body.classList.remove('mp-chat-keyboard');
+                lockUiLayout(260);
+            }
+            lastKeyboardInset = inset;
             renderChatPreview();
         });
     }
