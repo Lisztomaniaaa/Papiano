@@ -14,14 +14,16 @@ console.log(`version.json -> ${version}`);
 ['index.html', 'multiplayer.html', 'solo.html'].forEach(file => {
   if (!fs.existsSync(file)) return;
   let html = fs.readFileSync(file, 'utf8');
-  html = html.replace(/(bundle\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(sdk-loader\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(edit-modal\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(app\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(auth-email\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(updater\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(solo\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(multiplayer\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
+  // Cache-bust every versioned asset. Paths are folder-specific so each
+  // area (app / solo / multiplayer / shared) is stamped unambiguously.
+  html = html.replace(/(app\/bundle\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(app\/app\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(app\/sdk-loader\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(app\/auth-email\.js)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(app\/edit-modal\.js)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(shared\/updater\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(solo\/piano\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
+  html = html.replace(/(multiplayer\/piano\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(solo\/piano\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(multiplayer\/piano\.js)\?v=[^"']*/g, '$1?v=' + version);
   fs.writeFileSync(file, html);

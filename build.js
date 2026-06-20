@@ -17,15 +17,15 @@ const { execSync } = require('child_process');
 const steps = [
   // JS: compress + mangle locals only (top-level names are kept so the
   // inline onclick handlers in index.html keep resolving).
-  'npx --yes terser js/app.js -c -m -o js/app.min.js',
-  'npx --yes terser js/sdk-loader.js -c -m -o js/sdk-loader.min.js',
-  'npx --yes terser js/updater.js -c -m -o js/updater.min.js',
+  'npx --yes terser js/app/app.js -c -m -o js/app/app.min.js',
+  'npx --yes terser js/app/sdk-loader.js -c -m -o js/app/sdk-loader.min.js',
+  'npx --yes terser js/shared/updater.js -c -m -o js/shared/updater.min.js',
   // CSS: level-1 only (whitespace/comments) — no rule reordering, so the
   // cascade is preserved exactly.
-  'npx --yes clean-css-cli -O1 css/bundle.css -o css/bundle.min.css',
+  'npx --yes clean-css-cli -O1 css/app/bundle.css -o css/app/bundle.min.css',
   // Solo and multiplayer have independent piano-engine stylesheets on purpose.
-  'npx --yes clean-css-cli -O1 css/solo.css -o css/solo.min.css',
-  'npx --yes clean-css-cli -O1 css/multiplayer.css -o css/multiplayer.min.css',
+  'npx --yes clean-css-cli -O1 css/solo/piano.css -o css/solo/piano.min.css',
+  'npx --yes clean-css-cli -O1 css/multiplayer/piano.css -o css/multiplayer/piano.min.css',
 ];
 
 for (const cmd of steps) {

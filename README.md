@@ -19,8 +19,8 @@ Vercel serves these from the repo root with `cleanUrls`, so the file
 
 **Solo and multiplayer are fully independent.** Each has its OWN copy of the
 piano engine and its OWN stylesheet, so editing one never affects the other:
-`js/solo/piano.js` + `css/solo.css` (solo, offline) vs.
-`js/multiplayer/piano.js` + `css/multiplayer.css` (rooms + chat + Firebase).
+`js/solo/piano.js` + `css/solo/piano.css` (solo, offline) vs.
+`js/multiplayer/piano.js` + `css/multiplayer/piano.css` (rooms + chat + Firebase).
 Each engine file self-boots its single mode — no shared file, no mode branch.
 (Trade-off: a piano-engine fix that should apply to both must be made in both
 copies.)
@@ -29,18 +29,15 @@ copies.)
 
 ```
 api/        Vercel serverless functions (see api/README.md)
-js/         App scripts — *.js are sources, *.min.js are served
-  app.js               main app (home/profile/chat)  -> app.min.js
-  auth-email.js        email/password auth (served as-is)
-  edit-modal.js        shared edit modal (served as-is)
-  sdk-loader.js        lazy Firebase SDK loader      -> sdk-loader.min.js
-  updater.js           version/cache refresh (all 3 pages) -> updater.min.js
-  solo/piano.js        SOLO piano engine — independent copy (served as-is)
-  multiplayer/piano.js MULTIPLAYER piano engine — independent copy (served as-is)
-css/        Stylesheets — *.css sources, *.min.css served
-  bundle.css           styles for the main app (index.html)
-  solo.css             SOLO piano-engine styles (independent copy)
-  multiplayer.css      MULTIPLAYER piano-engine styles (independent copy)
+js/         App scripts — *.js are sources, *.min.js are served. Grouped by area:
+  app/      main app (index.html): app.js, auth-email.js, edit-modal.js, sdk-loader.js
+  solo/     piano.js — SOLO engine, independent copy (served as-is)
+  multiplayer/  piano.js — MULTIPLAYER engine, independent copy (served as-is)
+  shared/   updater.js — version/cache refresh, used by all 3 pages
+css/        Stylesheets — *.css sources, *.min.css served. Same per-area split:
+  app/      bundle.css — main app (index.html)
+  solo/     piano.css — SOLO engine styles (independent copy)
+  multiplayer/  piano.css — MULTIPLAYER engine styles (independent copy)
 rules/      Firebase security rules
   firestore.rules        Firestore rules
   database.rules.json    Realtime Database rules (multiplayer)

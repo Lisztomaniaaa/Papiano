@@ -9,7 +9,6 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
 
 ## Endpoints
 
-- **`ping.js`** — dependency-free health check: `GET /api/ping` → `{ ok: true }`.
 - **`private-room.js`** — server-side gate for private multiplayer rooms.
   `POST /api/private-room` with `{ action, idToken, roomId, password }`.
   - `action:'set'` — owner stores the SHA-256 password hash at
