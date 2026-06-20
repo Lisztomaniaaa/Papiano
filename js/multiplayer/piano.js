@@ -9902,9 +9902,11 @@ midiBtn.onclick = () => {
         chatViewportRaf = requestAnimationFrame(() => {
             chatViewportRaf = 0;
             const vv = window.visualViewport;
-            const height = Math.max(1, Math.round(vv ? vv.height : window.innerHeight));
+            // Only track the keyboard inset so the panel can sit ABOVE the
+            // keyboard. The panel SIZE is fixed in CSS and must never follow the
+            // live viewport — doing so made it go tiny (non-fullscreen) or
+            // full-screen (fullscreen/cancel).
             const inset = vv ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
-            document.documentElement.style.setProperty('--mp-chat-vh', `${height}px`);
             document.documentElement.style.setProperty('--mp-chat-keyboard-inset', `${inset}px`);
             renderChatPreview();
         });
