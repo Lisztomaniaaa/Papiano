@@ -1578,7 +1578,16 @@
             updatedAt: currentUser?.uid ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
         };
         try {
-            if (currentUser?.uid) await firestoreDb.collection('profiles').doc(currentUser.uid).set(profile, { merge: true });
+            if (currentUser?.uid) {
+                // Only persist the fields the profile editor actually owns.
+                // Strip server-managed fields — vote counts (written by other
+                // users), the public ID assigned once at creation, and play
+                // time (written by the playtime sync) — so a stale cached copy
+                // can't clobber them and the security rules don't reject the
+                // save for touching fields it shouldn't.
+                const { likes, dislikes, publicId, userId, playTime, playTimeSeconds, ...editable } = profile;
+                await firestoreDb.collection('profiles').doc(currentUser.uid).set(editable, { merge: true });
+            }
             // Re-attach the cached ownedRoles locally so updateProfileView still
             // shows the right options after save (until next snapshot).
             currentProfile = normalizeProfile(profileUid, { ...profile, ownedRoles: cached.ownedRoles });
