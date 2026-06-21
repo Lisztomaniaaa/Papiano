@@ -26,8 +26,47 @@ const { getAdmin } = require('./_admin');
 
 const ROOM_ROOT = 'papianoOnlineBeta';
 
+// Per-(room,uid) password-guess throttle. After FAILURE_THRESHOLD wrong
+// passwords, lock the caller out with exponential backoff (60s, 120s, 240s,
+// ...). State lives at roomThrottle/{roomId}/{uid} (admin-only, see RTDB
+// rules). A successful guess clears it.
+const FAILURE_THRESHOLD = 5;
+const LOCKOUT_BASE_MS = 60_000;
+const LOCKOUT_MAX_STEPS = 6;
+
 function hashPassword(password, roomId) {
   return crypto.createHash('sha256').update(`${roomId}::${password}`).digest('hex');
+}
+
+function throttleRef(db, roomId, uid) {
+  return db.ref(`${ROOM_ROOT}/roomThrottle/${roomId}/${uid}`);
+}
+
+async function checkLockoutSeconds(db, roomId, uid) {
+  const snap = await throttleRef(db, roomId, uid).get();
+  const v = snap.val() || {};
+  const failures = Number(v.failures) || 0;
+  const lastAt = Number(v.lastFailureAt) || 0;
+  if (failures < FAILURE_THRESHOLD || !lastAt) return 0;
+  const step = Math.min(failures - FAILURE_THRESHOLD, LOCKOUT_MAX_STEPS);
+  const cooldownMs = LOCKOUT_BASE_MS * Math.pow(2, step);
+  const elapsed = Date.now() - lastAt;
+  return elapsed >= cooldownMs ? 0 : Math.ceil((cooldownMs - elapsed) / 1000);
+}
+
+async function recordFailure(db, roomId, uid) {
+  const ref = throttleRef(db, roomId, uid);
+  const snap = await ref.get();
+  const failures = (Number(snap.val()?.failures) || 0) + 1;
+  await ref.set({
+    failures,
+    lastFailureAt: getAdmin().database.ServerValue.TIMESTAMP,
+  });
+}
+
+async function clearThrottle(db, roomId, uid) {
+  try { await throttleRef(db, roomId, uid).remove(); }
+  catch (_e) { /* best-effort */ }
 }
 
 function readBody(req) {
@@ -70,7 +109,9 @@ module.exports = async (req, res) => {
 
     let uid;
     try {
-      const decoded = await admin.auth().verifyIdToken(idToken);
+      // checkRevoked=true rejects tokens of signed-out/disabled/deleted users
+      // (otherwise an issued token stays valid for ~1h regardless).
+      const decoded = await admin.auth().verifyIdToken(idToken, true);
       uid = decoded.uid;
     } catch (e) {
       return res.status(401).json({ ok: false, reason: 'bad token' });
@@ -112,7 +153,13 @@ module.exports = async (req, res) => {
         await db.ref(`${ROOM_ROOT}/roomGrants/${roomId}/${uid}`).set({
           grantedAt: admin.database.ServerValue.TIMESTAMP,
         });
+        await clearThrottle(db, roomId, uid);
         return res.status(200).json({ ok: true });
+      }
+      const retryAfter = await checkLockoutSeconds(db, roomId, uid);
+      if (retryAfter > 0) {
+        res.setHeader('Retry-After', String(retryAfter));
+        return res.status(429).json({ ok: false, reason: 'too many attempts', retryAfter });
       }
       const secretSnap = await db.ref(`${ROOM_ROOT}/roomSecrets/${roomId}`).get();
       // Legacy room: no secret yet, but the original plaintext password was
@@ -124,6 +171,7 @@ module.exports = async (req, res) => {
           return res.status(409).json({ ok: false, reason: 'room not initialized' });
         }
         if (legacy !== password) {
+          await recordFailure(db, roomId, uid);
           return res.status(401).json({ ok: false, reason: 'wrong password' });
         }
         await db.ref(`${ROOM_ROOT}/roomSecrets/${roomId}`).set({
@@ -136,15 +184,18 @@ module.exports = async (req, res) => {
         await db.ref(`${ROOM_ROOT}/roomGrants/${roomId}/${uid}`).set({
           grantedAt: admin.database.ServerValue.TIMESTAMP,
         });
+        await clearThrottle(db, roomId, uid);
         return res.status(200).json({ ok: true });
       }
       const secret = secretSnap.val() || {};
       if (hashPassword(password, roomId) !== secret.passwordHash) {
+        await recordFailure(db, roomId, uid);
         return res.status(401).json({ ok: false, reason: 'wrong password' });
       }
       await db.ref(`${ROOM_ROOT}/roomGrants/${roomId}/${uid}`).set({
         grantedAt: admin.database.ServerValue.TIMESTAMP,
       });
+      await clearThrottle(db, roomId, uid);
       return res.status(200).json({ ok: true });
     }
 

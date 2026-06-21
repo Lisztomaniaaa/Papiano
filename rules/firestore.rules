@@ -43,9 +43,22 @@ service cloud.firestore {
         && request.resource.data.get('ownedRoles', ['common']).hasOnly(['common'])
       );
       allow update: if isAdmin()
-        || (owns(uid) && changedKeys().hasOnly(['playTimeSeconds', 'playTime', 'playTimeLeaderboardUpdatedAt', 'updatedAt']))
-        || (owns(uid) && !changedKeys().hasAny(['ownedRoles']) && badgeWithinInventory())
-        || (signed() && changedKeys().hasOnly(['likes', 'dislikes', 'updatedAt']));
+        || (owns(uid)
+            && changedKeys().hasOnly(['playTimeSeconds', 'playTime', 'playTimeLeaderboardUpdatedAt', 'updatedAt'])
+            && request.resource.data.get('playTimeSeconds', 0) is int
+            && request.resource.data.get('playTimeSeconds', 0) >= resource.data.get('playTimeSeconds', 0)
+            && request.resource.data.get('playTimeSeconds', 0) - resource.data.get('playTimeSeconds', 0) <= 86400)
+        || (owns(uid)
+            && !changedKeys().hasAny(['ownedRoles', 'publicId', 'userId', 'likes', 'dislikes'])
+            && badgeWithinInventory())
+        || (signed() && request.auth.uid != uid
+            && changedKeys().hasOnly(['likes', 'dislikes', 'updatedAt'])
+            && request.resource.data.likes is int && request.resource.data.likes >= 0
+            && request.resource.data.dislikes is int && request.resource.data.dislikes >= 0
+            && request.resource.data.likes - resource.data.get('likes', 0) <= 1
+            && resource.data.get('likes', 0) - request.resource.data.likes <= 1
+            && request.resource.data.dislikes - resource.data.get('dislikes', 0) <= 1
+            && resource.data.get('dislikes', 0) - request.resource.data.dislikes <= 1);
       allow delete: if isAdmin();
 
       match /reactions/{voterUid} {
@@ -55,7 +68,13 @@ service cloud.firestore {
     }
 
     match /counters/{docId} {
-      allow read, write: if signed();
+      allow read: if signed();
+      allow create: if signed()
+        && request.resource.data.get('next', 0) is int
+        && request.resource.data.get('next', 0) >= 1;
+      allow update: if signed()
+        && request.resource.data.get('next', 0) is int
+        && request.resource.data.get('next', 0) == resource.data.get('next', 0) + 1;
     }
 
     match /displayNames/{nameKey} {
@@ -66,14 +85,25 @@ service cloud.firestore {
     }
 
     match /chatRooms/{roomId} {
-      allow read, create, update: if signed();
+      allow read: if signed();
+      allow create: if isAdmin()
+        || (signed() && roomId.matches('^group_.*'))
+        || (signed() && roomId.matches('^dm_.*')
+            && request.auth.uid in request.resource.data.get('participants', []));
+      allow update: if isAdmin()
+        || (signed() && roomId.matches('^group_.*')
+            && !changedKeys().hasAny(['type', 'participants']))
+        || (signed() && roomId.matches('^dm_.*')
+            && request.auth.uid in resource.data.get('participants', [])
+            && !changedKeys().hasAny(['type', 'participants']));
       allow delete: if isAdmin();
 
       match /messages/{messageId} {
         allow read: if signed();
         allow create: if isAdmin() || request.resource.data.senderId == request.auth.uid;
         allow update: if isAdmin()
-          || (signed() && resource.data.senderId == request.auth.uid)
+          || (signed() && resource.data.senderId == request.auth.uid
+              && !changedKeys().hasAny(['senderId', 'createdAt']))
           || (signed() && changedKeys().hasOnly(['hiddenFor', 'updatedAt']));
         allow delete: if isAdmin() || (signed() && resource.data.senderId == request.auth.uid);
       }
@@ -86,8 +116,19 @@ service cloud.firestore {
         || resource.data.receiverId == request.auth.uid
         || resource.data.requesterId == request.auth.uid
       );
-      allow create: if signed() && request.auth.uid in request.resource.data.users;
-      allow update: if signed() && request.auth.uid in resource.data.users;
+      allow create: if signed()
+        && request.auth.uid in request.resource.data.users
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.status == 'pending';
+      // Either party can read/update an existing friendship, but only the
+      // RECEIVER can transition status: pending -> accepted. Either party can
+      // change to other states (rejected/cancelled) or leave status untouched.
+      allow update: if signed() && request.auth.uid in resource.data.users && (
+        !changedKeys().hasAny(['status'])
+        || request.resource.data.status != 'accepted'
+        || resource.data.status == 'accepted'
+        || request.auth.uid == resource.data.receiverId
+      );
       allow delete: if signed() && (resource == null || request.auth.uid in resource.data.users);
     }
 
