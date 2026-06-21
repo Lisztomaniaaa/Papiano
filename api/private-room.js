@@ -55,13 +55,16 @@ async function checkLockoutSeconds(db, roomId, uid) {
 }
 
 async function recordFailure(db, roomId, uid) {
+  // Atomic increment: two parallel wrong-password attempts must not both
+  // observe `failures=N` and write `N+1`, undercounting the throttle.
   const ref = throttleRef(db, roomId, uid);
-  const snap = await ref.get();
-  const failures = (Number(snap.val()?.failures) || 0) + 1;
-  await ref.set({
-    failures,
-    lastFailureAt: getAdmin().database.ServerValue.TIMESTAMP,
-  });
+  await ref.transaction(curr => ({
+    failures: (Number(curr?.failures) || 0) + 1,
+    // ServerValue.TIMESTAMP isn't supported as a transaction return — use
+    // server-clock Date.now() instead. This still runs in the trusted
+    // backend, not on a client, so clock skew is bounded.
+    lastFailureAt: Date.now(),
+  }));
 }
 
 async function clearThrottle(db, roomId, uid) {
@@ -131,10 +134,17 @@ module.exports = async (req, res) => {
       if (room.mode !== 'Private') {
         return res.status(400).json({ ok: false, reason: 'not private' });
       }
-      const clean = password.slice(0, 48);
-      if (!clean) return res.status(400).json({ ok: false, reason: 'empty password' });
+      // Reject too-long passwords explicitly. Silently slicing to 48 chars
+      // (as before) made owners think their long password was protecting
+      // the room when only the first 48 chars actually mattered for the
+      // hash, AND created a mismatch with the unsliced 'check' path so
+      // they could never unlock their own room afterwards.
+      if (!password) return res.status(400).json({ ok: false, reason: 'empty password' });
+      if (password.length > 48) {
+        return res.status(400).json({ ok: false, reason: 'password too long (max 48)' });
+      }
       await db.ref(`${ROOM_ROOT}/roomSecrets/${roomId}`).set({
-        passwordHash: hashPassword(clean, roomId),
+        passwordHash: hashPassword(password, roomId),
         ownerUid: uid,
         updatedAt: admin.database.ServerValue.TIMESTAMP,
       });
@@ -155,6 +165,12 @@ module.exports = async (req, res) => {
         });
         await clearThrottle(db, roomId, uid);
         return res.status(200).json({ ok: true });
+      }
+      // Apply the same length cap as 'set' so a >48-char input doesn't
+      // hash differently from a stored hash that was generated from a
+      // capped password.
+      if (password.length > 48) {
+        return res.status(400).json({ ok: false, reason: 'password too long (max 48)' });
       }
       const retryAfter = await checkLockoutSeconds(db, roomId, uid);
       if (retryAfter > 0) {

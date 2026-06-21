@@ -5,8 +5,26 @@
         ".read": "auth != null",
         "$roomId": {
           ".write": "auth != null && ( (!data.exists() && newData.child('ownerUid').val() === auth.uid) || data.child('ownerUid').val() === auth.uid || auth.token.admin === true || auth.token.email === 'papianobase@gmail.com' || auth.token.email === 'utamairfan44@gmail.com' || auth.token.email === 'akunpolos0444000@gmail.com' || (!newData.exists() && !root.child('papianoOnlineBeta/roomPlayers').child($roomId).exists()) )",
+          "id": {
+            ".validate": "newData.isString() && newData.val() === $roomId"
+          },
+          "roomNumber": {
+            ".validate": "newData.isNumber() && newData.val() >= 0"
+          },
+          "name": {
+            ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+          },
+          "owner": {
+            ".validate": "newData.isString() && newData.val().length <= 80"
+          },
           "ownerUid": {
-            ".validate": "newData.val() === auth.uid || newData.val() === data.val()"
+            ".validate": "newData.isString() && (newData.val() === auth.uid || newData.val() === data.val())"
+          },
+          "mode": {
+            ".validate": "newData.isString() && (newData.val() === 'Public' || newData.val() === 'Private')"
+          },
+          "max": {
+            ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 6 && (!data.exists() || newData.val() === data.val())"
           },
           "count": {
             ".write": "auth != null",
@@ -16,21 +34,34 @@
             ".write": "auth != null",
             ".validate": "newData.isNumber() && newData.val() >= 0 && (newData.parent().child('max').val() == null || newData.val() <= newData.parent().child('max').val())"
           },
+          "password": {
+            ".validate": "newData.isString() && newData.val().length === 0"
+          },
+          "chatEnabled": {
+            ".validate": "newData.isBoolean()"
+          },
+          "createdAt": {
+            ".validate": "newData.isNumber() && (!data.exists() || newData.val() === data.val())"
+          },
           "updatedAt": {
-            ".write": "auth != null"
+            ".write": "auth != null",
+            ".validate": "newData.isNumber()"
+          },
+          "$other": {
+            ".validate": false
           }
         }
       },
       "roomSlots": {
         ".read": "auth != null",
         "$slot": {
-          ".write": "auth != null && ( (newData.exists() && newData.child('ownerUid').val() === auth.uid && (!data.exists() || data.child('ownerUid').val() === auth.uid || (data.child('createdAt').val() < now - 15000 && !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists()))) || (!newData.exists() && data.exists() && (data.child('ownerUid').val() === auth.uid || !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists())) )"
+          ".write": "auth != null && ( auth.token.admin === true || (newData.exists() && newData.child('ownerUid').val() === auth.uid && (!data.exists() || data.child('ownerUid').val() === auth.uid || (data.child('createdAt').val() < now - 15000 && !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists()))) || (!newData.exists() && data.exists() && (data.child('ownerUid').val() === auth.uid || !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists())) )"
         }
       },
       "ownerRooms": {
         "$uid": {
           ".read": "auth != null",
-          ".write": "auth != null && ( auth.uid === $uid || (!newData.exists() && data.exists() && !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists()) )"
+          ".write": "auth != null && ( auth.uid === $uid || auth.token.admin === true || (!newData.exists() && data.exists() && !root.child('papianoOnlineBeta/rooms').child(data.child('roomId').val()).exists()) )"
         }
       },
       "roomPlayers": {
@@ -46,26 +77,34 @@
       "roomSeats": {
         "$roomId": {
           ".read": "auth != null",
-          ".write": "auth != null && ( root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || !root.child('papianoOnlineBeta/rooms').child($roomId).exists() || newData.numChildren() >= data.numChildren() )",
+          ".write": "auth != null && ( root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true || !root.child('papianoOnlineBeta/rooms').child($roomId).exists() || ( (!data.child('1').exists() || data.child('1').child('uid').val() === auth.uid || data.child('1').child('lastSeen').val() < now - 45000 || (newData.child('1').exists() && newData.child('1').child('uid').val() === data.child('1').child('uid').val())) && (!data.child('2').exists() || data.child('2').child('uid').val() === auth.uid || data.child('2').child('lastSeen').val() < now - 45000 || (newData.child('2').exists() && newData.child('2').child('uid').val() === data.child('2').child('uid').val())) && (!data.child('3').exists() || data.child('3').child('uid').val() === auth.uid || data.child('3').child('lastSeen').val() < now - 45000 || (newData.child('3').exists() && newData.child('3').child('uid').val() === data.child('3').child('uid').val())) && (!data.child('4').exists() || data.child('4').child('uid').val() === auth.uid || data.child('4').child('lastSeen').val() < now - 45000 || (newData.child('4').exists() && newData.child('4').child('uid').val() === data.child('4').child('uid').val())) && (!data.child('5').exists() || data.child('5').child('uid').val() === auth.uid || data.child('5').child('lastSeen').val() < now - 45000 || (newData.child('5').exists() && newData.child('5').child('uid').val() === data.child('5').child('uid').val())) && (!data.child('6').exists() || data.child('6').child('uid').val() === auth.uid || data.child('6').child('lastSeen').val() < now - 45000 || (newData.child('6').exists() && newData.child('6').child('uid').val() === data.child('6').child('uid').val())) ) )",
           "$seatNum": {
-            ".write": "auth != null && ( (data.exists() && data.child('uid').val() === auth.uid) || (newData.exists() && !data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && data.child('lastSeen').val() < now - 45000 && newData.exists() && newData.child('uid').val() === auth.uid) || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid )",
-            ".validate": "newData.exists() ? ( data.child('uid').val() === newData.child('uid').val() || (newData.child('uid').val() === auth.uid && (!data.exists() || data.child('uid').val() === auth.uid || data.child('lastSeen').val() < now - 45000)) || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid ) : true"
+            ".write": "auth != null && ( (data.exists() && data.child('uid').val() === auth.uid) || (newData.exists() && !data.exists() && newData.child('uid').val() === auth.uid) || (data.exists() && data.child('lastSeen').val() < now - 45000 && newData.exists() && newData.child('uid').val() === auth.uid) || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true )",
+            ".validate": "$seatNum.matches(/^[1-6]$/) && (!newData.exists() || ( newData.child('uid').isString() && newData.child('seat').isNumber() && newData.child('seat').val() >= 1 && newData.child('seat').val() <= 6 && newData.child('joinedAt').isNumber() && newData.child('lastSeen').isNumber() && ( (newData.child('uid').val() === auth.uid && (!data.exists() || data.child('uid').val() === auth.uid || data.child('lastSeen').val() < now - 45000)) || (data.exists() && data.child('uid').val() === newData.child('uid').val() && data.child('seat').val() === newData.child('seat').val() && data.child('joinedAt').val() === newData.child('joinedAt').val() && data.child('lastSeen').val() === newData.child('lastSeen').val() && newData.numChildren() === data.numChildren()) || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true ) ))"
           }
         }
       },
       "roomSeatClaims": {
         "$roomId": {
           ".read": "auth != null",
-          ".write": "auth != null && ( root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || !root.child('papianoOnlineBeta/rooms').child($roomId).exists() )",
+          ".write": "auth != null && ( root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true || !root.child('papianoOnlineBeta/rooms').child($roomId).exists() )",
           "$uid": {
-            ".write": "auth != null && ( auth.uid === $uid || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid )"
+            ".write": "auth != null && ( auth.uid === $uid || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true )"
           }
         }
       },
       "users": {
         ".read": "auth != null",
         "$uid": {
-          ".write": "auth != null && ( auth.uid === $uid || auth.token.admin === true || (newData.child('room').val() === null && data.child('room').exists() && root.child('papianoOnlineBeta/rooms').child(data.child('room').val()).child('ownerUid').val() === auth.uid) )"
+          ".write": "auth != null && ( auth.uid === $uid || auth.token.admin === true )",
+          "room": {
+            ".write": "auth != null && ( auth.uid === $uid || auth.token.admin === true || (newData.val() === null && data.exists() && root.child('papianoOnlineBeta/rooms').child(data.val()).child('ownerUid').val() === auth.uid) )",
+            ".validate": "newData.val() === null || newData.isString()"
+          },
+          "updatedAt": {
+            ".write": "auth != null && ( auth.uid === $uid || auth.token.admin === true || (data.parent().child('room').exists() && root.child('papianoOnlineBeta/rooms').child(data.parent().child('room').val()).child('ownerUid').val() === auth.uid) )",
+            ".validate": "newData.isNumber()"
+          }
         }
       },
       "moderation": {
@@ -87,9 +126,9 @@
       "streams": {
         "$roomId": {
           ".read": "auth != null",
-          ".write": "auth != null && !root.child('papianoOnlineBeta/rooms').child($roomId).exists()",
+          ".write": "auth != null && ( root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true || !root.child('papianoOnlineBeta/rooms').child($roomId).exists() )",
           "$playerId": {
-            ".write": "auth != null && auth.uid === $playerId",
+            ".write": "auth != null && ( auth.uid === $playerId || root.child('papianoOnlineBeta/rooms').child($roomId).child('ownerUid').val() === auth.uid || auth.token.admin === true )",
             ".validate": "!newData.exists() || newData.child('p').val() === $playerId"
           }
         }
