@@ -1187,15 +1187,15 @@ select.form-input-control::-ms-expand{display:none}
 
 /* ===== Desktop UI/UX fixes (2026-06-10) — pure CSS, no JS changes ===== */
 
-/* Home cards: selalu 3 kolom di desktop (6 kartu = 3x2 rapi, bukan auto-fit 4+2) */
+/* Home cards: always 3 columns on desktop (6 cards = a tidy 3x2, not auto-fit 4+2) */
 .sidebar-brand{display:none}
 @media (min-width:900px) and (min-height:561px){
   .home-cards-stack{grid-template-columns:repeat(3,minmax(0,1fr))}
 
-  /* Kartu kolom desktop: reset padding kanan 54px (slot lock-icon layout row mobile) */
+  /* Desktop column card: reset the 54px right padding (mobile lock-icon layout slot) */
   .button-card-landscape{padding:20px 18px 18px}
 
-  /* Brand mengisi area atas sidebar yang kosong (sejajar topbar) */
+  /* Brand fills the empty top area of the sidebar (aligned with the top bar) */
   .sidebar-brand{
     display:flex;align-items:center;flex-shrink:0;
     height:var(--desktop-topbar);
@@ -1205,16 +1205,16 @@ select.form-input-control::-ms-expand{display:none}
   }
   .sidebar-brand-name{font-family:var(--font-display);font-size:18px;font-weight:900;color:#ffffff;letter-spacing:-0.02em;text-transform:uppercase}
 
-  /* Modal/sheet tidak menutupi sidebar */
+  /* Modal/sheet doesn't cover the sidebar */
   .themed-picker-overlay,.themed-confirm-overlay,.brand-sheet-overlay,.modal-profile-overlay{left:var(--desktop-sidebar)}
 
-  /* Back button sub-page sejajar dengan padding konten */
+  /* Sub-page back button aligned with the content padding */
   .sub-page-reference .chat-room-header{padding-left:clamp(16px,3vw,28px);padding-right:clamp(16px,3vw,28px)}
 
-  /* Chat list: nempel atas & full lebar kolom (bukan melayang center) */
+  /* Chat list: flush to the top & full column width (not floating centered) */
   .chat-search-bar-box,.friends-action-nav-bar,.chat-list-group{justify-self:stretch;align-self:stretch;max-width:none}
 
-  /* Master-detail: chat room hanya mengisi kolom kanan, list tetap terlihat */
+  /* Master-detail: the chat room only fills the right column, the list stays visible */
   #pageChat.active{max-width:none}
   .chat-overlay-room{
     left:calc(var(--desktop-sidebar) + clamp(18px,3.2vw,52px) + clamp(320px,34vw,460px) + 10px) !important;
@@ -1334,16 +1334,16 @@ select.form-input-control::-ms-expand{display:none}
 
 /* ============================================================
    PAPIANO PRO LAYER (2026-06-11) — desktop polish & large-screen
-   scaling untuk index.html (home / chat / account).
-   Tujuan: ukuran proporsional di monitor besar, elevasi kartu yang
-   lebih kalem (tidak menonjol berlebihan), top bar rapi.
+   scaling for index.html (home / chat / account).
+   Goal: proportional sizing on large monitors, calmer card
+   elevation (not overly prominent), a tidy top bar.
    ============================================================ */
 
 @media (min-width:900px) and (min-height:561px){
-  /* Top bar: semua aksi rapat ke kanan — tidak ada tombol mengambang di kiri */
+  /* Top bar: all actions packed to the right — no floating button on the left */
   .screen-main-app>.top-bar.top-auth-shell{justify-content:flex-end;gap:12px;padding:0 clamp(22px,3vw,44px)}
   .top-auth-actions{margin-left:auto}
-  /* Elevasi lebih halus: offset 3D dikurangi, ambient shadow diperlembut */
+  /* Softer elevation: reduced 3D offset, softened ambient shadow */
   .home-carousel{border-radius:24px;box-shadow:inset 0 2px 0 rgba(255,255,255,0.20),inset 0 -4px 0 rgba(0,43,140,0.30),0 4px 0 #00358f,0 14px 26px rgba(6,17,31,0.14)}
   .button-card-landscape{border-radius:22px;box-shadow:inset 0 2px 0 rgba(255,255,255,0.18),inset 0 -4px 0 var(--card-inset,rgba(0,0,0,0.20)),0 4px 0 var(--card-base,#00358f),0 12px 20px rgba(6,17,31,0.12)}
   .card-icon-badge{box-shadow:inset 0 1px 0 rgba(255,255,255,0.78),inset 0 -3px 0 rgba(6,17,31,0.08),0 3px 0 rgba(6,17,31,0.16),0 8px 14px rgba(6,17,31,0.12)}
@@ -1410,7 +1410,7 @@ select.form-input-control::-ms-expand{display:none}
   .nav-tab-action .nav-text-label{font-size:16px}
 }
 
-/* === Chat meta polish (2026-06-12): timestamp pojok kanan-bawah bubble === */
+/* === Chat meta polish (2026-06-12): timestamp at the bottom-right of the bubble === */
 .msg-meta-line{
   display:flex;
   width:fit-content;
@@ -1428,7 +1428,7 @@ select.form-input-control::-ms-expand{display:none}
   white-space:nowrap;
 }
 .msg-bubble .msg-meta-line{ max-width:100%; overflow:hidden; text-overflow:ellipsis; }
-/* Baris daftar chat: stamp tidak boleh mendesak nama sampai hilang */
+/* Chat list row: the stamp must not crowd the name until it disappears */
 .chat-timestamp{ max-width:45%; overflow:hidden; text-overflow:ellipsis; }
 
 /* Professional chat timestamps */

@@ -3531,8 +3531,8 @@ function getDefaultPianoHeightPercent(){
     const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
     const vw = window.innerWidth;
     const isTouch = window.matchMedia('(pointer:coarse)').matches;
-    // CATATAN: persen ini relatif terhadap getPianoMaxHeightPx() = 50% viewport,
-    // jadi 48 berarti piano ~24% tinggi layar (standar Synthesia/See Music ~20-25%).
+    // NOTE: this percentage is relative to getPianoMaxHeightPx() = 50% viewport,
+    // so 48 means the piano is ~24% of screen height (Synthesia/See Music standard ~20-25%).
     if(!isTouch){
         const maxPx = Math.max(1, vh * 0.5);
         // 24% viewport, with a 220px floor so it isn't too short on small laptop screens
@@ -3825,7 +3825,7 @@ function setChordDisplayColors(colors){
     } else if(_activeColorPadIntent === 'reset'){
         customChordColor = null;
     } else {
-        // restore: dianggap custom kalau bukan putih default
+        // restore: treated as custom when it isn't the default white
         customChordColor = (primary.toLowerCase() !== '#ffffff' || secondary.toLowerCase() !== '#ffffff') ? primary : null;
     }
     document.documentElement.style.setProperty('--chord-primary', primary);

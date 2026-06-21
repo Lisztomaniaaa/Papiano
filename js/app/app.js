@@ -1558,7 +1558,7 @@
                     if (normalizedOld) tx.delete(firestoreDb.collection('displayNames').doc(normalizedOld));
                 });
             } catch (e) {
-                showToast(e?.message === 'NAME_TAKEN' ? 'Nama udah dipakai user lain.' : 'Gagal update nama.');
+                showToast(e?.message === 'NAME_TAKEN' ? 'That name is already taken.' : 'Couldn’t update your name.');
                 profileSaveBusy = false;
                 return;
             }

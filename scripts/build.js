@@ -4,13 +4,13 @@
  * editable sources. Run this AFTER editing any source file and BEFORE
  * committing, so the .min files never drift out of sync:
  *
- *     node build.js
+ *     node scripts/build.js
  *
  * The minified outputs are committed to the repo and served directly; the
  * Vercel build only stamps cache-busting versions (see stamp-version.js).
  * Uses npx so no package.json/install is required (needs network the first
  * run to fetch terser + clean-css-cli). To wire this into the deploy later,
- * set vercel.json "buildCommand" to: node build.js && node stamp-version.js
+ * set vercel.json "buildCommand" to: node scripts/build.js && node scripts/stamp-version.js
  */
 const { execSync } = require('child_process');
 

@@ -1,7 +1,7 @@
 {
   "cleanUrls": true,
   "trailingSlash": false,
-  "buildCommand": "node stamp-version.js",
+  "buildCommand": "node scripts/stamp-version.js",
   "outputDirectory": ".",
   "redirects": [
     {
