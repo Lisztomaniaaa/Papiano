@@ -5037,7 +5037,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
 
 
 /* ── Theme: Child (Neobrutalism) ──────────────────────────────────── */
-body.theme-child{--neo-border:2.5px solid #06111f;--neo-shadow:4px 4px 0 #06111f;--neo-radius:14px;--neo-key-bg:#fffbe6;--neo-key-active:#ffeb3b;--neo-black-bg:#2d2d2d;--neo-black-active:#555555;--anim-color:#00e676 !important;}
+body.theme-child{--neo-border:2.5px solid #06111f;--neo-shadow:4px 4px 0 #06111f;--neo-radius:14px;--neo-key-bg:#fffbe6;--neo-key-active:#ffeb3b;--neo-black-bg:#2d2d2d;--neo-black-active:#555555;--anim-color:#38bdf8 !important;}
 /* ── Stage + Falling Notes Canvas ── */
 body.theme-child .stage{background:#fffbe6 !important;border-bottom:var(--neo-border);}
 body.theme-child canvas#fx{filter:contrast(1.08) saturate(1.3) !important;}
@@ -5047,7 +5047,7 @@ body.theme-child #chordDisplay .chord-name{color:#06111f !important;text-shadow:
 body.theme-child #pianoWrap{border-top:3px solid #06111f !important;box-shadow:0 -4px 0 #06111f !important;}
 body.theme-child #piano .white,body.theme-child .white{border:2px solid #06111f !important;border-top:none !important;border-radius:0 !important;box-shadow:3px 3px 0 rgba(6,17,31,0.5) !important;background:var(--neo-key-bg) !important;}
 body.theme-child #piano .white.active,body.theme-child .white.active{background:var(--neo-key-active) !important;box-shadow:1px 1px 0 #06111f !important;transform:translate(1px,1px) !important;}
-body.theme-child #piano .black,body.theme-child .black{border:2px solid #06111f !important;border-top:none !important;border-radius:0 0 10px 10px !important;box-shadow:3px 3px 0 rgba(0,0,0,0.7) !important;background:var(--neo-black-bg) !important;}
+body.theme-child #piano .black,body.theme-child .black{border:2px solid #06111f !important;border-top:none !important;border-radius:0 0 10px 10px !important;box-shadow:none !important;background:var(--neo-black-bg) !important;}
 body.theme-child #piano .black.active,body.theme-child .black.active{background:var(--neo-black-active) !important;box-shadow:1px 1px 0 #06111f !important;transform:translate(1px,1px) !important;}
 body.theme-child .key-label,body.theme-child .black-label{font-family:'Fredoka','Quicksand',sans-serif !important;font-weight:700 !important;}
 /* ── Panels + Buttons ── */
@@ -5065,3 +5065,7 @@ body.theme-child .color-row,body.theme-child .perf-setting-block{background:rgba
 body.theme-child #saberLine{border-top:3px solid #06111f !important;box-shadow:0 -2px 0 rgba(255,235,59,0.7) !important;}
 /* ── Toast ── */
 body.theme-child .toast-wrap .toast-item,body.theme-child #toastHost .toast-item{border:var(--neo-border) !important;border-radius:12px !important;box-shadow:var(--neo-shadow) !important;background:#fffbe6 !important;color:#06111f !important;}
+/* ── Child: hide complex note styles (only Single + Double visible) ── */
+body.theme-child #mGlass,body.theme-child #mOutline,body.theme-child #mMidnight,body.theme-child #mGradient,body.theme-child #mRainbow{display:none !important;}
+/* ── Child: hide particle + strike hub buttons ── */
+body.theme-child [data-visual-open="particle"],body.theme-child [data-visual-open="saber"]{display:none !important;}

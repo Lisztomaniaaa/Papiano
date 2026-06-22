@@ -1638,11 +1638,18 @@ function setPianoTheme(theme) {
     const btnChild = document.getElementById('themeChild');
     if (btnDefault) btnDefault.classList.toggle('active', pianoTheme === 'default');
     if (btnChild) btnChild.classList.toggle('active', pianoTheme === 'child');
-    // Child theme uses green as default note color
     if (pianoTheme === 'child') {
-        setAnimColor('#00e676');
+        // Child: blue notes, hide particles + strike, single style
+        setAnimColor('#38bdf8');
+        setSaberFx('saber', false);
+        setSaberFx('dust', false);
+        setAnimModeById('mDef');
+        setChordDisplayColors({ primary: '#38bdf8', secondary: '#38bdf8' });
     } else {
         setAnimColor('#ffffff');
+        setSaberFx('saber', true);
+        setSaberFx('dust', true);
+        setChordDisplayColors({ primary: '#ffffff', secondary: '#ffffff' });
     }
 }
 document.getElementById('themeDefault')?.addEventListener('click', () => setPianoTheme('default'));
