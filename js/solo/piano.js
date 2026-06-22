@@ -2716,6 +2716,39 @@ function drawFallingNote(f){
     if(y > canvasCssH || y + h < 0) return;
     if(x0 > canvasCssW || x0 + w < 0) return;
 
+    // ── Child / Neobrutalism theme: thick border + shadow, flat fill ──
+    if(pianoTheme === 'child'){
+        const neoR = Math.min(5, w * 0.2, h * 0.15);
+        const borderW = Math.max(1.5, Math.min(w * 0.12, 2.5));
+        const shadowOff = Math.max(2, Math.min(3, w * 0.14));
+        const baseHex = f.base || cachedAnimColor || '#38bdf8';
+        let rgb = _solidRgbCache.get(baseHex);
+        if(rgb === undefined){
+            rgb = safeHex(baseHex, '#38bdf8');
+            if(_solidRgbCache.size > 64) _solidRgbCache.clear();
+            _solidRgbCache.set(baseHex, rgb);
+        }
+        ctx2d.globalAlpha = noteAlpha;
+        // Shadow
+        ctx2d.fillStyle = 'rgba(6,17,31,0.55)';
+        ctx2d.beginPath();
+        if(ctx2d.roundRect) ctx2d.roundRect(x0 + shadowOff, y + shadowOff, w, h, neoR);
+        else ctx2d.rect(x0 + shadowOff, y + shadowOff, w, h);
+        ctx2d.fill();
+        // Fill
+        ctx2d.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+        ctx2d.beginPath();
+        if(ctx2d.roundRect) ctx2d.roundRect(x0, y, w, h, neoR);
+        else ctx2d.rect(x0, y, w, h);
+        ctx2d.fill();
+        // Border
+        ctx2d.strokeStyle = '#06111f';
+        ctx2d.lineWidth = borderW;
+        ctx2d.stroke();
+        ctx2d.globalAlpha = 1;
+        return;
+    }
+
     const isRounded = shape === 'rounded' && roundPct > 0;
     const rv = isRounded ? Math.min(8, w*0.45, h*0.35) * (roundPct / 100) : 0;
     const drawStyleRaw = f.styleResolved || f.style;
