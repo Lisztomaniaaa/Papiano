@@ -4140,9 +4140,12 @@
                 // so without this gate an unverified user would be booted straight
                 // in (and the "check your inbox" verify screen would be replaced
                 // by a fleeting toast). Hold them on the verification screen.
+                // Admin emails bypass this gate entirely.
+                const ADMIN_EMAILS = new Set(['utamairfan44@gmail.com', 'akunpolos0444000@gmail.com', 'papianobase@gmail.com']);
                 const needsEmailVerify = !user.emailVerified
-                    && (user.providerData || []).some(p => p && p.providerId === 'password');
-                if (needsEmailVerify) {
+                    && (user.providerData || []).some(p => p && p.providerId === 'password')
+                    && !ADMIN_EMAILS.has(String(user.email || '').toLowerCase());
+                if (needsEmailVerify && !currentProfile) {
                     currentUser = null;
                     currentProfile = null;
                     _deferredAuthUser = null;
