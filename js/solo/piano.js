@@ -994,8 +994,8 @@ function perfGovernorTick(frameMs, now){
     if(_perfSlowStreak >= 3 && perfGovScale > PERF_SCALE_MIN){
         perfGovScale = Math.max(PERF_SCALE_MIN, perfGovScale - 0.16);
         _applyPerfGovScale(now);
-    } else if(_perfFastStreak >= 50 && perfGovScale < PERF_SCALE_MAX){
-        perfGovScale = Math.min(PERF_SCALE_MAX, perfGovScale + 0.08);
+    } else if(_perfFastStreak >= 10 && perfGovScale < PERF_SCALE_MAX){
+        perfGovScale = Math.min(PERF_SCALE_MAX, perfGovScale + 0.14);
         _applyPerfGovScale(now);
     }
 }

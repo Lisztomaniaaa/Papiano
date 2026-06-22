@@ -285,12 +285,12 @@ body.solo-mode #mpChatPanel{ display:none !important; }
         box-shadow: none !important;
     }
 
-    /* During fast passages (burst mode) or under load, hold the blurred saber
-       smoke still — animating a blurred layer forces a repaint every frame. */
+    /* During fast passages (burst mode), hold the blurred saber
+       smoke still — animating a blurred layer forces a repaint every frame.
+       NOTE: perf-lite no longer pauses the saber wave. The CSS animation
+       is compositor-driven (background-position) and costs nothing. */
     body.input-burst-mode #saberLine::before,
-    body.input-burst-mode #saberLine::after,
-    body.perf-lite #saberLine::before,
-    body.perf-lite #saberLine::after {
+    body.input-burst-mode #saberLine::after {
         animation-play-state: paused !important;
     }
 }
