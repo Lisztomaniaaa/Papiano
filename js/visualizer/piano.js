@@ -10552,9 +10552,9 @@ midiBtn.onclick = () => {
 
 
 /* ═══════════════════════════════════════════════════════════════
-   PAPIANO VISUALIZER — MIDI FILE PLAYBACK ENGINE
-   Appended to the Solo piano engine for the Visualizer mode.
-   Single Play/Pause toggle. Auto-hides UI on play. Click stage to show.
+   PAPIANO VISUALIZER — MIDI + MusicXML PLAYBACK ENGINE
+   Single Play/Pause toggle next to Fullscreen.
+   Auto-hides UI on play. Click stage to show.
    ═══════════════════════════════════════════════════════════════ */
 (function(){
 'use strict';
@@ -10617,6 +10617,92 @@ function midiToTimeline(parsed){
     return timeline;
 }
 
+/* ── MusicXML Parser ──────────────────────────────────────────── */
+function parseMusicXML(xmlString){
+    const parser=new DOMParser();
+    const doc=parser.parseFromString(xmlString,'text/xml');
+    if(doc.querySelector('parsererror'))throw new Error('Invalid MusicXML');
+
+    const stepToSemitone={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+    const timeline=[];
+
+    // Get divisions (ticks per quarter note) and tempo
+    const attrEl=doc.querySelector('attributes divisions');
+    const divisions=attrEl?parseInt(attrEl.textContent)||1:1;
+
+    // Find tempo from direction/sound or default 120 BPM
+    let bpm=120;
+    const soundEl=doc.querySelector('direction sound[tempo]');
+    if(soundEl)bpm=parseFloat(soundEl.getAttribute('tempo'))||120;
+    const msPerBeat=60000/bpm;
+    const msPerDivision=msPerBeat/divisions;
+
+    // Parse all parts
+    const parts=doc.querySelectorAll('part');
+    parts.forEach(function(part){
+        let currentTimeDiv=0; // in divisions
+
+        const measures=part.querySelectorAll('measure');
+        measures.forEach(function(measure){
+            // Check for mid-score tempo changes
+            const dirs=measure.querySelectorAll('direction sound[tempo]');
+            dirs.forEach(function(d){
+                const newBpm=parseFloat(d.getAttribute('tempo'));
+                if(newBpm>0)bpm=newBpm;
+            });
+
+            const notes=measure.querySelectorAll('note');
+            notes.forEach(function(noteEl){
+                const isRest=noteEl.querySelector('rest');
+                const isChord=noteEl.querySelector('chord');
+                const durationEl=noteEl.querySelector('duration');
+                const duration=durationEl?parseInt(durationEl.textContent)||0:0;
+
+                if(!isChord){
+                    // Only advance time for non-chord notes
+                    // (chord notes share the same onset as the previous note)
+                }
+
+                if(!isRest){
+                    const pitchEl=noteEl.querySelector('pitch');
+                    if(pitchEl){
+                        const step=pitchEl.querySelector('step');
+                        const octave=pitchEl.querySelector('octave');
+                        const alter=pitchEl.querySelector('alter');
+
+                        if(step&&octave){
+                            const stepVal=stepToSemitone[step.textContent.trim().toUpperCase()]||0;
+                            const octVal=parseInt(octave.textContent)||4;
+                            const altVal=alter?parseInt(alter.textContent)||0:0;
+                            const midi=(octVal+1)*12+stepVal+altVal;
+
+                            if(midi>=21&&midi<=108){
+                                const onsetMs=currentTimeDiv*(60000/(bpm*divisions));
+                                const durationMs=duration*(60000/(bpm*divisions));
+
+                                timeline.push({ms:onsetMs,type:'noteOn',note:midi,velocity:0.8});
+                                timeline.push({ms:onsetMs+durationMs,type:'noteOff',note:midi,velocity:0});
+                            }
+                        }
+                    }
+                }
+
+                // Advance time (only for non-chord notes)
+                if(!isChord){
+                    currentTimeDiv+=duration;
+                }
+            });
+
+            // Handle forward/backup elements for multi-voice
+            const children=measure.children;
+            // Reset handled by note iteration above
+        });
+    });
+
+    timeline.sort((a,b)=>a.ms-b.ms);
+    return timeline;
+}
+
 /* ── State ────────────────────────────────────────────────────── */
 let vizTimeline=null;
 let vizPlaying=false;
@@ -10626,53 +10712,68 @@ let vizPauseElapsed=0;
 let vizEventIdx=0;
 let vizDuration=0;
 let vizRaf=null;
+let vizLoaded=false;
 
-const vizControls=document.getElementById('vizMidiControls');
 const vizPlayPauseBtn=document.getElementById('vizPlayPauseBtn');
-const vizProgress=document.getElementById('vizMidiProgress');
 
-function showVizControls(){if(vizControls)vizControls.style.display='flex';}
-
-function formatTime(ms){const sec=Math.floor((ms||0)/1000);const m=Math.floor(sec/60);const s=sec%60;return m+':'+(s<10?'0':'')+s;}
-function updateVizProgress(elapsed){if(vizProgress)vizProgress.textContent=formatTime(elapsed)+' / '+formatTime(vizDuration);}
-function updateBtnLabel(){if(vizPlayPauseBtn)vizPlayPauseBtn.textContent=vizPlaying?'Pause':'Play';}
+function updateBtnLabel(){
+    if(!vizPlayPauseBtn)return;
+    if(!vizLoaded){
+        vizPlayPauseBtn.textContent='Play';
+        vizPlayPauseBtn.classList.remove('active');
+    }else{
+        vizPlayPauseBtn.textContent=vizPlaying?'Pause':'Play';
+        if(vizPlaying)vizPlayPauseBtn.classList.add('active');
+        else vizPlayPauseBtn.classList.remove('active');
+    }
+}
 
 /* ── Auto-hide UI ─────────────────────────────────────────────── */
 function hideUI(){document.body.classList.add('hide-ui');}
 function showUI(){document.body.classList.remove('hide-ui');}
 
-// Click on stage → show UI
-const stageEl=document.querySelector('.stage')||document.getElementById('stageArea');
+const stageEl=document.querySelector('.stage');
 if(stageEl){
     stageEl.addEventListener('click',function(e){
-        // Don't toggle if clicking on canvas or other interactive stuff inside stage panels
         if(e.target.closest('.floating-panel'))return;
-        if(document.body.classList.contains('hide-ui')){
-            showUI();
-        }else{
-            hideUI();
-        }
+        if(document.body.classList.contains('hide-ui'))showUI();
+        else hideUI();
     });
 }
 
-/* ── Load MIDI ────────────────────────────────────────────────── */
+/* ── Load functions ───────────────────────────────────────────── */
+function loadVizTimeline(timeline,name){
+    vizTimeline=timeline;
+    vizDuration=timeline.length>0?timeline[timeline.length-1].ms:0;
+    vizLoaded=true;
+    updateBtnLabel();
+    if(typeof showToast==='function')showToast('Loaded: '+(name||'file'),{type:'success'});
+    // Auto-play
+    setTimeout(vizPlay,300);
+}
+
 function loadVizMidiFromBase64(base64,name){
     try{
         const binary=atob(base64);
         const bytes=new Uint8Array(binary.length);
         for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);
         const parsed=parseMidi(bytes.buffer);
-        vizTimeline=midiToTimeline(parsed);
-        vizDuration=vizTimeline.length>0?vizTimeline[vizTimeline.length-1].ms:0;
-        showVizControls();
-        updateVizProgress(0);
-        updateBtnLabel();
-        if(typeof showToast==='function')showToast('MIDI loaded: '+(name||'file'),{type:'success'});
-        // Auto-play after short delay
-        setTimeout(function(){vizToggle();},400);
+        const timeline=midiToTimeline(parsed);
+        loadVizTimeline(timeline,name);
     }catch(e){
         if(typeof showToast==='function')showToast('Failed to parse MIDI file.',{type:'error'});
         console.error('MIDI parse error:',e);
+    }
+}
+
+function loadVizMusicXML(xmlString,name){
+    try{
+        const timeline=parseMusicXML(xmlString);
+        if(timeline.length===0)throw new Error('No notes found');
+        loadVizTimeline(timeline,name);
+    }catch(e){
+        if(typeof showToast==='function')showToast('Failed to parse MusicXML.',{type:'error'});
+        console.error('MusicXML parse error:',e);
     }
 }
 
@@ -10691,8 +10792,6 @@ function vizPlay(){
     }
     vizPlaying=true;
     updateBtnLabel();
-    if(vizPlayPauseBtn)vizPlayPauseBtn.classList.add('active');
-    // Auto-hide UI when playing
     hideUI();
     vizTick();
 }
@@ -10703,7 +10802,6 @@ function vizPause(){
     vizPaused=true;
     vizPauseElapsed=performance.now()-vizStartTime;
     updateBtnLabel();
-    if(vizPlayPauseBtn)vizPlayPauseBtn.classList.remove('active');
     if(vizRaf)cancelAnimationFrame(vizRaf);
     if(typeof stopAllNotes==='function')stopAllNotes();
 }
@@ -10720,24 +10818,20 @@ function vizTick(){
         const ev=vizTimeline[vizEventIdx];
         if(ev.ms>elapsed)break;
         if(ev.type==='noteOn'&&ev.velocity>0){
-            if(typeof playNote==='function')playNote(ev.note,ev.velocity);
-            if(typeof addFallingNoteVisual==='function')addFallingNoteVisual(ev.note,ev.velocity);
-            else if(typeof triggerNoteVisual==='function')triggerNoteVisual(ev.note,ev.velocity);
+            // playNote(midi, transposeVal, velocity) — pass 0 for transpose
+            if(typeof playNote==='function')playNote(ev.note,0,ev.velocity);
         }else if(ev.type==='noteOff'||(ev.type==='noteOn'&&ev.velocity===0)){
             if(typeof stopNote==='function')stopNote(ev.note);
         }
         vizEventIdx++;
     }
-    updateVizProgress(elapsed);
-    if(vizEventIdx>=vizTimeline.length&&elapsed>vizDuration+2000){
+    if(vizEventIdx>=vizTimeline.length&&elapsed>vizDuration+1500){
         vizPlaying=false;
         vizPaused=false;
         vizEventIdx=0;
         vizPauseElapsed=0;
         updateBtnLabel();
-        if(vizPlayPauseBtn)vizPlayPauseBtn.classList.remove('active');
         if(typeof stopAllNotes==='function')stopAllNotes();
-        updateVizProgress(0);
         showUI();
         if(typeof showToast==='function')showToast('Playback complete.',{type:'success'});
         return;
@@ -10748,10 +10842,12 @@ function vizTick(){
 /* ── Button binding ───────────────────────────────────────────── */
 if(vizPlayPauseBtn)vizPlayPauseBtn.addEventListener('click',vizToggle);
 
-/* ── Auto-load MIDI from sessionStorage ───────────────────────── */
+/* ── Auto-load from sessionStorage ────────────────────────────── */
 function vizCheckSession(){
     const midiData=sessionStorage.getItem('vizMidiData');
     const midiName=sessionStorage.getItem('vizMidiName');
+    const xmlData=sessionStorage.getItem('vizMusicXMLData');
+    const xmlName=sessionStorage.getItem('vizMusicXMLName');
     if(midiData){
         let attempts=0;
         const waitSf=setInterval(function(){
@@ -10759,6 +10855,15 @@ function vizCheckSession(){
             if((typeof sfBuffers!=='undefined'&&Object.keys(sfBuffers).length>0)||attempts>40){
                 clearInterval(waitSf);
                 loadVizMidiFromBase64(midiData,midiName);
+            }
+        },250);
+    }else if(xmlData){
+        let attempts=0;
+        const waitSf=setInterval(function(){
+            attempts++;
+            if((typeof sfBuffers!=='undefined'&&Object.keys(sfBuffers).length>0)||attempts>40){
+                clearInterval(waitSf);
+                loadVizMusicXML(xmlData,xmlName);
             }
         },250);
     }

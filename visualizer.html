@@ -111,8 +111,8 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
             <div class="viz-upload-zone" id="vizUploadArea">
                 <span class="material-symbols-rounded">upload_file</span>
                 <span class="viz-upload-text">Drop a file here or tap to browse</span>
-                <span class="viz-upload-hint">.mid .midi .mp4 .webm .mov</span>
-                <input type="file" id="vizFileInput" accept=".mid,.midi,.mp4,.webm,.mov,.avi,.mkv,audio/midi,video/*">
+                <span class="viz-upload-hint">.mid .midi .musicxml .xml .mp4 .webm .mov</span>
+                <input type="file" id="vizFileInput" accept=".mid,.midi,.musicxml,.xml,.mp4,.webm,.mov,.avi,.mkv,audio/midi,application/xml,text/xml,video/*">
             </div>
             <div class="viz-file-chip" id="vizFileChip">
                 <span class="material-symbols-rounded" style="color:#005BFF;font-size:20px;">description</span>
@@ -153,9 +153,9 @@ if(fileRemoveBtn)fileRemoveBtn.addEventListener('click',function(e){e.stopPropag
 if(linkInput)linkInput.addEventListener('input',updateBtn);
 
 function handleFile(file){
-    var validExt=['.mid','.midi','.mp4','.webm','.mov','.avi','.mkv'];
+    var validExt=['.mid','.midi','.musicxml','.xml','.mp4','.webm','.mov','.avi','.mkv'];
     var ext='.'+file.name.split('.').pop().toLowerCase();
-    if(validExt.indexOf(ext)===-1){vizToast('Unsupported file. Use MIDI or video files.','error');return;}
+    if(validExt.indexOf(ext)===-1){vizToast('Unsupported file. Use MIDI, MusicXML, or video files.','error');return;}
     selectedFile=file;
     if(fileName)fileName.textContent=file.name;
     if(fileChip)fileChip.classList.add('show');
@@ -185,17 +185,31 @@ if(startBtn)startBtn.addEventListener('click',function(){
                     var base64=btoa(new Uint8Array(e.target.result).reduce(function(d,b){return d+String.fromCharCode(b);},''));
                     sessionStorage.setItem('vizMidiData',base64);
                     sessionStorage.setItem('vizMidiName',selectedFile.name);
+                    sessionStorage.removeItem('vizMusicXMLData');
                     sessionStorage.removeItem('vizLink');
                     window.location.href='/visualizer-stage';
                 }catch(err){vizToast('Failed to read MIDI file.','error');}
             };
             reader.onerror=function(){vizToast('Failed to read file.','error');};
             reader.readAsArrayBuffer(selectedFile);
+        }else if(ext==='musicxml'||ext==='xml'){
+            var reader=new FileReader();
+            reader.onload=function(e){
+                try{
+                    sessionStorage.setItem('vizMusicXMLData',e.target.result);
+                    sessionStorage.setItem('vizMusicXMLName',selectedFile.name);
+                    sessionStorage.removeItem('vizMidiData');
+                    sessionStorage.removeItem('vizLink');
+                    window.location.href='/visualizer-stage';
+                }catch(err){vizToast('Failed to read MusicXML file.','error');}
+            };
+            reader.onerror=function(){vizToast('Failed to read file.','error');};
+            reader.readAsText(selectedFile);
         }else{
-            vizToast('Video mode coming soon. Use MIDI files for now.','info');
+            vizToast('Video mode coming soon. Use MIDI or MusicXML files.','info');
         }
     }else if(linkInput&&linkInput.value.trim()){
-        vizToast('Link import coming soon. Use MIDI files for now.','info');
+        vizToast('Link import coming soon. Use MIDI or MusicXML files.','info');
     }
 });
 
