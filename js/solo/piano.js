@@ -1638,6 +1638,12 @@ function setPianoTheme(theme) {
     const btnChild = document.getElementById('themeChild');
     if (btnDefault) btnDefault.classList.toggle('active', pianoTheme === 'default');
     if (btnChild) btnChild.classList.toggle('active', pianoTheme === 'child');
+    // Child theme uses green as default note color
+    if (pianoTheme === 'child') {
+        setAnimColor('#00e676');
+    } else {
+        setAnimColor('#ffffff');
+    }
 }
 document.getElementById('themeDefault')?.addEventListener('click', () => setPianoTheme('default'));
 document.getElementById('themeChild')?.addEventListener('click', () => setPianoTheme('child'));
@@ -3615,7 +3621,7 @@ function applyFactoryDefaults(clearSavedState){
     updateSoundfontPickerUI();
     updateSfEffectUI();
     applyCurrentSfEffects();
-    setLabelMode(isMobileRenderTarget() ? 'note' : 'qwerty');
+    setLabelMode('off');
     setPianoTheme('default');
     setChordDisplayColors(DEFAULT_CHORD_COLORS);
     if(typeof window.applyGraphicQuality === 'function') window.applyGraphicQuality('auto', true);
