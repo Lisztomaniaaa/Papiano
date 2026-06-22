@@ -10258,8 +10258,18 @@ midiBtn.onclick = () => {
             },
             getDoc(ref){ return ref.get().then(wrapCompatDoc); },
             getDocs(query){ return query.get().then(snap => ({ forEach(callback){ snap.forEach(item => callback(wrapCompatDoc(item))); } })); },
+            setDoc(ref, data, options){ return options?.merge ? ref.set(data, { merge:true }) : ref.set(data); },
+            deleteDoc(ref){ return ref.delete(); },
+            addDoc(collectionRef, data){ return collectionRef.add(data); },
             runTransaction(database, handler){ return database.runTransaction(handler); },
+            increment(n){ return firebaseGlobal.firestore.FieldValue.increment(n); },
             serverTimestamp(){ return firebaseGlobal.firestore.FieldValue.serverTimestamp(); },
+            arrayUnion(...args){ return firebaseGlobal.firestore.FieldValue.arrayUnion(...args); },
+            arrayRemove(...args){ return firebaseGlobal.firestore.FieldValue.arrayRemove(...args); },
+            onSnapshot(query, onNext, onError){
+                if(typeof onError === 'function') return query.onSnapshot(onNext, onError);
+                return query.onSnapshot(onNext);
+            },
             where(...args){ return makeOp('where', args); },
             orderBy(...args){ return makeOp('orderBy', args); },
             startAt(...args){ return makeOp('startAt', args); },
@@ -10524,6 +10534,11 @@ midiBtn.onclick = () => {
     });
 
     window.addEventListener('beforeunload', () => {
+        try{ mpPersistPlayTime(true); }catch(e){}
+        try{ writeSelfUser({ online:false, room:null }); }catch(e){}
+    });
+    // pagehide is more reliable than beforeunload on mobile Chrome/Safari
+    window.addEventListener('pagehide', () => {
         try{ mpPersistPlayTime(true); }catch(e){}
         try{ writeSelfUser({ online:false, room:null }); }catch(e){}
     });

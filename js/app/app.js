@@ -720,6 +720,7 @@
         friendRequestUnreadTotal = 0;
         currentProfile = null;
         serverBaseSeconds = 0;
+        playTimePendingDelta = 0;
         updateNotificationBadges();
         // NOTE: Do NOT clear locallyReadRooms / LOCAL_READ_STORE_KEY here.
         // These room-read markers remain valid after re-login (same user)
@@ -1109,43 +1110,64 @@
     // serverBaseSeconds: the last confirmed value from Firestore.
     // sessionElapsed is tracked via playTimeStartedAt (Date.now snapshot).
     // Total = serverBaseSeconds + live elapsed. We NEVER derive from localStorage.
+    // Uses atomic FieldValue.increment() to avoid overwriting playtime from
+    // other pages (solo/multiplayer) or other devices.
     let serverBaseSeconds = 0;
+    let playTimePendingDelta = 0; // seconds accumulated since last successful Firestore sync
+    let playTimeSyncInFlight = false;
+    const PLAYTIME_RETRY_MS = 10000;
+    let playTimeRetryTimer = null;
 
     function getLivePlayTimeSeconds() {
-        if (!playTimeStartedAt) return serverBaseSeconds;
+        if (!playTimeStartedAt) return serverBaseSeconds + playTimePendingDelta;
         const elapsed = Math.max(0, Math.floor((Date.now() - playTimeStartedAt) / 1000));
-        return serverBaseSeconds + elapsed;
+        return serverBaseSeconds + playTimePendingDelta + elapsed;
     }
 
-    function flushElapsedToBase() {
+    function flushElapsedToPending() {
         if (!playTimeStartedAt) return;
         const now = Date.now();
         const elapsed = Math.max(0, Math.floor((now - playTimeStartedAt) / 1000));
-        serverBaseSeconds += elapsed;
+        playTimePendingDelta += elapsed;
         playTimeStartedAt = now;
     }
 
-    let lastSyncedSeconds = -1;
-
-    function syncPlayTimeToFirestore() {
+    function syncPlayTimeToFirestore(force = false) {
         if (!currentUser?.uid || !firestoreDb) return;
-        flushElapsedToBase();
-        const seconds = serverBaseSeconds;
-        // Skip write if nothing changed since last sync
-        if (seconds === lastSyncedSeconds) return;
-        lastSyncedSeconds = seconds;
-        // Update currentProfile to reflect latest total
+        flushElapsedToPending();
+        // Skip write if nothing accumulated since last sync
+        if (playTimePendingDelta <= 0 && !force) return;
+        if (playTimeSyncInFlight && !force) return;
+        const deltaSeconds = playTimePendingDelta;
+        if (deltaSeconds <= 0) return;
+        playTimePendingDelta = 0;
+        playTimeSyncInFlight = true;
+        // Update local state optimistically
+        serverBaseSeconds += deltaSeconds;
+        const totalSeconds = serverBaseSeconds;
         if (currentProfile) {
-            currentProfile.playTimeSeconds = seconds;
-            currentProfile.playTime = formatPlayTime(seconds);
+            currentProfile.playTimeSeconds = totalSeconds;
+            currentProfile.playTime = formatPlayTime(totalSeconds);
         }
         saveProfile(currentProfile);
         firestoreDb.collection('profiles').doc(currentUser.uid).set({
-            playTimeSeconds: seconds,
-            playTime: formatPlayTime(seconds),
+            playTimeSeconds: firebase.firestore.FieldValue.increment(deltaSeconds),
+            playTime: formatPlayTime(totalSeconds),
             playTimeLeaderboardUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true }).catch(() => {});
+        }, { merge: true }).then(() => {
+            playTimeSyncInFlight = false;
+            clearTimeout(playTimeRetryTimer);
+        }).catch((err) => {
+            // Write failed: put the delta back so it retries on the next tick
+            playTimePendingDelta += deltaSeconds;
+            serverBaseSeconds -= deltaSeconds;
+            playTimeSyncInFlight = false;
+            console.warn('[Papiano] Playtime sync failed, will retry:', err?.message || err);
+            // Schedule a retry sooner than the normal interval
+            clearTimeout(playTimeRetryTimer);
+            playTimeRetryTimer = setTimeout(() => syncPlayTimeToFirestore(true), PLAYTIME_RETRY_MS);
+        });
     }
 
     function startPlayTimeTracker() {
@@ -1163,11 +1185,12 @@
     }
 
     function pausePlayTimeTracker(syncRemote = false) {
-        flushElapsedToBase();
-        if (syncRemote) syncPlayTimeToFirestore();
+        flushElapsedToPending();
+        if (syncRemote) syncPlayTimeToFirestore(true);
         playTimeStartedAt = 0;
         clearInterval(playTimeTimer);
         playTimeTimer = null;
+        clearTimeout(playTimeRetryTimer);
         stopPlayTimeDisplayTicker();
     }
 
@@ -4031,10 +4054,14 @@
         }
     });
 
-    window.addEventListener('beforeunload', () => {
-        flushElapsedToBase();
-        syncPlayTimeToFirestore();
-    });
+    // pagehide is more reliable than beforeunload on mobile Chrome/Safari.
+    // Use both for maximum coverage.
+    function _playtimeLastChanceSync() {
+        flushElapsedToPending();
+        syncPlayTimeToFirestore(true);
+    }
+    window.addEventListener('pagehide', _playtimeLastChanceSync);
+    window.addEventListener('beforeunload', _playtimeLastChanceSync);
 
     var _mpPresenceRef = null;
 
