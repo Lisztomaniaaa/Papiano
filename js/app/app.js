@@ -115,10 +115,16 @@
         if (!firebaseAuth) firebaseAuth = firebase.auth();
         realtimeDb = firebase.database();
         firestoreDb = firebase.firestore();
-        supabaseStorageClient = window.supabase.createClient(
-            supabaseStorageConfig.url,
-            supabaseStorageConfig.key
-        );
+        try {
+            supabaseStorageClient = window.supabase.createClient(
+                supabaseStorageConfig.url,
+                supabaseStorageConfig.key
+            );
+        } catch (_e) {
+            // Supabase is only used for image uploads — not critical for
+            // profile loading. Swallow the error so the boot continues.
+            supabaseStorageClient = null;
+        }
         if (!_authBootstrapped) {
             _authBootstrapped = true;
             startPapianoAuthBootstrap();
@@ -511,8 +517,15 @@
 
     async function isAccountDeleted(uid) {
         if (!uid || !realtimeDb) return false;
-        const snapshot = await realtimeDb.ref(`${DELETED_ACCOUNTS_PATH}/${uid}`).once('value');
-        return Boolean(snapshot.val()?.deleted);
+        try {
+            const snapshot = await realtimeDb.ref(`${DELETED_ACCOUNTS_PATH}/${uid}`).once('value');
+            return Boolean(snapshot.val()?.deleted);
+        } catch (_e) {
+            // RTDB read can fail due to transient auth-token propagation delay
+            // or network issues. Treat as "not deleted" so profile loading
+            // continues — the real-time watcher will catch it later if needed.
+            return false;
+        }
     }
 
     async function exitDeletedAccount() {

@@ -49,11 +49,14 @@ service cloud.firestore {
         // play legitimately writes a lower value than another device). Anti-
         // cheat for playtime needs a server function, not a rule.
         || (owns(uid) && changedKeys().hasOnly(['playTimeSeconds', 'playTime', 'playTimeLeaderboardUpdatedAt', 'updatedAt']))
+        // Owner can update most fields. publicId/userId may only be SET once
+        // (initial assignment when they don't exist yet); after that they're
+        // immutable unless admin writes them.
         || (owns(uid)
             && !changedKeys().hasAny(['ownedRoles', 'likes', 'dislikes'])
             && (
                 !changedKeys().hasAny(['publicId', 'userId'])
-                || !('publicId' in resource.data)
+                || !resource.data.keys().hasAny(['publicId'])
             )
             && badgeWithinInventory())
         // Anyone may cast a like/dislike on another profile, but only by ±1 per
