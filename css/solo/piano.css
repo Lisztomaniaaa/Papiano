@@ -44,8 +44,8 @@
 @keyframes corePulse{ 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.35); } }
 
 :root{
-    --accent-white: #ffffff;
-    --accent-black: #ffffff;
+    --accent-white: #0099ff;
+    --accent-black: #0099ff;
     --anim-color: #0099ff;
     --piano-height: 25vh;
     --ui-color: #15151e;

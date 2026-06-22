@@ -1639,17 +1639,20 @@ function setPianoTheme(theme) {
     if (btnDefault) btnDefault.classList.toggle('active', pianoTheme === 'default');
     if (btnChild) btnChild.classList.toggle('active', pianoTheme === 'child');
     if (pianoTheme === 'child') {
-        // Child: blue notes, hide particles + strike, single style
         setAnimColor('#0099ff');
         setSaberFx('saber', false);
         setSaberFx('dust', false);
         setAnimModeById('mDef');
         setChordDisplayColors({ primary: '#0099ff', secondary: '#0099ff' });
+        setWhiteKeyColor('#0099ff');
+        setBlackKeyColor('#0099ff');
     } else {
         setAnimColor('#0099ff');
         setSaberFx('saber', true);
         setSaberFx('dust', true);
         setChordDisplayColors({ primary: '#0099ff', secondary: '#0099ff' });
+        setWhiteKeyColor('#0099ff');
+        setBlackKeyColor('#0099ff');
     }
 }
 document.getElementById('themeDefault')?.addEventListener('click', () => setPianoTheme('default'));
@@ -3642,8 +3645,8 @@ function applyFactoryDefaults(clearSavedState){
     setNoteOpacity(100);
     setNoteSpeed(75);
     setAnimShape('rounded');
-    setWhiteKeyColor(NO_COLOR);
-    setBlackKeyColor(NO_COLOR);
+    setWhiteKeyColor('#0099ff');
+    setBlackKeyColor('#0099ff');
     setKeyGlowEnabled(false);
     setKeyGlowIntensity(50);
     sfEffectSettings.sf1 = {sustain:1.00, reverb:0.00};
