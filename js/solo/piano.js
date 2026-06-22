@@ -1012,11 +1012,11 @@ function getAnimRiseSpeed(){
     return RISE_SPEED * (0.12 + speed * 0.88);
 }
 const DT_MAX = 0.042;
-let cachedAnimColor = '#ffffff';
+let cachedAnimColor = '#0099ff';
 const _solidRgbCache = new Map();
 let rainbowV2Seq = 0, renderNow = 0;
-let animDoubleLeftColor = '#ffffff';
-let animDoubleRightColor = '#ffffff';
+let animDoubleLeftColor = '#0099ff';
+let animDoubleRightColor = '#0099ff';
 let animDoubleSplitTuts = 44;
 function refreshAnimColor(){ cachedAnimColor = getComputedStyle(document.documentElement).getPropertyValue('--anim-color').trim() || '#ffffff'; }
 function getAnimBaseColorForMidi(midi){
@@ -1640,16 +1640,16 @@ function setPianoTheme(theme) {
     if (btnChild) btnChild.classList.toggle('active', pianoTheme === 'child');
     if (pianoTheme === 'child') {
         // Child: blue notes, hide particles + strike, single style
-        setAnimColor('#38bdf8');
+        setAnimColor('#0099ff');
         setSaberFx('saber', false);
         setSaberFx('dust', false);
         setAnimModeById('mDef');
-        setChordDisplayColors({ primary: '#38bdf8', secondary: '#38bdf8' });
+        setChordDisplayColors({ primary: '#0099ff', secondary: '#0099ff' });
     } else {
-        setAnimColor('#ffffff');
+        setAnimColor('#0099ff');
         setSaberFx('saber', true);
         setSaberFx('dust', true);
-        setChordDisplayColors({ primary: '#ffffff', secondary: '#ffffff' });
+        setChordDisplayColors({ primary: '#0099ff', secondary: '#0099ff' });
     }
 }
 document.getElementById('themeDefault')?.addEventListener('click', () => setPianoTheme('default'));
@@ -3613,15 +3613,15 @@ function applyFactoryDefaults(clearSavedState){
     setPianoVisibilityPercent(100);
     document.getElementById('sizeRange').value = 18;
     animSize = 18;
-    setAnimColor('#ffffff');
-    setAnimDoubleLeftColor('#ffffff');
-    setAnimDoubleRightColor('#ffffff');
+    setAnimColor('#0099ff');
+    setAnimDoubleLeftColor('#0099ff');
+    setAnimDoubleRightColor('#0099ff');
     setAnimDoubleSplitTuts(44);
     setAnimModeById('mDef');
     if(typeof clearEffectSpriteCache === 'function') clearEffectSpriteCache();
     setKeyDustIntensity(3);
-    setSaberColor('#ffffff');
-    setDustColor('#ffffff');
+    setSaberColor('#0099ff');
+    setDustColor('#0099ff');
     setSaberMotion('static');
     setMotionSpeed(50);
     setDustBlendMode('glow');
@@ -3872,7 +3872,7 @@ function mountColorPad(id, label, initialColor, handler, resetColor){
 // 'user' saat user drag/click/keyboard di color pad, 'reset' saat user klik Reset.
 var _activeColorPadIntent = null;
 
-const DEFAULT_CHORD_COLORS = { primary:'#ffffff', secondary:'#ffffff' };
+const DEFAULT_CHORD_COLORS = { primary:'#0099ff', secondary:'#0099ff' };
 let chordDisplayColors = Object.assign({}, DEFAULT_CHORD_COLORS);
 function setChordDisplayColors(colors){
     const source = colors || {};

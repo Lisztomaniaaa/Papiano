@@ -46,7 +46,7 @@
 :root{
     --accent-white: #ffffff;
     --accent-black: #ffffff;
-    --anim-color: #ffffff;
+    --anim-color: #0099ff;
     --piano-height: 25vh;
     --ui-color: #15151e;
     --btn-color: #2a2a35;
@@ -5037,7 +5037,7 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
 
 
 /* ── Theme: Child (Neobrutalism) ──────────────────────────────────── */
-body.theme-child{--neo-border:2.5px solid #06111f;--neo-shadow:4px 4px 0 #06111f;--neo-radius:14px;--neo-key-bg:#fffbe6;--neo-key-active:#ffeb3b;--neo-black-bg:#2d2d2d;--neo-black-active:#555555;--anim-color:#38bdf8 !important;}
+body.theme-child{--neo-border:2.5px solid #06111f;--neo-shadow:4px 4px 0 #06111f;--neo-radius:14px;--neo-key-bg:#fffbe6;--neo-key-active:#ffeb3b;--neo-black-bg:#2d2d2d;--neo-black-active:#555555;--anim-color:#0099ff !important;}
 /* ── Stage + Falling Notes Canvas ── */
 body.theme-child .stage{background:#fffbe6 !important;border-bottom:var(--neo-border);}
 body.theme-child canvas#fx{filter:contrast(1.08) saturate(1.3) !important;}
