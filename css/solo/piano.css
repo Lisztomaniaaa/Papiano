@@ -5032,3 +5032,22 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
         scroll-behavior:auto !important;
     }
 }
+
+
+/* ── Theme: Child (Neobrutalism) ── */
+body.theme-child{--neo-border:2.5px solid #06111f;--neo-shadow:4px 4px 0 #06111f;--neo-radius:14px;}
+body.theme-child #pianoWrap{border-top:var(--neo-border);box-shadow:var(--neo-shadow);}
+body.theme-child #pianoWrap .white{border:var(--neo-border);border-radius:0 0 var(--neo-radius) var(--neo-radius);box-shadow:var(--neo-shadow);background:#fffbe6;}
+body.theme-child #pianoWrap .black{border:var(--neo-border);border-radius:0 0 10px 10px;box-shadow:3px 3px 0 #06111f;background:#2d2d2d;}
+body.theme-child #pianoWrap .white.active,body.theme-child #pianoWrap .white.pressed{background:#ffeb3b;box-shadow:2px 2px 0 #06111f;transform:translate(1px,1px);}
+body.theme-child #pianoWrap .black.active,body.theme-child #pianoWrap .black.pressed{background:#444;box-shadow:1px 1px 0 #06111f;transform:translate(1px,1px);}
+body.theme-child .key-label{font-family:'Fredoka','Quicksand',sans-serif !important;font-weight:700 !important;}
+body.theme-child canvas#fallingCanvas,body.theme-child #animCanvas{border-radius:0;filter:contrast(1.1) saturate(1.2);}
+body.theme-child .floating-panel{border:var(--neo-border);border-radius:var(--neo-radius);box-shadow:6px 6px 0 #06111f;}
+body.theme-child .panel-header{border-bottom:var(--neo-border);font-weight:900;}
+body.theme-child .btn,body.theme-child .visual-open-btn{border:2px solid #06111f;border-radius:10px;box-shadow:3px 3px 0 #06111f;font-weight:800;transition:transform 80ms,box-shadow 80ms;}
+body.theme-child .btn:active,body.theme-child .visual-open-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #06111f;}
+body.theme-child .btn.active{background:#ffeb3b;color:#06111f;box-shadow:2px 2px 0 #06111f;}
+body.theme-child .top-action-btn,body.theme-child .floating-trigger{border:2px solid #06111f;border-radius:12px;box-shadow:3px 3px 0 #06111f;}
+body.theme-child .chord-display{border:var(--neo-border);border-radius:var(--neo-radius);box-shadow:var(--neo-shadow);background:rgba(255,251,230,0.95);color:#06111f;}
+body.theme-child .toast-container .toast-item{border:var(--neo-border);border-radius:12px;box-shadow:var(--neo-shadow);}

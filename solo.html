@@ -314,17 +314,18 @@
     <div id="colorPanel" class="floating-panel compact-color-panel">
         <div class="panel-header"><span class="panel-title">Visual</span><button class="panel-close" data-close-panel="colorPanel">✕</button></div>
         <div class="visual-hub active" data-visual-view="hub">
-            <button class="btn visual-open-btn" type="button" data-visual-open="notes">Notes</button>
+            <button class="btn visual-open-btn" type="button" data-visual-open="notes">Falling Notes</button>
             <button class="btn visual-open-btn" type="button" data-visual-open="keyboard">Piano Keys</button>
             <button class="btn visual-open-btn" type="button" data-visual-open="particle">Particles</button>
             <button class="btn visual-open-btn" type="button" data-visual-open="saber">Strike Line</button>
             <button class="btn visual-open-btn" type="button" data-visual-open="background">Background</button>
+            <button class="btn visual-open-btn" type="button" data-visual-open="theme">Theme</button>
             <button class="btn visual-open-btn" type="button" data-visual-open="preset">Preset</button>
         </div>
 
         <div class="visual-subpage" data-visual-subpage="notes">
             <button class="btn visual-back-btn" type="button" data-visual-back>← Back</button>
-            <div class="color-group-title">Notes</div>
+            <div class="color-group-title">Falling Notes</div>
             <div class="color-row compact-color-row">
                 <div class="ui-setting-head-gap">
                     <div>
@@ -574,6 +575,19 @@
             </div>
             <input type="file" id="bgImgInput" accept="image/*" style="display:none;" aria-label="Background image">
             <button class="btn visual-back-btn" type="button" data-visual-back>← Back</button>
+        </div>
+
+        <div class="visual-subpage" data-visual-subpage="theme">
+            <button class="btn visual-back-btn" type="button" data-visual-back>← Back</button>
+            <div class="color-group-title">Theme</div>
+            <div class="color-row compact-color-row">
+                <div class="section-title ui-mb8">Piano Theme</div>
+                <div class="anim-style-grid" style="grid-template-columns:1fr 1fr;">
+                    <button class="btn theme-btn active" type="button" id="themeDefault">Default</button>
+                    <button class="btn theme-btn" type="button" id="themeChild">Child</button>
+                </div>
+                <div style="color:rgba(255,255,255,0.38); font-size:10px; font-weight:700; margin-top:8px;">Child = Neobrutalism style. Affects keys, falling notes, and overall look.</div>
+            </div>
         </div>
 
         <div class="visual-subpage" data-visual-subpage="preset">

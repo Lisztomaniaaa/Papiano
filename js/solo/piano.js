@@ -1156,6 +1156,7 @@ function updateKeyLabelStyle(labelEl, mode, blackKey) {
 }
 
 let labelMode = 'off';
+let pianoTheme = 'default';
 let blackKeyWidthPercent = 120;
 let blackKeyHeightPercent = 60;
 let pianoVisibilityPercent = 100;
@@ -1629,6 +1630,17 @@ document.querySelectorAll('.label-selector-vertical').forEach(selector => {
         if(opt && selector.contains(opt)) setLabelMode(opt.dataset.mode);
     });
 });
+
+function setPianoTheme(theme) {
+    pianoTheme = (theme === 'child') ? 'child' : 'default';
+    document.body.classList.toggle('theme-child', pianoTheme === 'child');
+    const btnDefault = document.getElementById('themeDefault');
+    const btnChild = document.getElementById('themeChild');
+    if (btnDefault) btnDefault.classList.toggle('active', pianoTheme === 'default');
+    if (btnChild) btnChild.classList.toggle('active', pianoTheme === 'child');
+}
+document.getElementById('themeDefault')?.addEventListener('click', () => setPianoTheme('default'));
+document.getElementById('themeChild')?.addEventListener('click', () => setPianoTheme('child'));
 
 function invalidateWrapRect() { cachedWrapRect = null; }
 
@@ -3603,7 +3615,8 @@ function applyFactoryDefaults(clearSavedState){
     updateSoundfontPickerUI();
     updateSfEffectUI();
     applyCurrentSfEffects();
-    setLabelMode('off');
+    setLabelMode(isMobileRenderTarget() ? 'note' : 'qwerty');
+    setPianoTheme('default');
     setChordDisplayColors(DEFAULT_CHORD_COLORS);
     if(typeof window.applyGraphicQuality === 'function') window.applyGraphicQuality('auto', true);
     if(clearSavedState) clearStoredSettings();
@@ -3920,6 +3933,7 @@ function getCurrentSettings() {
         customChordColor: typeof customChordColor !== 'undefined' ? (customChordColor || null) : null,
         // Settings outside the Visual panel (top bar) so a preset is complete.
         metronome: (typeof window.getMetronomeState === 'function') ? window.getMetronomeState() : undefined,
+        pianoTheme,
     };
 }
 
@@ -4065,6 +4079,7 @@ function applySettings(s) {
             setChordDisplayColors(s.chordDisplayColors);
         }
         if (s.metronome && typeof window.setMetronomeState === 'function') window.setMetronomeState(s.metronome);
+        if (s.pianoTheme !== undefined) setPianoTheme(s.pianoTheme);
         if (s.perfHudEnabled !== undefined) setPerformanceMonitor(!!s.perfHudEnabled);
         // 'auto' retired: old presets that stored it fall back to smart detection.
         performanceMode = 'manual';
