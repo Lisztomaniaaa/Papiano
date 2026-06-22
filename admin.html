@@ -336,6 +336,7 @@ tr:last-child td{border-bottom:none}
         <div class="card">
           <div class="ct">Create Role</div>
           <div class="frow"><label>Role Label</label><input class="fc" id="nRoleLabel" placeholder="e.g. VIP" maxlength="28"></div>
+          <div class="frow"><label>Color</label><div style="display:flex;align-items:center;gap:10px"><input type="color" class="color-input" id="nRoleColor" value="#4d90ff" oninput="document.getElementById('nRoleColorHex').textContent=this.value"><span id="nRoleColorHex" style="font-size:11px;color:var(--muted);font-family:monospace">#4d90ff</span></div></div>
           <div class="faction"><button class="btn bp" data-act="createRole">Create Role</button></div>
         </div>
       </div>
@@ -664,9 +665,9 @@ function renderRoles(){
   const tb=$('rolesTbody'); if(!tb) return;
   const keys=Object.keys(allRoles).sort();
   if(!keys.length){ tb.innerHTML='<tr><td colspan="3" class="lrow">No roles. Create one below.</td></tr>'; }
-  else tb.innerHTML=keys.map(id=>{const r=allRoles[id]||{},l=r.label||id.toUpperCase();
+  else tb.innerHTML=keys.map(id=>{const r=allRoles[id]||{},l=r.label||id.toUpperCase(),c=r.color||'#888';
     return `<tr><td><span class="code">${x(id)}</span></td>
-      <td style="font-weight:700">${x(l)}</td>
+      <td><span class="tag" style="background:${x(c)};color:${ink(c)}">${x(l)}</span></td>
       <td class="tda"><button class="btn br bxs" data-act="delRole" data-id="${x(id)}" data-name="${x(l)}">Delete</button></td></tr>`;}).join('');
   renderGiftSelect($('giftSel')); renderGiftSelect($('bulkGiftSel'));
 }
@@ -675,9 +676,10 @@ async function createRole(){
   const raw=$('nRoleLabel').value.trim(); if(!raw) return toast('Label required','err');
   const id=raw.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,40); if(!id) return toast('Label needs letters/numbers','err');
   if(allRoles[id]) return toast('Role already exists','err');
-  try{ await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB,`roles/${id}`),{label:raw.slice(0,28)});
+  try{ await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB,`roles/${id}`),{label:raw.slice(0,28),color:$('nRoleColor')?.value||'#4d90ff'});
     await logAction('role.create',id,raw); toast(`Role "${raw}" created`,'ok');
     $('nRoleLabel').value='';
+    if($('nRoleColor'))$('nRoleColor').value='#4d90ff';if($('nRoleColorHex'))$('nRoleColorHex').textContent='#4d90ff';
   }catch(e){ toast('Failed: '+e.message,'err'); }
 }
 

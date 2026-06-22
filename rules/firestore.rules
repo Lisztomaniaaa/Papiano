@@ -28,7 +28,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (owns(uid) && changedKeys().hasOnly(['playTimeSeconds', 'playTime', 'playTimeLeaderboardUpdatedAt', 'updatedAt']))
         || (owns(uid)
-            && !changedKeys().hasAny(['role', 'likes', 'dislikes'])
+            && !changedKeys().hasAny(['likes', 'dislikes'])
             && (
                 !changedKeys().hasAny(['publicId', 'userId'])
                 || !resource.data.keys().hasAny(['publicId'])

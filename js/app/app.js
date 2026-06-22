@@ -221,8 +221,9 @@
     let activeChatRoomType = '';
     let activeChatTargetUid = '';
     let currentChatSubView = 'chats';
-    // Simple role labels map (loaded from Realtime DB at /roles, admin-managed).
-    let roleLabels = { player: 'Player' };
+    // Role registry map — loaded from Realtime DB at /roles, admin-managed.
+    // Each entry: { label: 'VIP', color: '#FFD700' }
+    let roleRegistry = {};
     let rolesRef = null;
     let rolesHandler = null;
     let deletedAccountRef = null;
@@ -477,11 +478,13 @@
         rolesRef = realtimeDb.ref(ROLE_PATH);
         rolesHandler = snapshot => {
             const data = snapshot.val() || {};
-            roleLabels = { player: 'Player' };
+            roleRegistry = {};
             Object.entries(data).forEach(([id, role]) => {
-                roleLabels[id] = role.label || id;
+                roleRegistry[id] = {
+                    label: String(role.label || id).slice(0, 28),
+                    color: (typeof role.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(role.color)) ? role.color : ''
+                };
             });
-            roleLabels.player = roleLabels.player || 'Player';
             updateProfileView(loadProfile());
             if (document.getElementById('brandSheetOverlay')?.classList.contains('active')) populateBrandSheet();
         };
@@ -977,7 +980,7 @@
     function normalizeProfile(uid, data = {}) {
         const publicId = Number(data.publicId || 0);
         const playTimeSeconds = parsePlayTimeSeconds(data);
-        const role = normalizeRole(data.role || data.roleId || data.badgeId || 'player');
+        const role = normalizeRole(data.role || '');
         return {
             uid,
             name: String(data.name || data.displayName || 'Papiano User').slice(0, 24),
@@ -1205,11 +1208,32 @@
     }
 
     function getRoleLabel(role) {
-        return roleLabels[normalizeRole(role)] || String(role || 'Player').toUpperCase();
+        const key = normalizeRole(role);
+        const entry = roleRegistry[key];
+        if (entry) return entry.label;
+        // Role not in registry — don't display anything meaningful
+        return key ? key.toUpperCase() : '';
+    }
+
+    function getRoleColor(role) {
+        const entry = roleRegistry[normalizeRole(role)];
+        return entry?.color || '';
     }
 
     function renderRoleLabel(role) {
-        return `<span class="role-pill">${escapeHtml(getRoleLabel(role))}</span>`;
+        const label = getRoleLabel(role);
+        if (!label) return '';
+        const color = getRoleColor(role);
+        const style = color ? ` style="background:${escapeHtml(color)};color:${contrastInk(color)}"` : '';
+        return `<span class="role-pill"${style}>${escapeHtml(label)}</span>`;
+    }
+
+    function contrastInk(hex) {
+        const c = hex.replace('#', '');
+        const r = parseInt(c.substring(0, 2), 16) || 0;
+        const g = parseInt(c.substring(2, 4), 16) || 0;
+        const b = parseInt(c.substring(4, 6), 16) || 0;
+        return (r * 0.299 + g * 0.587 + b * 0.114) > 160 ? '#06111f' : '#ffffff';
     }
 
     // Country select change - update the select's own label only. The profile
@@ -1217,6 +1241,24 @@
     function handleCountrySelectChange() {
         const select = document.getElementById('formInputCountry');
         if (!select) return;
+        syncThemedSelectDisplay(select);
+    }
+
+    function handleRoleSelectChange() {
+        const select = document.getElementById('accountRoleSelect');
+        if (!select) return;
+        syncThemedSelectDisplay(select);
+    }
+
+    function populateAccountRoleSelect(currentRole) {
+        const select = document.getElementById('accountRoleSelect');
+        if (!select) return;
+        const current = normalizeRole(currentRole);
+        const entries = Object.entries(roleRegistry).sort((a, b) => a[1].label.localeCompare(b[1].label));
+        select.innerHTML = '<option value="">— No Role —</option>' + entries.map(([id, r]) => 
+            `<option value="${escapeHtml(id)}">${escapeHtml(r.label)}</option>`
+        ).join('');
+        select.value = current;
         syncThemedSelectDisplay(select);
     }
 
@@ -1376,6 +1418,7 @@
 
         if (displayProfileName) displayProfileName.textContent = profile.name || 'Papiano User';
         if (displayProfileRole) displayProfileRole.innerHTML = renderRoleLabel(profile.role);
+        populateAccountRoleSelect(profile.role);
         if (displayProfileId) displayProfileId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (displayTotalPlayTrack) animateCountUp(displayTotalPlayTrack, playTimeLabel);
         if (displayProfilePlayPill) displayProfilePlayPill.textContent = playTimeHourLabel;
@@ -1511,6 +1554,7 @@
             desc: cleanDesc,
             photoURL: formInputPhotoUrl?.value || '',
             countryCode: cleanCountry,
+            role: document.getElementById('accountRoleSelect')?.value || '',
             playTimeSeconds: parsePlayTimeSeconds(cached),
             updatedAt: currentUser?.uid ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
         };

@@ -6389,11 +6389,22 @@ midiBtn.onclick = () => {
     }
 
     // Simple role labels map (loaded from Realtime DB at /roles, admin-managed).
-    const MP_ROLE_LABELS = { player: 'Player' };
-    let mpRoleLabels = { ...MP_ROLE_LABELS };
+    let mpRoleRegistry = {};
     function getRoleLabel(value){
-        const key = String(value || 'player').trim().toLowerCase();
-        return mpRoleLabels[key] || key.toUpperCase() || 'PLAYER';
+        const key = String(value || '').trim().toLowerCase();
+        const entry = mpRoleRegistry[key];
+        return entry ? entry.label : (key ? key.toUpperCase() : '');
+    }
+    function getRoleColor(value){
+        const key = String(value || '').trim().toLowerCase();
+        return mpRoleRegistry[key]?.color || '';
+    }
+    function contrastInk(hex){
+        const c = hex.replace('#','');
+        const r = parseInt(c.substring(0,2),16)||0;
+        const g = parseInt(c.substring(2,4),16)||0;
+        const b = parseInt(c.substring(4,6),16)||0;
+        return (r*0.299+g*0.587+b*0.114)>160?'#06111f':'#ffffff';
     }
     function attachRoleRegistryListener(){
         if(!firebaseReady || !dbApi || !db) return;
@@ -6401,10 +6412,14 @@ midiBtn.onclick = () => {
             var rolesRef = dbApi.ref(db, 'roles');
             dbApi.onValue(rolesRef, snap => {
                 const data = snap.val() || {};
-                mpRoleLabels = { player: 'Player' };
+                mpRoleRegistry = {};
                 Object.entries(data).forEach(([id, role]) => {
-                    const roleId = String(id || '').trim().toLowerCase().slice(0, 40) || 'player';
-                    mpRoleLabels[roleId] = String(role?.label || roleId).trim().slice(0, 28) || roleId.toUpperCase();
+                    const roleId = String(id || '').trim().toLowerCase().slice(0, 40);
+                    if (!roleId) return;
+                    mpRoleRegistry[roleId] = {
+                        label: String(role?.label || roleId).trim().slice(0, 28) || roleId.toUpperCase(),
+                        color: (typeof role?.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(role.color)) ? role.color : ''
+                    };
                 });
                 renderSearch();
                 renderRoomChrome();
@@ -6436,7 +6451,7 @@ midiBtn.onclick = () => {
     }
 
     function normalizeHomeProfile(uid, data = {}){
-        const role = String(data.role || data.badgeId || 'player').toLowerCase();
+        const role = String(data.role || data.badgeId || '').toLowerCase();
         const publicId = Number(data.publicId || 0);
         const validPublicId = Number.isInteger(publicId) && publicId > 0 ? publicId : 0;
         const userId = formatMpSequentialId(data.userId || validPublicId);
@@ -6446,7 +6461,7 @@ midiBtn.onclick = () => {
             searchName:String(data.searchName || data.name || data.displayName || '').toLowerCase(),
             desc:sanitizeText(data.desc || data.bio, 'No bio yet.').slice(0, 160),
             badgeId:role,
-            role:getRoleLabel(role),
+            role:role,
             photoURL:String(data.photoURL || data.avatar_url || data.avatarURL || ''),
             publicId:validPublicId,
             userId,
@@ -8297,9 +8312,11 @@ midiBtn.onclick = () => {
         profileAvatar.setAttribute('aria-label', player.name);
         profileAvatar.style.setProperty('--mp-player-color', playerColor(player));
         profileName.textContent = player.name;
-        profileRole.textContent = getRoleLabel(player.badgeId);
+        const _rl8300 = getRoleLabel(player.badgeId); const _rc8300 = getRoleColor(player.badgeId);
+        profileRole.textContent = _rl8300;
         profileRole.dataset.rarity = '';
-        profileRole.style.cssText = '';
+        if(_rc8300) profileRole.style.cssText = 'background:'+_rc8300+';color:'+contrastInk(_rc8300)+';';
+        else profileRole.style.cssText = '';
         profileId.textContent = player.displayUserId || player.userId || 'ID pending';
         profileInstrument.textContent = playerMainInstrumentText(player);
         if(profileLayerInstrument) profileLayerInstrument.textContent = playerLayerInstrumentText(player);
@@ -8397,8 +8414,10 @@ midiBtn.onclick = () => {
         }
         if(nameEl) nameEl.textContent = player.name || 'Player';
         if(badgeEl){
-            badgeEl.textContent = getRoleLabel(player.badgeId);
-            badgeEl.style.cssText='';
+            const _rl = getRoleLabel(player.badgeId); const _rc = getRoleColor(player.badgeId);
+            badgeEl.textContent = _rl;
+            if(_rc) badgeEl.style.cssText='background:'+_rc+';color:'+contrastInk(_rc)+';';
+            else badgeEl.style.cssText='';
             badgeEl.className='mp-lobby-badge-pill';
         }
         if(flagEl){
@@ -8464,8 +8483,10 @@ midiBtn.onclick = () => {
                 selectedPlayer = fresh;
                 if(nameEl) nameEl.textContent = fresh.name || 'Player';
                 if(badgeEl){
-                    badgeEl.textContent = getRoleLabel(fresh.badgeId);
-                    badgeEl.style.cssText='';
+                    const _rl2 = getRoleLabel(fresh.badgeId); const _rc2 = getRoleColor(fresh.badgeId);
+                    badgeEl.textContent = _rl2;
+                    if(_rc2) badgeEl.style.cssText='background:'+_rc2+';color:'+contrastInk(_rc2)+';';
+                    else badgeEl.style.cssText='';
                     badgeEl.className='mp-lobby-badge-pill';
                 }
                 if(idEl) idEl.textContent = fresh.displayUserId || fresh.userId || '—';
