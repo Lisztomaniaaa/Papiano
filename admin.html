@@ -325,25 +325,17 @@ tr:last-child td{border-bottom:none}
 
       <!-- ROLES -->
       <div class="page" id="pageRoles">
-        <div class="ph"><div><div class="pt">Roles</div><div class="ps">Define roles, colors and permissions.</div></div></div>
+        <div class="ph"><div><div class="pt">Roles</div><div class="ps">Define roles with a simple label.</div></div></div>
         <div class="card">
           <div class="ct">Current Roles</div>
           <div class="twrap"><table>
-            <thead><tr><th>Label</th><th>Preview</th><th>Permissions</th><th style="text-align:right">Actions</th></tr></thead>
-            <tbody id="rolesTbody"><tr><td colspan="4" class="lrow">Loading…</td></tr></tbody>
+            <thead><tr><th>ID</th><th>Label</th><th style="text-align:right">Actions</th></tr></thead>
+            <tbody id="rolesTbody"><tr><td colspan="3" class="lrow">Loading…</td></tr></tbody>
           </table></div>
         </div>
         <div class="card">
           <div class="ct">Create Role</div>
-          <div class="frow"><label>Role Label</label><input class="fc" id="nRoleLabel" placeholder="e.g. VIP" maxlength="28" data-act="colorPreview" data-ev="input"></div>
-          <div class="frow"><label>Badge Color</label>
-            <div class="color-row">
-              <input type="color" class="color-input" id="nRoleColor" value="#4d90ff" data-act="colorPreview" data-ev="input">
-              <span class="color-preview" id="colorPreview">#4d90ff</span>
-              <div id="colorSwatch" class="bp-pill" style="background:#4d90ff;color:#fff">LABEL</div>
-            </div>
-          </div>
-          <div class="frow"><label>Permissions</label><div class="perm-grid" id="createPermGrid"></div></div>
+          <div class="frow"><label>Role Label</label><input class="fc" id="nRoleLabel" placeholder="e.g. VIP" maxlength="28"></div>
           <div class="faction"><button class="btn bp" data-act="createRole">Create Role</button></div>
         </div>
       </div>
@@ -445,7 +437,7 @@ tr:last-child td{border-bottom:none}
         </div>
         <div class="card">
           <div class="ct">Reset All User Roles</div>
-          <p style="font-size:13px;color:var(--muted);margin-bottom:13px">Removes badgeId + ownedRoles from every Firestore profile.</p>
+          <p style="font-size:13px;color:var(--muted);margin-bottom:13px">Sets role to 'player' on every Firestore profile and removes legacy fields (badgeId, roleId, ownedRoles).</p>
           <button class="btn bam" data-act="resetAllUsers">Reset All Users</button>
           <div id="resetProgress" style="margin-top:10px;font-size:12px;color:var(--muted);display:none"></div>
         </div>
@@ -486,11 +478,7 @@ tr:last-child td{border-bottom:none}
   <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mBulkGift">Cancel</button><button class="btn bp" data-act="doBulkGift">Gift to All</button></div>
 </div></div>
 
-<div class="modal-bg" id="mEditRole"><div class="modal">
-  <h3>Edit Role</h3><p class="msub">Role: <strong id="editRoleName">—</strong></p>
-  <div class="frow"><label>Permissions</label><div class="perm-grid" id="editPermGrid"></div></div>
-  <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mEditRole">Cancel</button><button class="btn bp" data-act="doEditRole">Save</button></div>
-</div></div>
+
 
 <div class="modal-bg" id="mBan"><div class="modal">
   <h3>Ban User</h3><p class="msub">Ban <strong id="banName">—</strong>. They will be signed out and blocked from logging in.</p>
@@ -521,15 +509,6 @@ const CONFIG={apiKey:'AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY',authDomain:'papia
 const PRESENCE='papianoOnlineBeta';            // RTDB presence + multiplayer namespace
 const ADMIN_EMAILS=new Set(['utamairfan44@gmail.com','akunpolos0444000@gmail.com','papianobase@gmail.com']);
 const DON_GOAL=100, ONLINE_FRESH_MS=70000, ROOM_STALE_MS=60000;
-const PERMISSIONS=[
-  {id:'write_announcement',label:'Post Announcements'},
-  {id:'delete_any_message',label:'Delete Any Message'},
-  {id:'mute_chat',label:'Mute Chat'},
-  {id:'mute_playing',label:'Mute Playing'},
-  {id:'kick_player',label:'Kick Player'},
-  {id:'ban_user',label:'Ban User'},
-  {id:'manage_rooms',label:'Manage Rooms'},
-];
 const NAV=[
   {id:'dash',label:'Dashboard',sec:'Overview',icon:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'},
   {id:'users',label:'Users',sec:'Community',icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'},
@@ -574,9 +553,9 @@ async function onAuthChange(user){
   try{
     let isAdmin=ADMIN_EMAILS.has(user.email||''), badge='';
     const snap=await fbR.fsMod.getDoc(fbR.fsMod.doc(FS,'profiles',user.uid));
-    const pd=snap.data()||{}; badge=pd.badgeId||'';
-    if(!isAdmin && badge!=='dev'){
-      $('deniedMsg').textContent=`${user.email} — role "${badge||'none'}" — admin requires DEV or an authorized email.`;
+    const pd=snap.data()||{}; badge=pd.role||pd.badgeId||'';
+    if(!isAdmin && !['dev','admin'].includes(badge)){
+      $('deniedMsg').textContent=`${user.email} — role "${badge||'none'}" — admin requires DEV/ADMIN or an authorized email.`;
       show('sLoad',false); show('sDenied',true); return;
     }
     ADMIN={uid:user.uid,name:pd.name||user.displayName||user.email,userId:pd.userId||'',photoURL:pd.photoURL||user.photoURL||'',badgeId:badge||'dev'};
@@ -633,7 +612,6 @@ function go(page){
   if(page==='reports') loadReports();
   if(page==='audit') loadAudit();
   if(page==='mp') renderMpRooms();
-  if(page==='roles') renderPermGrid('createPermGrid',[]);
   if(page==='chat' && !ctx.chatChannel) chatTab('group_global');
 }
 
@@ -670,8 +648,8 @@ async function countMsgsToday(){
 function renderDashRoles(){
   const el=$('dashRoleList'), keys=Object.keys(allRoles).sort();
   if(!keys.length){ el.innerHTML='<span class="perm-none">No roles.</span>'; return; }
-  el.innerHTML=keys.map(id=>{const r=allRoles[id]||{},c=safeColor(r.color,'#888'),l=r.label||r.name||id.toUpperCase();
-    return `<span class="bp-pill" style="background:${x(c)};color:${ink(c)}">${x(l)}</span>`;}).join('');
+  el.innerHTML=keys.map(id=>{const r=allRoles[id]||{},l=r.label||id.toUpperCase();
+    return `<span class="tag info">${x(l)}</span>`;}).join(' ');
 }
 function renderDashRooms(){
   const el=$('dashRooms'), arr=Object.values(liveRooms);
@@ -685,25 +663,21 @@ function renderDashRooms(){
 function renderRoles(){
   const tb=$('rolesTbody'); if(!tb) return;
   const keys=Object.keys(allRoles).sort();
-  if(!keys.length){ tb.innerHTML='<tr><td colspan="4" class="lrow">No roles. Create one below.</td></tr>'; }
-  else tb.innerHTML=keys.map(id=>{const r=allRoles[id]||{},c=safeColor(r.color,'#888'),l=r.label||r.name||id.toUpperCase();
-    return `<tr><td style="font-weight:700">${x(l)}</td>
-      <td><span class="bp-pill" style="background:${x(c)};color:${ink(c)}">${x(l)}</span></td>
-      <td>${renderPermPills(r.permissions||[])}</td>
-      <td class="tda"><button class="btn bp bxs" data-act="editRole" data-id="${x(id)}" data-name="${x(l)}">Edit</button><button class="btn br bxs" data-act="delRole" data-id="${x(id)}" data-name="${x(l)}">Del</button></td></tr>`;}).join('');
+  if(!keys.length){ tb.innerHTML='<tr><td colspan="3" class="lrow">No roles. Create one below.</td></tr>'; }
+  else tb.innerHTML=keys.map(id=>{const r=allRoles[id]||{},l=r.label||id.toUpperCase();
+    return `<tr><td><span class="code">${x(id)}</span></td>
+      <td style="font-weight:700">${x(l)}</td>
+      <td class="tda"><button class="btn br bxs" data-act="delRole" data-id="${x(id)}" data-name="${x(l)}">Delete</button></td></tr>`;}).join('');
   renderGiftSelect($('giftSel')); renderGiftSelect($('bulkGiftSel'));
 }
 function renderGiftSelect(sel){ if(!sel) return; sel.innerHTML='<option value="">— select role —</option>'+Object.keys(allRoles).sort().map(id=>`<option value="${x(id)}">${x(allRoles[id].label||allRoles[id].name||id.toUpperCase())}</option>`).join(''); }
-function renderPermGrid(cid,sel=[]){ const el=$(cid); if(!el) return; el.innerHTML=PERMISSIONS.map(p=>`<label class="perm-cb"><input type="checkbox" value="${x(p.id)}" ${sel.includes(p.id)?'checked':''}><span class="perm-cb-label">${x(p.label)}</span></label>`).join(''); }
-function getCheckedPerms(cid){ const el=$(cid); return el?[...el.querySelectorAll('input:checked')].map(c=>c.value):[]; }
-function renderPermPills(perms){ if(!Array.isArray(perms)||!perms.length) return '<span class="perm-none">None</span>'; return perms.map(pid=>{const p=PERMISSIONS.find(p=>p.id===pid);return p?`<span class="perm-list-item">${x(p.label)}</span>`:'';}).join(''); }
-function colorPreview(){ const c=$('nRoleColor').value; $('colorPreview').textContent=c; const sw=$('colorSwatch'); sw.style.background=c; sw.style.color=ink(c); sw.textContent=($('nRoleLabel').value||'LABEL').toUpperCase().slice(0,10); }
 async function createRole(){
   const raw=$('nRoleLabel').value.trim(); if(!raw) return toast('Label required','err');
-  const id=raw.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,''); if(!id) return toast('Label needs letters/numbers','err');
-  try{ await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB,`roles/${id}`),{label:raw.toUpperCase(),name:raw.toUpperCase(),color:$('nRoleColor').value,rarity:'custom',permissions:getCheckedPerms('createPermGrid'),createdAt:Date.now()});
-    await logAction('role.create',id,raw.toUpperCase()); toast(`Role "${raw.toUpperCase()}" created`,'ok');
-    $('nRoleLabel').value=''; $('nRoleColor').value='#4d90ff'; colorPreview(); renderPermGrid('createPermGrid',[]);
+  const id=raw.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,40); if(!id) return toast('Label needs letters/numbers','err');
+  if(allRoles[id]) return toast('Role already exists','err');
+  try{ await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB,`roles/${id}`),{label:raw.slice(0,28)});
+    await logAction('role.create',id,raw); toast(`Role "${raw}" created`,'ok');
+    $('nRoleLabel').value='';
   }catch(e){ toast('Failed: '+e.message,'err'); }
 }
 
@@ -727,7 +701,7 @@ function renderUserCards(){
   updateBulkBar();
 }
 function userCard(u){
-  const r=allRoles[u.badgeId||''], c=safeColor(r?.color,'#555'), l=r?.label||r?.name||(u.badgeId?u.badgeId.toUpperCase():'NO ROLE');
+  const roleKey=u.role||u.badgeId||'player', r=allRoles[roleKey], l=r?.label||roleKey.toUpperCase();
   const banned=isBanned(u.uid), sel=userSelection.has(u.uid);
   const av=u.photoURL?`<img class="uav" src="${x(u.photoURL)}" alt="">`:`<div class="uav">${x((u.name||'?')[0].toUpperCase())}</div>`;
   return `<div class="rcard${sel?' sel':''}">
@@ -735,7 +709,7 @@ function userCard(u){
     ${av}
     <div class="uinfo" data-act="userDetail" data-uid="${x(u.uid)}" style="cursor:pointer">
       <div class="uname">${x(u.name||'Unknown')} ${banned?'<span class="tag danger">BANNED</span>':''}</div>
-      <div class="uid">${x((u.userId||u.uid||'').replace(/^#/,'#'))} · <span class="bp-pill" style="background:${c};color:${ink(c)}">${x(l)}</span></div>
+      <div class="uid">${x((u.userId||u.uid||'').replace(/^#/,'#'))} · <span class="tag info">${x(l)}</span></div>
     </div>
     <div class="uacts">
       <button class="btn bp bxs" data-act="gift" data-uid="${x(u.uid)}" data-name="${x(u.name||'User')}">Gift</button>
@@ -748,18 +722,18 @@ function updateBulkBar(){ const n=userSelection.size; $('bulkCount').textContent
 
 async function userDetail(uid){
   const u=findUser(uid)||(await getProfile(uid)); if(!u) return toast('User not found','err');
-  const r=allRoles[u.badgeId||''], c=safeColor(r?.color,'#555'), l=r?.label||r?.name||'NO ROLE', banned=isBanned(uid);
+  const roleKey=u.role||u.badgeId||'player', r=allRoles[roleKey], l=r?.label||roleKey.toUpperCase(), banned=isBanned(uid);
   const av=u.photoURL?`<img class="uav" src="${x(u.photoURL)}" alt="" style="width:56px;height:56px">`:`<div class="uav" style="width:56px;height:56px;font-size:20px">${x((u.name||'?')[0].toUpperCase())}</div>`;
   $('detailBody').innerHTML=`
     <h3 style="margin-bottom:14px">User Detail</h3>
-    <div class="rcard" style="background:var(--s2)">${av}<div class="uinfo"><div class="uname" style="font-size:16px">${x(u.name||'Unknown')} ${banned?'<span class="tag danger">BANNED</span>':''}</div><div class="uid">${x(u.userId||'')} · <span class="bp-pill" style="background:${c};color:${ink(c)}">${x(l)}</span></div></div></div>
+    <div class="rcard" style="background:var(--s2)">${av}<div class="uinfo"><div class="uname" style="font-size:16px">${x(u.name||'Unknown')} ${banned?'<span class="tag danger">BANNED</span>':''}</div><div class="uid">${x(u.userId||'')} · <span class="tag info">${x(l)}</span></div></div></div>
     <div class="card" style="margin:12px 0">
       <div class="kv"><span class="k">UID</span><span class="v"><span class="code">${x(uid)}</span></span></div>
       <div class="kv"><span class="k">Public ID</span><span class="v">${x(u.publicId??'—')}</span></div>
+      <div class="kv"><span class="k">Role</span><span class="v"><span class="tag info">${x(l)}</span></span></div>
       <div class="kv"><span class="k">Country</span><span class="v">${x(u.countryCode||'—')}</span></div>
       <div class="kv"><span class="k">Play time</span><span class="v">${x(u.playTime||fmtDur(u.playTimeSeconds||0))}</span></div>
       <div class="kv"><span class="k">Likes / Dislikes</span><span class="v">${x(u.likes||0)} / ${x(u.dislikes||0)}</span></div>
-      <div class="kv"><span class="k">Owned roles</span><span class="v">${x((u.ownedRoles||[]).join(', ')||'—')}</span></div>
       <div class="kv"><span class="k">Bio</span><span class="v">${x(u.desc||u.bio||'—')}</span></div>
     </div>
     <div class="faction">
@@ -773,12 +747,12 @@ async function getProfile(uid){ try{ const s=await fbR.fsMod.getDoc(fbR.fsMod.do
 
 /* role grant/remove */
 async function setUserRole(uid,roleId){ const {fsMod,rtdbMod}=fbR;
-  await fsMod.updateDoc(fsMod.doc(FS,'profiles',uid),{roleId,badgeId:roleId,ownedRoles:fsMod.arrayUnion(roleId)});
-  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{badgeId:roleId,role:roleId}); }catch(e){}
+  await fsMod.updateDoc(fsMod.doc(FS,'profiles',uid),{role:roleId});
+  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{role:roleId}); }catch(e){}
 }
 async function clearUserRole(uid){ const {fsMod,rtdbMod}=fbR;
-  await fsMod.updateDoc(fsMod.doc(FS,'profiles',uid),{roleId:'common',badgeId:'common'});
-  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{badgeId:'common',role:'common'}); }catch(e){}
+  await fsMod.updateDoc(fsMod.doc(FS,'profiles',uid),{role:'player'});
+  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{role:'player'}); }catch(e){}
 }
 
 /* ───────── BANS ───────── */
@@ -992,9 +966,9 @@ function renderDonChart(data){
 }
 function searchDonor(){ const q=$('donorSearch').value.trim(); if(!q) return; queryUsers(q).then(users=>{
   if(!users.length) return toast('No user found','err'); const u=users[0]; selectedDonorUid=u.uid; selectedDonorData=u;
-  const r=allRoles[u.badgeId||''],c=safeColor(r?.color,'#555'),l=r?.label||r?.name||'NO ROLE';
+  const roleKey=u.role||u.badgeId||'player',r=allRoles[roleKey],l=r?.label||roleKey.toUpperCase();
   $('donorCard').style.display='flex'; $('donorName').textContent=u.name||'Unknown'; $('donorUid').textContent=(u.userId||u.uid||'').replace(/^#/,'');
-  $('donorBadge').innerHTML=`<span class="bp-pill" style="background:${c};color:${ink(c)}">${x(l)}</span>`; $('donorAv').textContent=(u.name||'?')[0].toUpperCase(); $('addDonBtn').disabled=false;
+  $('donorBadge').innerHTML=`<span class="tag info">${x(l)}</span>`; $('donorAv').textContent=(u.name||'?')[0].toUpperCase(); $('addDonBtn').disabled=false;
 }); }
 async function addDonation(){
   if(!selectedDonorUid) return toast('Find a user first','err');
@@ -1041,12 +1015,12 @@ async function resetAllRoleData(onProg){ const {fsMod}=fbR; let cur=null,total=0
   while(true){ let q=fsMod.query(fsMod.collection(FS,'profiles'),fsMod.limit(400));
     if(cur) q=fsMod.query(fsMod.collection(FS,'profiles'),fsMod.startAfter(cur),fsMod.limit(400));
     const s=await fsMod.getDocs(q); if(s.empty) break;
-    const b=fsMod.writeBatch(FS); s.docs.forEach(d=>b.update(d.ref,{badgeId:'common',roleId:'common',ownedRoles:[]})); await b.commit();
+    const b=fsMod.writeBatch(FS); s.docs.forEach(d=>b.update(d.ref,{role:'player',badgeId:fsMod.deleteField(),roleId:fsMod.deleteField(),ownedRoles:fsMod.deleteField()})); await b.commit();
     total+=s.docs.length; cur=s.docs[s.docs.length-1]; if(onProg) onProg(total); if(s.docs.length<400) break; }
   return total;
 }
 function resetAllUsers(){
-  confirmAction('Reset ALL user roles?','Removes badgeId + ownedRoles from every Firestore profile.',async()=>{
+  confirmAction('Reset ALL user roles?','Sets role to player on every profile and removes legacy fields (badgeId, roleId, ownedRoles).',async()=>{
     const p=$('resetProgress'); p.style.display='block'; p.textContent='Starting…';
     try{ const total=await resetAllRoleData(c=>p.textContent=`Processed ${c}…`); p.textContent=`Done! ${total} profiles reset.`;
       await logAction('users.resetRoles','',total+' profiles'); toast(`${total} users reset`,'ok');
@@ -1063,7 +1037,6 @@ function openDetail(){ $('detailBg').classList.add('open'); $('detailSheet').cla
 function closeDetail(){ $('detailBg').classList.remove('open'); $('detailSheet').classList.remove('open'); }
 function openGift(uid,name){ ctx.giftUid=uid; $('giftName').textContent=name; renderGiftSelect($('giftSel')); openModal('mGift'); }
 function openBan(uid,name,data){ ctx.banUid=uid; ctx.banData=data||findUser(uid); $('banName').textContent=name; $('banReason').value=''; $('banDuration').value='0'; openModal('mBan'); }
-function openEditRole(id,name){ ctx.editRoleId=id; $('editRoleName').textContent=name; renderPermGrid('editPermGrid',allRoles[id]?.permissions||[]); openModal('mEditRole'); }
 function confirmAction(title,msg,fn,typeWord){ $('cfTitle').textContent=title; $('cfMsg').textContent=msg; ctx.confirmFn=fn;
   if(typeWord){ $('cfTypeWrap').style.display='flex'; $('cfTypeWord').textContent=typeWord; $('cfTypeInput').value=''; ctx.confirmWord=typeWord; }
   else { $('cfTypeWrap').style.display='none'; ctx.confirmWord=null; } openModal('mConfirm'); }
@@ -1075,7 +1048,7 @@ const H={
   nav:d=>{ go(d.page); },
   openMore,closeSheet,closeDetail,
   closeModal:d=>closeModal(d.id),
-  colorPreview,createRole,userSearch,
+  createRole,userSearch,
   userSel:d=>toggleSel(d.uid),
   userDetail:d=>userDetail(d.uid),
   bulkClear:()=>{ userSelection.clear(); renderUserCards(); },
@@ -1090,8 +1063,6 @@ const H={
   doBan:async()=>{ const uid=ctx.banUid; if(!uid) return; try{ await banUser(uid,ctx.banData,$('banReason').value.trim(),parseInt($('banDuration').value)||0); toast('User banned','ok'); closeModal('mBan'); closeDetail(); if(userResults.length) userSearch(); }catch(e){ toast('Failed: '+e.message,'err'); } },
   unban:d=>confirmAction('Unban user?',`Lift the ban on ${d.name}.`,async()=>{ try{ await unbanUser(d.uid,d.name); toast('Unbanned','ok'); closeDetail(); if(userResults.length) userSearch(); }catch(e){ toast('Failed: '+e.message,'err'); } }),
   banQuick,
-  editRole:d=>openEditRole(d.id,d.name),
-  doEditRole:async()=>{ if(!ctx.editRoleId) return; try{ await fbR.rtdbMod.update(fbR.rtdbMod.ref(RTDB,`roles/${ctx.editRoleId}`),{permissions:getCheckedPerms('editPermGrid')}); await logAction('role.edit',ctx.editRoleId,''); toast('Saved','ok'); closeModal('mEditRole'); }catch(e){ toast('Failed: '+e.message,'err'); } },
   delRole:d=>confirmAction('Delete role?',`Delete "${d.name}" and strip it from all users.`,async()=>{ try{ await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,`roles/${d.id}`)); await cascadeRemoveRole(d.id); await logAction('role.delete',d.id,d.name); toast('Role deleted','ok'); }catch(e){ toast('Failed: '+e.message,'err'); } },'DELETE'),
   chatTab:d=>chatTab(d.ch), chatLoadCustom, chatReload:()=>ctx.chatRoom&&loadChat(ctx.chatRoom),
   chatPost:()=>{ if(!ctx.chatRoom) return toast('Open a channel','err'); $('postChannel').textContent=$('chatChannelLabel').textContent; $('postAs').textContent=ADMIN.name; $('postText').value=''; openModal('mPost'); },
@@ -1105,10 +1076,8 @@ const H={
   confirmOk:()=>{ if(ctx.confirmWord && $('cfTypeInput').value.trim().toUpperCase()!==ctx.confirmWord) return toast(`Type ${ctx.confirmWord} to confirm`,'err'); const fn=ctx.confirmFn; closeModal('mConfirm'); ctx.confirmFn=null; fn&&fn(); },
 };
 async function cascadeRemoveRole(roleId){ const {fsMod}=fbR, col=fsMod.collection(FS,'profiles');
-  const q1=await fsMod.getDocs(fsMod.query(col,fsMod.where('badgeId','==',roleId)));
-  const q2=await fsMod.getDocs(fsMod.query(col,fsMod.where('ownedRoles','array-contains',roleId)));
-  const aff=new Map(); q1.docs.forEach(d=>aff.set(d.id,{_ref:d.ref,_b:true})); q2.docs.forEach(d=>{const e=aff.get(d.id); if(e)e._o=true; else aff.set(d.id,{_ref:d.ref,_o:true});});
-  if(!aff.size) return; const b=fsMod.writeBatch(FS); aff.forEach(({_ref,_b,_o})=>{const u={}; if(_b){u.badgeId='common';u.roleId='common';} if(_o)u.ownedRoles=fsMod.arrayRemove(roleId); b.update(_ref,u);}); await b.commit();
+  const q1=await fsMod.getDocs(fsMod.query(col,fsMod.where('role','==',roleId)));
+  if(!q1.docs.length) return; const b=fsMod.writeBatch(FS); q1.docs.forEach(d=>b.update(d.ref,{role:'player'})); await b.commit();
 }
 document.addEventListener('click',e=>{ const el=e.target.closest('[data-act]'); if(!el) return;
   if(el.dataset.ev) return; // input-driven handlers bound separately
