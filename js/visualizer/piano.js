@@ -10554,7 +10554,7 @@ midiBtn.onclick = () => {
 /* ═══════════════════════════════════════════════════════════════
    PAPIANO VISUALIZER — MIDI FILE PLAYBACK ENGINE
    Appended to the Solo piano engine for the Visualizer mode.
-   Shows Play/Pause/Stop controls in #vizMidiControls when MIDI is loaded.
+   Single Play/Pause toggle. Auto-hides UI on play. Click stage to show.
    ═══════════════════════════════════════════════════════════════ */
 (function(){
 'use strict';
@@ -10628,16 +10628,32 @@ let vizDuration=0;
 let vizRaf=null;
 
 const vizControls=document.getElementById('vizMidiControls');
-const vizPlayBtn=document.getElementById('vizPlayBtn');
-const vizPauseBtn=document.getElementById('vizPauseBtn');
-const vizStopBtn=document.getElementById('vizStopBtn');
+const vizPlayPauseBtn=document.getElementById('vizPlayPauseBtn');
 const vizProgress=document.getElementById('vizMidiProgress');
 
 function showVizControls(){if(vizControls)vizControls.style.display='flex';}
-function hideVizControls(){if(vizControls)vizControls.style.display='none';}
 
 function formatTime(ms){const sec=Math.floor((ms||0)/1000);const m=Math.floor(sec/60);const s=sec%60;return m+':'+(s<10?'0':'')+s;}
 function updateVizProgress(elapsed){if(vizProgress)vizProgress.textContent=formatTime(elapsed)+' / '+formatTime(vizDuration);}
+function updateBtnLabel(){if(vizPlayPauseBtn)vizPlayPauseBtn.textContent=vizPlaying?'Pause':'Play';}
+
+/* ── Auto-hide UI ─────────────────────────────────────────────── */
+function hideUI(){document.body.classList.add('hide-ui');}
+function showUI(){document.body.classList.remove('hide-ui');}
+
+// Click on stage → show UI
+const stageEl=document.querySelector('.stage')||document.getElementById('stageArea');
+if(stageEl){
+    stageEl.addEventListener('click',function(e){
+        // Don't toggle if clicking on canvas or other interactive stuff inside stage panels
+        if(e.target.closest('.floating-panel'))return;
+        if(document.body.classList.contains('hide-ui')){
+            showUI();
+        }else{
+            hideUI();
+        }
+    });
+}
 
 /* ── Load MIDI ────────────────────────────────────────────────── */
 function loadVizMidiFromBase64(base64,name){
@@ -10649,8 +10665,11 @@ function loadVizMidiFromBase64(base64,name){
         vizTimeline=midiToTimeline(parsed);
         vizDuration=vizTimeline.length>0?vizTimeline[vizTimeline.length-1].ms:0;
         showVizControls();
-        if(typeof showToast==='function')showToast('MIDI loaded: '+(name||'file'),{type:'success'});
         updateVizProgress(0);
+        updateBtnLabel();
+        if(typeof showToast==='function')showToast('MIDI loaded: '+(name||'file'),{type:'success'});
+        // Auto-play after short delay
+        setTimeout(function(){vizToggle();},400);
     }catch(e){
         if(typeof showToast==='function')showToast('Failed to parse MIDI file.',{type:'error'});
         console.error('MIDI parse error:',e);
@@ -10671,27 +10690,27 @@ function vizPlay(){
         if(typeof stopAllNotes==='function')stopAllNotes();
     }
     vizPlaying=true;
-    if(vizPlayBtn)vizPlayBtn.classList.add('active');
+    updateBtnLabel();
+    if(vizPlayPauseBtn)vizPlayPauseBtn.classList.add('active');
+    // Auto-hide UI when playing
+    hideUI();
     vizTick();
 }
+
 function vizPause(){
     if(!vizPlaying)return;
     vizPlaying=false;
     vizPaused=true;
     vizPauseElapsed=performance.now()-vizStartTime;
-    if(vizPlayBtn)vizPlayBtn.classList.remove('active');
+    updateBtnLabel();
+    if(vizPlayPauseBtn)vizPlayPauseBtn.classList.remove('active');
     if(vizRaf)cancelAnimationFrame(vizRaf);
     if(typeof stopAllNotes==='function')stopAllNotes();
 }
-function vizStop(){
-    vizPlaying=false;
-    vizPaused=false;
-    vizEventIdx=0;
-    vizPauseElapsed=0;
-    if(vizPlayBtn)vizPlayBtn.classList.remove('active');
-    if(vizRaf)cancelAnimationFrame(vizRaf);
-    if(typeof stopAllNotes==='function')stopAllNotes();
-    updateVizProgress(0);
+
+function vizToggle(){
+    if(vizPlaying)vizPause();
+    else vizPlay();
 }
 
 function vizTick(){
@@ -10702,7 +10721,6 @@ function vizTick(){
         if(ev.ms>elapsed)break;
         if(ev.type==='noteOn'&&ev.velocity>0){
             if(typeof playNote==='function')playNote(ev.note,ev.velocity);
-            // trigger falling note via existing engine
             if(typeof addFallingNoteVisual==='function')addFallingNoteVisual(ev.note,ev.velocity);
             else if(typeof triggerNoteVisual==='function')triggerNoteVisual(ev.note,ev.velocity);
         }else if(ev.type==='noteOff'||(ev.type==='noteOn'&&ev.velocity===0)){
@@ -10712,24 +10730,29 @@ function vizTick(){
     }
     updateVizProgress(elapsed);
     if(vizEventIdx>=vizTimeline.length&&elapsed>vizDuration+2000){
-        vizStop();
+        vizPlaying=false;
+        vizPaused=false;
+        vizEventIdx=0;
+        vizPauseElapsed=0;
+        updateBtnLabel();
+        if(vizPlayPauseBtn)vizPlayPauseBtn.classList.remove('active');
+        if(typeof stopAllNotes==='function')stopAllNotes();
+        updateVizProgress(0);
+        showUI();
         if(typeof showToast==='function')showToast('Playback complete.',{type:'success'});
         return;
     }
     vizRaf=requestAnimationFrame(vizTick);
 }
 
-/* ── Button bindings ──────────────────────────────────────────── */
-if(vizPlayBtn)vizPlayBtn.addEventListener('click',function(){if(vizPlaying)vizPause();else vizPlay();});
-if(vizPauseBtn)vizPauseBtn.addEventListener('click',vizPause);
-if(vizStopBtn)vizStopBtn.addEventListener('click',vizStop);
+/* ── Button binding ───────────────────────────────────────────── */
+if(vizPlayPauseBtn)vizPlayPauseBtn.addEventListener('click',vizToggle);
 
 /* ── Auto-load MIDI from sessionStorage ───────────────────────── */
 function vizCheckSession(){
     const midiData=sessionStorage.getItem('vizMidiData');
     const midiName=sessionStorage.getItem('vizMidiName');
     if(midiData){
-        // Wait for SoundFont to load first (recheck up to 10s)
         let attempts=0;
         const waitSf=setInterval(function(){
             attempts++;
@@ -10741,7 +10764,6 @@ function vizCheckSession(){
     }
 }
 
-// Run after page load
 if(document.readyState==='complete')vizCheckSession();
 else window.addEventListener('load',function(){setTimeout(vizCheckSession,600);});
 
