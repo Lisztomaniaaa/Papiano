@@ -5034,20 +5034,34 @@ body.mp-chat-keyboard .mp-chat-panel{top:auto !important;bottom:calc(var(--mp-ch
 }
 
 
-/* ── Theme: Child (Neobrutalism) ── */
-body.theme-child{--neo-border:2.5px solid #06111f;--neo-shadow:4px 4px 0 #06111f;--neo-radius:14px;}
-body.theme-child #pianoWrap{border-top:var(--neo-border);box-shadow:var(--neo-shadow);}
-body.theme-child #pianoWrap .white{border:var(--neo-border);border-radius:0 0 var(--neo-radius) var(--neo-radius);box-shadow:var(--neo-shadow);background:#fffbe6;}
-body.theme-child #pianoWrap .black{border:var(--neo-border);border-radius:0 0 10px 10px;box-shadow:3px 3px 0 #06111f;background:#2d2d2d;}
-body.theme-child #pianoWrap .white.active,body.theme-child #pianoWrap .white.pressed{background:#ffeb3b;box-shadow:2px 2px 0 #06111f;transform:translate(1px,1px);}
-body.theme-child #pianoWrap .black.active,body.theme-child #pianoWrap .black.pressed{background:#444;box-shadow:1px 1px 0 #06111f;transform:translate(1px,1px);}
-body.theme-child .key-label{font-family:'Fredoka','Quicksand',sans-serif !important;font-weight:700 !important;}
-body.theme-child canvas#fallingCanvas,body.theme-child #animCanvas{border-radius:0;filter:contrast(1.1) saturate(1.2);}
-body.theme-child .floating-panel{border:var(--neo-border);border-radius:var(--neo-radius);box-shadow:6px 6px 0 #06111f;}
-body.theme-child .panel-header{border-bottom:var(--neo-border);font-weight:900;}
-body.theme-child .btn,body.theme-child .visual-open-btn{border:2px solid #06111f;border-radius:10px;box-shadow:3px 3px 0 #06111f;font-weight:800;transition:transform 80ms,box-shadow 80ms;}
-body.theme-child .btn:active,body.theme-child .visual-open-btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 #06111f;}
-body.theme-child .btn.active{background:#ffeb3b;color:#06111f;box-shadow:2px 2px 0 #06111f;}
-body.theme-child .top-action-btn,body.theme-child .floating-trigger{border:2px solid #06111f;border-radius:12px;box-shadow:3px 3px 0 #06111f;}
-body.theme-child .chord-display{border:var(--neo-border);border-radius:var(--neo-radius);box-shadow:var(--neo-shadow);background:rgba(255,251,230,0.95);color:#06111f;}
-body.theme-child .toast-container .toast-item{border:var(--neo-border);border-radius:12px;box-shadow:var(--neo-shadow);}
+
+
+/* ── Theme: Child (Neobrutalism) ──────────────────────────────────── */
+body.theme-child{--neo-border:2.5px solid #06111f;--neo-shadow:4px 4px 0 #06111f;--neo-radius:14px;--neo-key-bg:#fffbe6;--neo-key-active:#ffeb3b;--neo-black-bg:#2d2d2d;--neo-black-active:#555555;}
+/* ── Stage + Falling Notes Canvas ── */
+body.theme-child .stage{background:#fffbe6 !important;border-bottom:var(--neo-border);}
+body.theme-child canvas#fx{filter:contrast(1.08) saturate(1.3) !important;}
+body.theme-child #chordDisplay{border:var(--neo-border) !important;border-radius:var(--neo-radius) !important;box-shadow:var(--neo-shadow) !important;background:rgba(255,251,230,0.96) !important;color:#06111f !important;}
+body.theme-child #chordDisplay .chord-name{color:#06111f !important;text-shadow:none !important;}
+/* ── Piano Keys ── */
+body.theme-child #pianoWrap{border-top:3px solid #06111f !important;box-shadow:0 -4px 0 #06111f !important;}
+body.theme-child #piano .white,body.theme-child .white{border:2px solid #06111f !important;border-top:none !important;border-radius:0 0 var(--neo-radius) var(--neo-radius) !important;box-shadow:3px 3px 0 rgba(6,17,31,0.5) !important;background:var(--neo-key-bg) !important;}
+body.theme-child #piano .white.active,body.theme-child .white.active{background:var(--neo-key-active) !important;box-shadow:1px 1px 0 #06111f !important;transform:translate(1px,1px) !important;}
+body.theme-child #piano .black,body.theme-child .black{border:2px solid #06111f !important;border-top:none !important;border-radius:0 0 10px 10px !important;box-shadow:3px 3px 0 rgba(0,0,0,0.7) !important;background:var(--neo-black-bg) !important;}
+body.theme-child #piano .black.active,body.theme-child .black.active{background:var(--neo-black-active) !important;box-shadow:1px 1px 0 #06111f !important;transform:translate(1px,1px) !important;}
+body.theme-child .key-label,body.theme-child .black-label{font-family:'Fredoka','Quicksand',sans-serif !important;font-weight:700 !important;}
+/* ── Panels + Buttons ── */
+body.theme-child .floating-panel{border:var(--neo-border) !important;border-radius:var(--neo-radius) !important;box-shadow:6px 6px 0 #06111f !important;background:#fffbe6 !important;color:#06111f !important;}
+body.theme-child .panel-header{border-bottom:var(--neo-border) !important;color:#06111f !important;}
+body.theme-child .panel-header .panel-title{color:#06111f !important;}
+body.theme-child .panel-close{color:#06111f !important;}
+body.theme-child .btn,body.theme-child .visual-open-btn{border:2px solid #06111f !important;border-radius:10px !important;box-shadow:3px 3px 0 #06111f !important;font-weight:800 !important;background:#ffffff !important;color:#06111f !important;transition:transform 80ms,box-shadow 80ms !important;}
+body.theme-child .btn:active,body.theme-child .visual-open-btn:active{transform:translate(2px,2px) !important;box-shadow:1px 1px 0 #06111f !important;}
+body.theme-child .btn.active,body.theme-child .theme-btn.active{background:var(--neo-key-active) !important;color:#06111f !important;box-shadow:2px 2px 0 #06111f !important;}
+body.theme-child .top-action-btn,body.theme-child .floating-trigger{border:2px solid #06111f !important;border-radius:12px !important;box-shadow:3px 3px 0 #06111f !important;background:#fffbe6 !important;color:#06111f !important;}
+body.theme-child .section-title,body.theme-child .color-group-title,body.theme-child .ui-label,body.theme-child .ui-value-sm{color:#06111f !important;}
+body.theme-child .color-row,body.theme-child .perf-setting-block{background:rgba(6,17,31,0.05) !important;border:1.5px solid rgba(6,17,31,0.18) !important;box-shadow:2px 2px 0 rgba(6,17,31,0.12) !important;}
+/* ── Saber / Strike line ── */
+body.theme-child #saberLine{border-top:3px solid #06111f !important;box-shadow:0 -2px 0 rgba(255,235,59,0.7) !important;}
+/* ── Toast ── */
+body.theme-child .toast-wrap .toast-item,body.theme-child #toastHost .toast-item{border:var(--neo-border) !important;border-radius:12px !important;box-shadow:var(--neo-shadow) !important;background:#fffbe6 !important;color:#06111f !important;}
