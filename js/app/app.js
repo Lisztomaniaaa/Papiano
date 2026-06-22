@@ -292,7 +292,8 @@
     const roomTitles = {
         announcements: 'Announcement',
         global: 'Global Chat',
-        feedback: 'Suggestions & Feedback'
+        feedback: 'Suggestions & Feedback',
+        vip: 'VIP Lounge'
     };
 
     const TOAST_ICON = {
@@ -2023,6 +2024,20 @@
         return ANNOUNCEMENT_OWNER_EMAILS.has(email);
     }
 
+    function isVipRoom(roomId = '') {
+        return roomId === 'vip' || activeChatRoomId === getGroupRoomId('vip');
+    }
+
+    function isVipMember() {
+        // VIP access: user has 'vip' in their ownedRoles array OR is admin
+        const profile = currentProfile || loadProfile() || {};
+        const owned = Array.isArray(profile.ownedRoles) ? profile.ownedRoles : [];
+        if (owned.some(r => normalizeRoleId(r) === 'vip')) return true;
+        // Admins always have VIP access
+        const email = String(currentUser?.email || '').toLowerCase();
+        return ADMIN_GATE_EMAILS.has(email);
+    }
+
     function canManageActiveChatFolder() {
         return Boolean(currentUser?.uid && activeChatRoomId && activeChatRoomType === 'dm' && activeChatTargetUid);
     }
@@ -2034,11 +2049,18 @@
     function syncChatRoomAccessState(roomId = '') {
         const uploadButton = chatInputBar?.querySelector('button[aria-label="Upload image"]');
         const announcementRoom = isAnnouncementRoom(roomId);
-        const canWrite = currentUser?.uid && (!announcementRoom || isAnnouncementOwner());
+        const vipRoom = isVipRoom(roomId);
+        const canWrite = currentUser?.uid && (!announcementRoom || isAnnouncementOwner()) && (!vipRoom || isVipMember());
         if (chatInputBar) chatInputBar.classList.toggle('read-only', !canWrite);
         if (chatRoomMenuBtn) chatRoomMenuBtn.style.display = 'none';
-        if (uploadButton) uploadButton.style.display = announcementRoom ? 'none' : 'flex';
-        if (chatInputFieldMessage) chatInputFieldMessage.placeholder = announcementRoom ? 'Owner announcement only...' : 'Type a message...';
+        if (uploadButton) uploadButton.style.display = (announcementRoom || (vipRoom && !isVipMember())) ? 'none' : 'flex';
+        if (chatInputFieldMessage) {
+            chatInputFieldMessage.placeholder = announcementRoom
+                ? 'Owner announcement only...'
+                : (vipRoom && !isVipMember())
+                    ? 'VIP members only...'
+                    : 'Type a message...';
+        }
     }
 
     function getDirectRoomId(uidA, uidB) {
@@ -2358,7 +2380,8 @@
         const map = [
             { roomKey: 'announcements', stampId: 'announcementStamp', snippetId: 'announcementSnippet', badgeId: 'announcementUnreadBadge', defaultStamp: 'PUBLIC', defaultSnippet: 'Papiano updates.', alert: true },
             { roomKey: 'global',        stampId: 'globalChatStamp',   snippetId: 'globalChatSnippet',   badgeId: 'globalChatUnreadBadge', defaultStamp: 'PUBLIC', defaultSnippet: 'Community chat room.', alert: true },
-            { roomKey: 'feedback',      stampId: 'feedbackStamp',     snippetId: 'feedbackSnippet',     defaultStamp: 'FEEDBACK', defaultSnippet: 'Feedback panel.', alert: false }
+            { roomKey: 'feedback',      stampId: 'feedbackStamp',     snippetId: 'feedbackSnippet',     defaultStamp: 'FEEDBACK', defaultSnippet: 'Feedback panel.', alert: false },
+            { roomKey: 'vip',           stampId: 'vipChatStamp',      snippetId: 'vipChatSnippet',      badgeId: 'vipChatUnreadBadge', defaultStamp: 'VIP', defaultSnippet: 'Exclusive VIP chat.', alert: true }
         ];
         map.forEach(({ roomKey, stampId, snippetId, badgeId, defaultStamp, defaultSnippet, alert }) => {
             const docId = getGroupRoomId(roomKey);
@@ -3240,6 +3263,10 @@
         }
         if (isAnnouncementRoom() && !isAnnouncementOwner()) {
             showToast('Only owner can post announcements.');
+            return;
+        }
+        if (isVipRoom() && !isVipMember()) {
+            showToast('Only VIP members can chat here.', 'Locked');
             return;
         }
         if (!text && !pendingChatImageData) return;
