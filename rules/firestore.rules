@@ -50,7 +50,11 @@ service cloud.firestore {
         // cheat for playtime needs a server function, not a rule.
         || (owns(uid) && changedKeys().hasOnly(['playTimeSeconds', 'playTime', 'playTimeLeaderboardUpdatedAt', 'updatedAt']))
         || (owns(uid)
-            && !changedKeys().hasAny(['ownedRoles', 'publicId', 'userId', 'likes', 'dislikes'])
+            && !changedKeys().hasAny(['ownedRoles', 'likes', 'dislikes'])
+            && (
+                !changedKeys().hasAny(['publicId', 'userId'])
+                || !('publicId' in resource.data)
+            )
             && badgeWithinInventory())
         // Anyone may cast a like/dislike on another profile, but only by ±1 per
         // write (the client does this in a transaction with a per-voter dedup

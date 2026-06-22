@@ -216,14 +216,11 @@ async function authEntryWithEmail(mode) {
             const cred = await firebaseAuth.createUserWithEmailAndPassword(email, pass);
             await cred.user.updateProfile({ displayName: name });
 
-            if (typeof firestoreDb !== 'undefined' && firestoreDb && name) {
-                try {
-                    await firestoreDb.collection('profiles').doc(cred.user.uid).set(
-                        { name: name, searchName: name.toLowerCase() },
-                        { merge: true }
-                    );
-                } catch (_) {}
-            }
+            // NOTE: Do NOT create a partial profile doc here. The name is
+            // already stored on the Firebase Auth user (updateProfile above).
+            // ensureUserProfile() will CREATE the full profile document after
+            // email verification — if we pre-create a partial doc, the Firestore
+            // security rules block the subsequent update that adds publicId/userId.
 
             try {
                 await _sendVerification(cred.user);
