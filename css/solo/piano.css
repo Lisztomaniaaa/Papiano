@@ -5069,3 +5069,8 @@ body.theme-child .toast-wrap .toast-item,body.theme-child #toastHost .toast-item
 body.theme-child #mGlass,body.theme-child #mOutline,body.theme-child #mMidnight,body.theme-child #mGradient,body.theme-child #mRainbow{display:none !important;}
 /* ── Child: hide particle + strike hub buttons ── */
 body.theme-child [data-visual-open="particle"],body.theme-child [data-visual-open="saber"]{display:none !important;}
+/* ── Child: all text dark except leave button + black key labels ── */
+body.theme-child,body.theme-child *{color:#06111f !important;}
+body.theme-child .mp-top-leave-btn,body.theme-child .mp-action.primary.danger,body.theme-child #mpLeaveYes{color:#fff !important;}
+body.theme-child .black-label,body.theme-child #piano .black .key-label,body.theme-child .black .key-label{color:rgba(255,255,255,0.9) !important;}
+body.theme-child .mp-action.primary.danger,body.theme-child .mp-top-leave-btn{background:#FB3F5C !important;color:#fff !important;}
