@@ -5071,7 +5071,7 @@ strip.addEventListener('pointercancel', e => {
     swipeSnapToNearest();
 });
 
-const NOTE_NAMES=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B']; const chordMode='crazy'; // mode tunggal: deteksi beta/crazy
+const NOTE_NAMES=['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B']; let chordMode='crazy'; // off/medium/crazy
 const CHORD_DB=[
 {s:[0,4,7,10,21],n:'13',m:'pro'},
 {s:[0,3,7,10,21],n:'m13',m:'pro'},
@@ -5352,15 +5352,40 @@ function matchChords(midiArr){
     return filterReadableChordResults(deduped, pcs).slice(0,2);
 }
 function formatChord(match){ const rootName=NOTE_NAMES[match.root]; const chordName=rootName+match.suffix; if(match.isInversion&&match.bassNote!==match.root) return chordName+'/'+NOTE_NAMES[match.bassNote]; return chordName; }
-// Chord toggle On/Off (persisted)
+// Chord mode: off/basic/pro
 var _chordEnabled = (function(){ try{ return localStorage.getItem('papianoChordOn') !== '0'; }catch(e){ return true; } })();
-(function initChordToggle(){
-    var track = document.getElementById('chordTrack');
-    if(!track) return;
-    function sync(){ track.classList.toggle('active', _chordEnabled); }
-    sync();
-    track.onclick = function(){ _chordEnabled = !_chordEnabled; try{ localStorage.setItem('papianoChordOn', _chordEnabled ? '1' : '0'); }catch(e){} sync(); if(!_chordEnabled){ var el1=document.getElementById('chordPrimary'); var el2=document.getElementById('chordSecondary'); if(el1){el1.classList.remove('show');el1.textContent='';} if(el2){el2.classList.remove('show');el2.textContent='';} } };
-})();
+function setChordMode(mode) {
+    if (mode === 'off') {
+        _chordEnabled = false;
+        chordMode = 'crazy';
+    } else if (mode === 'basic') {
+        _chordEnabled = true;
+        chordMode = 'medium';
+    } else {
+        _chordEnabled = true;
+        chordMode = 'crazy';
+    }
+    try { localStorage.setItem('papianoChordOn', _chordEnabled ? '1' : '0'); } catch(e) {}
+    try { localStorage.setItem('papianoChordMode', mode); } catch(e) {}
+    var el1 = document.getElementById('chordPrimary');
+    var el2 = document.getElementById('chordSecondary');
+    if (!_chordEnabled) { if(el1){el1.classList.remove('show');el1.textContent='';} if(el2){el2.classList.remove('show');el2.textContent='';} }
+    syncChordModeUI();
+}
+function syncChordModeUI() {
+    var current = !_chordEnabled ? 'off' : (chordMode === 'medium' ? 'basic' : 'pro');
+    document.getElementById('chordModeOff')?.classList.toggle('active', current === 'off');
+    document.getElementById('chordModeBasic')?.classList.toggle('active', current === 'basic');
+    document.getElementById('chordModePro')?.classList.toggle('active', current === 'pro');
+}
+document.getElementById('chordModeOff')?.addEventListener('click', () => setChordMode('off'));
+document.getElementById('chordModeBasic')?.addEventListener('click', () => setChordMode('basic'));
+document.getElementById('chordModePro')?.addEventListener('click', () => setChordMode('pro'));
+(function(){ try {
+    var saved = localStorage.getItem('papianoChordMode');
+    if (saved === 'off' || saved === 'basic' || saved === 'pro') setChordMode(saved);
+    else syncChordModeUI();
+} catch(e) { syncChordModeUI(); } })();
 
 let midiAccess = null;
 let midiEnabled = false;
