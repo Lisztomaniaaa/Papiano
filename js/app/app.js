@@ -255,9 +255,8 @@
     let playTimeStartedAt = 0;
     let playTimeTimer = null;
     let playTimeDisplayTicker = null;
-    let activeLeaderboardBoard = 'playtime';
+    let activeLeaderboardBoard = 'total';
     let unsubscribeLeaderboardPlayTime = null;
-    let unsubscribeLeaderboardDonation = null;
     const MAX_CHAT_MESSAGE_CHARS = 500;
     const MESSAGE_COOLDOWN_MS = 800;
     const FRIEND_REQUEST_COOLDOWN_MS = 3000;
@@ -266,7 +265,6 @@
     const ALLOWED_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
     const ALLOWED_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp']);
     const LEADERBOARD_VISIBLE_LIMIT = 10;
-    const DONATION_GOAL_USD = 100;
     const PLAYTIME_SYNC_MS = 60000;
     const ANNOUNCEMENT_OWNER_EMAILS = new Set(['akunpolos0444000@gmail.com', 'papianobase@gmail.com']);
 
@@ -1831,7 +1829,6 @@
         }
         if (node) node.style.display = 'flex';
         updateHomeTopBarVisibility();
-        if (id === 'subPageDonation') subscribeDonationLeaderboard();
         if (id === 'subPageLeaderboard') initLeaderboardView();
     }
 
@@ -1842,108 +1839,91 @@
     }
 
     function switchLeaderboardBoard(board) {
-        activeLeaderboardBoard = board === 'donation' ? 'donation' : 'playtime';
-        document.getElementById('leaderboardTabPlayTime')?.classList.toggle('active', activeLeaderboardBoard === 'playtime');
-        document.getElementById('leaderboardTabDonation')?.classList.toggle('active', activeLeaderboardBoard === 'donation');
-        const playList = document.getElementById('leaderboardPlayTimeList');
-        const donationList = document.getElementById('leaderboardDonationList');
-        if (playList) playList.style.display = activeLeaderboardBoard === 'playtime' ? 'grid' : 'none';
-        if (donationList) donationList.style.display = activeLeaderboardBoard === 'donation' ? 'grid' : 'none';
+        const validBoards = ['daily', 'weekly', 'monthly', 'total'];
+        activeLeaderboardBoard = validBoards.includes(board) ? board : 'total';
+        validBoards.forEach(b => {
+            document.getElementById(`leaderboardTab_${b}`)?.classList.toggle('active', activeLeaderboardBoard === b);
+        });
+        // Re-subscribe with new time filter
+        stopLeaderboardListeners();
+        subscribePlayTimeLeaderboard();
     }
 
     function initLeaderboardView() {
         switchLeaderboardBoard(activeLeaderboardBoard);
-        if (!currentUser?.uid) {
-            if (typeof unsubscribeLeaderboardPlayTime === 'function') unsubscribeLeaderboardPlayTime();
-            unsubscribeLeaderboardPlayTime = null;
-            stopLeaderboardLiveTicker();
-            leaderboardRemoteRows = [];
-            renderLeaderboardError('leaderboardPlayTimeList', 'Sign in to view leaderboard.');
-            subscribeDonationLeaderboard();
-            return;
+    }
+
+    function getLeaderboardTimeCutoff(board) {
+        const now = new Date();
+        switch (board) {
+            case 'daily': {
+                const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                return start;
+            }
+            case 'weekly': {
+                const start = new Date(now);
+                start.setDate(start.getDate() - 7);
+                start.setHours(0, 0, 0, 0);
+                return start;
+            }
+            case 'monthly': {
+                const start = new Date(now.getFullYear(), now.getMonth(), 1);
+                return start;
+            }
+            default: return null; // 'total' — no cutoff
         }
-        subscribePlayTimeLeaderboard();
-        subscribeDonationLeaderboard();
     }
 
     function subscribePlayTimeLeaderboard() {
-        if (unsubscribeLeaderboardPlayTime || !firestoreDb || !currentUser?.uid) return;
+        if (unsubscribeLeaderboardPlayTime || !firestoreDb) return;
+        if (!currentUser?.uid) {
+            renderLeaderboardError('leaderboardPlayTimeList', 'Sign in to view leaderboard.');
+            return;
+        }
         const target = document.getElementById('leaderboardPlayTimeList');
-        if (target) target.innerHTML = '<div class="leaderboard-empty">Loading total played time...</div>';
-        unsubscribeLeaderboardPlayTime = firestoreDb.collection('profiles')
-            .orderBy('playTimeSeconds', 'desc')
-            .limit(LEADERBOARD_VISIBLE_LIMIT)
-            .onSnapshot(snapshot => {
-                leaderboardRemoteRows = snapshot.docs.map(doc => normalizeProfile(doc.id, doc.data() || {}));
-                lastLeaderboardMinute = -1; // force re-render on new data
-                renderLiveLeaderboard();
-            }, error => {
-                renderLeaderboardError('leaderboardPlayTimeList', 'Play time leaderboard is unavailable right now.');
-            });
+        if (target) target.innerHTML = '<div class="leaderboard-empty">Loading...</div>';
+
+        const cutoff = getLeaderboardTimeCutoff(activeLeaderboardBoard);
+        let query = firestoreDb.collection('profiles');
+
+        if (cutoff) {
+            // Time-filtered: only players active within the period
+            query = query.where('playTimeLeaderboardUpdatedAt', '>=', cutoff)
+                         .orderBy('playTimeLeaderboardUpdatedAt', 'asc')
+                         .orderBy('playTimeSeconds', 'desc')
+                         .limit(LEADERBOARD_VISIBLE_LIMIT);
+        } else {
+            // Total: all-time ranking
+            query = query.orderBy('playTimeSeconds', 'desc')
+                         .limit(LEADERBOARD_VISIBLE_LIMIT);
+        }
+
+        unsubscribeLeaderboardPlayTime = query.onSnapshot(snapshot => {
+            let rows = snapshot.docs.map(doc => normalizeProfile(doc.id, doc.data() || {}));
+            // For time-filtered boards, re-sort client-side by playTimeSeconds
+            if (cutoff) rows.sort((a, b) => b.playTimeSeconds - a.playTimeSeconds);
+            leaderboardRemoteRows = rows;
+            lastLeaderboardMinute = -1;
+            renderLiveLeaderboard();
+        }, error => {
+            console.warn('[Papiano] Leaderboard query error:', error?.message || error);
+            renderLeaderboardError('leaderboardPlayTimeList', 'Leaderboard is unavailable right now.');
+        });
         startLeaderboardLiveTicker();
-    }
-
-    function subscribeDonationLeaderboard() {
-        if (unsubscribeLeaderboardDonation || !firestoreDb) return;
-        const target = document.getElementById('leaderboardDonationList');
-        if (target) target.innerHTML = '<div class="leaderboard-empty">Loading donation leaderboard...</div>';
-        unsubscribeLeaderboardDonation = firestoreDb.collection('donations')
-            .onSnapshot(snapshot => {
-                const rows = snapshot.docs.map(doc => normalizeDonationEntry(doc.id, doc.data() || {}))
-                    .filter(item => item.visible && item.currency === 'USD' && item.amount > 0)
-                    .sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name));
-                const raised = rows.reduce((total, item) => total + item.amount, 0);
-                renderDonationProgress(raised);
-                renderLeaderboardRows('leaderboardDonationList', rows.slice(0, LEADERBOARD_VISIBLE_LIMIT), 'donation');
-            }, error => {
-                renderLeaderboardError('leaderboardDonationList', 'Donation leaderboard is unavailable right now.');
-            });
-    }
-
-    function normalizeDonationEntry(id, data = {}) {
-        const rawCurrency = String(data.currency || 'USD').toUpperCase();
-        const amount = rawCurrency === 'USD'
-            ? Number(data.amountUSD ?? data.amountUsd ?? data.usd ?? data.amount ?? 0)
-            : 0;
-        const displayName = String(data.name || data.displayName || data.senderName || 'Supporter').slice(0, 24);
-        const status = String(data.status || '').toLowerCase();
-        return {
-            uid: String(data.uid || id || ''),
-            name: displayName,
-            userId: String(data.userId || data.publicId || ''),
-            photoURL: String(data.photoURL || data.avatarURL || data.avatar_url || ''),
-            amount: Number.isFinite(amount) ? amount : 0,
-            currency: 'USD',
-            visible: data.visible !== false && status !== 'pending' && status !== 'rejected'
-        };
-    }
-
-    function renderDonationProgress(totalUsd = 0) {
-        const raised = Math.max(0, Number(totalUsd) || 0);
-        const goal = DONATION_GOAL_USD;
-        const percent = goal > 0 ? Math.min(100, (raised / goal) * 100) : 0;
-        const fill = document.getElementById('donationProgressFill');
-        const raisedText = document.getElementById('donationRaisedText');
-        const goalText = document.getElementById('donationGoalText');
-        if (fill) fill.style.width = `${percent.toFixed(2)}%`;
-        if (raisedText) raisedText.textContent = `${formatDonationAmount(raised)} raised`;
-        if (goalText) goalText.textContent = `Goal ${formatDonationAmount(goal)}`;
     }
 
     function renderLeaderboardRows(targetId, rows, type) {
         const target = document.getElementById(targetId);
         if (!target) return;
         if (!rows.length) {
-            target.innerHTML = `<div class="leaderboard-empty">${type === 'donation' ? 'No donation records yet.' : 'No play time records yet.'}</div>`;
+            target.innerHTML = '<div class="leaderboard-empty">No play time records yet.</div>';
             return;
         }
         rows.forEach(item => { if (item.uid) leaderboardProfiles.set(item.uid, item); });
         target.innerHTML = rows.map((item, index) => {
             const avatar = item.photoURL ? `<img src="${escapeHtml(item.photoURL)}" alt="">` : escapeHtml(getInitials(item.name));
             const idLabel = item.userId || (item.publicId ? formatPublicUserId(item.publicId) : 'Papiano Player');
-            const score = type === 'donation'
-                ? formatDonationAmount(item.amount, item.currency)
-                : formatPlayTime(item.playTimeSeconds);
+            const score = formatPlayTime(item.playTimeSeconds);
             const clickAttr = item.uid ? `onclick="launchFriendProfileModal('${escapeHtml(item.uid)}')"` : '';
             return `
                 <div class="leaderboard-row" ${clickAttr} style="cursor:pointer">
@@ -1976,18 +1956,15 @@
 
     let lastLeaderboardMinute = -1;
 
-    // Renders leaderboard with current user's live time merged in, re-sorted
     function renderLiveLeaderboard() {
         const target = document.getElementById('leaderboardPlayTimeList');
         if (!target || target.style.display === 'none') return;
 
         const liveSeconds = getLivePlayTimeSeconds();
-        // Only re-render when the displayed minute changes (format is Xh YYm)
         const currentMinute = Math.floor(liveSeconds / 60);
         if (currentMinute === lastLeaderboardMinute && leaderboardRemoteRows.length) return;
         lastLeaderboardMinute = currentMinute;
 
-        // Start from remote snapshot, always merge current user's live time
         let rows = leaderboardRemoteRows.map(row => {
             if (currentUser?.uid && row.uid === currentUser.uid) {
                 return { ...row, playTimeSeconds: Math.max(row.playTimeSeconds, liveSeconds) };
@@ -1995,7 +1972,6 @@
             return row;
         });
 
-        // If current user is not in remote list at all, inject them
         if (currentUser?.uid && currentProfile) {
             const userInList = rows.some(r => r.uid === currentUser.uid);
             if (!userInList) {
@@ -2008,7 +1984,6 @@
             return;
         }
 
-        // Re-sort by playTimeSeconds descending, take top limit
         rows.sort((a, b) => b.playTimeSeconds - a.playTimeSeconds);
         rows = rows.slice(0, LEADERBOARD_VISIBLE_LIMIT);
 
@@ -2029,12 +2004,6 @@
                 </div>
             `;
         }).join('');
-    }
-
-    function formatDonationAmount(amount) {
-        const value = Math.max(0, Number(amount) || 0);
-        const hasCents = Math.round(value * 100) % 100 !== 0;
-        return `$${value.toLocaleString('en-US', { minimumFractionDigits: hasCents ? 2 : 0, maximumFractionDigits: 2 })}`;
     }
 
     function buildPairId(uidA, uidB) {
@@ -2332,9 +2301,7 @@
 
     function stopLeaderboardListeners() {
         if (typeof unsubscribeLeaderboardPlayTime === 'function') unsubscribeLeaderboardPlayTime();
-        if (typeof unsubscribeLeaderboardDonation === 'function') unsubscribeLeaderboardDonation();
         unsubscribeLeaderboardPlayTime = null;
-        unsubscribeLeaderboardDonation = null;
         stopLeaderboardLiveTicker();
         leaderboardRemoteRows = [];
         leaderboardProfiles.clear();
