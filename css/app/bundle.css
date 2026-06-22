@@ -464,6 +464,28 @@ button:focus-visible,.nav-tab-action:focus-visible,.friend-nav-btn:focus-visible
 .info-contributor-card:nth-child(odd){background:#06111f;border-color:#06111f}
 .info-contributor-card:nth-child(odd) .info-title,.info-contributor-card:nth-child(odd) .info-text{color:#ffffff}
 .info-contributor-card:nth-child(odd) .info-text{opacity:0.78}
+/* ── VIP Page ── */
+.vip-hero-badge{width:56px;height:56px;border-radius:18px;background:rgba(255,255,255,0.14);border:2px solid rgba(255,255,255,0.24);display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px}
+.vip-hero-badge .material-symbols-rounded{font-size:30px;color:#FFD700}
+.vip-benefits-grid{display:grid;gap:12px;margin-top:14px}
+.vip-benefit-item{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:start;gap:12px}
+.vip-benefit-item>.material-symbols-rounded{width:38px;height:38px;border-radius:12px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);display:inline-flex;align-items:center;justify-content:center;font-size:20px;color:#FFD700}
+.vip-benefit-text{display:grid;gap:3px}
+.vip-benefit-text strong{font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:0.03em;color:#ffffff}
+.vip-benefit-text span{font-size:12px;font-weight:700;line-height:1.38;color:rgba(255,255,255,0.72)}
+.vip-pricing-section{display:grid;gap:6px}
+.vip-pricing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.vip-price-card{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:18px 12px;background:#ffffff;border:2px solid #06111f;border-radius:20px;text-align:center;box-shadow:inset 0 2px 0 rgba(255,255,255,0.95),inset 0 -5px 0 rgba(6,17,31,0.06),0 5px 0 rgba(6,17,31,0.14),0 14px 24px rgba(6,17,31,0.10)}
+.vip-price-card.is-popular{background:#06111f;color:#ffffff;box-shadow:inset 0 2px 0 rgba(255,255,255,0.10),inset 0 -5px 0 rgba(0,0,0,0.30),0 5px 0 #020812,0 14px 24px rgba(6,17,31,0.18)}
+.vip-price-card.is-popular .vip-price-duration{color:rgba(255,255,255,0.72)}
+.vip-price-card.is-popular .vip-price-amount{color:#FFD700}
+.vip-price-card.is-popular .vip-price-detail{color:rgba(255,255,255,0.58)}
+.vip-price-card.is-custom{border-style:dashed;border-color:rgba(6,17,31,0.32);box-shadow:none}
+.vip-price-card.is-custom .vip-price-amount .material-symbols-rounded{font-size:28px;color:#5865F2}
+.vip-popular-tag{position:absolute;top:-10px;left:50%;transform:translateX(-50%);padding:3px 12px;border-radius:999px;background:#FFD700;color:#06111f;font-size:9.5px;font-weight:900;letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;box-shadow:0 3px 8px rgba(255,215,0,0.30)}
+.vip-price-duration{font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:0.05em;color:rgba(6,17,31,0.56)}
+.vip-price-amount{font-family:var(--font-display);font-size:26px;font-weight:900;color:#06111f;line-height:1}
+.vip-price-detail{font-size:10.5px;font-weight:800;color:rgba(6,17,31,0.46)}
 .leaderboard-panel{display:grid;gap:10px}
 .leaderboard-tabs{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:8px;background:transparent;border:none;border-radius:0;padding:0}
 .leaderboard-tab-btn{width:max-content;min-width:0;min-height:40px;padding:0 15px;border:1px solid #06111f;border-radius:14px;background:#ffffff;color:#06111f;font-size:11.5px;font-weight:900;letter-spacing:0.04em;text-transform:uppercase;cursor:pointer;box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.94),inset 0 -3px 0 rgba(6,17,31,0.08),0 3px 0 rgba(6,17,31,0.18),0 8px 14px rgba(6,17,31,0.10)}

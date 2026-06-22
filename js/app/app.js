@@ -3866,20 +3866,6 @@
         activeReportContext = null;
     }
 
-    function copyDonationAddress(value, label, button) {
-        const text = String(value || '').trim();
-        if (!text) {
-            showToast('Nothing to copy.');
-            return;
-        }
-        navigator.clipboard?.writeText(text).then(() => {
-            const original = button?.textContent;
-            if (button) button.textContent = 'Copied';
-            showToast(`${label || 'Address'} copied.`);
-            if (button) setTimeout(() => { button.textContent = original || 'Copy'; }, 1200);
-        }).catch(() => showToast('Couldn’t copy this address.'));
-    }
-
     function syncFullscreenControl() {
         const isFullscreen = !!document.fullscreenElement;
         if (fsIcon) fsIcon.textContent = isFullscreen ? 'fullscreen_exit' : 'fullscreen';
