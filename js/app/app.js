@@ -515,8 +515,12 @@
         deletedAccountHandler = null;
     }
 
-    async function isAccountDeleted(uid) {
+    const ADMIN_GATE_EMAILS = new Set(['utamairfan44@gmail.com', 'akunpolos0444000@gmail.com', 'papianobase@gmail.com']);
+
+    async function isAccountDeleted(uid, email) {
         if (!uid || !realtimeDb) return false;
+        // Admin emails can never be flagged as deleted — they are the moderators.
+        if (email && ADMIN_GATE_EMAILS.has(String(email).toLowerCase())) return false;
         try {
             const snapshot = await realtimeDb.ref(`${DELETED_ACCOUNTS_PATH}/${uid}`).once('value');
             return Boolean(snapshot.val()?.deleted);
@@ -540,6 +544,9 @@
     function startDeletedAccountWatcher(uid) {
         stopDeletedAccountWatcher();
         if (!uid || !realtimeDb) return;
+        // Admin emails are immune to the deleted-account gate.
+        const email = currentUser?.email || '';
+        if (ADMIN_GATE_EMAILS.has(String(email).toLowerCase())) return;
         deletedAccountRef = realtimeDb.ref(`${DELETED_ACCOUNTS_PATH}/${uid}`);
         deletedAccountHandler = snapshot => {
             if (snapshot.val()?.deleted) exitDeletedAccount();
@@ -1039,7 +1046,7 @@
 
     async function ensureUserProfile(user) {
         if (!user?.uid) return null;
-        if (await isAccountDeleted(user.uid)) throw new Error('Account data was removed by moderation.');
+        if (await isAccountDeleted(user.uid, user.email)) throw new Error('Account data was removed by moderation.');
         const profileRef = firestoreDb.collection('profiles').doc(user.uid);
         const counterRef = firestoreDb.collection('counters').doc('publicUserId');
         const base = {
@@ -4191,11 +4198,28 @@
             startDeletedAccountWatcher(user.uid);
             restoreMultiplayerPresence(user.uid);
         } catch (error) {
+            console.error('[Papiano] finishLoggedInBoot error:', error?.code || error?.message || error);
             if (isAccountRestrictionError(error)) {
-                await exitDeletedAccount();
-                return;
+                // Admin emails should never be kicked by restriction errors
+                const email = String(user?.email || '').toLowerCase();
+                if (!ADMIN_GATE_EMAILS.has(email)) {
+                    await exitDeletedAccount();
+                    return;
+                }
             }
-            showToast('Could not load your profile. Please refresh.');
+            // Fallback: try a plain read (no write) so the profile at least shows
+            if (!currentProfile && firestoreDb && user?.uid) {
+                try {
+                    const snap = await firestoreDb.collection('profiles').doc(user.uid).get();
+                    if (snap.exists) {
+                        currentUser = user;
+                        currentProfile = normalizeProfile(user.uid, snap.data());
+                        saveProfile(currentProfile);
+                        updateProfileView(currentProfile);
+                    }
+                } catch (_fallbackErr) {}
+            }
+            if (!currentProfile) showToast('Could not load your profile. Please refresh.');
         }
         openMainApp();
         navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
