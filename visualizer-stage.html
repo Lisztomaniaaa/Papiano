@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Papiano — Piano Visualizer Stage</title>
+<meta name="description" content="Watch MIDI notes fall on the Papiano piano visualizer stage with realtime SoundFont playback.">
+<meta name="keywords" content="Papiano, piano visualizer, MIDI player, falling notes, piano stage, SoundFont">
+<meta name="application-name" content="Papiano Online">
+<meta name="apple-mobile-web-app-title" content="Papiano Online">
+<meta name="theme-color" content="#090b0f">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://papiano.fun/visualizer-stage">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Papiano">
+<meta property="og:url" content="https://papiano.fun/visualizer-stage">
+<meta property="og:title" content="Papiano — Piano Visualizer Stage">
+<meta property="og:description" content="Watch MIDI notes fall on the Papiano piano visualizer stage.">
+<meta property="og:image" content="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/71f9794f-6420-4e9c-8988-4f71e54530e6.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Papiano — Piano Visualizer Stage">
+<meta name="twitter:description" content="Watch MIDI notes fall on the Papiano piano visualizer stage.">
+<meta name="twitter:image" content="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/71f9794f-6420-4e9c-8988-4f71e54530e6.webp">
+<link rel="icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
+<link rel="apple-touch-icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=Quicksand:wght@600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=Quicksand:wght@600;700;800&display=swap"></noscript>
+
+<link rel="stylesheet" href="/css/visualizer/piano.css">
+</head>
+<body class="render-fixed visualizer-mode">
+
+<div id="loadingScreen" aria-hidden="true" style="display:none;">
+    <div class="ld-card">
+        <div class="ld-main-label">Loading Visualizer</div>
+        <div class="ld-bar-track ld-single-track"><div class="ld-bar-fill" id="ldBar1"></div></div>
+    </div>
+</div>
+
+<div id="app" class="fade-in">
+    <div id="toastWrap"></div>
+
+    <!-- Logo / Toggle UI -->
+    <div id="logoToggle" aria-label="Toggle UI">
+        <span class="brand-icon"><img src="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp" alt="Papiano logo"></span>
+        <span class="brand-text">PAPIANO</span>
+    </div>
+
+    <!-- Top Bar -->
+    <div class="top" id="topNav">
+        <div id="panel">
+            <button id="fsBtn" class="btn" title="Fullscreen">Fullscreen</button>
+            <button class="btn" id="sfBtn">SoundFont</button>
+            <a class="btn" href="/visualizer.html" style="text-decoration:none;">Load MIDI</a>
+
+            <!-- MIDI Playback Controls (shown when MIDI is loaded) -->
+            <div id="vizMidiControls">
+                <button class="btn" id="vizPlayBtn">&#9654; Play</button>
+                <button class="btn" id="vizPauseBtn">&#10074;&#10074; Pause</button>
+                <button class="btn" id="vizStopBtn">&#9632; Stop</button>
+                <span id="vizMidiProgress">0:00 / 0:00</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stage (Falling Notes) -->
+    <div class="stage" id="stageArea">
+        <canvas id="fx"></canvas>
+        <div id="saberLine"></div>
+        <div id="chordDisplay">
+            <div class="chord-name primary" id="chordPrimary"></div>
+            <div class="chord-name secondary" id="chordSecondary"></div>
+        </div>
+    </div>
+
+    <!-- Piano Keyboard -->
+    <div id="pianoWrap">
+        <div id="pianoViewport">
+            <div id="piano"></div>
+        </div>
+    </div>
+
+    <!-- SoundFont Boot Chip -->
+    <div id="bootSfChip" aria-live="polite">
+        <div class="bsc-spinner"><i></i><i></i><b></b></div>
+        <span class="bsc-text" id="bootSfChipText">Loading sound</span>
+        <div class="bsc-bar"><i id="bootSfChipBar"></i></div>
+    </div>
+</div>
+
+<script src="/js/visualizer/piano.js"></script>
+</body>
+</html>

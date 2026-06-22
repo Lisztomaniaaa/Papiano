@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Papiano — Piano Visualizer</title>
+<meta name="description" content="Load a MIDI file or paste a YouTube/TikTok link and watch falling notes on the Papiano piano visualizer stage.">
+<meta name="keywords" content="Papiano, piano visualizer, MIDI player, falling notes, MIDI visualizer, piano animation">
+<meta name="application-name" content="Papiano Online">
+<meta name="apple-mobile-web-app-title" content="Papiano Online">
+<meta name="theme-color" content="#090b0f">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://papiano.fun/visualizer">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Papiano">
+<meta property="og:url" content="https://papiano.fun/visualizer">
+<meta property="og:title" content="Papiano — Piano Visualizer">
+<meta property="og:description" content="Load a MIDI file or paste a link and watch falling notes on the Papiano piano visualizer stage.">
+<meta property="og:image" content="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/71f9794f-6420-4e9c-8988-4f71e54530e6.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Papiano — Piano Visualizer">
+<meta name="twitter:description" content="Load a MIDI file or paste a link and watch falling notes on the Papiano piano visualizer stage.">
+<meta name="twitter:image" content="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/71f9794f-6420-4e9c-8988-4f71e54530e6.webp">
+<link rel="icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
+<link rel="apple-touch-icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=Quicksand:wght@600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Plus+Jakarta+Sans:wght@600;700;800&family=Quicksand:wght@600;700;800&display=swap"></noscript>
+
+<link rel="stylesheet" href="/css/visualizer/piano.css">
+</head>
+<body>
+
+<div id="toastWrap"></div>
+
+<div class="viz-home">
+    <div class="viz-home-card">
+        <div class="viz-home-title">Piano Visualizer</div>
+        <div class="viz-home-subtitle">Load a MIDI file or paste a link to start</div>
+
+        <!-- Paste Link -->
+        <div class="viz-input-group">
+            <label class="viz-input-label" for="vizLinkInput">Paste YouTube / TikTok Link</label>
+            <input class="viz-input" type="url" id="vizLinkInput" placeholder="https://youtube.com/watch?v=..." autocomplete="off" autocorrect="off" spellcheck="false">
+        </div>
+
+        <!-- Divider -->
+        <div class="viz-divider"><span>or</span></div>
+
+        <!-- Upload MIDI / Video -->
+        <div class="viz-input-group">
+            <label class="viz-input-label">Upload MIDI / Video</label>
+            <div class="viz-upload-area" id="vizUploadArea">
+                <div class="viz-upload-icon">&#9835;</div>
+                <div class="viz-upload-text">Drop a MIDI or video file here</div>
+                <div class="viz-upload-hint">.mid .midi .mp4 .webm .mov</div>
+                <input type="file" id="vizFileInput" accept=".mid,.midi,.mp4,.webm,.mov,.avi,.mkv,audio/midi,video/*">
+            </div>
+            <div class="viz-file-chip" id="vizFileChip">
+                <span class="viz-file-name" id="vizFileName"></span>
+                <button class="viz-file-remove" id="vizFileRemove" type="button">&times;</button>
+            </div>
+        </div>
+
+        <!-- Start Button -->
+        <button class="viz-start-btn" id="vizStartBtn" type="button" disabled>Start Play</button>
+
+        <!-- Back Link -->
+        <a class="viz-back-link" href="/">&#8592; Back to Home</a>
+    </div>
+</div>
+
+<script src="/js/visualizer/home.js"></script>
+</body>
+</html>
