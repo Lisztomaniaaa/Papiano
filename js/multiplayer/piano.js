@@ -6011,8 +6011,6 @@ midiBtn.onclick = () => {
     const searchResults = document.getElementById('mpSearchResults');
     const statusFilterButtons = Array.from(document.querySelectorAll('[data-mp-status-filter]'));
     let mpSearchStatusFilter = 'online';
-    const pendingRequests = new Map();
-    let requestsUnsubscribe = null;
     const roomNameInput = document.getElementById('mpRoomName');
     const maxPlayersInput = document.getElementById('mpMaxPlayers');
     const maxPlayersButton = document.getElementById('mpMaxPlayersButton');
@@ -7414,58 +7412,6 @@ midiBtn.onclick = () => {
             }, () => {});
         }catch(e){ return null; }
     }
-    function attachRequestsListener(){
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return null;
-        try{
-            const col = fsApi.collection(fsDb, 'friendships');
-            const q = fsApi.query(col, fsApi.where('receiverId', '==', mpSelfId), fsApi.where('status', '==', 'pending'));
-            return fsApi.onSnapshot(q, async snap => {
-                pendingRequests.clear();
-                const senderIds = [];
-                snap.forEach(docSnap => {
-                    const data = (docSnap.data && docSnap.data()) || {};
-                    if(data.requesterId && data.requesterId !== mpSelfId){
-                        pendingRequests.set(docSnap.id, { docId:docSnap.id, senderId:data.requesterId, ...data });
-                        senderIds.push(data.requesterId);
-                    }
-                });
-                // Hydrate sender profiles
-                for(const uid of senderIds){
-                    if(!friendProfiles.has(uid)){
-                        const seed = players.find(p => p.id === uid) || { id:uid, name:'Player', online:false };
-                        try{ await hydratePlayerProfile(seed, { force:false }); }catch(e){}
-                    }
-                }
-                updateRequestBadge();
-                if(mpSearchStatusFilter === 'requests') renderSearch();
-            }, () => {});
-        }catch(e){ return null; }
-    }
-    function updateRequestBadge(){
-        const badge = document.getElementById('mpRequestBadge');
-        if(!badge) return;
-        const count = pendingRequests.size;
-        badge.textContent = String(count);
-        badge.style.display = count > 0 ? 'inline-flex' : 'none';
-    }
-    async function respondRequest(docId, accept){
-        if(!fsApi || !fsDb || !docId) return;
-        try{
-            const ref = fsApi.doc(fsDb, 'friendships', docId);
-            if(accept){
-                await fsApi.updateDoc(ref, { status:'accepted', updatedAt:fsApi.serverTimestamp() });
-                showToast('Friend request accepted.', { type:'success', title:'Friends' });
-            }else{
-                await fsApi.deleteDoc(ref);
-                showToast('Friend request declined.', { type:'success', title:'Friends' });
-            }
-            pendingRequests.delete(docId);
-            updateRequestBadge();
-            renderSearch();
-        }catch(e){
-            showToast('Couldn\'t update request. Try again.', { type:'error', title:'Friends' });
-        }
-    }
     async function toggleBlockedPlayer(player){
         if(!canUseSafetyAction(player)) return;
         if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
@@ -7830,34 +7776,11 @@ midiBtn.onclick = () => {
     async function renderSearch(){
         const token = ++searchRenderToken;
         if(token !== searchRenderToken) return;
-        const mode = mpSearchStatusFilter === 'friends' ? 'friends' : (mpSearchStatusFilter === 'requests' ? 'requests' : 'online');
+        const mode = mpSearchStatusFilter === 'friends' ? 'friends' : 'online';
 
         statusFilterButtons.forEach(button => {
             button.classList.toggle('active', button.dataset.mpStatusFilter === mode);
         });
-
-        if(mode === 'requests'){
-            const entries = Array.from(pendingRequests.values());
-            if(entries.length === 0){
-                searchResults.innerHTML = '<div class="mp-empty">No pending requests.</div>';
-                return;
-            }
-            searchResults.innerHTML = entries.map(req => {
-                const player = players.find(p => p.id === req.senderId) || friendProfiles.get(req.senderId) || normalizePlayer(req.senderId, { id:req.senderId, name:'Player', online:false });
-                const meta = [player.displayUserId || player.userId || ''].filter(Boolean).join(' · ');
-                return `
-                    <div class="mp-search-card mp-request-card" data-mp-player="${escapeHtml(player.id)}">
-                        ${avatarMarkup(player)}
-                        <span class="mp-search-card-text"><b>${escapeHtml(player.name)}</b><span>${escapeHtml(meta)}</span></span>
-                        <span class="mp-request-actions">
-                            <button class="mp-request-accept" type="button" data-mp-accept="${escapeHtml(req.docId)}">Accept</button>
-                            <button class="mp-request-decline" type="button" data-mp-decline="${escapeHtml(req.docId)}">Decline</button>
-                        </span>
-                    </div>
-                `;
-            }).join('');
-            return;
-        }
 
         let list = [];
         if(mode === 'friends'){
@@ -10037,7 +9960,6 @@ midiBtn.onclick = () => {
         friendProfiles.clear();
         friendsUnsubscribe = attachFirestoreFriends();
         attachBlocksListener();
-        requestsUnsubscribe = attachRequestsListener();
         startAccountBanWatcher(mpSelfId);
         syncAuthUi();
         attachRoomsListener();
@@ -10404,8 +10326,7 @@ midiBtn.onclick = () => {
     replyClear.addEventListener('click', () => setReply(null));
     statusFilterButtons.forEach(button => {
         button.addEventListener('click', () => {
-            const f = button.dataset.mpStatusFilter;
-            mpSearchStatusFilter = f === 'friends' ? 'friends' : (f === 'requests' ? 'requests' : 'online');
+            mpSearchStatusFilter = button.dataset.mpStatusFilter === 'friends' ? 'friends' : 'online';
             renderSearch();
         });
     });
@@ -10427,11 +10348,7 @@ midiBtn.onclick = () => {
         const join = event.target.closest('[data-mp-join]');
         const create = event.target.closest('[data-mp-create]');
         const quick = event.target.closest('[data-mp-quick]');
-        const acceptBtn = event.target.closest('[data-mp-accept]');
-        const declineBtn = event.target.closest('[data-mp-decline]');
         const player = event.target.closest('[data-mp-player]');
-        if(acceptBtn){ event.preventDefault(); respondRequest(acceptBtn.dataset.mpAccept, true); return; }
-        if(declineBtn){ event.preventDefault(); respondRequest(declineBtn.dataset.mpDecline, false); return; }
         if(go){
             if(go.dataset.mpGo === 'create') await openCreateScreen();
             else { if(go.dataset.mpGo !== 'home') initFirebase(); showLayer(go.dataset.mpGo); }
