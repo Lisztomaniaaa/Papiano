@@ -22,46 +22,17 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    function roleAllowed(role) {
-      return role == 'common'
-        || role == resource.data.get('badgeId', 'common')
-        || role == resource.data.get('roleId', 'common')
-        || (resource.data.get('ownedRoles', []) is list && role in resource.data.get('ownedRoles', []));
-    }
-
-    function badgeWithinInventory() {
-      return roleAllowed(request.resource.data.get('badgeId', 'common'))
-        && roleAllowed(request.resource.data.get('roleId', 'common'));
-    }
-
     match /profiles/{uid} {
       allow read: if signed();
-      allow create: if isAdmin() || (
-        owns(uid)
-        && request.resource.data.get('badgeId', 'common') == 'common'
-        && request.resource.data.get('roleId', 'common') == 'common'
-        && request.resource.data.get('ownedRoles', ['common']).hasOnly(['common'])
-      );
+      allow create: if isAdmin() || owns(uid);
       allow update: if isAdmin()
-        // Playtime sync. NOTE: kept value-unvalidated on purpose — the client
-        // pre-marks lastSyncedSeconds before the write, so a single rejected
-        // playtime write would wedge the whole session's sync (and multi-device
-        // play legitimately writes a lower value than another device). Anti-
-        // cheat for playtime needs a server function, not a rule.
         || (owns(uid) && changedKeys().hasOnly(['playTimeSeconds', 'playTime', 'playTimeLeaderboardUpdatedAt', 'updatedAt']))
-        // Owner can update most fields. publicId/userId may only be SET once
-        // (initial assignment when they don't exist yet); after that they're
-        // immutable unless admin writes them.
         || (owns(uid)
-            && !changedKeys().hasAny(['ownedRoles', 'likes', 'dislikes'])
+            && !changedKeys().hasAny(['role', 'likes', 'dislikes'])
             && (
                 !changedKeys().hasAny(['publicId', 'userId'])
                 || !resource.data.keys().hasAny(['publicId'])
-            )
-            && badgeWithinInventory())
-        // Anyone may cast a like/dislike on another profile, but only by ±1 per
-        // write (the client does this in a transaction with a per-voter dedup
-        // doc). This stops a direct write from fabricating arbitrary counts.
+            ))
         || (signed()
             && changedKeys().hasOnly(['likes', 'dislikes', 'updatedAt'])
             && request.resource.data.get('likes', 0) >= 0
@@ -101,10 +72,6 @@ service cloud.firestore {
         || (signed() && roomId.matches('^group_.*'))
         || (signed() && roomId.matches('^dm_.*')
             && request.auth.uid in request.resource.data.get('participants', []));
-      // DM rooms re-send participants in the caller's own order ([me, them]),
-      // so the two members write different array orders — don't lock the
-      // participants field or the second member's writes would be rejected.
-      // Gate instead on the caller already being a member of the room.
       allow update: if isAdmin()
         || (signed() && roomId.matches('^group_.*')
             && !changedKeys().hasAny(['type']))
@@ -134,9 +101,6 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.users
         && request.resource.data.requesterId == request.auth.uid
         && request.resource.data.status == 'pending';
-      // Either party can read/update an existing friendship, but only the
-      // RECEIVER can transition status: pending -> accepted. Either party can
-      // change to other states (rejected/cancelled) or leave status untouched.
       allow update: if signed() && request.auth.uid in resource.data.users && (
         !changedKeys().hasAny(['status'])
         || request.resource.data.status != 'accepted'

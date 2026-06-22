@@ -221,13 +221,8 @@
     let activeChatRoomType = '';
     let activeChatTargetUid = '';
     let currentChatSubView = 'chats';
-    let selectedBadgeId = 'common';
-    // Master role registry (loaded from Realtime DB at /roles, admin-managed).
-    // Always includes 'common' (PLAYER) as the universal baseline.
-    const BASE_ROLE_REGISTRY = {
-        common: { label: 'PLAYER', rarity: 'common', permissions: [] }
-    };
-    let roleRegistry = { ...BASE_ROLE_REGISTRY };
+    // Simple role labels map (loaded from Realtime DB at /roles, admin-managed).
+    let roleLabels = { player: 'Player' };
     let rolesRef = null;
     let rolesHandler = null;
     let deletedAccountRef = null;
@@ -271,22 +266,8 @@
     const ROLE_PATH = 'roles';
     const DELETED_ACCOUNTS_PATH = 'deletedAccounts';
 
-    function normalizeRoleId(value) {
-        const id = String(value || 'common').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-        return id || 'common';
-    }
-
-    function normalizeRoleRegistry(data = {}) {
-        // Admin-defined roles in /roles RTDB get merged on top of the base
-        // (PLAYER). If RTDB has nothing, the picker still has PLAYER.
-        const next = { ...BASE_ROLE_REGISTRY };
-        Object.entries(data || {}).forEach(([id, role]) => {
-            const roleId = normalizeRoleId(id);
-            const label = String(role?.label || role?.name || roleId).trim().slice(0, 28);
-            const rarity = String(role?.rarity || 'common').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '') || 'common';
-            next[roleId] = { ...role, label: label || roleId.toUpperCase(), rarity };
-        });
-        return next;
+    function normalizeRole(value) {
+        return String(value || 'player').trim().toLowerCase().slice(0, 40) || 'player';
     }
 
     const roomTitles = {
@@ -495,7 +476,12 @@
         if (rolesRef || !realtimeDb || !currentUser?.uid) return;
         rolesRef = realtimeDb.ref(ROLE_PATH);
         rolesHandler = snapshot => {
-            roleRegistry = normalizeRoleRegistry(snapshot.val() || {});
+            const data = snapshot.val() || {};
+            roleLabels = { player: 'Player' };
+            Object.entries(data).forEach(([id, role]) => {
+                roleLabels[id] = role.label || id;
+            });
+            roleLabels.player = roleLabels.player || 'Player';
             updateProfileView(loadProfile());
             if (document.getElementById('brandSheetOverlay')?.classList.contains('active')) populateBrandSheet();
         };
@@ -991,27 +977,12 @@
     function normalizeProfile(uid, data = {}) {
         const publicId = Number(data.publicId || 0);
         const playTimeSeconds = parsePlayTimeSeconds(data);
-        const roleId = normalizeRoleId(data.roleId || data.badgeId || data.role || 'common');
-        // ownedRoles = inventory of badges/roles the user has access to.
-        // Default for everyone is just ['common'] (PLAYER). Admin panel can
-        // grant extra roles by pushing more ids into this array on the
-        // user's profile document.
-        const rawOwned = Array.isArray(data.ownedRoles) ? data.ownedRoles : (Array.isArray(data.ownedBadges) ? data.ownedBadges : []);
-        const ownedRolesSet = new Set(['common']);
-        rawOwned.forEach(r => {
-            const id = normalizeRoleId(r);
-            if (id) ownedRolesSet.add(id);
-        });
-        // Sticky: keep the user's currently-active role visible in the picker
-        // even if it hasn't been added to ownedRoles yet (e.g. legacy data).
-        ownedRolesSet.add(roleId);
+        const role = normalizeRole(data.role || data.roleId || data.badgeId || 'player');
         return {
             uid,
             name: String(data.name || data.displayName || 'Papiano User').slice(0, 24),
             desc: String(data.desc || data.bio || '').slice(0, 160),
-            roleId,
-            badgeId: roleId,
-            ownedRoles: [...ownedRolesSet],
+            role,
             photoURL: String(data.photoURL || data.avatar_url || data.avatarURL || ''),
             playTimeSeconds,
             playTime: formatPlayTime(playTimeSeconds),
@@ -1052,7 +1023,6 @@
             name: user.displayName || 'Papiano User',
             searchName: String(user.displayName || 'Papiano User').toLowerCase(),
             desc: '',
-            badgeId: 'common',
             photoURL: user.photoURL || '',
             playTimeSeconds: 0,
             playTime: '0 Min',
@@ -1234,67 +1204,12 @@
         if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = label;
     }
 
-    function getBadge(id) {
-        const roleId = normalizeRoleId(id);
-        const role = roleRegistry[roleId] || { label: roleId.toUpperCase(), rarity: 'system', permissions: [] };
-        const rarity = String(role.rarity || 'common').toLowerCase().replace(/[^a-z0-9_-]+/g, '') || 'common';
-        return { id: roleId, label: role.label || role.name || roleId.toUpperCase(), meta: '', className: `badge-rarity-${rarity}` };
+    function getRoleLabel(role) {
+        return roleLabels[normalizeRole(role)] || String(role || 'Player').toUpperCase();
     }
 
-    function renderBadge(id) {
-        const badge = getBadge(id);
-        return `<span class="badge-role-pill ${badge.className}">${escapeHtml(badge.label)}</span>`;
-    }
-
-    // Populate the Role <select> in account settings from the user's
-    // ownedRoles (badge inventory). Falls back to PLAYER only if the
-    // user has no extra roles - which is the default for everyone.
-    function populateAccountRoleSelect(currentRoleId) {
-        const select = document.getElementById('accountRoleSelect');
-        if (!select) return;
-        const target = normalizeRoleId(currentRoleId || selectedBadgeId || 'common');
-        // The user's badge inventory. Always includes 'common' + the
-        // currently-active roleId (handled in normalizeProfile).
-        const owned = Array.isArray(currentProfile?.ownedRoles) && currentProfile.ownedRoles.length
-            ? currentProfile.ownedRoles
-            : ['common', target];
-        const ownedSet = new Set(owned.map(normalizeRoleId));
-        ownedSet.add('common');
-        ownedSet.add(target);
-
-        const entries = [...ownedSet].map(id => {
-            const role = roleRegistry[id] || { label: id.toUpperCase() };
-            return [id, role];
-        });
-        // 'common' first, the rest sorted alphabetically by label
-        entries.sort(([aId, a], [bId, b]) => {
-            if (aId === 'common') return -1;
-            if (bId === 'common') return 1;
-            return String(a?.label || aId).localeCompare(String(b?.label || bId));
-        });
-
-        select.innerHTML = entries.map(([id, role]) => {
-            const label = String(role?.label || id || '').trim() || id.toUpperCase();
-            return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
-        }).join('');
-        if (!Array.from(select.options).some(opt => opt.value === target)) {
-            const opt = document.createElement('option');
-            opt.value = target;
-            opt.textContent = target.toUpperCase();
-            select.appendChild(opt);
-        }
-        select.value = target;
-        syncThemedSelectDisplay(select);
-    }
-
-    // Called when user picks a different role in account settings.
-    function handleRoleSelectChange() {
-        const select = document.getElementById('accountRoleSelect');
-        if (!select) return;
-        // Track the pending choice for Save, and update the select's own label.
-        // The profile card itself is NOT touched until the Save button is pressed.
-        selectedBadgeId = normalizeRoleId(select.value || 'common');
-        syncThemedSelectDisplay(select);
+    function renderRoleLabel(role) {
+        return `<span class="role-pill">${escapeHtml(getRoleLabel(role))}</span>`;
     }
 
     // Country select change - update the select's own label only. The profile
@@ -1454,15 +1369,13 @@
     }
 
     function updateProfileView(profile) {
-        selectedBadgeId = normalizeRoleId(profile.roleId || profile.badgeId || 'common');
-        const badge = getBadge(selectedBadgeId);
         const playTimeLabel = formatPlayTime(profile.playTimeSeconds);
         const playTimeHourLabel = formatPlayTimeHours(profile.playTimeSeconds);
         updateTopBarProfile(profile);
         document.querySelector('.account-layout')?.classList.toggle('access-locked', !currentUser?.uid);
 
         if (displayProfileName) displayProfileName.textContent = profile.name || 'Papiano User';
-        if (displayProfileRole) displayProfileRole.innerHTML = renderBadge(selectedBadgeId);
+        if (displayProfileRole) displayProfileRole.innerHTML = renderRoleLabel(profile.role);
         if (displayProfileId) displayProfileId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (displayTotalPlayTrack) animateCountUp(displayTotalPlayTrack, playTimeLabel);
         if (displayProfilePlayPill) displayProfilePlayPill.textContent = playTimeHourLabel;
@@ -1476,7 +1389,6 @@
         if (formInputCountry) formInputCountry.value = profile.countryCode || '';
         renderFlagRow(profile.countryCode, document.getElementById('displayProfileFlag'));
         syncThemedSelectDisplay(formInputCountry);
-        populateAccountRoleSelect(selectedBadgeId);
 
         applyAvatarSlot(masterAvatarImg, masterPlaceholderIcon, profile.photoURL, profile.name, !!currentUser, 'account_circle');
         // Keep brand sheet (mobile) and desktop sidebar auth button in sync
@@ -1571,21 +1483,7 @@
         const cleanCountry = String(countryEl?.value || '').toUpperCase().slice(0, 2);
         const profileUid = currentUser?.uid || loadProfile().uid || 'test_user';
 
-        // Validate roleId against the user's badge inventory. If they somehow
-        // submit a roleId they don't own (shouldn't happen via UI), snap back
-        // to PLAYER. ownedRoles itself is admin-controlled and is NEVER
-        // written from the client - we strip it from the Firestore payload.
-        const ownedSet = new Set((Array.isArray(currentProfile?.ownedRoles) ? currentProfile.ownedRoles : ['common']).map(normalizeRoleId));
-        ownedSet.add('common');
-        const safeRoleId = ownedSet.has(selectedBadgeId) ? selectedBadgeId : 'common';
-        if (safeRoleId !== selectedBadgeId) {
-            selectedBadgeId = 'common';
-            populateAccountRoleSelect('common');
-        }
-
         const cached = loadProfile();
-        const remoteSafe = { ...cached };
-        delete remoteSafe.ownedRoles; // never overwrite admin-managed inventory
 
         const currentName = String(currentProfile?.name || cached.name || '').trim();
         const normalizedNew = cleanName.toLowerCase();
@@ -1607,13 +1505,10 @@
         }
 
         const profile = {
-            ...remoteSafe,
             uid: profileUid,
             name: cleanName,
             searchName: cleanName.toLowerCase(),
             desc: cleanDesc,
-            roleId: safeRoleId,
-            badgeId: safeRoleId,
             photoURL: formInputPhotoUrl?.value || '',
             countryCode: cleanCountry,
             playTimeSeconds: parsePlayTimeSeconds(cached),
@@ -1621,18 +1516,10 @@
         };
         try {
             if (currentUser?.uid) {
-                // Only persist the fields the profile editor actually owns.
-                // Strip server-managed fields — vote counts (written by other
-                // users), the public ID assigned once at creation, and play
-                // time (written by the playtime sync) — so a stale cached copy
-                // can't clobber them and the security rules don't reject the
-                // save for touching fields it shouldn't.
                 const { likes, dislikes, publicId, userId, playTime, playTimeSeconds, ...editable } = profile;
                 await firestoreDb.collection('profiles').doc(currentUser.uid).set(editable, { merge: true });
             }
-            // Re-attach the cached ownedRoles locally so updateProfileView still
-            // shows the right options after save (until next snapshot).
-            currentProfile = normalizeProfile(profileUid, { ...profile, ownedRoles: cached.ownedRoles });
+            currentProfile = normalizeProfile(profileUid, { ...cached, ...profile });
             saveProfile(currentProfile);
             updateProfileView(currentProfile);
             showToast('Profile saved.', 'Saved');
@@ -2029,13 +1916,8 @@
     }
 
     function isVipMember() {
-        // VIP access: user has 'vip' in their ownedRoles array OR is admin
         const profile = currentProfile || loadProfile() || {};
-        const owned = Array.isArray(profile.ownedRoles) ? profile.ownedRoles : [];
-        if (owned.some(r => normalizeRoleId(r) === 'vip')) return true;
-        // Admins always have VIP access
-        const email = String(currentUser?.email || '').toLowerCase();
-        return ADMIN_GATE_EMAILS.has(email);
+        return normalizeRole(profile.role) === 'vip' || ADMIN_GATE_EMAILS.has(String(currentUser?.email || '').toLowerCase());
     }
 
     function canManageActiveChatFolder() {
@@ -2114,7 +1996,7 @@
             <div class="avatar-circle" style="background:var(--accent-green);" onclick="event.stopPropagation(); launchFriendProfileModal('${escapeHtml(profile.uid || '')}')">${profile.photoURL ? `<img src="${escapeHtml(profile.photoURL)}" alt="">` : escapeHtml(getInitials(profile.name))}</div>
             <div class="chat-body-content">
                 <div class="chat-row-header">
-                    <div class="chat-user-name"><span class="chat-user-name-text">${escapeHtml(profile.name || 'Papiano User')}</span>${isBlocked ? ' <span class="badge-role-pill badge-rarity-system">Blocked</span>' : ''}</div>
+                    <div class="chat-user-name"><span class="chat-user-name-text">${escapeHtml(profile.name || 'Papiano User')}</span>${isBlocked ? ' <span class="role-pill" style="background:#1A1A1A;color:#fff;">Blocked</span>' : ''}</div>
                     <div class="chat-timestamp">${stamp}</div>
                 </div>
                 ${secondRow}
@@ -2915,7 +2797,7 @@
             name: message.senderName || 'Papiano User',
             userId: message.senderUserId || '',
             photoURL: message.senderPhotoURL || '',
-            badgeId: message.senderBadgeId || 'common'
+            role: message.senderBadgeId || 'player'
         });
     }
 
@@ -3289,7 +3171,7 @@
                 senderName: profile.name || 'Papiano User',
                 senderUserId: profile.userId || '',
                 senderPhotoURL: profile.photoURL || '',
-                senderBadgeId: profile.roleId || profile.badgeId || 'common',
+                senderBadgeId: profile.role || 'player',
                 text,
                 imageURL: pendingChatImageData || '',
                 imagePath: pendingChatImagePath || '',
@@ -3510,7 +3392,7 @@
             }
         }
         if (fpName) fpName.textContent = profile.name || 'Papiano User';
-        if (fpBadgeContainer) fpBadgeContainer.innerHTML = renderBadge(profile.badgeId);
+        if (fpBadgeContainer) fpBadgeContainer.innerHTML = renderRoleLabel(profile.role);
         renderFlagRow(profile.countryCode, document.getElementById('fpFlagRow'));
         if (fpId) fpId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (fpDesc) fpDesc.textContent = profile.desc || '—';
@@ -4078,8 +3960,7 @@
                 uidLabel: profile.userId || '',
                 userId: profile.userId || '',
                 publicId: profile.publicId || 0,
-                role: profile.badgeId || 'common',
-                badgeId: profile.badgeId || 'common',
+                role: profile.role || 'player',
                 photoURL: profile.photoURL || '',
                 bio: profile.desc || '',
                 desc: profile.desc || '',

@@ -6389,23 +6389,12 @@ midiBtn.onclick = () => {
         return String(value ?? '').replace(/[&<>"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]));
     }
 
-    // Aligned with BASE_ROLE_REGISTRY in js/app.js (common -> PLAYER).
-    const MP_BADGES_BASE = {
-        common:    { id:'common',    label:'PLAYER',    rarity:'common' },
-        supporter: { id:'supporter', label:'SUPPORTER', rarity:'supporter' },
-        creator:   { id:'creator',   label:'CREATOR',   rarity:'creator' },
-        papioneer: { id:'papioneer', label:'PAPIONEER', rarity:'papioneer' },
-        dev:       { id:'dev',       label:'DEV',       rarity:'dev' },
-        // backward-compat aliases for legacy data
-        member:    { id:'common',    label:'PLAYER',    rarity:'common' },
-        uncommon:  { id:'supporter', label:'SUPPORTER', rarity:'supporter' },
-        rare:      { id:'creator',   label:'CREATOR',   rarity:'creator' },
-        epic:      { id:'papioneer', label:'PAPIONEER', rarity:'papioneer' }
-    };
-    let mpRoleRegistry = { ...MP_BADGES_BASE };
-    function getProfileBadge(value){
-        const key = String(value || '').trim().toLowerCase();
-        return mpRoleRegistry[key] || mpRoleRegistry.common || MP_BADGES_BASE.common;
+    // Simple role labels map (loaded from Realtime DB at /roles, admin-managed).
+    const MP_ROLE_LABELS = { player: 'Player' };
+    let mpRoleLabels = { ...MP_ROLE_LABELS };
+    function getRoleLabel(value){
+        const key = String(value || 'player').trim().toLowerCase();
+        return mpRoleLabels[key] || key.toUpperCase() || 'PLAYER';
     }
     function attachRoleRegistryListener(){
         if(!firebaseReady || !dbApi || !db) return;
@@ -6413,14 +6402,10 @@ midiBtn.onclick = () => {
             var rolesRef = dbApi.ref(db, 'roles');
             dbApi.onValue(rolesRef, snap => {
                 const data = snap.val() || {};
-                mpRoleRegistry = { ...MP_BADGES_BASE };
+                mpRoleLabels = { player: 'Player' };
                 Object.entries(data).forEach(([id, role]) => {
-                    const roleId = String(id || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'common';
-                    const label = String(role?.label || role?.name || roleId).trim().slice(0, 28) || roleId.toUpperCase();
-                    const rarity = String(role?.rarity || 'common').trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '') || 'common';
-                    const color = typeof role?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(role.color) ? role.color : null;
-                    const permissions = Array.isArray(role?.permissions) ? role.permissions : [];
-                    mpRoleRegistry[roleId] = { id:roleId, label, rarity, color, permissions };
+                    const roleId = String(id || '').trim().toLowerCase().slice(0, 40) || 'player';
+                    mpRoleLabels[roleId] = String(role?.label || roleId).trim().slice(0, 28) || roleId.toUpperCase();
                 });
                 renderSearch();
                 renderRoomChrome();
@@ -6452,7 +6437,7 @@ midiBtn.onclick = () => {
     }
 
     function normalizeHomeProfile(uid, data = {}){
-        const badge = getProfileBadge(data.badgeId || 'common');
+        const role = String(data.role || data.badgeId || 'player').toLowerCase();
         const publicId = Number(data.publicId || 0);
         const validPublicId = Number.isInteger(publicId) && publicId > 0 ? publicId : 0;
         const userId = formatMpSequentialId(data.userId || validPublicId);
@@ -6461,8 +6446,8 @@ midiBtn.onclick = () => {
             name:sanitizeText(data.name || data.displayName, 'Papiano User').slice(0, 24),
             searchName:String(data.searchName || data.name || data.displayName || '').toLowerCase(),
             desc:sanitizeText(data.desc || data.bio, 'No bio yet.').slice(0, 160),
-            badgeId:badge.id,
-            role:badge.label,
+            badgeId:role,
+            role:getRoleLabel(role),
             photoURL:String(data.photoURL || data.avatar_url || data.avatarURL || ''),
             publicId:validPublicId,
             userId,
@@ -7545,12 +7530,8 @@ midiBtn.onclick = () => {
     }
 
     function mpSelfHasPermission(permName){
-        try{
-            const selfData = roomPlayersByRoom[currentRoom?.id]?.[mpSelfId];
-            const badgeId = String(selfData?.badgeId||'common');
-            const role = mpRoleRegistry[badgeId] || mpRoleRegistry.common || {};
-            return Array.isArray(role.permissions) && role.permissions.includes(permName);
-        }catch(e){ return false; }
+        // Permissions are no longer role-based in the simplified system
+        return false;
     }
     function canModeratePlayer(player){
         if(!player || !isInPianoRoom() || !currentRoom) return false;
@@ -8317,15 +8298,9 @@ midiBtn.onclick = () => {
         profileAvatar.setAttribute('aria-label', player.name);
         profileAvatar.style.setProperty('--mp-player-color', playerColor(player));
         profileName.textContent = player.name;
-        const badge = getProfileBadge(player.badgeId);
-        profileRole.textContent = badge.label;
-        profileRole.dataset.rarity = badge.rarity || 'common';
-        if(badge.color && /^#[0-9a-fA-F]{6}$/.test(badge.color)){
-            const lum = (parseInt(badge.color.slice(1,3),16)*299+parseInt(badge.color.slice(3,5),16)*587+parseInt(badge.color.slice(5,7),16)*114)/1000;
-            profileRole.style.cssText = `background:${badge.color};color:${lum>128?'#06111f':'#fff'};border:none;box-shadow:none`;
-        } else {
-            profileRole.style.cssText = '';
-        }
+        profileRole.textContent = getRoleLabel(player.badgeId);
+        profileRole.dataset.rarity = '';
+        profileRole.style.cssText = '';
         profileId.textContent = player.displayUserId || player.userId || 'ID pending';
         profileInstrument.textContent = playerMainInstrumentText(player);
         if(profileLayerInstrument) profileLayerInstrument.textContent = playerLayerInstrumentText(player);
@@ -8423,17 +8398,9 @@ midiBtn.onclick = () => {
         }
         if(nameEl) nameEl.textContent = player.name || 'Player';
         if(badgeEl){
-            const badge = getProfileBadge(player.badgeId);
-            badgeEl.textContent = badge.label;
-            if(badge.color && /^#[0-9a-fA-F]{6}$/.test(badge.color)){
-                const[cr,cg,cb]=[badge.color.slice(1,3),badge.color.slice(3,5),badge.color.slice(5,7)].map(v=>parseInt(v,16));
-                const ink=(cr*299+cg*587+cb*114)/1000>128?'#06111f':'#fff';
-                badgeEl.style.cssText=`background:${badge.color};color:${ink};border-color:transparent`;
-                badgeEl.className='mp-lobby-badge-pill';
-            } else {
-                badgeEl.style.cssText='';
-                badgeEl.className='mp-lobby-badge-pill mp-lobby-badge-'+(badge.rarity||'common');
-            }
+            badgeEl.textContent = getRoleLabel(player.badgeId);
+            badgeEl.style.cssText='';
+            badgeEl.className='mp-lobby-badge-pill';
         }
         if(flagEl){
             const country = profileCountryText(player);
@@ -8498,17 +8465,9 @@ midiBtn.onclick = () => {
                 selectedPlayer = fresh;
                 if(nameEl) nameEl.textContent = fresh.name || 'Player';
                 if(badgeEl){
-                    const badge = getProfileBadge(fresh.badgeId);
-                    badgeEl.textContent = badge.label;
-                    if(badge.color && /^#[0-9a-fA-F]{6}$/.test(badge.color)){
-                        const[cr,cg,cb]=[badge.color.slice(1,3),badge.color.slice(3,5),badge.color.slice(5,7)].map(v=>parseInt(v,16));
-                        const ink=(cr*299+cg*587+cb*114)/1000>128?'#06111f':'#fff';
-                        badgeEl.style.cssText=`background:${badge.color};color:${ink};border-color:transparent`;
-                        badgeEl.className='mp-lobby-badge-pill';
-                    } else {
-                        badgeEl.style.cssText='';
-                        badgeEl.className='mp-lobby-badge-pill mp-lobby-badge-'+(badge.rarity||'common');
-                    }
+                    badgeEl.textContent = getRoleLabel(fresh.badgeId);
+                    badgeEl.style.cssText='';
+                    badgeEl.className='mp-lobby-badge-pill';
                 }
                 if(idEl) idEl.textContent = fresh.displayUserId || fresh.userId || '—';
                 if(bioEl) bioEl.textContent = fresh.bio || '—';
@@ -8664,8 +8623,8 @@ midiBtn.onclick = () => {
             uidLabel:user.displayUserId || user.userId || '',
             userId:user.displayUserId || user.userId || '',
             publicId:user.publicId || 0,
-            role:getProfileBadge(user.badgeId).label,
-            badgeId:user.badgeId || 'common',
+            role:getRoleLabel(user.badgeId),
+            badgeId:user.badgeId || 'player',
             photoURL:user.photoURL || '',
             instrumentKey:currentInstrumentKey(),
             instrument:currentInstrumentName(),
@@ -8776,8 +8735,8 @@ midiBtn.onclick = () => {
                 uidLabel:user.displayUserId || user.userId || '',
                 userId:user.displayUserId || user.userId || '',
                 publicId:user.publicId || 0,
-                role:getProfileBadge(user.badgeId).label,
-                badgeId:user.badgeId || 'common',
+                role:getRoleLabel(user.badgeId),
+                badgeId:user.badgeId || 'player',
                 photoURL:user.photoURL || '',
                 instrumentKey:currentInstrumentKey(),
                 instrument:currentInstrumentName(),
