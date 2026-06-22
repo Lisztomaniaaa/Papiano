@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>Papiano — Piano Visualizer</title>
+<meta name="description" content="Load a MIDI file or paste a YouTube/TikTok link and watch falling notes on the Papiano piano visualizer.">
+<meta name="keywords" content="Papiano, piano visualizer, MIDI player, falling notes, MIDI visualizer, piano animation">
+<meta name="theme-color" content="#06111f">
+<link rel="canonical" href="https://papiano.fun/visualizer">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Papiano">
+<meta property="og:title" content="Papiano — Piano Visualizer">
+<meta property="og:description" content="Load a MIDI file or paste a link and watch falling notes on the Papiano piano visualizer.">
+<meta property="og:url" content="https://papiano.fun/visualizer">
+<meta property="og:image" content="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/71f9794f-6420-4e9c-8988-4f71e54530e6.webp">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Papiano — Piano Visualizer">
+<meta name="twitter:description" content="Load a MIDI file or paste a link and watch falling notes on the Papiano piano visualizer.">
+<meta name="twitter:image" content="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/71f9794f-6420-4e9c-8988-4f71e54530e6.webp">
+<link rel="icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
+<link rel="apple-touch-icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
+<link rel="manifest" href="/manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+@font-face{font-family:'Material Symbols Rounded';font-style:normal;font-weight:400;font-display:block;src:url(/fonts/material-symbols-rounded.woff2) format('woff2')}
+:root{--bg-app:#e7f4ff;--surface:#ffffff;--surface-solid:#ffffff;--dark-block:#06111f;--accent:#005BFF;--accent-strong:#0047C7;--text-main:#06111f;--text-muted:rgba(6,17,31,0.72);--text-faint:rgba(6,17,31,0.38);--glass-border-col:rgba(6,17,31,0.16);--hairline:rgba(6,17,31,0.16);--font-display:-apple-system,BlinkMacSystemFont,'SF Pro Display','Inter','Plus Jakarta Sans',sans-serif;--font-body:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter','Plus Jakarta Sans',sans-serif;--ease-snappy:cubic-bezier(0.32,0.72,0,1)}
+*{box-sizing:border-box;margin:0;padding:0;font-family:var(--font-body);-webkit-tap-highlight-color:transparent}
+body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw;display:flex;justify-content:center;min-height:100vh;min-height:100dvh;font-weight:500;-webkit-font-smoothing:antialiased}
+.app-container{width:100%;max-width:480px;height:100vh;height:100dvh;background:#e7f4ff;display:flex;flex-direction:column;position:relative;overflow:hidden;box-shadow:0 18px 60px rgba(0,91,255,0.14);border:1px solid rgba(0,91,255,0.18)}
+.top-bar{height:64px;flex:0 0 64px;padding:0 18px;display:flex;justify-content:space-between;align-items:center;background:#06111f;border-bottom:2px solid rgba(6,17,31,0.22);position:relative;z-index:55;box-shadow:inset 0 1px 0 rgba(255,255,255,0.10),inset 0 -1px 0 rgba(0,0,0,0.34),0 10px 26px rgba(6,17,31,0.16)}
+.top-bar-title{font-family:var(--font-display);font-size:16px;font-weight:900;color:#ffffff;letter-spacing:-0.01em}
+.top-bar-back{display:inline-flex;align-items:center;gap:6px;background:none;border:none;color:rgba(255,255,255,0.7);font-size:13px;font-weight:700;cursor:pointer;padding:8px 12px;border-radius:10px;text-decoration:none}
+.top-bar-back:hover{background:rgba(255,255,255,0.08)}
+.top-bar-back .material-symbols-rounded{font-size:20px}
+.content-area{flex:1;overflow-y:auto;overflow-x:hidden;padding:20px 18px;display:flex;flex-direction:column;gap:18px}
+.viz-hero{width:100%;aspect-ratio:21/9;border-radius:24px;overflow:hidden;position:relative;border:2px solid #06111f;box-shadow:inset 0 3px 0 rgba(255,255,255,0.24),inset 0 -7px 0 rgba(0,43,140,0.42),0 8px 0 #00358f,0 18px 34px rgba(6,17,31,0.20);background:linear-gradient(135deg,#0047C7,#005BFF 60%,#0099ff);display:flex;align-items:center;justify-content:center;padding:20px}
+.viz-hero-text{font-family:'Anybody',var(--font-display);font-style:italic;font-weight:900;font-size:clamp(1.6rem,10vw,3.2rem);line-height:0.88;letter-spacing:-0.06em;text-transform:uppercase;color:#ffffff;text-align:center;text-shadow:0 4px 12px rgba(0,0,0,0.2)}
+.viz-section-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-faint);margin-bottom:-6px}
+.viz-card{border-radius:22px;padding:22px 20px;background:var(--surface-solid);border:2px solid #06111f;box-shadow:inset 0 3px 0 rgba(255,255,255,0.22),inset 0 -5px 0 rgba(0,0,0,0.08),0 6px 0 rgba(6,17,31,0.12),0 14px 28px rgba(6,17,31,0.12);display:flex;flex-direction:column;gap:16px}
+.viz-card-title{font-family:var(--font-display);font-size:17px;font-weight:800;color:var(--text-main)}
+.viz-field-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-faint)}
+.viz-input{width:100%;padding:13px 15px;border-radius:14px;border:2px solid rgba(6,17,31,0.14);background:#ffffff;color:var(--text-main);font-size:14px;font-weight:600;font-family:var(--font-body);outline:none;transition:border-color 0.18s,box-shadow 0.18s}
+.viz-input::placeholder{color:rgba(6,17,31,0.3)}
+.viz-input:focus{border-color:#005BFF;box-shadow:0 0 0 3px rgba(0,91,255,0.12)}
+.viz-or-divider{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px}
+.viz-or-divider::before,.viz-or-divider::after{content:'';flex:1;height:1.5px;background:rgba(6,17,31,0.1)}
+.viz-upload-zone{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:30px 20px;border-radius:18px;border:2px dashed rgba(6,17,31,0.18);background:rgba(0,91,255,0.03);cursor:pointer;transition:border-color 0.2s,background 0.2s}
+.viz-upload-zone:hover,.viz-upload-zone.dragover{border-color:#005BFF;background:rgba(0,91,255,0.06)}
+.viz-upload-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.viz-upload-zone .material-symbols-rounded{font-size:36px;color:#005BFF}
+.viz-upload-text{font-size:14px;font-weight:700;color:var(--text-main)}
+.viz-upload-hint{font-size:11px;color:var(--text-faint)}
+.viz-file-chip{display:none;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:rgba(0,91,255,0.06);border:1.5px solid rgba(0,91,255,0.18)}
+.viz-file-chip.show{display:flex}
+.viz-file-name{flex:1;font-size:13px;font-weight:700;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.viz-file-remove{width:28px;height:28px;border-radius:50%;background:rgba(198,40,40,0.08);border:1px solid rgba(198,40,40,0.18);color:#c62828;font-size:16px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.viz-start-btn{width:100%;padding:15px;border-radius:16px;border:none;background:#005BFF;color:#fff;font-size:15px;font-weight:900;font-family:var(--font-display);cursor:pointer;box-shadow:inset 0 2px 0 rgba(255,255,255,0.18),0 4px 0 #003eaa,0 8px 18px rgba(0,91,255,0.24);transition:transform 80ms,box-shadow 80ms}
+.viz-start-btn:active{transform:translateY(2px);box-shadow:inset 0 2px 0 rgba(255,255,255,0.18),0 2px 0 #003eaa}
+.viz-start-btn:disabled{opacity:0.4;cursor:not-allowed}
+.material-symbols-rounded{font-family:'Material Symbols Rounded';font-size:24px;display:inline-block;font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;font-feature-settings:'liga'}
+/* Toast */
+.viz-toast-wrap{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;max-width:340px;width:90%}
+.viz-toast{pointer-events:auto;padding:14px 18px;border-radius:14px;background:#06111f;color:#fff;font-size:13px;font-weight:700;box-shadow:0 8px 28px rgba(6,17,31,0.28);opacity:0;transform:translateY(-8px);transition:opacity .25s,transform .25s}
+.viz-toast.show{opacity:1;transform:translateY(0)}
+.viz-toast.t-error{background:#c62828}
+.viz-toast.t-success{background:#007a3e}
+@media(max-width:380px){.content-area{padding:14px 12px;gap:14px}.viz-hero{border-radius:16px}.viz-card{padding:18px 16px;border-radius:18px}}
+</style>
+<link rel="preload" href="/fonts/material-symbols-rounded.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=optional" media="print" onload="this.media='all';this.onload=null;">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=optional"></noscript>
+</head>
+<body>
+<div class="app-container">
+
+    <!-- Top Bar -->
+    <header class="top-bar">
+        <a class="top-bar-back" href="/">
+            <span class="material-symbols-rounded">arrow_back</span>
+            <span>Home</span>
+        </a>
+        <span class="top-bar-title">Piano Visualizer</span>
+        <span style="width:60px"></span>
+    </header>
+
+    <!-- Content -->
+    <main class="content-area">
+
+        <!-- Hero Banner -->
+        <div class="viz-hero">
+            <span class="viz-hero-text">Piano<br>Visualizer</span>
+        </div>
+
+        <!-- Paste Link Card -->
+        <div class="viz-card">
+            <div class="viz-card-title">Paste Link</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+                <label class="viz-field-label" for="vizLinkInput">YouTube / TikTok URL</label>
+                <input class="viz-input" type="url" id="vizLinkInput" placeholder="https://youtube.com/watch?v=..." autocomplete="off" autocorrect="off" spellcheck="false">
+            </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="viz-or-divider"><span>or</span></div>
+
+        <!-- Upload Card -->
+        <div class="viz-card">
+            <div class="viz-card-title">Upload MIDI / Video</div>
+            <div class="viz-upload-zone" id="vizUploadArea">
+                <span class="material-symbols-rounded">upload_file</span>
+                <span class="viz-upload-text">Drop a file here or tap to browse</span>
+                <span class="viz-upload-hint">.mid .midi .mp4 .webm .mov</span>
+                <input type="file" id="vizFileInput" accept=".mid,.midi,.mp4,.webm,.mov,.avi,.mkv,audio/midi,video/*">
+            </div>
+            <div class="viz-file-chip" id="vizFileChip">
+                <span class="material-symbols-rounded" style="color:#005BFF;font-size:20px;">description</span>
+                <span class="viz-file-name" id="vizFileName"></span>
+                <button class="viz-file-remove" id="vizFileRemove" type="button">&times;</button>
+            </div>
+        </div>
+
+        <!-- Start Button -->
+        <button class="viz-start-btn" id="vizStartBtn" type="button" disabled>Start Play</button>
+
+    </main>
+</div>
+
+<!-- Toast container -->
+<div class="viz-toast-wrap" id="vizToastWrap"></div>
+
+<script>
+(function(){
+'use strict';
+
+var linkInput=document.getElementById('vizLinkInput');
+var fileInput=document.getElementById('vizFileInput');
+var uploadArea=document.getElementById('vizUploadArea');
+var fileChip=document.getElementById('vizFileChip');
+var fileName=document.getElementById('vizFileName');
+var fileRemoveBtn=document.getElementById('vizFileRemove');
+var startBtn=document.getElementById('vizStartBtn');
+var selectedFile=null;
+
+if(uploadArea){
+    uploadArea.addEventListener('dragover',function(e){e.preventDefault();uploadArea.classList.add('dragover');});
+    uploadArea.addEventListener('dragleave',function(){uploadArea.classList.remove('dragover');});
+    uploadArea.addEventListener('drop',function(e){e.preventDefault();uploadArea.classList.remove('dragover');if(e.dataTransfer.files.length>0)handleFile(e.dataTransfer.files[0]);});
+}
+if(fileInput)fileInput.addEventListener('change',function(e){if(e.target.files.length>0)handleFile(e.target.files[0]);});
+if(fileRemoveBtn)fileRemoveBtn.addEventListener('click',function(e){e.stopPropagation();clearFile();});
+if(linkInput)linkInput.addEventListener('input',updateBtn);
+
+function handleFile(file){
+    var validExt=['.mid','.midi','.mp4','.webm','.mov','.avi','.mkv'];
+    var ext='.'+file.name.split('.').pop().toLowerCase();
+    if(validExt.indexOf(ext)===-1){vizToast('Unsupported file. Use MIDI or video files.','error');return;}
+    selectedFile=file;
+    if(fileName)fileName.textContent=file.name;
+    if(fileChip)fileChip.classList.add('show');
+    if(uploadArea)uploadArea.style.display='none';
+    updateBtn();
+}
+function clearFile(){
+    selectedFile=null;
+    if(fileInput)fileInput.value='';
+    if(fileChip)fileChip.classList.remove('show');
+    if(uploadArea)uploadArea.style.display='';
+    updateBtn();
+}
+function updateBtn(){
+    if(!startBtn)return;
+    var hasLink=linkInput&&linkInput.value.trim().length>0;
+    startBtn.disabled=!(hasLink||selectedFile);
+}
+
+if(startBtn)startBtn.addEventListener('click',function(){
+    if(selectedFile){
+        var ext=selectedFile.name.split('.').pop().toLowerCase();
+        if(ext==='mid'||ext==='midi'){
+            var reader=new FileReader();
+            reader.onload=function(e){
+                try{
+                    var base64=btoa(new Uint8Array(e.target.result).reduce(function(d,b){return d+String.fromCharCode(b);},''));
+                    sessionStorage.setItem('vizMidiData',base64);
+                    sessionStorage.setItem('vizMidiName',selectedFile.name);
+                    sessionStorage.removeItem('vizLink');
+                    window.location.href='/visualizer-stage';
+                }catch(err){vizToast('Failed to read MIDI file.','error');}
+            };
+            reader.onerror=function(){vizToast('Failed to read file.','error');};
+            reader.readAsArrayBuffer(selectedFile);
+        }else{
+            vizToast('Video mode coming soon. Use MIDI files for now.','info');
+        }
+    }else if(linkInput&&linkInput.value.trim()){
+        vizToast('Link import coming soon. Use MIDI files for now.','info');
+    }
+});
+
+function vizToast(msg,type){
+    var wrap=document.getElementById('vizToastWrap');
+    if(!wrap)return;
+    var el=document.createElement('div');
+    el.className='viz-toast'+(type?' t-'+type:'');
+    el.textContent=msg;
+    wrap.appendChild(el);
+    requestAnimationFrame(function(){requestAnimationFrame(function(){el.classList.add('show');});});
+    setTimeout(function(){el.classList.remove('show');setTimeout(function(){if(el.parentNode)el.parentNode.removeChild(el);},300);},3500);
+}
+
+updateBtn();
+})();
+</script>
+</body>
+</html>
