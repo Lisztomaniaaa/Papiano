@@ -1444,7 +1444,12 @@ function setActiveKeyOverlay(keyEl, active, color){
     const midi = Number(keyEl.dataset.note);
     if(!Number.isFinite(midi)) return;
     if(active){
-        if(shouldUseLightKeyVisual()){
+        // Child theme already gets a full, correctly-coloured key-press fill from
+        // the `.white.active`/`.black.active` CSS rules (the real key element, no
+        // gaps). The generic overlay only covers the area around black keys with
+        // the non-themed accent colour, so layering it on top here just produces a
+        // mismatched patchwork instead of the flat Neobrutalism look.
+        if(shouldUseLightKeyVisual() || pianoTheme === 'child'){
             activeOverlayNotes.delete(midi);
             clearActiveKeyOverlay(midi);
             return;
@@ -10779,6 +10784,35 @@ function drawVizFallRect(nt, topY, bottomY){
 
     vizFallCtx.globalAlpha = noteAlpha;
     vizFallCtx.globalCompositeOperation = 'source-over';
+
+    // ── Child / Neobrutalism theme: thick border + shadow, flat fill ──
+    if(pianoTheme === 'child'){
+        const neoR = Math.min(5, w * 0.2, h * 0.15);
+        const borderW = Math.max(1.5, Math.min(w * 0.12, 2.5));
+        const shadowOff = Math.max(2, Math.min(3, w * 0.14));
+        const baseHex = getAnimBaseColorForMidi(nt.midi) || cachedAnimColor || '#38bdf8';
+        let rgb = _vizFallRgbCache.get(baseHex + '_neo');
+        if(rgb === undefined){
+            rgb = safeHex(baseHex, '#38bdf8');
+            if(_vizFallRgbCache.size > 64) _vizFallRgbCache.clear();
+            _vizFallRgbCache.set(baseHex + '_neo', rgb);
+        }
+        vizFallCtx.fillStyle = 'rgba(6,17,31,0.55)';
+        vizFallCtx.beginPath();
+        if(vizFallCtx.roundRect) vizFallCtx.roundRect(x0 + shadowOff, topY + shadowOff, w, h, neoR);
+        else vizFallCtx.rect(x0 + shadowOff, topY + shadowOff, w, h);
+        vizFallCtx.fill();
+        vizFallCtx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+        vizFallCtx.beginPath();
+        if(vizFallCtx.roundRect) vizFallCtx.roundRect(x0, topY, w, h, neoR);
+        else vizFallCtx.rect(x0, topY, w, h);
+        vizFallCtx.fill();
+        vizFallCtx.strokeStyle = '#06111f';
+        vizFallCtx.lineWidth = borderW;
+        vizFallCtx.stroke();
+        vizFallCtx.globalAlpha = 1;
+        return;
+    }
 
     if(animStyle === 'rainbow' || animStyle === 'rainbowV2'){
         const hue = (nt.midi * 11 + Math.round(nt.onset / 40)) % 360;
