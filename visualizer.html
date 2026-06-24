@@ -190,10 +190,37 @@ function notesToVizTimeline(notes){
     });
 
     var events=[];
-    kept.forEach(function(n){
-        var velocity=Math.max(1,Math.min(127,Math.round((n.amplitude||0.5)*127)));
-        var startMs=n.startTimeSeconds*1000;
-        var endMs=startMs+n.durationSeconds*1000;
+    // basic-pitch frequently fragments one held note into several short
+    // same-pitch detections separated by a tiny gap. Each fragment retriggers
+    // playNote(), which force-releases the previous voice for that pitch
+    // (fastReleaseActiveKey) -- audible as the note "cutting off" mid-sustain
+    // instead of ringing through like a normal soundfont press. Merge
+    // same-pitch fragments that are close enough together into one note.
+    var MERGE_GAP_SEC=0.09;
+    var byPitch=new Map();
+    kept.forEach(function(n){byPitch.set(n.pitchMidi,(byPitch.get(n.pitchMidi)||[]).concat([n]));});
+    var merged=[];
+    byPitch.forEach(function(list){
+        list.sort(function(a,b){return a.startTimeSeconds-b.startTimeSeconds;});
+        var cur=null;
+        list.forEach(function(n){
+            var start=n.startTimeSeconds,end=start+n.durationSeconds;
+            if(cur&&start<=cur.end+MERGE_GAP_SEC){
+                cur.end=Math.max(cur.end,end);
+                cur.amplitude=Math.max(cur.amplitude,n.amplitude||0.5);
+            }else{
+                cur={pitchMidi:n.pitchMidi,start:start,end:end,amplitude:n.amplitude||0.5};
+                merged.push(cur);
+            }
+        });
+    });
+
+    merged.forEach(function(n){
+        // sqrt curve + a velocity floor so quiet/short detections don't sound
+        // weaker or differently-voiced than a normal key press.
+        var velocity=Math.max(40,Math.min(127,Math.round(Math.sqrt(n.amplitude)*127)));
+        var startMs=n.start*1000;
+        var endMs=n.end*1000;
         events.push({ms:startMs,type:'noteOn',note:n.pitchMidi,velocity:velocity});
         events.push({ms:endMs,type:'noteOff',note:n.pitchMidi,velocity:0});
     });
