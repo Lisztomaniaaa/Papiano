@@ -10908,19 +10908,6 @@ function loadVizMusicXML(xmlString,name){
     }
 }
 
-// Pre-built {ms,type,note,velocity} timeline from the client-side
-// TikTok/Instagram transcription flow on /visualizer (Basic Pitch output).
-function loadVizNoteTimeline(jsonString,name){
-    try{
-        const timeline=JSON.parse(jsonString);
-        if(!Array.isArray(timeline)||timeline.length===0)throw new Error('No notes found');
-        loadVizTimeline(timeline,name);
-    }catch(e){
-        if(typeof showToast==='function')showToast('Failed to load transcribed notes.',{type:'error'});
-        console.error('Note timeline load error:',e);
-    }
-}
-
 /* ── Playback ─────────────────────────────────────────────────── */
 // Key-glow-only counterparts to playPressVisual/playReleaseVisual, used for
 // MIDI/MusicXML-driven notes during viz playback. Deliberately skip addAnim()
@@ -11022,8 +11009,6 @@ function vizCheckSession(){
     const midiName=sessionStorage.getItem('vizMidiName');
     const xmlData=sessionStorage.getItem('vizMusicXMLData');
     const xmlName=sessionStorage.getItem('vizMusicXMLName');
-    const noteTimelineData=sessionStorage.getItem('vizNoteTimeline');
-    const noteTimelineName=sessionStorage.getItem('vizNoteTimelineName');
     if(midiData){
         let attempts=0;
         const waitSf=setInterval(function(){
@@ -11040,17 +11025,6 @@ function vizCheckSession(){
             if((typeof sfBuffers!=='undefined'&&Object.keys(sfBuffers).length>0)||attempts>40){
                 clearInterval(waitSf);
                 loadVizMusicXML(xmlData,xmlName);
-            }
-        },250);
-    }else if(noteTimelineData){
-        let attempts=0;
-        const waitSf=setInterval(function(){
-            attempts++;
-            if((typeof sfBuffers!=='undefined'&&Object.keys(sfBuffers).length>0)||attempts>40){
-                clearInterval(waitSf);
-                loadVizNoteTimeline(noteTimelineData,noteTimelineName);
-                sessionStorage.removeItem('vizNoteTimeline');
-                sessionStorage.removeItem('vizNoteTimelineName');
             }
         },250);
     }

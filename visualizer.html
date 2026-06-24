@@ -174,9 +174,7 @@ function hideImportOverlay(){if(importOverlay)importOverlay.classList.remove('sh
 // simultaneous notes keeps only the strongest, most piano-like ones.
 var VIZ_MAX_POLYPHONY=4;
 
-// Notes from basic-pitch -> the {ms,type,note,velocity} timeline format
-// loadVizTimeline()/buildVizNotes() on the stage page expect.
-function notesToVizTimeline(notes){
+function mergeVizNotes(notes){
     var sorted=notes.slice().sort(function(a,b){return b.amplitude-a.amplitude;});
     var kept=[];
     var active=[];
@@ -189,7 +187,6 @@ function notesToVizTimeline(notes){
         kept.push(n);
     });
 
-    var events=[];
     // basic-pitch frequently fragments one held note into several short
     // same-pitch detections separated by a tiny gap. Each fragment retriggers
     // playNote(), which force-releases the previous voice for that pitch
@@ -214,18 +211,57 @@ function notesToVizTimeline(notes){
             }
         });
     });
+    merged.sort(function(a,b){return a.start-b.start;});
+    return merged;
+}
 
+function writeVarLen(bytes,value){
+    var buf=[value&0x7f];
+    value=Math.floor(value/128);
+    while(value>0){buf.push((value&0x7f)|0x80);value=Math.floor(value/128);}
+    for(var i=buf.length-1;i>=0;i--)bytes.push(buf[i]);
+}
+
+// Encodes merged basic-pitch notes as a real, standard MIDI file (format 0,
+// single track) and routes it through the same vizMidiData/parseMidi/
+// midiToTimeline pipeline as a manually-uploaded .mid -- the proven,
+// already-tested playback path -- instead of a hand-rolled timeline format.
+function notesToMidiBase64(notes){
+    var merged=mergeVizNotes(notes);
+    var TICKS_PER_QUARTER=480, TEMPO_US=500000; // 120bpm
+    var TICKS_PER_SEC=TICKS_PER_QUARTER/(TEMPO_US/1e6);
+
+    var midiEvents=[];
     merged.forEach(function(n){
-        // sqrt curve + a velocity floor so quiet/short detections don't sound
-        // weaker or differently-voiced than a normal key press.
-        var velocity=Math.max(40,Math.min(127,Math.round(Math.sqrt(n.amplitude)*127)));
-        var startMs=n.start*1000;
-        var endMs=n.end*1000;
-        events.push({ms:startMs,type:'noteOn',note:n.pitchMidi,velocity:velocity});
-        events.push({ms:endMs,type:'noteOff',note:n.pitchMidi,velocity:0});
+        // Linear amplitude -> velocity mapping (no sqrt boost) so dynamics
+        // stay closer to how the clip actually sounded instead of pushing
+        // everything toward forte.
+        var velocity=Math.max(30,Math.min(110,Math.round(30+n.amplitude*80)));
+        midiEvents.push({tick:Math.round(n.start*TICKS_PER_SEC),type:0x90,note:n.pitchMidi,vel:velocity});
+        midiEvents.push({tick:Math.round(n.end*TICKS_PER_SEC),type:0x80,note:n.pitchMidi,vel:0});
     });
-    events.sort(function(a,b){return a.ms-b.ms;});
-    return events;
+    midiEvents.sort(function(a,b){return a.tick-b.tick;});
+
+    var track=[];
+    writeVarLen(track,0);
+    track.push(0xff,0x51,0x03,(TEMPO_US>>16)&0xff,(TEMPO_US>>8)&0xff,TEMPO_US&0xff);
+    var lastTick=0;
+    midiEvents.forEach(function(ev){
+        writeVarLen(track,ev.tick-lastTick);
+        lastTick=ev.tick;
+        track.push(ev.type,ev.note,ev.vel);
+    });
+    writeVarLen(track,0);
+    track.push(0xff,0x2f,0x00);
+
+    var bytes=[
+        0x4d,0x54,0x68,0x64, 0,0,0,6, 0,0, 0,1, (TICKS_PER_QUARTER>>8)&0xff,TICKS_PER_QUARTER&0xff,
+        0x4d,0x54,0x72,0x6b, (track.length>>>24)&0xff,(track.length>>>16)&0xff,(track.length>>>8)&0xff,track.length&0xff,
+    ].concat(track);
+
+    var binary='';
+    for(var i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+    return btoa(binary);
 }
 
 async function importFromLink(url){
@@ -270,11 +306,10 @@ async function importFromLink(url){
     var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5);
     var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
     if(notesTime.length===0)throw new Error('No notes detected in that clip.');
-    var timeline=notesToVizTimeline(notesTime);
+    var midiBase64=notesToMidiBase64(notesTime);
 
-    sessionStorage.setItem('vizNoteTimeline',JSON.stringify(timeline));
-    sessionStorage.setItem('vizNoteTimelineName',url);
-    sessionStorage.removeItem('vizMidiData');
+    sessionStorage.setItem('vizMidiData',midiBase64);
+    sessionStorage.setItem('vizMidiName',url);
     sessionStorage.removeItem('vizMusicXMLData');
     setImportProgress('Done!',100);
     window.location.href='/visualizer-stage';
