@@ -236,10 +236,11 @@ async function importFromLink(url){
 
     setImportProgress('Building timeline...',95);
     // Raise the onset/frame confidence thresholds above basic-pitch's
-    // solo-instrument defaults (0.5/0.3) and clamp to the piano's range so a
-    // full song mix doesn't surface every faintly-pitched vocal/bass/drum
-    // transient as a "note".
-    var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,108,21);
+    // solo-instrument defaults (0.5/0.3) and clamp to the piano's range
+    // (A0..C8, in Hz -- outputToNotesPoly's maxFreq/minFreq are frequencies,
+    // not MIDI numbers) so a full song mix doesn't surface every faintly
+    // pitched vocal/bass/drum transient as a "note".
+    var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5);
     var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
     if(notesTime.length===0)throw new Error('No notes detected in that clip.');
     var timeline=notesToVizTimeline(notesTime);
