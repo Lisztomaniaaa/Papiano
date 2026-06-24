@@ -212,7 +212,26 @@ function mergeVizNotes(notes){
         });
     });
     merged.sort(function(a,b){return a.start-b.start;});
-    return merged;
+
+    // basic-pitch's frame-level onset detection sometimes drones one held note
+    // for several seconds on fast/legato passages instead of detecting the real
+    // repeated attacks underneath. Split any note longer than MAX_NOTE_DUR_SEC
+    // into shorter repeats so it reads as repeated notes instead of one long
+    // sustained drone. The gap between repeats is kept just above MERGE_GAP_SEC
+    // so this step doesn't get undone by the fragment-merge logic above.
+    var MAX_NOTE_DUR_SEC=1.5, SPLIT_NOTE_DUR_SEC=0.5, SPLIT_GAP_SEC=0.12;
+    var split=[];
+    merged.forEach(function(n){
+        var dur=n.end-n.start;
+        if(dur<=MAX_NOTE_DUR_SEC){split.push(n);return;}
+        var t=n.start;
+        while(t<n.end){
+            var segEnd=Math.min(t+SPLIT_NOTE_DUR_SEC,n.end);
+            split.push({pitchMidi:n.pitchMidi,start:t,end:segEnd,amplitude:n.amplitude});
+            t=segEnd+SPLIT_GAP_SEC;
+        }
+    });
+    return split;
 }
 
 function writeVarLen(bytes,value){
