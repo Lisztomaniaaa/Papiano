@@ -52,6 +52,7 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
 .viz-input::placeholder{color:rgba(6,17,31,0.3)}
 .viz-input:focus{border-color:#005BFF;box-shadow:0 0 0 3px rgba(0,91,255,0.12)}
 .viz-or-divider{display:flex;align-items:center;gap:10px;font-size:11px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:0.5px}
+.viz-source-hidden{display:none !important}
 .viz-or-divider::before,.viz-or-divider::after{content:'';flex:1;height:1.5px;background:rgba(6,17,31,0.1)}
 .viz-upload-zone{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:30px 20px;border-radius:18px;border:2px dashed rgba(6,17,31,0.18);background:rgba(0,91,255,0.03);cursor:pointer;transition:border-color 0.2s,background 0.2s}
 .viz-upload-zone:hover,.viz-upload-zone.dragover{border-color:#005BFF;background:rgba(0,91,255,0.06)}
@@ -129,7 +130,7 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
     <main class="content-area">
 
         <!-- Paste Link Card -->
-        <div class="viz-card">
+        <div class="viz-card" id="vizCardLink">
             <div class="viz-card-title-row">
                 <div class="viz-card-title">Paste Link</div>
                 <span class="viz-beta-badge">Beta</span>
@@ -142,10 +143,10 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
         </div>
 
         <!-- Divider -->
-        <div class="viz-or-divider"><span>or</span></div>
+        <div class="viz-or-divider" id="vizDividerLinkMedia"><span>or</span></div>
 
         <!-- Upload Video/MP3 Card -->
-        <div class="viz-card">
+        <div class="viz-card" id="vizCardMedia">
             <div class="viz-card-title-row">
                 <div class="viz-card-title">Upload Video / MP3</div>
                 <span class="viz-beta-badge">Beta</span>
@@ -165,10 +166,10 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
         </div>
 
         <!-- Divider -->
-        <div class="viz-or-divider"><span>or</span></div>
+        <div class="viz-or-divider" id="vizDividerMediaMidi"><span>or</span></div>
 
         <!-- Upload MIDI/XML Card -->
-        <div class="viz-card">
+        <div class="viz-card" id="vizCardMidi">
             <div class="viz-card-title">Upload MIDI / MusicXML</div>
             <div class="viz-card-sub">The most accurate way to play — exact notes, no transcription guesswork.</div>
             <div class="viz-upload-zone" id="vizUploadAreaMidi">
@@ -472,18 +473,42 @@ var midiName=document.getElementById('vizFileNameMidi');
 var midiRemoveBtn=document.getElementById('vizFileRemoveMidi');
 var selectedMidiFile=null;
 
-function clearLink(){if(linkInput)linkInput.value='';}
+var cardLink=document.getElementById('vizCardLink');
+var cardMedia=document.getElementById('vizCardMedia');
+var cardMidi=document.getElementById('vizCardMidi');
+var dividerLinkMedia=document.getElementById('vizDividerLinkMedia');
+var dividerMediaMidi=document.getElementById('vizDividerMediaMidi');
+
+// Only one source can feed "Start Play" at a time -- once one is picked,
+// hide the other two cards (and the now-meaningless "or" dividers) instead
+// of just clearing their values, so there's no ambiguity about which
+// source is active.
+function updateSourceCards(){
+    var hasLink=linkInput&&linkInput.value.trim().length>0;
+    var hasMedia=!!selectedMediaFile;
+    var hasMidi=!!selectedMidiFile;
+    var anyPicked=hasLink||hasMedia||hasMidi;
+    if(cardLink)cardLink.classList.toggle('viz-source-hidden',anyPicked&&!hasLink);
+    if(cardMedia)cardMedia.classList.toggle('viz-source-hidden',anyPicked&&!hasMedia);
+    if(cardMidi)cardMidi.classList.toggle('viz-source-hidden',anyPicked&&!hasMidi);
+    if(dividerLinkMedia)dividerLinkMedia.classList.toggle('viz-source-hidden',anyPicked);
+    if(dividerMediaMidi)dividerMediaMidi.classList.toggle('viz-source-hidden',anyPicked);
+}
+
+function clearLink(){if(linkInput)linkInput.value='';updateSourceCards();}
 function clearMedia(){
     selectedMediaFile=null;
     if(mediaInput)mediaInput.value='';
     if(mediaChip)mediaChip.classList.remove('show');
     if(mediaZone)mediaZone.style.display='';
+    updateSourceCards();
 }
 function clearMidi(){
     selectedMidiFile=null;
     if(midiInput)midiInput.value='';
     if(midiChip)midiChip.classList.remove('show');
     if(midiZone)midiZone.style.display='';
+    updateSourceCards();
 }
 
 function handleMediaFile(file){
@@ -495,6 +520,7 @@ function handleMediaFile(file){
     if(mediaName)mediaName.textContent=file.name;
     if(mediaChip)mediaChip.classList.add('show');
     if(mediaZone)mediaZone.style.display='none';
+    updateSourceCards();
     updateBtn();
 }
 function handleMidiFile(file){
@@ -506,6 +532,7 @@ function handleMidiFile(file){
     if(midiName)midiName.textContent=file.name;
     if(midiChip)midiChip.classList.add('show');
     if(midiZone)midiZone.style.display='none';
+    updateSourceCards();
     updateBtn();
 }
 
@@ -525,7 +552,7 @@ if(midiZone){
 if(midiInput)midiInput.addEventListener('change',function(e){if(e.target.files.length>0)handleMidiFile(e.target.files[0]);});
 if(midiRemoveBtn)midiRemoveBtn.addEventListener('click',function(e){e.stopPropagation();clearMidi();updateBtn();});
 
-if(linkInput)linkInput.addEventListener('input',function(){if(linkInput.value.trim())  {clearMedia();clearMidi();} updateBtn();});
+if(linkInput)linkInput.addEventListener('input',function(){if(linkInput.value.trim())  {clearMedia();clearMidi();} updateSourceCards(); updateBtn();});
 
 var consentCheck=document.getElementById('vizConsentCheck');
 if(consentCheck)consentCheck.addEventListener('change',updateBtn);
