@@ -2065,6 +2065,7 @@ function pressWithVelocity(n,k,vel){
     if(audioCtx.state==='suspended') audioCtx.resume();
     playNote(n,transpose,vel);
     playPressVisual(n,k,burst);
+    if(typeof vizPracticeNoteHit==='function')vizPracticeNoteHit(n);
     if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(n, vel);
 }
 function press(n,k){ pressWithVelocity(n,k,0.8); }
@@ -5489,6 +5490,7 @@ function _handleMidiMessage(data){
         const keyEl = keyElCache.get(visualNote);
         playNote(note, transpose, velocity / 127);
         playPressVisual(visualNote, keyEl, burst);
+        if(typeof vizPracticeNoteHit==='function')vizPracticeNoteHit(visualNote);
         if(window.PapianoMultiplayer && typeof window.PapianoMultiplayer.sendNoteOn === 'function') window.PapianoMultiplayer.sendNoteOn(visualNote, velocity / 127);
     } else if ((status === 0x80) || (status === 0x90 && velocity === 0)) {
         markInputBurst();
@@ -10725,14 +10727,66 @@ function parseMusicXML(xmlString){
 let vizTimeline=null;
 let vizPlaying=false;
 let vizPaused=false;
-let vizStartTime=0;
-let vizPauseElapsed=0;
+let vizElapsedMs=0;
+let vizLastTickAt=0;
 let vizEventIdx=0;
 let vizDuration=0;
 let vizRaf=null;
 let vizLoaded=false;
 let vizNotes=[];
 let vizFallStartIdx=0;
+
+// Start-mode toggle: 'auto' plays every note itself (Visualizer), 'practice'
+// requires the user to actually press each falling chord on their own
+// keyboard/mouse/MIDI — the timeline clock freezes the moment it reaches an
+// unplayed chord and only resumes once every note in it has been hit.
+let vizPracticeMode=false;
+let vizPracticeWaiting=false;
+let vizPracticeNeeded=new Set();
+let vizChunks=[];
+let vizPracticeChunkIdx=0;
+
+// Builds {ms, midis} chords from the timeline's noteOn(velocity>0) events —
+// used only by practice mode to know what the player still owes at the
+// frozen clock position.
+function buildVizChunks(timeline){
+    const chunks=[];
+    let i=0;
+    while(i<timeline.length){
+        const ev=timeline[i];
+        if(ev.type!=='noteOn'||!(ev.velocity>0)){ i++; continue; }
+        const ms=ev.ms;
+        const midis=new Set();
+        let j=i;
+        while(j<timeline.length){
+            const e2=timeline[j];
+            if(e2.ms!==ms)break;
+            if(e2.type==='noteOn'&&e2.velocity>0)midis.add(e2.note);
+            j++;
+        }
+        chunks.push({ms,midis});
+        i=j;
+    }
+    return chunks;
+}
+
+// Called from every manual input path (mouse/keyboard/MIDI) so a real
+// key-press can satisfy whatever the practice-mode clock is currently
+// waiting on, regardless of which input device produced it.
+function vizPracticeNoteHit(midi){
+    if(!vizPlaying||!vizPracticeMode||!vizPracticeWaiting)return;
+    if(!vizPracticeNeeded.has(midi))return;
+    vizPracticeNeeded.delete(midi);
+    if(vizPracticeNeeded.size===0){
+        const chunk=vizChunks[vizPracticeChunkIdx];
+        const ms=chunk?chunk.ms:vizElapsedMs;
+        while(vizEventIdx<vizTimeline.length&&vizTimeline[vizEventIdx].ms===ms&&vizTimeline[vizEventIdx].type==='noteOn'&&vizTimeline[vizEventIdx].velocity>0){
+            vizEventIdx++;
+        }
+        vizPracticeChunkIdx++;
+        vizPracticeWaiting=false;
+    }
+}
 
 // Pairs noteOn/noteOff events per pitch (FIFO — oldest still-held note of a
 // given pitch releases first) into {midi, onset, offset} entries for the
@@ -10909,10 +10963,12 @@ function loadVizTimeline(timeline,name){
     vizTimeline=timeline;
     vizDuration=timeline.length>0?timeline[timeline.length-1].ms:0;
     vizNotes=buildVizNotes(timeline);
+    vizChunks=buildVizChunks(timeline);
     vizFallStartIdx=0;
     vizLoaded=true;
+    try{ vizPracticeMode=sessionStorage.getItem('vizPlaybackMode')==='practice'; }catch(e){ vizPracticeMode=false; }
     updateBtnLabel();
-    if(typeof showToast==='function')showToast('Loaded: '+(name||'file'),{type:'success'});
+    if(typeof showToast==='function')showToast('Loaded: '+(name||'file')+(vizPracticeMode?' — Practice mode':''),{type:'success'});
     // Auto-play
     setTimeout(vizPlay,300);
 }
@@ -10968,16 +11024,18 @@ function vizPlay(){
     if(!vizTimeline||vizTimeline.length===0)return;
     if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
     if(vizPaused){
-        vizStartTime=performance.now()-vizPauseElapsed;
         vizPaused=false;
     }else{
         vizEventIdx=0;
         vizFallStartIdx=0;
-        vizStartTime=performance.now();
-        vizPauseElapsed=0;
+        vizElapsedMs=0;
+        vizPracticeChunkIdx=0;
+        vizPracticeWaiting=false;
+        vizPracticeNeeded=new Set();
         if(typeof stopAllNotes==='function')stopAllNotes();
         if(vizFallCtx&&vizFallCanvas)vizFallCtx.clearRect(0,0,vizFallCanvas.width,vizFallCanvas.height);
     }
+    vizLastTickAt=performance.now();
     vizPlaying=true;
     updateBtnLabel();
     hideUI();
@@ -10988,7 +11046,6 @@ function vizPause(){
     if(!vizPlaying)return;
     vizPlaying=false;
     vizPaused=true;
-    vizPauseElapsed=performance.now()-vizStartTime;
     updateBtnLabel();
     if(vizRaf)cancelAnimationFrame(vizRaf);
     if(typeof stopAllNotes==='function')stopAllNotes();
@@ -11001,10 +11058,26 @@ function vizToggle(){
 
 function vizTick(){
     if(!vizPlaying)return;
-    const elapsed=performance.now()-vizStartTime;
+    const now=performance.now();
+    if(!vizPracticeWaiting)vizElapsedMs+=now-vizLastTickAt;
+    vizLastTickAt=now;
+    const elapsed=vizElapsedMs;
+
     while(vizEventIdx<vizTimeline.length){
         const ev=vizTimeline[vizEventIdx];
         if(ev.ms>elapsed)break;
+        if(vizPracticeMode){
+            if(ev.type==='noteOn'&&ev.velocity>0){
+                if(!vizPracticeWaiting){
+                    vizPracticeWaiting=true;
+                    vizPracticeNeeded=vizChunks[vizPracticeChunkIdx]?new Set(vizChunks[vizPracticeChunkIdx].midis):new Set();
+                    vizElapsedMs=ev.ms; // pin the clock exactly so the chord sits at the keybed while waiting
+                }
+                break; // halt here until vizPracticeNoteHit() clears the chord
+            }
+            vizEventIdx++; // noteOff — no auto sound in practice mode, just skip forward
+            continue;
+        }
         if(ev.type==='noteOn'&&ev.velocity>0){
             // playNote(midi, transposeVal, velocity) — pass 0 for transpose
             if(typeof playNote==='function')playNote(ev.note,0,ev.velocity);
@@ -11022,8 +11095,11 @@ function vizTick(){
         vizPlaying=false;
         vizPaused=false;
         vizEventIdx=0;
-        vizPauseElapsed=0;
+        vizElapsedMs=0;
         vizFallStartIdx=0;
+        vizPracticeChunkIdx=0;
+        vizPracticeWaiting=false;
+        vizPracticeNeeded=new Set();
         updateBtnLabel();
         if(typeof stopAllNotes==='function')stopAllNotes();
         if(vizFallCtx&&vizFallCanvas)vizFallCtx.clearRect(0,0,vizFallCanvas.width,vizFallCanvas.height);
