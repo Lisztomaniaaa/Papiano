@@ -346,10 +346,30 @@ function mergeVizNotes(notes){
                 // keep each note's own length; just slide its release with it
                 merged[k].end=Math.max(mid+0.05, merged[k].end+shift);
             }
+            // Overtone-ghost rejection. A piano string's own harmonic series
+            // (octave, octave+fifth, two octaves...) can register as a faint
+            // separate detection stacked on top of the fundamental that was
+            // actually struck. Within this same chord cluster, drop a note
+            // only when BOTH hold: it sits at a harmonic interval above a much
+            // louder note, AND it is itself much quieter -- conservative on
+            // purpose so a real, intentionally quiet upper voice survives.
+            var HARMONIC_INTERVALS=[12,19,24,28,31,36];
+            var QUIET_RATIO=0.3;
+            for(var u=i;u<j;u++){
+                if(merged[u]._ghost)continue;
+                for(var v=i;v<j;v++){
+                    if(u===v||merged[v]._ghost)continue;
+                    var interval=merged[u].pitchMidi-merged[v].pitchMidi;
+                    if(HARMONIC_INTERVALS.indexOf(interval)!==-1 && merged[u].amplitude<merged[v].amplitude*QUIET_RATIO){
+                        merged[u]._ghost=true;
+                        break;
+                    }
+                }
+            }
         }
         i=j;
     }
-    return merged;
+    return merged.filter(function(n){return !n._ghost;});
 }
 
 function writeVarLen(bytes,value){
@@ -458,8 +478,15 @@ async function audioBufferToMidiBase64(arrayBuf){
     // solo-instrument defaults (0.5/0.3) and clamp to the piano's range
     // (A0..C8, in Hz -- outputToNotesPoly's maxFreq/minFreq are frequencies,
     // not MIDI numbers) so a full song mix doesn't surface every faintly
-    // pitched vocal/bass/drum transient as a "note".
-    var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5);
+    // pitched vocal/bass/drum transient as a "note". melodiaTrick=false
+    // (9th arg) -- that flag is designed to greedily invent extra notes from
+    // leftover spectral energy that never had a real onset, meant for
+    // monophonic melody continuation. On a full mix that leftover energy is
+    // just as likely to be another instrument bleeding through, so it's a
+    // direct route to fabricating notes nobody played; disabling it costs no
+    // extra inference (same frames/onsets, same model pass) and trades a
+    // little melodic-legato recall for not hallucinating notes.
+    var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5,false);
     var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
     if(notesTime.length===0)throw new Error('No notes detected in that clip.');
     return notesToMidiBase64(notesTime);
