@@ -76,6 +76,9 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
 .viz-import-status{font-size:14px;font-weight:700;color:var(--text-main)}
 .viz-import-bar{height:6px;border-radius:4px;background:rgba(6,17,31,0.1);overflow:hidden}
 .viz-import-bar-fill{height:100%;width:0%;background:#005BFF;transition:width .2s}
+.viz-card-title-row{display:flex;align-items:center;gap:8px}
+.viz-beta-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:8px;background:rgba(255,153,0,0.14);border:1.5px solid rgba(255,153,0,0.4);color:#a35a00;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;line-height:1.2}
+.viz-card-sub{font-size:12px;font-weight:600;color:var(--text-faint);margin-top:-10px}
 </style>
 <link rel="preload" href="/fonts/material-symbols-rounded.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=optional" media="print" onload="this.media='all';this.onload=null;">
@@ -104,7 +107,11 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
 
         <!-- Paste Link Card -->
         <div class="viz-card">
-            <div class="viz-card-title">Paste Link</div>
+            <div class="viz-card-title-row">
+                <div class="viz-card-title">Paste Link</div>
+                <span class="viz-beta-badge">Beta</span>
+            </div>
+            <div class="viz-card-sub">TikTok or Instagram video link — we extract the audio and transcribe it to notes.</div>
             <div style="display:flex;flex-direction:column;gap:6px;">
                 <label class="viz-field-label" for="vizLinkInput">TikTok / Instagram URL</label>
                 <input class="viz-input" type="url" id="vizLinkInput" placeholder="https://tiktok.com/@user/video/..." autocomplete="off" autocorrect="off" spellcheck="false">
@@ -114,19 +121,43 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
         <!-- Divider -->
         <div class="viz-or-divider"><span>or</span></div>
 
-        <!-- Upload Card -->
+        <!-- Upload Video/MP3 Card -->
         <div class="viz-card">
-            <div class="viz-card-title">Upload MIDI / Video</div>
-            <div class="viz-upload-zone" id="vizUploadArea">
+            <div class="viz-card-title-row">
+                <div class="viz-card-title">Upload Video / MP3</div>
+                <span class="viz-beta-badge">Beta</span>
+            </div>
+            <div class="viz-card-sub">Same on-device transcription as Paste Link, applied to a file you already have.</div>
+            <div class="viz-upload-zone" id="vizUploadAreaMedia">
+                <span class="material-symbols-rounded">upload_file</span>
+                <span class="viz-upload-text">Drop a video or audio file here</span>
+                <span class="viz-upload-hint">.mp4 .webm .mov .mp3 .wav .m4a</span>
+                <input type="file" id="vizFileInputMedia" accept=".mp4,.webm,.mov,.avi,.mkv,.mp3,.wav,.m4a,.ogg,.aac,video/*,audio/*">
+            </div>
+            <div class="viz-file-chip" id="vizFileChipMedia">
+                <span class="material-symbols-rounded" style="color:#005BFF;font-size:20px;">movie</span>
+                <span class="viz-file-name" id="vizFileNameMedia"></span>
+                <button class="viz-file-remove" id="vizFileRemoveMedia" type="button">&times;</button>
+            </div>
+        </div>
+
+        <!-- Divider -->
+        <div class="viz-or-divider"><span>or</span></div>
+
+        <!-- Upload MIDI/XML Card -->
+        <div class="viz-card">
+            <div class="viz-card-title">Upload MIDI / MusicXML</div>
+            <div class="viz-card-sub">The most accurate way to play — exact notes, no transcription guesswork.</div>
+            <div class="viz-upload-zone" id="vizUploadAreaMidi">
                 <span class="material-symbols-rounded">upload_file</span>
                 <span class="viz-upload-text">Drop a file here or tap to browse</span>
-                <span class="viz-upload-hint">.mid .midi .musicxml .xml .mp4 .webm .mov</span>
-                <input type="file" id="vizFileInput" accept=".mid,.midi,.musicxml,.xml,.mp4,.webm,.mov,.avi,.mkv,audio/midi,application/xml,text/xml,video/*">
+                <span class="viz-upload-hint">.mid .midi .musicxml .xml</span>
+                <input type="file" id="vizFileInputMidi" accept=".mid,.midi,.musicxml,.xml,audio/midi,application/xml,text/xml">
             </div>
-            <div class="viz-file-chip" id="vizFileChip">
+            <div class="viz-file-chip" id="vizFileChipMidi">
                 <span class="material-symbols-rounded" style="color:#005BFF;font-size:20px;">description</span>
-                <span class="viz-file-name" id="vizFileName"></span>
-                <button class="viz-file-remove" id="vizFileRemove" type="button">&times;</button>
+                <span class="viz-file-name" id="vizFileNameMidi"></span>
+                <button class="viz-file-remove" id="vizFileRemoveMidi" type="button">&times;</button>
             </div>
         </div>
 
@@ -285,18 +316,10 @@ function notesToMidiBase64(notes){
     return btoa(binary);
 }
 
-async function importFromLink(url){
-    showImportOverlay();
-    setImportProgress('Downloading audio...',5);
-    var res=await fetch('/api/extract-audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})});
-    if(!res.ok){
-        var err={};
-        try{err=await res.json();}catch(e){}
-        throw new Error(err.error||'Could not download that link.');
-    }
-    var arrayBuf=await res.arrayBuffer();
+// Shared by link-import and direct file-upload (video/mp3) transcription --
+// the only difference between the two is how the raw audio bytes are obtained.
+async function audioBufferToMidiBase64(arrayBuf){
     setImportProgress('Decoding audio...',25);
-
     var AudioCtx=window.AudioContext||window.webkitAudioContext;
     var decodeCtx=new AudioCtx();
     var decoded=await decodeCtx.decodeAudioData(arrayBuf.slice(0));
@@ -327,7 +350,20 @@ async function importFromLink(url){
     var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5);
     var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
     if(notesTime.length===0)throw new Error('No notes detected in that clip.');
-    var midiBase64=notesToMidiBase64(notesTime);
+    return notesToMidiBase64(notesTime);
+}
+
+async function importFromLink(url){
+    showImportOverlay();
+    setImportProgress('Downloading audio...',5);
+    var res=await fetch('/api/extract-audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})});
+    if(!res.ok){
+        var err={};
+        try{err=await res.json();}catch(e){}
+        throw new Error(err.error||'Could not download that link.');
+    }
+    var arrayBuf=await res.arrayBuffer();
+    var midiBase64=await audioBufferToMidiBase64(arrayBuf);
 
     sessionStorage.setItem('vizMidiData',midiBase64);
     sessionStorage.setItem('vizMidiName',url);
@@ -335,79 +371,139 @@ async function importFromLink(url){
     setImportProgress('Done!',100);
     window.location.href='/visualizer-stage';
 }
-var fileInput=document.getElementById('vizFileInput');
-var uploadArea=document.getElementById('vizUploadArea');
-var fileChip=document.getElementById('vizFileChip');
-var fileName=document.getElementById('vizFileName');
-var fileRemoveBtn=document.getElementById('vizFileRemove');
+
+async function importFromMediaFile(file){
+    showImportOverlay();
+    setImportProgress('Reading file...',10);
+    var arrayBuf=await file.arrayBuffer();
+    var midiBase64=await audioBufferToMidiBase64(arrayBuf);
+
+    sessionStorage.setItem('vizMidiData',midiBase64);
+    sessionStorage.setItem('vizMidiName',file.name);
+    sessionStorage.removeItem('vizMusicXMLData');
+    setImportProgress('Done!',100);
+    window.location.href='/visualizer-stage';
+}
+
 var startBtn=document.getElementById('vizStartBtn');
-var selectedFile=null;
 
-if(uploadArea){
-    uploadArea.addEventListener('dragover',function(e){e.preventDefault();uploadArea.classList.add('dragover');});
-    uploadArea.addEventListener('dragleave',function(){uploadArea.classList.remove('dragover');});
-    uploadArea.addEventListener('drop',function(e){e.preventDefault();uploadArea.classList.remove('dragover');if(e.dataTransfer.files.length>0)handleFile(e.dataTransfer.files[0]);});
+// Three independent input sources -- picking one clears the other two so
+// there's never ambiguity about which import path "Start Play" will take.
+var mediaZone=document.getElementById('vizUploadAreaMedia');
+var mediaInput=document.getElementById('vizFileInputMedia');
+var mediaChip=document.getElementById('vizFileChipMedia');
+var mediaName=document.getElementById('vizFileNameMedia');
+var mediaRemoveBtn=document.getElementById('vizFileRemoveMedia');
+var selectedMediaFile=null;
+
+var midiZone=document.getElementById('vizUploadAreaMidi');
+var midiInput=document.getElementById('vizFileInputMidi');
+var midiChip=document.getElementById('vizFileChipMidi');
+var midiName=document.getElementById('vizFileNameMidi');
+var midiRemoveBtn=document.getElementById('vizFileRemoveMidi');
+var selectedMidiFile=null;
+
+function clearLink(){if(linkInput)linkInput.value='';}
+function clearMedia(){
+    selectedMediaFile=null;
+    if(mediaInput)mediaInput.value='';
+    if(mediaChip)mediaChip.classList.remove('show');
+    if(mediaZone)mediaZone.style.display='';
 }
-if(fileInput)fileInput.addEventListener('change',function(e){if(e.target.files.length>0)handleFile(e.target.files[0]);});
-if(fileRemoveBtn)fileRemoveBtn.addEventListener('click',function(e){e.stopPropagation();clearFile();});
-if(linkInput)linkInput.addEventListener('input',updateBtn);
+function clearMidi(){
+    selectedMidiFile=null;
+    if(midiInput)midiInput.value='';
+    if(midiChip)midiChip.classList.remove('show');
+    if(midiZone)midiZone.style.display='';
+}
 
-function handleFile(file){
-    var validExt=['.mid','.midi','.musicxml','.xml','.mp4','.webm','.mov','.avi','.mkv'];
+function handleMediaFile(file){
+    var validExt=['.mp4','.webm','.mov','.avi','.mkv','.mp3','.wav','.m4a','.ogg','.aac'];
     var ext='.'+file.name.split('.').pop().toLowerCase();
-    if(validExt.indexOf(ext)===-1){vizToast('Unsupported file. Use MIDI, MusicXML, or video files.','error');return;}
-    selectedFile=file;
-    if(fileName)fileName.textContent=file.name;
-    if(fileChip)fileChip.classList.add('show');
-    if(uploadArea)uploadArea.style.display='none';
+    if(validExt.indexOf(ext)===-1){vizToast('Unsupported file. Use a video or audio file.','error');return;}
+    clearLink();clearMidi();
+    selectedMediaFile=file;
+    if(mediaName)mediaName.textContent=file.name;
+    if(mediaChip)mediaChip.classList.add('show');
+    if(mediaZone)mediaZone.style.display='none';
     updateBtn();
 }
-function clearFile(){
-    selectedFile=null;
-    if(fileInput)fileInput.value='';
-    if(fileChip)fileChip.classList.remove('show');
-    if(uploadArea)uploadArea.style.display='';
+function handleMidiFile(file){
+    var validExt=['.mid','.midi','.musicxml','.xml'];
+    var ext='.'+file.name.split('.').pop().toLowerCase();
+    if(validExt.indexOf(ext)===-1){vizToast('Unsupported file. Use a MIDI or MusicXML file.','error');return;}
+    clearLink();clearMedia();
+    selectedMidiFile=file;
+    if(midiName)midiName.textContent=file.name;
+    if(midiChip)midiChip.classList.add('show');
+    if(midiZone)midiZone.style.display='none';
     updateBtn();
 }
+
+if(mediaZone){
+    mediaZone.addEventListener('dragover',function(e){e.preventDefault();mediaZone.classList.add('dragover');});
+    mediaZone.addEventListener('dragleave',function(){mediaZone.classList.remove('dragover');});
+    mediaZone.addEventListener('drop',function(e){e.preventDefault();mediaZone.classList.remove('dragover');if(e.dataTransfer.files.length>0)handleMediaFile(e.dataTransfer.files[0]);});
+}
+if(mediaInput)mediaInput.addEventListener('change',function(e){if(e.target.files.length>0)handleMediaFile(e.target.files[0]);});
+if(mediaRemoveBtn)mediaRemoveBtn.addEventListener('click',function(e){e.stopPropagation();clearMedia();updateBtn();});
+
+if(midiZone){
+    midiZone.addEventListener('dragover',function(e){e.preventDefault();midiZone.classList.add('dragover');});
+    midiZone.addEventListener('dragleave',function(){midiZone.classList.remove('dragover');});
+    midiZone.addEventListener('drop',function(e){e.preventDefault();midiZone.classList.remove('dragover');if(e.dataTransfer.files.length>0)handleMidiFile(e.dataTransfer.files[0]);});
+}
+if(midiInput)midiInput.addEventListener('change',function(e){if(e.target.files.length>0)handleMidiFile(e.target.files[0]);});
+if(midiRemoveBtn)midiRemoveBtn.addEventListener('click',function(e){e.stopPropagation();clearMidi();updateBtn();});
+
+if(linkInput)linkInput.addEventListener('input',function(){if(linkInput.value.trim())  {clearMedia();clearMidi();} updateBtn();});
+
 function updateBtn(){
     if(!startBtn)return;
     var hasLink=linkInput&&linkInput.value.trim().length>0;
-    startBtn.disabled=!(hasLink||selectedFile);
+    startBtn.disabled=!(hasLink||selectedMediaFile||selectedMidiFile);
 }
 
 if(startBtn)startBtn.addEventListener('click',function(){
-    if(selectedFile){
-        var ext=selectedFile.name.split('.').pop().toLowerCase();
+    if(selectedMidiFile){
+        var ext=selectedMidiFile.name.split('.').pop().toLowerCase();
         if(ext==='mid'||ext==='midi'){
             var reader=new FileReader();
             reader.onload=function(e){
                 try{
                     var base64=btoa(new Uint8Array(e.target.result).reduce(function(d,b){return d+String.fromCharCode(b);},''));
                     sessionStorage.setItem('vizMidiData',base64);
-                    sessionStorage.setItem('vizMidiName',selectedFile.name);
+                    sessionStorage.setItem('vizMidiName',selectedMidiFile.name);
                     sessionStorage.removeItem('vizMusicXMLData');
                     sessionStorage.removeItem('vizLink');
                     window.location.href='/visualizer-stage';
                 }catch(err){vizToast('Failed to read MIDI file.','error');}
             };
             reader.onerror=function(){vizToast('Failed to read file.','error');};
-            reader.readAsArrayBuffer(selectedFile);
-        }else if(ext==='musicxml'||ext==='xml'){
-            var reader=new FileReader();
-            reader.onload=function(e){
+            reader.readAsArrayBuffer(selectedMidiFile);
+        }else{
+            var xmlReader=new FileReader();
+            xmlReader.onload=function(e){
                 try{
                     sessionStorage.setItem('vizMusicXMLData',e.target.result);
-                    sessionStorage.setItem('vizMusicXMLName',selectedFile.name);
+                    sessionStorage.setItem('vizMusicXMLName',selectedMidiFile.name);
                     sessionStorage.removeItem('vizMidiData');
                     sessionStorage.removeItem('vizLink');
                     window.location.href='/visualizer-stage';
                 }catch(err){vizToast('Failed to read MusicXML file.','error');}
             };
-            reader.onerror=function(){vizToast('Failed to read file.','error');};
-            reader.readAsText(selectedFile);
-        }else{
-            vizToast('Video mode coming soon. Use MIDI or MusicXML files.','info');
+            xmlReader.onerror=function(){vizToast('Failed to read file.','error');};
+            xmlReader.readAsText(selectedMidiFile);
         }
+    }else if(selectedMediaFile){
+        startBtn.disabled=true;
+        importFromMediaFile(selectedMediaFile).catch(function(err){
+            console.error('Media import failed:',err);
+            vizToast(err.message||'Could not transcribe that file.','error');
+            hideImportOverlay();
+        }).finally(function(){
+            updateBtn();
+        });
     }else if(linkInput&&linkInput.value.trim()){
         var url=linkInput.value.trim();
         startBtn.disabled=true;
