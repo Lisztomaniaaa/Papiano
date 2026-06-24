@@ -4,8 +4,8 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <title>Papiano — Piano Visualizer</title>
-<meta name="description" content="Load a MIDI file or paste a YouTube/TikTok link and watch falling notes on the Papiano piano visualizer.">
-<meta name="keywords" content="Papiano, piano visualizer, MIDI player, falling notes, MIDI visualizer, piano animation">
+<meta name="description" content="Load a MIDI file or paste a TikTok/Instagram link and watch falling notes on the Papiano piano visualizer.">
+<meta name="keywords" content="Papiano, piano visualizer, MIDI player, falling notes, MIDI visualizer, piano animation, TikTok to MIDI, Instagram to MIDI">
 <meta name="theme-color" content="#06111f">
 <link rel="canonical" href="https://papiano.fun/visualizer">
 <meta property="og:type" content="website">
@@ -67,6 +67,15 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
 .viz-toast.t-error{background:#c62828}
 .viz-toast.t-success{background:#007a3e}
 @media(max-width:380px){.content-area{padding:14px 12px;gap:14px}.viz-hero{border-radius:16px}.viz-card{padding:18px 16px;border-radius:18px}}
+/* Link-import progress overlay */
+.viz-import-overlay{position:fixed;inset:0;z-index:9000;background:rgba(6,17,31,0.82);display:none;align-items:center;justify-content:center;padding:24px}
+.viz-import-overlay.show{display:flex}
+.viz-import-box{background:var(--surface-solid);border-radius:20px;border:2px solid #06111f;padding:26px 24px;display:flex;flex-direction:column;gap:14px;max-width:320px;width:100%;text-align:center}
+.viz-import-spinner{width:36px;height:36px;border-radius:50%;border:4px solid rgba(0,91,255,0.18);border-top-color:#005BFF;margin:0 auto;animation:vizSpin 0.8s linear infinite}
+@keyframes vizSpin{to{transform:rotate(360deg)}}
+.viz-import-status{font-size:14px;font-weight:700;color:var(--text-main)}
+.viz-import-bar{height:6px;border-radius:4px;background:rgba(6,17,31,0.1);overflow:hidden}
+.viz-import-bar-fill{height:100%;width:0%;background:#005BFF;transition:width .2s}
 </style>
 <link rel="preload" href="/fonts/material-symbols-rounded.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=optional" media="print" onload="this.media='all';this.onload=null;">
@@ -97,8 +106,8 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
         <div class="viz-card">
             <div class="viz-card-title">Paste Link</div>
             <div style="display:flex;flex-direction:column;gap:6px;">
-                <label class="viz-field-label" for="vizLinkInput">YouTube / TikTok URL</label>
-                <input class="viz-input" type="url" id="vizLinkInput" placeholder="https://youtube.com/watch?v=..." autocomplete="off" autocorrect="off" spellcheck="false">
+                <label class="viz-field-label" for="vizLinkInput">TikTok / Instagram URL</label>
+                <input class="viz-input" type="url" id="vizLinkInput" placeholder="https://tiktok.com/@user/video/..." autocomplete="off" autocorrect="off" spellcheck="false">
             </div>
         </div>
 
@@ -130,11 +139,94 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
 <!-- Toast container -->
 <div class="viz-toast-wrap" id="vizToastWrap"></div>
 
+<!-- Link-import progress overlay -->
+<div class="viz-import-overlay" id="vizImportOverlay">
+    <div class="viz-import-box">
+        <div class="viz-import-spinner"></div>
+        <div class="viz-import-status" id="vizImportStatus">Downloading audio...</div>
+        <div class="viz-import-bar"><div class="viz-import-bar-fill" id="vizImportBarFill"></div></div>
+    </div>
+</div>
+
+<script src="/js/vendor/tf.min.js?v=dev"></script>
+<script src="/js/vendor/basic-pitch.bundle.js?v=dev"></script>
 <script>
 (function(){
 'use strict';
 
 var linkInput=document.getElementById('vizLinkInput');
+var importOverlay=document.getElementById('vizImportOverlay');
+var importStatus=document.getElementById('vizImportStatus');
+var importBarFill=document.getElementById('vizImportBarFill');
+
+function setImportProgress(label,pct){
+    if(importStatus)importStatus.textContent=label;
+    if(importBarFill)importBarFill.style.width=Math.max(0,Math.min(100,pct))+'%';
+}
+function showImportOverlay(){if(importOverlay)importOverlay.classList.add('show');}
+function hideImportOverlay(){if(importOverlay)importOverlay.classList.remove('show');}
+
+// Notes from basic-pitch -> the {ms,type,note,velocity} timeline format
+// loadVizTimeline()/buildVizNotes() on the stage page expect.
+function notesToVizTimeline(notes){
+    var events=[];
+    notes.forEach(function(n){
+        var velocity=Math.max(1,Math.min(127,Math.round((n.amplitude||0.5)*127)));
+        var startMs=n.startTimeSeconds*1000;
+        var endMs=startMs+n.durationSeconds*1000;
+        events.push({ms:startMs,type:'noteOn',note:n.pitchMidi,velocity:velocity});
+        events.push({ms:endMs,type:'noteOff',note:n.pitchMidi,velocity:0});
+    });
+    events.sort(function(a,b){return a.ms-b.ms;});
+    return events;
+}
+
+async function importFromLink(url){
+    showImportOverlay();
+    setImportProgress('Downloading audio...',5);
+    var res=await fetch('/api/extract-audio',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:url})});
+    if(!res.ok){
+        var err={};
+        try{err=await res.json();}catch(e){}
+        throw new Error(err.error||'Could not download that link.');
+    }
+    var arrayBuf=await res.arrayBuffer();
+    setImportProgress('Decoding audio...',25);
+
+    var AudioCtx=window.AudioContext||window.webkitAudioContext;
+    var decodeCtx=new AudioCtx();
+    var decoded=await decodeCtx.decodeAudioData(arrayBuf.slice(0));
+    var TARGET_SR=22050;
+    var offline=new OfflineAudioContext(1,Math.ceil(decoded.duration*TARGET_SR),TARGET_SR);
+    var src=offline.createBufferSource();
+    src.buffer=decoded;
+    src.connect(offline.destination);
+    src.start();
+    var resampled=await offline.startRendering();
+    decodeCtx.close();
+
+    setImportProgress('Transcribing notes...',35);
+    var bp=new BasicPitchLib.BasicPitch('/models/basic-pitch/model.json');
+    var frames=[],onsets=[],contours=[];
+    await bp.evaluateModel(resampled,function(f,o,c){
+        for(var i=0;i<f.length;i++)frames.push(f[i]);
+        for(var i=0;i<o.length;i++)onsets.push(o[i]);
+        for(var i=0;i<c.length;i++)contours.push(c[i]);
+    },function(pct){setImportProgress('Transcribing notes...',35+pct*55);});
+
+    setImportProgress('Building timeline...',95);
+    var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets);
+    var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
+    if(notesTime.length===0)throw new Error('No notes detected in that clip.');
+    var timeline=notesToVizTimeline(notesTime);
+
+    sessionStorage.setItem('vizNoteTimeline',JSON.stringify(timeline));
+    sessionStorage.setItem('vizNoteTimelineName',url);
+    sessionStorage.removeItem('vizMidiData');
+    sessionStorage.removeItem('vizMusicXMLData');
+    setImportProgress('Done!',100);
+    window.location.href='/visualizer-stage';
+}
 var fileInput=document.getElementById('vizFileInput');
 var uploadArea=document.getElementById('vizUploadArea');
 var fileChip=document.getElementById('vizFileChip');
@@ -209,7 +301,15 @@ if(startBtn)startBtn.addEventListener('click',function(){
             vizToast('Video mode coming soon. Use MIDI or MusicXML files.','info');
         }
     }else if(linkInput&&linkInput.value.trim()){
-        vizToast('Link import coming soon. Use MIDI or MusicXML files.','info');
+        var url=linkInput.value.trim();
+        startBtn.disabled=true;
+        importFromLink(url).catch(function(err){
+            console.error('Link import failed:',err);
+            vizToast(err.message||'Could not import that link.','error');
+            hideImportOverlay();
+        }).finally(function(){
+            updateBtn();
+        });
     }
 });
 
