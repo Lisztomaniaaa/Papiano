@@ -52,7 +52,11 @@ module.exports = async (req, res) => {
 
   execFile(YTDLP_BIN, [
     '--no-playlist',
-    '-f', 'bestaudio',
+    // TikTok/Instagram usually only serve muxed audio+video formats (no
+    // audio-only stream), so 'bestaudio' alone finds nothing — fall back to
+    // 'best' and let the browser's decodeAudioData() pull the audio track
+    // out of the muxed container (no ffmpeg available to extract it here).
+    '-f', 'bestaudio/best',
     '--max-filesize', '50M',
     '--match-filter', 'duration<300',
     '--socket-timeout', '20',
