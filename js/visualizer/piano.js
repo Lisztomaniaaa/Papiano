@@ -10904,6 +10904,12 @@ function drawVizFallRect(nt, topY, bottomY){
 // bottom edge reaches the keybed at exactly elapsed===nt.onset — the same
 // performance.now()-based clock vizTick uses to trigger sound, so the visual
 // "touch" and the audio are inherently in sync.
+// Falling notes here use their own slower pace than the live solo/multiplayer
+// rise speed — that one is tuned for already-falling notes spawned at the
+// canvas top, but vizNotes are pre-built for the whole song, so a slower rate
+// gives a long, visible runway down from the very top of the screen instead
+// of notes popping into view just above the keybed.
+const VIZ_FALL_SPEED_SCALE = 0.5;
 function drawVizFalling(elapsed){
     if(!vizFallCtx || !vizFallCanvas) return;
     vizFallCtx.setTransform(1,0,0,1,0,0);
@@ -10911,7 +10917,7 @@ function drawVizFalling(elapsed){
     if(currentDPR !== 1) vizFallCtx.setTransform(currentDPR, 0, 0, currentDPR, 0, 0);
     if(!vizNotes.length || !canvasCssH) return;
 
-    const speed = getAnimRiseSpeed();
+    const speed = getAnimRiseSpeed() * VIZ_FALL_SPEED_SCALE;
     // Advance past notes that have fully descended past the keybed. A long
     // held note can pin this pointer — that's fine, it's a perf shortcut
     // only; each note below is still individually culled in the loop.
