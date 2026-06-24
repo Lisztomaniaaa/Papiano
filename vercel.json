@@ -3,6 +3,11 @@
   "trailingSlash": false,
   "buildCommand": "node scripts/stamp-version.js",
   "outputDirectory": ".",
+  "functions": {
+    "api/extract-audio.js": {
+      "maxDuration": 60
+    }
+  },
   "redirects": [
     {
       "source": "/homemultiplayer",
