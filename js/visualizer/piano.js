@@ -1658,6 +1658,7 @@ function setPianoTheme(theme) {
 document.getElementById('themeDefault')?.addEventListener('click', () => setPianoTheme('default'));
 document.getElementById('themeChild')?.addEventListener('click', () => setPianoTheme('child'));
 
+let cachedWrapRect = null;
 function invalidateWrapRect() { cachedWrapRect = null; }
 
 function updateKeyHitCache(){
