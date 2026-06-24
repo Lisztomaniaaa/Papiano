@@ -369,6 +369,30 @@ function mergeVizNotes(notes){
         }
         i=j;
     }
+
+    // Temporal overtone-ghost rejection. The chord pass above only catches
+    // ghosts that start in the same instant as their fundamental. But a held
+    // note's overtones keep ringing and can cross the onset threshold a beat
+    // LATER, while the fundamental still sounds -- showing up as a faint note
+    // that starts mid-sustain at an exact harmonic interval above a much louder
+    // note that is still held. Sweep those too: for each note, if a much louder
+    // note a harmonic interval below it is sounding at its onset and this one is
+    // far quieter, it's overtone bleed, not a key. Same conservative gates.
+    var T_HARM=[12,19,24,28,31,36], T_QUIET=0.28;
+    var live=merged.filter(function(n){return !n._ghost;}).slice()
+        .sort(function(a,b){return a.start-b.start;});
+    for(var p=0;p<live.length;p++){
+        var hi=live[p];
+        if(hi._ghost)continue;
+        for(var q=0;q<live.length;q++){
+            var lo=live[q];
+            if(q===p||lo._ghost)continue;
+            if(lo.start>hi.start)continue;          // fundamental must precede/coincide
+            if(lo.end<=hi.start+0.02)continue;      // and still be sounding at this onset
+            if(T_HARM.indexOf(hi.pitchMidi-lo.pitchMidi)===-1)continue;
+            if(hi.amplitude<lo.amplitude*T_QUIET){ hi._ghost=true; break; }
+        }
+    }
     return merged.filter(function(n){return !n._ghost;});
 }
 
@@ -403,9 +427,13 @@ function notesToMidiBase64(notes){
     }
     merged.forEach(function(n){n._vel=ampToVel(n.amplitude);});
 
-    // Chord coherence: notes that were aligned to the same start (a chord)
-    // shouldn't have one member jump out at a wildly different volume. Blend
-    // each toward the chord's mean velocity, keeping a little individuality.
+    // Chord coherence -- but humanised, not flattened. A real pianist voices a
+    // chord: the melody (usually the top note) sings out above the inner
+    // voices, and the bass anchors it. An over-aggressive pull to the chord
+    // mean erases exactly that, which is what made it sound robotic. So we pull
+    // each note only gently toward the mean (keep most of its own dynamic), and
+    // give the highest note of each chord a little extra lift so the melody
+    // stays on top the way a human would play it.
     var byStart=new Map();
     merged.forEach(function(n){
         var key=Math.round(n.start*TICKS_PER_SEC);
@@ -413,9 +441,12 @@ function notesToMidiBase64(notes){
     });
     byStart.forEach(function(g){
         if(g.length<2)return;
-        var sum=0; g.forEach(function(x){sum+=x._vel;});
+        var sum=0,topMidi=-1; g.forEach(function(x){sum+=x._vel; if(x.pitchMidi>topMidi)topMidi=x.pitchMidi;});
         var avg=sum/g.length;
-        g.forEach(function(x){x._vel=x._vel*0.3+avg*0.7;});
+        g.forEach(function(x){
+            x._vel=x._vel*0.65+avg*0.35;          // keep individuality, tame only outliers
+            if(x.pitchMidi===topMidi) x._vel+=6;  // let the melody voice sing through
+        });
     });
 
     var midiEvents=[];
@@ -448,6 +479,128 @@ function notesToMidiBase64(notes){
     return btoa(binary);
 }
 
+// Note-length refinement. basic-pitch tends to release a note as soon as its
+// frame energy dips below the (fairly high) note threshold, so sustained piano
+// notes come out clipped short and staccato -- unnatural for an instrument that
+// rings. Follow each note's own per-frame activation past its detected end
+// down to a lower RELEASE threshold to recover the real tail. Hard-capped, and
+// never allowed to reach the next same-pitch onset, so it can't fabricate a
+// sustain that swallows a genuine repeated note (keeps it "relatif aman").
+function extendDurations(notes, frames){
+    if(!frames || !frames.length) return notes;
+    var FRAME_SEC=256/22050, RELEASE=0.25, MAX_EXT=1.2, MIN_GAP=0.08;
+    var byPitch=new Map();
+    notes.forEach(function(n){var l=byPitch.get(n.pitchMidi); if(!l){l=[];byPitch.set(n.pitchMidi,l);} l.push(n);});
+    byPitch.forEach(function(list){
+        list.sort(function(a,b){return a.startTimeSeconds-b.startTimeSeconds;});
+        for(var i=0;i<list.length;i++){
+            var n=list[i], freqIdx=n.pitchMidi-21;
+            if(freqIdx<0||freqIdx>87) continue;
+            var detectedEnd=n.startTimeSeconds+n.durationSeconds, end=detectedEnd;
+            var hardCap=(i+1<list.length)? list[i+1].startTimeSeconds-MIN_GAP : Infinity;
+            var limit=Math.min(detectedEnd+MAX_EXT, hardCap);
+            var t=Math.round(end/FRAME_SEC), k=0;
+            while(t<frames.length){
+                var tsec=t*FRAME_SEC;
+                if(tsec>=limit) break;
+                var act=(frames[t][freqIdx]==null)?0:frames[t][freqIdx];
+                if(act>=RELEASE){ end=tsec; k=0; } else { k++; if(k>3) break; }
+                t++;
+            }
+            if(end<detectedEnd) end=detectedEnd;
+            n.durationSeconds=Math.max(0.05, Math.min(end,limit)-n.startTimeSeconds);
+        }
+    });
+    return notes;
+}
+
+// ── Harmonic-Percussive Source Separation (median-filter HPSS) ──────────
+// The single biggest source of "ghost" notes on a full song mix is everything
+// that ISN'T the melodic instrument: drums, hi-hats, vocal sibilance, noise.
+// Drums/transients are broadband + short (vertical streaks in a spectrogram);
+// pitched content is narrowband + sustained (horizontal lines). Median-filter
+// HPSS (Fitzgerald 2010) separates the two with no model: a per-bin median
+// across TIME isolates the harmonic part, a per-frame median across FREQUENCY
+// isolates the percussive part, and a soft Wiener mask keeps the harmonic.
+// Feeding the harmonic-only signal to the pitch model strips most non-pitched
+// ghosts before they can ever be detected. Pure DSP -- costs CPU (seconds),
+// not network or model passes -- which is the trade the user OK'd ("gapapa
+// loading lama asal much better"). DSP verified by unit tests (FFT round-trip,
+// sine retained / clicks suppressed / mix favours tone).
+var VIZ_USE_HPSS=true;
+function fftRadix2(re,im,inverse){
+    var n=re.length;
+    for(var i=1,j=0;i<n;i++){
+        var bit=n>>1;
+        for(;j&bit;bit>>=1) j^=bit;
+        j^=bit;
+        if(i<j){ var tr=re[i];re[i]=re[j];re[j]=tr; var ti=im[i];im[i]=im[j];im[j]=ti; }
+    }
+    for(var len=2;len<=n;len<<=1){
+        var ang=(inverse?2:-2)*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang);
+        for(var s=0;s<n;s+=len){
+            var cwr=1,cwi=0, half=len>>1;
+            for(var k=0;k<half;k++){
+                var ur=re[s+k], ui=im[s+k];
+                var vr=re[s+k+half]*cwr-im[s+k+half]*cwi, vi=re[s+k+half]*cwi+im[s+k+half]*cwr;
+                re[s+k]=ur+vr; im[s+k]=ui+vi;
+                re[s+k+half]=ur-vr; im[s+k+half]=ui-vi;
+                var ncwr=cwr*wr-cwi*wi; cwi=cwr*wi+cwi*wr; cwr=ncwr;
+            }
+        }
+    }
+    if(inverse){ for(var z=0;z<n;z++){ re[z]/=n; im[z]/=n; } }
+}
+function hpssMedian(buf,count){
+    var a=Array.prototype.slice.call(buf,0,count);
+    a.sort(function(p,q){return p-q;});
+    var m=count>>1;
+    return (count%2)? a[m] : 0.5*(a[m-1]+a[m]);
+}
+function harmonicSeparate(x,opts){
+    opts=opts||{};
+    var N=opts.fftSize||1024, HOP=opts.hop||(N>>1);
+    var tKernel=opts.timeKernel||17, fKernel=opts.freqKernel||23, power=opts.power||2;
+    var len=x.length;
+    if(len<N*2) return Float32Array.from(x);
+    var win=new Float64Array(N);
+    for(var i=0;i<N;i++) win[i]=0.5-0.5*Math.cos(2*Math.PI*i/(N-1));
+    var nFrames=1+Math.floor((len-N)/HOP), nBins=(N>>1)+1;
+    var specRe=[],specIm=[],mag=[];
+    for(var f=0;f<nFrames;f++){
+        var re=new Float64Array(N), im=new Float64Array(N), off=f*HOP;
+        for(var n2=0;n2<N;n2++) re[n2]=x[off+n2]*win[n2];
+        fftRadix2(re,im,false);
+        var rr=new Float64Array(nBins),ii=new Float64Array(nBins),mr=new Float64Array(nBins);
+        for(var b=0;b<nBins;b++){ rr[b]=re[b]; ii[b]=im[b]; mr[b]=Math.sqrt(re[b]*re[b]+im[b]*im[b]); }
+        specRe.push(rr); specIm.push(ii); mag.push(mr);
+    }
+    var tHalf=(tKernel-1)>>1, fHalf=(fKernel-1)>>1;
+    var tbuf=new Float64Array(tKernel), fbuf=new Float64Array(fKernel);
+    var out=new Float64Array(len), winSum=new Float64Array(len);
+    for(var f2=0;f2<nFrames;f2++){
+        var re2=new Float64Array(N), im2=new Float64Array(N);
+        var rr2=specRe[f2], ii2=specIm[f2], mg=mag[f2];
+        for(var b2=0;b2<nBins;b2++){
+            var tc=0;
+            for(var t=f2-tHalf;t<=f2+tHalf;t++){ if(t>=0&&t<nFrames) tbuf[tc++]=mag[t][b2]; }
+            var H=hpssMedian(tbuf,tc);
+            var fc=0;
+            for(var bb=b2-fHalf;bb<=b2+fHalf;bb++){ if(bb>=0&&bb<nBins) fbuf[fc++]=mg[bb]; }
+            var P=hpssMedian(fbuf,fc);
+            var hp=Math.pow(H,power), pp=Math.pow(P,power), m=(hp+pp)>0?hp/(hp+pp):0;
+            re2[b2]=rr2[b2]*m; im2[b2]=ii2[b2]*m;
+            if(b2>0 && b2<(N>>1)){ re2[N-b2]=rr2[b2]*m; im2[N-b2]=-ii2[b2]*m; }
+        }
+        fftRadix2(re2,im2,true);
+        var off2=f2*HOP;
+        for(var s2=0;s2<N;s2++){ out[off2+s2]+=re2[s2]*win[s2]; winSum[off2+s2]+=win[s2]*win[s2]; }
+    }
+    var result=new Float32Array(len);
+    for(var r=0;r<len;r++) result[r]= winSum[r]>1e-8 ? out[r]/winSum[r] : 0;
+    return result;
+}
+
 // Shared by link-import and direct file-upload (video/mp3) transcription --
 // the only difference between the two is how the raw audio bytes are obtained.
 async function audioBufferToMidiBase64(arrayBuf){
@@ -464,10 +617,22 @@ async function audioBufferToMidiBase64(arrayBuf){
     var resampled=await offline.startRendering();
     decodeCtx.close();
 
+    // Isolate the tonal/harmonic content before the model sees it, so drums,
+    // hats and vocal noise can't surface as ghost notes. evaluateModel accepts
+    // a raw Float32Array, so we pass the separated signal straight through.
+    var modelInput=resampled;
+    if(VIZ_USE_HPSS){
+        setImportProgress('Isolating instrument...',30);
+        // yield a frame so the overlay can paint before the CPU-heavy pass
+        await new Promise(function(r){setTimeout(r,16);});
+        try{ modelInput=harmonicSeparate(resampled.getChannelData(0),{}); }
+        catch(e){ modelInput=resampled; }
+    }
+
     setImportProgress('Transcribing notes...',35);
     var bp=new BasicPitchLib.BasicPitch('/models/basic-pitch/model.json');
     var frames=[],onsets=[],contours=[];
-    await bp.evaluateModel(resampled,function(f,o,c){
+    await bp.evaluateModel(modelInput,function(f,o,c){
         for(var i=0;i<f.length;i++)frames.push(f[i]);
         for(var i=0;i<o.length;i++)onsets.push(o[i]);
         for(var i=0;i<c.length;i++)contours.push(c[i]);
@@ -489,6 +654,7 @@ async function audioBufferToMidiBase64(arrayBuf){
     var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5,false);
     var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
     if(notesTime.length===0)throw new Error('No notes detected in that clip.');
+    notesTime=extendDurations(notesTime,frames);
     return notesToMidiBase64(notesTime);
 }
 

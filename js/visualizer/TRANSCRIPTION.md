@@ -10,8 +10,19 @@ All client-side, after `/api/extract-audio` returns raw audio bytes
 (`visualizer.html`):
 
 1. **Decode + resample** to 22.05 kHz mono (`audioBufferToMidiBase64`).
-2. **Basic Pitch** (`@spotify/basic-pitch`, TF.js / WebGL) →
-   per-frame `frames`, `onsets`, `contours`.
+2. **Source separation (HPSS)** — median-filter Harmonic/Percussive Source
+   Separation (`harmonicSeparate`) runs on the resampled signal *before* the
+   model. A per-bin median across time isolates sustained tonal content; a
+   per-frame median across frequency isolates broadband transients (drums,
+   hats, sibilance); a soft Wiener mask keeps the harmonic part. The model then
+   only ever sees the pitched signal, so most non-instrument "ghost" notes are
+   gone before detection. Pure DSP (own radix-2 FFT) — ~12 s for a 60 s clip,
+   the CPU-for-quality trade the user OK'd. `VIZ_USE_HPSS` toggles it.
+   Verified by unit tests: FFT round-trip exact, sine retained, clicks
+   suppressed, mixed signal favours tone.
+3. **Basic Pitch** (`@spotify/basic-pitch`, TF.js / WebGL) →
+   per-frame `frames`, `onsets`, `contours`. (`evaluateModel` accepts a raw
+   `Float32Array`, so the separated signal is passed straight in.)
 3. **`outputToNotesPoly(frames, onsets, 0.65, 0.4, 5, true, 4186, 27.5, false)`**
    — onset/frame thresholds raised above the solo-instrument defaults and the
    pitch range clamped to the piano (A0…C8 in Hz) so a full song mix doesn't
@@ -31,16 +42,26 @@ All client-side, after `/api/extract-audio` returns raw audio bytes
      being re-triggered and cut off.
    - **Chord alignment (≤40 ms)** — snap near-simultaneous onsets to the
      cluster's median start so chords land together and the pulse reads tight.
-   - **Overtone-ghost rejection** — within an aligned chord cluster, drop a
-     note only when it sits at a harmonic interval (octave, octave+5th, ...)
-     above a much louder note *and* is itself much quieter -- a piano string's
-     own overtone misread as a separate key. Conservative on both axes so a
-     real, intentionally quiet upper voice is never touched.
+   - **Overtone-ghost rejection (two passes)** — drop a note only when it sits
+     at a harmonic interval (octave, octave+5th, ...) above a much louder note
+     *and* is itself much quieter -- a piano string's own overtone misread as a
+     separate key. Pass 1 catches ghosts inside a chord cluster (same onset);
+     pass 2 catches *temporal* ghosts whose onset crosses threshold mid-sustain
+     while a louder fundamental a harmonic below is still ringing. Conservative
+     on both axes so a real, intentionally quiet upper voice is never touched.
+   - **Note-length refinement** (`extendDurations`) — follow each note's own
+     per-frame activation past its detected end down to a lower release
+     threshold, recovering the natural piano tail Basic Pitch clips short.
+     Hard-capped and never allowed to reach the next same-pitch onset, so it
+     can't fabricate a sustain that swallows a real repeated note.
 5. **`notesToMidiBase64`** — emits a standard format-0 MIDI routed through the
    same proven `parseMidi → midiToTimeline` playback path as an uploaded
    `.mid`. Velocity is mapped from the clip's *working* dynamic range (10th–90th
-   percentile of detected amplitudes) over a musical span with a gentle curve,
-   then blended toward a per-chord mean so a chord speaks as one gesture.
+   percentile of detected amplitudes) over a musical span with a gentle curve.
+   Chord coherence is **humanised, not flattened**: each note is pulled only
+   gently toward the chord mean (outliers tamed, real dynamics kept), and the
+   top voice of each chord gets a small lift so the melody sings through the way
+   a pianist voices it — the over-aggressive mean-pull was what read as robotic.
 
 ### What we deliberately do *not* do
 - **No fabricated re-attacks.** A held piano note (often under pedal) is real;
@@ -68,11 +89,11 @@ Public material + sensible inference about the architecture:
 
 ## Where to push next (highest leverage first)
 
-1. **Source separation before transcription.** The single biggest quality jump.
-   - Cheap, no-ML first step: **HPSS** (harmonic/percussive separation via a
-     median-filtered STFT) to strip drums — kills most spurious percussive
-     onsets with ~100 lines of DSP, no model download.
-   - Bigger: a browser-runnable stem model (piano/other) before Basic Pitch.
+1. **A real stem model.** HPSS strips percussion well but can't separate two
+   *pitched* instruments (piano vs. synth vs. vocal melody). A browser-runnable
+   piano-stem model before Basic Pitch is the next jump — closest to Klangio's
+   per-instrument approach. Heavy (model download + inference); needs real-clip
+   A/B before shipping.
 2. **Dual-pass confidence cross-check.** We already have `frames`/`onsets` in
    memory after one model pass. A second, *free* (no re-inference) call to
    `outputToNotesPoly` at a stricter `onsetThresh` gives a "confident core" —
@@ -84,11 +105,14 @@ Public material + sensible inference about the architecture:
    than none).
 
 ## Already shipped from this list
+- ~~Source separation (HPSS) before transcription~~ — done, strips drums/noise.
+- ~~Conservative overtone rejection~~ — done, now in two passes (chord +
+  temporal/sustain).
+- ~~Note-length refinement~~ — done (`extendDurations`, frame-energy follow).
+- ~~Humanised chord voicing~~ — done (gentle mean-pull + melody lift).
 - ~~Onset-strength velocity~~ — superseded by percentile-normalized,
-  chord-blended velocity (see above); revisit if real-clip listening still
-  shows attack energy tracking better than frame amplitude.
-- ~~Conservative overtone rejection~~ — done (harmonic-interval + amplitude-
-  ratio gate inside chord clusters).
+  chord-blended velocity; revisit if real-clip listening still shows attack
+  energy tracking better than frame amplitude.
 
 ---
 
