@@ -3230,7 +3230,7 @@ const logoToggle = document.getElementById('logoToggle');
 if(logoToggle){
     logoToggle.addEventListener('click', () => {
         lockUiLayout(600);
-        document.body.classList.toggle('hide-ui');
+        document.body.classList.add('hide-ui');
     });
 }
 const topPanelScroller = document.getElementById('panel');
