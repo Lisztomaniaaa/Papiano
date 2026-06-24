@@ -153,6 +153,11 @@ canvas{
 #fxParticles{ z-index:19; }
 .stage.dust-front #fxParticles{ z-index:21; }
 
+/* Top-down falling-note layer (MIDI/MusicXML playback). Same stacking as #fx
+   (the legacy grow-bar canvas) — the two are never drawing at the same time,
+   and DOM order (after #fx) keeps this one on top if that ever changes. */
+#vizFallCanvas{ z-index:20; }
+
 #saberLine{
     position:absolute;
     left:0;
