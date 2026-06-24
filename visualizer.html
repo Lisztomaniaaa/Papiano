@@ -276,6 +276,9 @@ function hideImportOverlay(){if(importOverlay)importOverlay.classList.remove('sh
 // generous (8) -- a tighter cap (4) was silently dropping legitimate notes
 // during dense passages instead of just trimming the weakest ones.
 var VIZ_MAX_POLYPHONY=8;
+// Onsets landing within this window are treated as one chord -- aligned to a
+// common start (tight rhythm) and given a coherent velocity (see below).
+var CHORD_WINDOW_SEC=0.04;
 
 function mergeVizNotes(notes){
     var sorted=notes.slice().sort(function(a,b){return b.amplitude-a.amplitude;});
@@ -316,25 +319,37 @@ function mergeVizNotes(notes){
     });
     merged.sort(function(a,b){return a.start-b.start;});
 
-    // basic-pitch's frame-level onset detection sometimes drones one held note
-    // for several seconds on fast/legato passages instead of detecting the real
-    // repeated attacks underneath. Split any note longer than MAX_NOTE_DUR_SEC
-    // into shorter repeats so it reads as repeated notes instead of one long
-    // sustained drone. The gap between repeats is kept just above MERGE_GAP_SEC
-    // so this step doesn't get undone by the fragment-merge logic above.
-    var MAX_NOTE_DUR_SEC=1.5, SPLIT_NOTE_DUR_SEC=0.5, SPLIT_GAP_SEC=0.12;
-    var split=[];
-    merged.forEach(function(n){
-        var dur=n.end-n.start;
-        if(dur<=MAX_NOTE_DUR_SEC){split.push(n);return;}
-        var t=n.start;
-        while(t<n.end){
-            var segEnd=Math.min(t+SPLIT_NOTE_DUR_SEC,n.end);
-            split.push({pitchMidi:n.pitchMidi,start:t,end:segEnd,amplitude:n.amplitude});
-            t=segEnd+SPLIT_GAP_SEC;
+    // Chord alignment. basic-pitch detects the notes of a single chord a few
+    // ms apart, which smears the attack and makes the rhythm read as loose.
+    // Snap onsets that land inside CHORD_WINDOW_SEC of each other to the
+    // cluster's median start so stacked notes speak together and the pulse
+    // feels tight -- the cheap, deterministic stand-in for the rhythm-grid an
+    // instrument-specific model (Klangio-style) would infer.
+    //
+    // We deliberately do NOT split long notes into fabricated repeats: a held
+    // piano note (often under the sustain pedal) is real, and inventing
+    // re-attacks would ADD notes that were never played. Honouring "no notes
+    // added, no notes dropped" matters more than papering over the model's
+    // occasional droning.
+    var i=0;
+    while(i<merged.length){
+        var clusterStart=merged[i].start, j=i+1;
+        while(j<merged.length && merged[j].start-clusterStart<=CHORD_WINDOW_SEC) j++;
+        if(j-i>1){
+            var starts=[];
+            for(var s=i;s<j;s++)starts.push(merged[s].start);
+            starts.sort(function(a,b){return a-b;});
+            var mid=starts[Math.floor(starts.length/2)];
+            for(var k=i;k<j;k++){
+                var shift=mid-merged[k].start;
+                merged[k].start=mid;
+                // keep each note's own length; just slide its release with it
+                merged[k].end=Math.max(mid+0.05, merged[k].end+shift);
+            }
         }
-    });
-    return split;
+        i=j;
+    }
+    return merged;
 }
 
 function writeVarLen(bytes,value){
@@ -353,12 +368,39 @@ function notesToMidiBase64(notes){
     var TICKS_PER_QUARTER=480, TEMPO_US=500000; // 120bpm
     var TICKS_PER_SEC=TICKS_PER_QUARTER/(TEMPO_US/1e6);
 
+    // Smart, smooth velocity. A flat amplitude->velocity line lets one loud
+    // transient flatten the rest of the clip toward a single dynamic. Instead
+    // we map the clip's actual working range (10th-90th percentile of detected
+    // amplitudes) across a musical velocity span, with a gentle curve that
+    // lifts soft notes a touch so quiet detail survives.
+    var amps=merged.map(function(n){return n.amplitude==null?0.5:n.amplitude;}).slice()
+        .sort(function(a,b){return a-b;});
+    function pct(p){return amps.length?amps[Math.floor((amps.length-1)*p)]:0.5;}
+    var velLo=pct(0.10), velHi=pct(0.90), velSpan=Math.max(1e-3,velHi-velLo);
+    function ampToVel(a){
+        var t=Math.min(1,Math.max(0,((a==null?0.5:a)-velLo)/velSpan));
+        return 46 + Math.pow(t,0.85)*64; // float; rounded after chord smoothing
+    }
+    merged.forEach(function(n){n._vel=ampToVel(n.amplitude);});
+
+    // Chord coherence: notes that were aligned to the same start (a chord)
+    // shouldn't have one member jump out at a wildly different volume. Blend
+    // each toward the chord's mean velocity, keeping a little individuality.
+    var byStart=new Map();
+    merged.forEach(function(n){
+        var key=Math.round(n.start*TICKS_PER_SEC);
+        var g=byStart.get(key); if(!g){g=[];byStart.set(key,g);} g.push(n);
+    });
+    byStart.forEach(function(g){
+        if(g.length<2)return;
+        var sum=0; g.forEach(function(x){sum+=x._vel;});
+        var avg=sum/g.length;
+        g.forEach(function(x){x._vel=x._vel*0.3+avg*0.7;});
+    });
+
     var midiEvents=[];
     merged.forEach(function(n){
-        // Linear amplitude -> velocity mapping (no sqrt boost) so dynamics
-        // stay closer to how the clip actually sounded instead of pushing
-        // everything toward forte.
-        var velocity=Math.max(30,Math.min(110,Math.round(30+n.amplitude*80)));
+        var velocity=Math.max(42,Math.min(112,Math.round(n._vel)));
         midiEvents.push({tick:Math.round(n.start*TICKS_PER_SEC),type:0x90,note:n.pitchMidi,vel:velocity});
         midiEvents.push({tick:Math.round(n.end*TICKS_PER_SEC),type:0x80,note:n.pitchMidi,vel:0});
     });
