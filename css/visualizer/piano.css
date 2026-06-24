@@ -450,12 +450,12 @@ html[data-graphic-quality="potato"] #pianoWrap::before{ display:none !important;
     pointer-events: all;
 }
 body.hide-ui .top,
-body.hide-ui .floating-panel{
+body.hide-ui .floating-panel,
+body.hide-ui #logoToggle{
     opacity:0 !important;
     visibility:hidden !important;
     pointer-events:none !important;
 }
-body.hide-ui #logoToggle{ opacity:.55 !important; }
 
 .toggle-switch { display: flex; align-items: center; gap: 12px; }
 .toggle-track {
@@ -2590,13 +2590,11 @@ body.key-glow-on:is(.layout-changing, .perf-lite) #activeKeyLayer .active-key-wh
     z-index:620 !important;
 }
 .render-fixed.hide-ui .top,
-.render-fixed.hide-ui .floating-panel{
+.render-fixed.hide-ui .floating-panel,
+.render-fixed.hide-ui #logoToggle{
     opacity:0 !important;
     visibility:hidden !important;
     pointer-events:none !important;
-}
-.render-fixed.hide-ui #logoToggle{
-    opacity:.55 !important;
 }
 .render-fixed.papiano-fullscreen #logoToggle{
     top:6px !important;
