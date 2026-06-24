@@ -166,11 +166,31 @@ function setImportProgress(label,pct){
 function showImportOverlay(){if(importOverlay)importOverlay.classList.add('show');}
 function hideImportOverlay(){if(importOverlay)importOverlay.classList.remove('show');}
 
+// basic-pitch's default thresholds are tuned for solo-instrument clips. On a
+// full TikTok/Instagram song mix they also pick up bass/vocal/drum pitched
+// content, producing a dense wash of overlapping notes that tracks the whole
+// mix closely enough to feel like the original song is playing back (and
+// buries the sustain pedal's effect under constant note overlap). Limiting
+// simultaneous notes keeps only the strongest, most piano-like ones.
+var VIZ_MAX_POLYPHONY=4;
+
 // Notes from basic-pitch -> the {ms,type,note,velocity} timeline format
 // loadVizTimeline()/buildVizNotes() on the stage page expect.
 function notesToVizTimeline(notes){
+    var sorted=notes.slice().sort(function(a,b){return b.amplitude-a.amplitude;});
+    var kept=[];
+    var active=[];
+    sorted.forEach(function(n){
+        var start=n.startTimeSeconds,end=start+n.durationSeconds;
+        active=active.filter(function(a){return a.end>start;});
+        var overlapping=active.filter(function(a){return a.start<end&&a.end>start;});
+        if(overlapping.length>=VIZ_MAX_POLYPHONY)return;
+        active.push({start:start,end:end});
+        kept.push(n);
+    });
+
     var events=[];
-    notes.forEach(function(n){
+    kept.forEach(function(n){
         var velocity=Math.max(1,Math.min(127,Math.round((n.amplitude||0.5)*127)));
         var startMs=n.startTimeSeconds*1000;
         var endMs=startMs+n.durationSeconds*1000;
@@ -215,7 +235,11 @@ async function importFromLink(url){
     },function(pct){setImportProgress('Transcribing notes...',35+pct*55);});
 
     setImportProgress('Building timeline...',95);
-    var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets);
+    // Raise the onset/frame confidence thresholds above basic-pitch's
+    // solo-instrument defaults (0.5/0.3) and clamp to the piano's range so a
+    // full song mix doesn't surface every faintly-pitched vocal/bass/drum
+    // transient as a "note".
+    var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,108,21);
     var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
     if(notesTime.length===0)throw new Error('No notes detected in that clip.');
     var timeline=notesToVizTimeline(notesTime);
