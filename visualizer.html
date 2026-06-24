@@ -21,6 +21,15 @@
 <link rel="icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
 <link rel="apple-touch-icon" href="https://i.supaimg.com/ccbdf613-56b4-4d2a-9880-d6d18769c2bf/221fc050-b7ea-451e-835d-ee82b7492a06.webp">
 <link rel="manifest" href="/manifest.json">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"How does TikTok/Instagram to piano notes conversion work?","acceptedAnswer":{"@type":"Answer","text":"Papiano's server downloads the audio from the TikTok or Instagram link, then your browser transcribes it to musical notes using an open-source pitch-detection model (Basic Pitch / TensorFlow.js). The audio isn't stored after your session."}},
+{"@type":"Question","name":"Why is TikTok/Instagram import labeled Beta?","acceptedAnswer":{"@type":"Answer","text":"Automatic audio-to-MIDI transcription isn't perfect, especially on full song mixes with vocals, bass, and drums layered together. Notes can sometimes be missed, extra, or timed slightly off compared to a real MIDI file."}},
+{"@type":"Question","name":"What's the most accurate way to play a song on Papiano's piano visualizer?","acceptedAnswer":{"@type":"Answer","text":"Uploading a real MIDI (.mid/.midi) or MusicXML (.musicxml/.xml) file, since it contains exact note data with no transcription guesswork."}},
+{"@type":"Question","name":"Which platforms and file formats does the Piano Visualizer support?","acceptedAnswer":{"@type":"Answer","text":"Paste Link supports TikTok and Instagram video URLs. Upload Video / MP3 accepts .mp4, .webm, .mov, .mp3, .wav, and .m4a files. Upload MIDI / MusicXML accepts .mid, .midi, .musicxml, and .xml files."}},
+{"@type":"Question","name":"Is my uploaded file or link stored on Papiano's servers?","acceptedAnswer":{"@type":"Answer","text":"No. Audio is fetched server-side just long enough to hand it to the browser, and transcription runs client-side, so nothing is saved or shared after processing."}}
+]}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
@@ -80,6 +89,15 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
 .viz-card-title-row{display:flex;align-items:center;gap:8px}
 .viz-beta-badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:8px;background:rgba(0,91,255,0.10);border:1.5px solid rgba(0,91,255,0.32);color:var(--accent-strong);font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px;line-height:1.2}
 .viz-card-sub{font-size:12px;font-weight:600;color:var(--text-faint);margin-top:-10px}
+.viz-consent{display:flex;align-items:flex-start;gap:10px;font-size:12px;font-weight:600;color:var(--text-muted);line-height:1.45;cursor:pointer;padding:2px 2px}
+.viz-consent input[type="checkbox"]{width:19px;height:19px;flex:0 0 auto;margin-top:1px;accent-color:#005BFF;cursor:pointer}
+.viz-faq-group{display:flex;flex-direction:column;gap:8px}
+.viz-faq{border-radius:16px;border:2px solid rgba(6,17,31,0.12);background:#ffffff;overflow:hidden}
+.viz-faq summary{padding:14px 16px;font-weight:800;font-size:13px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--text-main)}
+.viz-faq summary::-webkit-details-marker{display:none}
+.viz-faq summary::after{content:'expand_more';font-family:'Material Symbols Rounded';font-size:20px;color:var(--text-faint);transition:transform .2s;flex:0 0 auto}
+.viz-faq[open] summary::after{transform:rotate(180deg)}
+.viz-faq p{margin:0;padding:0 16px 14px;font-size:12.5px;font-weight:500;color:var(--text-muted);line-height:1.55}
 </style>
 <link rel="preload" href="/fonts/material-symbols-rounded.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anybody:ital,wght@0,800;1,800;1,900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=optional" media="print" onload="this.media='all';this.onload=null;">
@@ -157,8 +175,39 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
             </div>
         </div>
 
+        <!-- Consent -->
+        <label class="viz-consent" for="vizConsentCheck">
+            <input type="checkbox" id="vizConsentCheck">
+            <span>I confirm I have the right to use this content (my own recording, royalty-free, or for personal/educational use) and understand TikTok/Instagram link and Video/MP3 import are Beta features with imperfect note accuracy.</span>
+        </label>
+
         <!-- Start Button -->
         <button class="viz-start-btn" id="vizStartBtn" type="button" disabled>Start Play</button>
+
+        <!-- FAQ / How it works (SEO + user clarity) -->
+        <div class="viz-faq-group">
+            <div class="viz-section-title">Good to know</div>
+            <details class="viz-faq">
+                <summary>How does TikTok/Instagram → piano notes work?</summary>
+                <p>Our server briefly downloads the audio from the link and hands it to your browser, where it's transcribed to musical notes using an open-source pitch-detection model (Basic Pitch / TensorFlow.js). The audio isn't stored after your session — transcription itself happens entirely on your own device.</p>
+            </details>
+            <details class="viz-faq">
+                <summary>Why is this labeled Beta?</summary>
+                <p>Automatic audio-to-MIDI transcription isn't perfect, especially on full song mixes with vocals, bass, and drums layered together. Notes may sometimes be missed, extra, or timed slightly off compared to a real MIDI file. We're actively tuning this, but it won't sound as clean as a proper MIDI upload.</p>
+            </details>
+            <details class="viz-faq">
+                <summary>What's the most accurate way to play a song?</summary>
+                <p>Uploading a real MIDI (.mid/.midi) or MusicXML (.musicxml/.xml) file. Those contain exact note data, so there's no transcription guesswork — what you upload is exactly what plays.</p>
+            </details>
+            <details class="viz-faq">
+                <summary>Which platforms and formats are supported?</summary>
+                <p>Paste Link supports TikTok and Instagram video URLs (YouTube is not supported). Upload Video / MP3 accepts .mp4, .webm, .mov, .mp3, .wav, and .m4a files. Upload MIDI / MusicXML accepts .mid, .midi, .musicxml, and .xml files.</p>
+            </details>
+            <details class="viz-faq">
+                <summary>Is my file or link stored anywhere?</summary>
+                <p>No. Audio is fetched server-side just long enough to hand it to your browser, and transcription runs client-side — nothing is saved or shared after the page processes it.</p>
+            </details>
+        </div>
 
     </main>
 </div>
@@ -454,10 +503,15 @@ if(midiRemoveBtn)midiRemoveBtn.addEventListener('click',function(e){e.stopPropag
 
 if(linkInput)linkInput.addEventListener('input',function(){if(linkInput.value.trim())  {clearMedia();clearMidi();} updateBtn();});
 
+var consentCheck=document.getElementById('vizConsentCheck');
+if(consentCheck)consentCheck.addEventListener('change',updateBtn);
+
 function updateBtn(){
     if(!startBtn)return;
     var hasLink=linkInput&&linkInput.value.trim().length>0;
-    startBtn.disabled=!(hasLink||selectedMediaFile||selectedMidiFile);
+    var hasSource=hasLink||selectedMediaFile||selectedMidiFile;
+    var consented=!consentCheck||consentCheck.checked;
+    startBtn.disabled=!(hasSource&&consented);
 }
 
 if(startBtn)startBtn.addEventListener('click',function(){
