@@ -2131,6 +2131,11 @@ const neonDustEmitters = new Map();
 // fragment shader (no texture, no overdraw waste). Falls back to the 2D path
 // (below) when WebGL is unavailable, so there is no hard regression.
 const glCanvas = document.getElementById('fxParticles');
+// Dedicated top-down falling-note layer for MIDI/MusicXML playback (visualizer
+// mode only). Kept separate from #fx's anim() loop so the legacy upward-grow
+// effect (still used for live key input) never has to share state with it.
+const vizFallCanvas = document.getElementById('vizFallCanvas');
+const vizFallCtx = vizFallCanvas ? vizFallCanvas.getContext('2d', { alpha: true }) : null;
 let glParticles = null;            // renderer handle, or null if WebGL is unavailable
 let _glColorR = 0, _glColorG = 0.9, _glColorB = 1; // cached normalized dust colour
 function initGlParticles(){
@@ -2952,6 +2957,13 @@ function syncCanvasSize(forceReadStage){
         if(glCanvas.style.width !== cssW) glCanvas.style.width = cssW;
         if(glCanvas.style.height !== cssH) glCanvas.style.height = cssH;
         glResizeParticles(physW, physH);
+    }
+    // Keep the top-down falling-note layer pixel-locked to the 2D canvas too.
+    if(vizFallCanvas){
+        if(vizFallCanvas.width !== physW) vizFallCanvas.width = physW;
+        if(vizFallCanvas.height !== physH) vizFallCanvas.height = physH;
+        if(vizFallCanvas.style.width !== cssW) vizFallCanvas.style.width = cssW;
+        if(vizFallCanvas.style.height !== cssH) vizFallCanvas.style.height = cssH;
     }
     ctx2d.imageSmoothingEnabled = true;
     ctx2d.imageSmoothingQuality = 'high';
@@ -10714,6 +10726,122 @@ let vizEventIdx=0;
 let vizDuration=0;
 let vizRaf=null;
 let vizLoaded=false;
+let vizNotes=[];
+let vizFallStartIdx=0;
+
+// Pairs noteOn/noteOff events per pitch (FIFO — oldest still-held note of a
+// given pitch releases first) into {midi, onset, offset} entries for the
+// top-down falling-note renderer. Independent of the live playback loop so
+// the full note shape (including duration/sustain) is known up front.
+function buildVizNotes(timeline){
+    const notes=[];
+    const openByMidi=new Map();
+    for(let i=0;i<timeline.length;i++){
+        const ev=timeline[i];
+        if(ev.type==='noteOn'&&ev.velocity>0){
+            const entry={midi:ev.note, onset:ev.ms, offset:ev.ms+250};
+            notes.push(entry);
+            let stack=openByMidi.get(ev.note);
+            if(!stack){stack=[];openByMidi.set(ev.note,stack);}
+            stack.push(entry);
+        }else if(ev.type==='noteOff'||(ev.type==='noteOn'&&ev.velocity===0)){
+            const stack=openByMidi.get(ev.note);
+            if(stack&&stack.length){
+                const entry=stack.shift();
+                entry.offset=Math.max(ev.ms, entry.onset+30);
+            }
+        }
+    }
+    notes.sort((a,b)=>a.onset-b.onset);
+    return notes;
+}
+
+// Separate cache from the legacy grow-bar's _solidRgbCache so this renderer
+// can never collide with / mutate state used by the live-input effect.
+const _vizFallRgbCache = new Map();
+function drawVizFallRect(nt, topY, bottomY){
+    const fastX = noteXFast[nt.midi];
+    const cachedX = Number.isFinite(fastX) ? fastX : noteXCache.get(nt.midi);
+    if(cachedX===undefined || !Number.isFinite(cachedX)) return;
+    const x = cachedX - currentPianoTransformPx;
+
+    const _kw = whiteKeyWidth > 0 ? whiteKeyWidth : animSize;
+    const _effSize = Math.min(animSize, Math.max(4, _kw * 0.9));
+    const w = isBlack(nt.midi) ? _effSize * 0.7 : _effSize;
+    const h = Math.max(6, bottomY - topY);
+    const x0 = x - w * 0.5;
+    if(x0 > canvasCssW || x0 + w < 0) return;
+
+    const roundPct = Math.max(0, Math.min(100, Number(animRoundness ?? 100)));
+    const isRounded = animShape === 'rounded' && roundPct > 0;
+    const rv = isRounded ? Math.min(8, w * 0.45, h * 0.35) * (roundPct / 100) : 0;
+    const noteAlpha = Math.max(0.1, Math.min(1, Number(noteOpacity ?? 100) / 100));
+
+    vizFallCtx.globalAlpha = noteAlpha;
+    vizFallCtx.globalCompositeOperation = 'source-over';
+
+    if(animStyle === 'rainbow' || animStyle === 'rainbowV2'){
+        const hue = (nt.midi * 11 + Math.round(nt.onset / 40)) % 360;
+        vizFallCtx.fillStyle = `hsl(${hue|0},88%,58%)`;
+        if(isRounded && rv > 0){
+            vizFallCtx.beginPath();
+            if(vizFallCtx.roundRect) vizFallCtx.roundRect(x0, topY, w, h, rv);
+            else vizFallCtx.rect(x0, topY, w, h);
+            vizFallCtx.fill();
+        } else {
+            vizFallCtx.fillRect(x0, topY, w, h);
+        }
+    } else {
+        const baseHex = getAnimBaseColorForMidi(nt.midi) || cachedAnimColor || '#ffffff';
+        let rgb = _vizFallRgbCache.get(baseHex);
+        if(rgb === undefined){
+            const rgb0 = safeHex(baseHex, '#78dcff');
+            rgb = _isNearWhiteRgb(rgb0) ? [240,248,255] : tuneRgbForFalling(rgb0).slice();
+            if(_vizFallRgbCache.size > 64) _vizFallRgbCache.clear();
+            _vizFallRgbCache.set(baseHex, rgb);
+        }
+        if(isRounded && rv > 0){
+            const sprite = getEffectSprite('solid', rgb, w, h, isRounded, 0, roundPct);
+            vizFallCtx.drawImage(sprite, x0, topY, w, h);
+        } else {
+            vizFallCtx.fillStyle = `rgb(${rgb[0]},${rgb[1]},${rgb[2]})`;
+            vizFallCtx.fillRect(x0, topY, w, h);
+        }
+    }
+    vizFallCtx.globalAlpha = 1;
+}
+
+// Renders every still-visible note in vizNotes as a rectangle falling from
+// the top of the stage toward the keybed (y=canvasCssH), timed so a note's
+// bottom edge reaches the keybed at exactly elapsed===nt.onset — the same
+// performance.now()-based clock vizTick uses to trigger sound, so the visual
+// "touch" and the audio are inherently in sync.
+function drawVizFalling(elapsed){
+    if(!vizFallCtx || !vizFallCanvas) return;
+    vizFallCtx.setTransform(1,0,0,1,0,0);
+    vizFallCtx.clearRect(0, 0, vizFallCanvas.width, vizFallCanvas.height);
+    if(currentDPR !== 1) vizFallCtx.setTransform(currentDPR, 0, 0, currentDPR, 0, 0);
+    if(!vizNotes.length || !canvasCssH) return;
+
+    const speed = getAnimRiseSpeed();
+    // Advance past notes that have fully descended past the keybed. A long
+    // held note can pin this pointer — that's fine, it's a perf shortcut
+    // only; each note below is still individually culled in the loop.
+    while(vizFallStartIdx < vizNotes.length){
+        const nt = vizNotes[vizFallStartIdx];
+        const topY = canvasCssH + (elapsed - nt.offset) * speed / 1000;
+        if(topY > canvasCssH) vizFallStartIdx++;
+        else break;
+    }
+    for(let i=vizFallStartIdx; i<vizNotes.length; i++){
+        const nt = vizNotes[i];
+        const bottomY = canvasCssH + (elapsed - nt.onset) * speed / 1000;
+        if(bottomY < 0) break; // sorted by onset → all later notes are further out
+        const topY = canvasCssH + (elapsed - nt.offset) * speed / 1000;
+        if(topY > canvasCssH) continue; // already fully descended
+        drawVizFallRect(nt, Math.max(0, topY), Math.min(canvasCssH, bottomY));
+    }
+}
 
 const vizPlayPauseBtn=document.getElementById('vizPlayPauseBtn');
 
@@ -10746,6 +10874,8 @@ window.addEventListener('keydown',vizShowOnInteraction,{capture:true});
 function loadVizTimeline(timeline,name){
     vizTimeline=timeline;
     vizDuration=timeline.length>0?timeline[timeline.length-1].ms:0;
+    vizNotes=buildVizNotes(timeline);
+    vizFallStartIdx=0;
     vizLoaded=true;
     updateBtnLabel();
     if(typeof showToast==='function')showToast('Loaded: '+(name||'file'),{type:'success'});
@@ -10779,6 +10909,27 @@ function loadVizMusicXML(xmlString,name){
 }
 
 /* ── Playback ─────────────────────────────────────────────────── */
+// Key-glow-only counterparts to playPressVisual/playReleaseVisual, used for
+// MIDI/MusicXML-driven notes during viz playback. Deliberately skip addAnim()
+// (the upward-grow spawn) and markFallingReleased() — the falling rectangles
+// for this path are drawn by drawVizFalling() instead, so spawning a grow-bar
+// too would visually double up. playPressVisual/playReleaseVisual themselves
+// stay untouched for live hardware-MIDI/qwerty/mouse input elsewhere.
+function vizKeyOn(n,k){
+    if(Number.isFinite(n)) _trackKeyColor(n, _KEY_SELF, selfSeatKeyColor(), k);
+    scheduleKeyVisual(k, true);
+    startNeonDust(n, k);
+    pressStartTimes.set(n,performance.now());
+    requestChordUpdate();
+}
+function vizKeyOff(n,k){
+    scheduleKeyVisual(k, false);
+    if(Number.isFinite(n)) _untrackKeyColor(n, _KEY_SELF, k);
+    stopNeonDust(n);
+    pressStartTimes.delete(n);
+    requestChordUpdate();
+}
+
 function vizPlay(){
     if(!vizTimeline||vizTimeline.length===0)return;
     if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
@@ -10787,9 +10938,11 @@ function vizPlay(){
         vizPaused=false;
     }else{
         vizEventIdx=0;
+        vizFallStartIdx=0;
         vizStartTime=performance.now();
         vizPauseElapsed=0;
         if(typeof stopAllNotes==='function')stopAllNotes();
+        if(vizFallCtx&&vizFallCanvas)vizFallCtx.clearRect(0,0,vizFallCanvas.width,vizFallCanvas.height);
     }
     vizPlaying=true;
     updateBtnLabel();
@@ -10822,21 +10975,24 @@ function vizTick(){
             // playNote(midi, transposeVal, velocity) — pass 0 for transpose
             if(typeof playNote==='function')playNote(ev.note,0,ev.velocity);
             const keyEl=typeof keyElCache!=='undefined'?keyElCache.get(ev.note):null;
-            if(typeof playPressVisual==='function')playPressVisual(ev.note,keyEl,false);
+            if(typeof vizKeyOn==='function')vizKeyOn(ev.note,keyEl);
         }else if(ev.type==='noteOff'||(ev.type==='noteOn'&&ev.velocity===0)){
             if(typeof stopNote==='function')stopNote(ev.note);
             const keyEl=typeof keyElCache!=='undefined'?keyElCache.get(ev.note):null;
-            if(typeof playReleaseVisual==='function')playReleaseVisual(ev.note,keyEl);
+            if(typeof vizKeyOff==='function')vizKeyOff(ev.note,keyEl);
         }
         vizEventIdx++;
     }
+    if(typeof drawVizFalling==='function')drawVizFalling(elapsed);
     if(vizEventIdx>=vizTimeline.length&&elapsed>vizDuration+1500){
         vizPlaying=false;
         vizPaused=false;
         vizEventIdx=0;
         vizPauseElapsed=0;
+        vizFallStartIdx=0;
         updateBtnLabel();
         if(typeof stopAllNotes==='function')stopAllNotes();
+        if(vizFallCtx&&vizFallCanvas)vizFallCtx.clearRect(0,0,vizFallCanvas.width,vizFallCanvas.height);
         showUI();
         if(typeof showToast==='function')showToast('Playback complete.',{type:'success'});
         return;
