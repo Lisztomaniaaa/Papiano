@@ -10732,14 +10732,14 @@ function updateBtnLabel(){
 function hideUI(){document.body.classList.add('hide-ui');}
 function showUI(){document.body.classList.remove('hide-ui');}
 
-const stageEl=document.querySelector('.stage');
-if(stageEl){
-    stageEl.addEventListener('click',function(e){
-        if(e.target.closest('.floating-panel'))return;
-        if(document.body.classList.contains('hide-ui'))showUI();
-        else hideUI();
-    });
+// Any tap/click/keypress while UI is hidden brings it back — covers mobile
+// taps (which land on #swipeStrip, not .stage, since it overlays the stage
+// with pointer-events:all and stops propagation) and computer-keyboard play.
+function vizShowOnInteraction(){
+    if(document.body.classList.contains('hide-ui'))showUI();
 }
+window.addEventListener('pointerdown',vizShowOnInteraction,{capture:true});
+window.addEventListener('keydown',vizShowOnInteraction,{capture:true});
 
 /* ── Load functions ───────────────────────────────────────────── */
 function loadVizTimeline(timeline,name){
@@ -10820,8 +10820,12 @@ function vizTick(){
         if(ev.type==='noteOn'&&ev.velocity>0){
             // playNote(midi, transposeVal, velocity) — pass 0 for transpose
             if(typeof playNote==='function')playNote(ev.note,0,ev.velocity);
+            const keyEl=typeof keyElCache!=='undefined'?keyElCache.get(ev.note):null;
+            if(typeof playPressVisual==='function')playPressVisual(ev.note,keyEl,false);
         }else if(ev.type==='noteOff'||(ev.type==='noteOn'&&ev.velocity===0)){
             if(typeof stopNote==='function')stopNote(ev.note);
+            const keyEl=typeof keyElCache!=='undefined'?keyElCache.get(ev.note):null;
+            if(typeof playReleaseVisual==='function')playReleaseVisual(ev.note,keyEl);
         }
         vizEventIdx++;
     }
