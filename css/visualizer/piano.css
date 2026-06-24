@@ -5067,7 +5067,10 @@ body.theme-child .color-row,body.theme-child .perf-setting-block{background:rgba
 /* ── Saber / Strike line ── */
 body.theme-child #saberLine{border-top:3px solid #06111f !important;box-shadow:0 -2px 0 rgba(255,235,59,0.7) !important;}
 /* ── Toast ── */
-body.theme-child .toast-wrap .toast-item,body.theme-child #toastHost .toast-item{border:var(--neo-border) !important;border-radius:12px !important;box-shadow:var(--neo-shadow) !important;background:#fffbe6 !important;color:#06111f !important;}
+body.theme-child #toastWrap .toast{border:var(--neo-border) !important;border-radius:12px !important;box-shadow:var(--neo-shadow) !important;background:#fffbe6 !important;backdrop-filter:none !important;-webkit-backdrop-filter:none !important;color:#06111f !important;}
+body.theme-child #toastWrap .toast .toast-msg{color:rgba(6,17,31,0.72) !important;}
+body.theme-child #toastWrap .toast.t-error{border-color:#06111f !important;}
+body.theme-child #toastWrap .toast.t-error .toast-title,body.theme-child #toastWrap .toast.t-info .toast-title,body.theme-child #toastWrap .toast.t-success .toast-title{color:#06111f !important;}
 /* ── Child: hide complex note styles (only Single + Double visible) ── */
 body.theme-child #mGlass,body.theme-child #mOutline,body.theme-child #mMidnight,body.theme-child #mGradient,body.theme-child #mRainbow{display:none !important;}
 /* ── Child: hide particle + strike hub buttons ── */
