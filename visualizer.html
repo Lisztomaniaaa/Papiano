@@ -171,8 +171,10 @@ function hideImportOverlay(){if(importOverlay)importOverlay.classList.remove('sh
 // content, producing a dense wash of overlapping notes that tracks the whole
 // mix closely enough to feel like the original song is playing back (and
 // buries the sustain pedal's effect under constant note overlap). Limiting
-// simultaneous notes keeps only the strongest, most piano-like ones.
-var VIZ_MAX_POLYPHONY=4;
+// simultaneous notes keeps only the strongest, most piano-like ones. Kept
+// generous (8) -- a tighter cap (4) was silently dropping legitimate notes
+// during dense passages instead of just trimming the weakest ones.
+var VIZ_MAX_POLYPHONY=8;
 
 function mergeVizNotes(notes){
     var sorted=notes.slice().sort(function(a,b){return b.amplitude-a.amplitude;});
