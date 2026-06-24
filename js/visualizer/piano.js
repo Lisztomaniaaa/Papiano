@@ -10968,9 +10968,9 @@ function loadVizTimeline(timeline,name){
     vizLoaded=true;
     try{ vizPracticeMode=sessionStorage.getItem('vizPlaybackMode')==='practice'; }catch(e){ vizPracticeMode=false; }
     updateBtnLabel();
-    if(typeof showToast==='function')showToast('Loaded: '+(name||'file')+(vizPracticeMode?' — Practice mode':''),{type:'success'});
-    // Auto-play
-    setTimeout(vizPlay,300);
+    if(typeof showToast==='function')showToast('Loaded: '+(name||'file')+(vizPracticeMode?' — Practice mode':' — press Play to start'),{type:'success'});
+    // Playback now only starts when the user presses vizPlayPauseBtn (vizToggle) —
+    // no auto-play on load, in either Visualizer or Practice mode.
 }
 
 function loadVizMidiFromBase64(base64,name){
