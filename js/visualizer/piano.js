@@ -10746,6 +10746,14 @@ let vizPracticeNeeded=new Set();
 let vizChunks=[];
 let vizPracticeChunkIdx=0;
 
+// Per-midi "denyut" (pulse) feedback: when a key is correctly pressed in
+// practice mode, its falling note briefly grows at the keybed before
+// settling back to normal size. Keyed by midi only (not by note instance) --
+// drawVizFallRect disambiguates by only pulsing whichever occurrence of that
+// pitch is actually sitting at the keybed right now.
+const VIZ_PULSE_MS = 220;
+const vizPracticeHitPulse = new Map();
+
 // Builds {ms, msEnd, midis} chords from the timeline's noteOn(velocity>0)
 // events -- used only by practice mode to know what the player still owes at
 // the frozen clock position.
@@ -10790,6 +10798,7 @@ function vizPracticeNoteHit(midi){
     if(!vizPlaying||!vizPracticeMode||!vizPracticeWaiting)return;
     if(!vizPracticeNeeded.has(midi))return;
     vizPracticeNeeded.delete(midi);
+    vizPracticeHitPulse.set(midi, performance.now());
     if(vizPracticeNeeded.size===0){
         const chunk=vizChunks[vizPracticeChunkIdx];
         const msEnd=chunk?chunk.msEnd:vizElapsedMs;
@@ -10839,8 +10848,28 @@ function drawVizFallRect(nt, topY, bottomY){
 
     const _kw = whiteKeyWidth > 0 ? whiteKeyWidth : animSize;
     const _effSize = Math.min(animSize, Math.max(4, _kw * 0.9));
-    const w = isBlack(nt.midi) ? _effSize * 0.7 : _effSize;
-    const h = Math.max(6, bottomY - topY);
+    let w = isBlack(nt.midi) ? _effSize * 0.7 : _effSize;
+    let h = Math.max(6, bottomY - topY);
+
+    // Denyut: grow the note briefly if it was just correctly hit and is the
+    // one currently sitting at the keybed (guards against pulsing a later,
+    // still-distant occurrence of the same pitch).
+    if(vizPracticeMode && vizPracticeHitPulse.size && bottomY > canvasCssH - 60){
+        const hitAt = vizPracticeHitPulse.get(nt.midi);
+        if(hitAt !== undefined){
+            const age = performance.now() - hitAt;
+            if(age < VIZ_PULSE_MS){
+                const scale = 1 + 0.5 * (1 - age / VIZ_PULSE_MS);
+                const newW = w * scale, newH = h * scale;
+                topY -= (newH - h);
+                h = newH;
+                w = newW;
+            } else {
+                vizPracticeHitPulse.delete(nt.midi);
+            }
+        }
+    }
+
     const x0 = x - w * 0.5;
     if(x0 > canvasCssW || x0 + w < 0) return;
 
