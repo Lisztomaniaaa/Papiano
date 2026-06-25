@@ -335,7 +335,27 @@ function mergeVizNotes(notes){
     while(i<merged.length){
         var clusterStart=merged[i].start, j=i+1;
         while(j<merged.length && merged[j].start-clusterStart<=CHORD_WINDOW_SEC) j++;
-        if(j-i>1){
+        // Distinguish a struck CHORD (a stack of pitches sounded together) from a
+        // fast RUN / glissando (sequential notes that merely happen to fall inside
+        // the 40ms window). Collapsing a run to one common start would pile its
+        // notes on a single tick and erase the motion the pianist played -- the
+        // very arpeggio/glissando detail we are trying to preserve. A run is a
+        // monotonic pitch sweep of several notes in small steps; a chord is not.
+        // Keep the chord threshold at 2-3 notes so ordinary broken chords still
+        // snap tight, and only treat 4+ small-step monotonic sweeps as a run.
+        var isRun=false;
+        if(j-i>=4){
+            var rdir=0, rmono=true, rstep=0;
+            for(var z=i+1;z<j;z++){
+                var dd=merged[z].pitchMidi-merged[z-1].pitchMidi;
+                if(dd===0){rmono=false;break;}
+                var sg=dd>0?1:-1;
+                if(rdir===0)rdir=sg; else if(sg!==rdir){rmono=false;break;}
+                rstep+=Math.abs(dd);
+            }
+            if(rmono && (rstep/(j-i-1))<=2.5) isRun=true; // small consistent steps = a sweep
+        }
+        if(j-i>1 && !isRun){
             var starts=[];
             for(var s=i;s<j;s++)starts.push(merged[s].start);
             starts.sort(function(a,b){return a-b;});
@@ -514,6 +534,42 @@ function extendDurations(notes, frames){
     return notes;
 }
 
+// Recall recovery (the cure for "banyak nada hilang" in fast classical runs).
+// Our strict detection thresholds are deliberately high so a full-mix clip
+// doesn't hallucinate vocal/bass ghosts -- but that same strictness drops the
+// fast, quiet inner notes of an arpeggio or glissando, exactly the material we
+// care most about getting right. The fix costs ZERO extra inference: the model
+// has already produced the frames/onsets arrays, so we run outputToNotesPoly a
+// SECOND time at lenient thresholds and fold in only the notes worth keeping.
+//
+// Folding in everything lenient would just re-admit the ghosts the strict pass
+// excluded, so two gates protect precision:
+//   1. de-dupe -- never add a lenient note where a confident note of the same
+//      pitch already covers that moment (it's the same note, not a new one);
+//   2. local-activity gate -- only admit a recovered note when the instrument
+//      is already confidently playing right around it (a confident note within
+//      NEAR seconds). That confines recovery to dense passages where notes are
+//      genuinely being missed BETWEEN confident ones, and never lights up a
+//      vocal-only or silent stretch with invented pitches.
+// Downstream overtone rejection + polyphony cap still run, so harmonic bleed
+// that slips through is caught there too.
+function mergeRecall(core, extra){
+    if(!extra||!extra.length) return core;
+    var TOL=0.06, NEAR=0.5;
+    var byPitch=new Map();
+    core.forEach(function(n){var l=byPitch.get(n.pitchMidi);if(!l){l=[];byPitch.set(n.pitchMidi,l);}l.push(n);});
+    var added=[];
+    extra.forEach(function(n){
+        var s=n.startTimeSeconds, e=s+n.durationSeconds;
+        var list=byPitch.get(n.pitchMidi)||[];
+        var covered=list.some(function(c){var cs=c.startTimeSeconds,ce=cs+c.durationSeconds;return cs<e+TOL && ce>s-TOL;});
+        if(covered) return;
+        var nearActive=core.some(function(c){var cs=c.startTimeSeconds,ce=cs+c.durationSeconds;return cs<e+NEAR && ce>s-NEAR;});
+        if(nearActive){ n._recovered=true; added.push(n); }
+    });
+    return core.concat(added);
+}
+
 // ── Harmonic-Percussive Source Separation (median-filter HPSS) ──────────
 // The single biggest source of "ghost" notes on a full song mix is everything
 // that ISN'T the melodic instrument: drums, hi-hats, vocal sibilance, noise.
@@ -654,6 +710,13 @@ async function audioBufferToMidiBase64(arrayBuf){
     var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5,false);
     var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
     if(notesTime.length===0)throw new Error('No notes detected in that clip.');
+    // Recall-recovery second pass at lenient thresholds (0.40/0.25, minLen 3) --
+    // recovers fast/quiet arpeggio & glissando notes the strict pass dropped.
+    // Free: reuses the same frames/onsets, no second model inference. mergeRecall
+    // folds in only de-duped notes amid already-confident playing (see above).
+    var leEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.40,0.25,3,true,4186,27.5,false);
+    var leTime=BasicPitchLib.noteFramesToTime(leEvents);
+    notesTime=mergeRecall(notesTime,leTime);
     notesTime=extendDurations(notesTime,frames);
     return notesToMidiBase64(notesTime);
 }
