@@ -6112,6 +6112,8 @@ midiBtn.onclick = () => {
     const PROFILE_REACTION_COOLDOWN_MS = 1200;
     const REPORT_COOLDOWN_MS = 60000;
     const FIREBASE_ROOT = 'papianoOnlineBeta';
+    const PAPIANO_BOT_PLAYER_ID = 'papiano-bot';
+    const PAPIANO_BOT_TRIGGER = /^\/papiano\b\s*([\s\S]*)$/i;
     let mpHistoryArmed = false;
     let leaveConfirmSource = null;
     let firebaseReady = false;
@@ -7215,6 +7217,7 @@ midiBtn.onclick = () => {
     }
     function getPlayer(id){
         if(!id) return currentUser();
+        if(id === PAPIANO_BOT_PLAYER_ID) return normalizePlayer(id, { name:'Papiano', online:false });
         const local = players.find(player => player.id === id);
         if(local) return local;
         if(currentRoom && roomPlayersByRoom[currentRoom.id]?.[id]) return normalizePlayer(id, roomPlayersByRoom[currentRoom.id][id]);
@@ -8000,7 +8003,11 @@ midiBtn.onclick = () => {
         resizeChatInput();
         setReply(null);
         if(firebaseReady && dbApi){
-            try{ await dbApi.push(dbRef(`messages/${currentRoom.id}`), payload); }
+            try{
+                await dbApi.push(dbRef(`messages/${currentRoom.id}`), payload);
+                const botMatch = PAPIANO_BOT_TRIGGER.exec(clean);
+                if(botMatch) askPapianoBot(currentRoom.id, botMatch[1].trim()); // not awaited
+            }
             catch(e){ showToast('Couldn’t send message. Try again.', { type:'error', title:'Online Room' }); }
         }else{
             messages.push({ id:'m' + now, ...payload });
@@ -8586,6 +8593,18 @@ midiBtn.onclick = () => {
         }catch(e){
             return { ok:false, reason:'network' };
         }
+    }
+    async function askPapianoBot(roomId, prompt){
+        try{
+            const user = firebaseAuth?.currentUser;
+            if(!user) return; // guest/unauthenticated — silently skip, matches callPrivateRoomApi's own guard
+            const idToken = await user.getIdToken();
+            await fetch('/api/botchat', {
+                method:'POST',
+                headers:{ 'Content-Type':'application/json' },
+                body:JSON.stringify({ idToken, roomId, prompt })
+            });
+        }catch(e){ /* fire-and-forget */ }
     }
 
     function openPasswordModal(room){

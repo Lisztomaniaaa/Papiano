@@ -3168,6 +3168,29 @@
         if (chatImageFilePicker) chatImageFilePicker.value = '';
     }
 
+    const PAPIANO_BOT_TRIGGER = /^\/papiano\b\s*([\s\S]*)$/i;
+
+    function isPapianoBotRoom() {
+        return activeChatRoomId === getGroupRoomId('global') || activeChatRoomId === getGroupRoomId('vip');
+    }
+
+    function extractPapianoBotPrompt(text) {
+        const match = PAPIANO_BOT_TRIGGER.exec(String(text || '').trim());
+        return match ? match[1].trim() : null;
+    }
+
+    async function askPapianoBot(prompt) {
+        try {
+            if (!currentUser?.uid) return;
+            const idToken = await currentUser.getIdToken();
+            await fetch('/api/botchat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken, roomId: activeChatRoomId, prompt })
+            });
+        } catch (_error) { /* fire-and-forget; failure shows up as the bot's own fallback message */ }
+    }
+
     async function executeSendMessage() {
         const rawMessageText = String(chatInputFieldMessage?.value || '');
         if (rawMessageText.length > MAX_CHAT_MESSAGE_CHARS) {
@@ -3258,6 +3281,10 @@
             if (chatInputFieldMessage) { chatInputFieldMessage.value = ''; autoGrowChatInput(chatInputFieldMessage); updateChatInputCounter(); }
             cancelActiveReplyState();
             clearPendingChatImage();
+            if (isPapianoBotRoom()) {
+                const botPrompt = extractPapianoBotPrompt(text);
+                if (botPrompt !== null) askPapianoBot(botPrompt); // not awaited
+            }
         } catch (error) {
             showToast('Couldn’t send this message.');
         }
