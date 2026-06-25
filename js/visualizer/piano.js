@@ -10746,25 +10746,38 @@ let vizPracticeNeeded=new Set();
 let vizChunks=[];
 let vizPracticeChunkIdx=0;
 
-// Builds {ms, midis} chords from the timeline's noteOn(velocity>0) events —
-// used only by practice mode to know what the player still owes at the
-// frozen clock position.
+// Builds {ms, msEnd, midis} chords from the timeline's noteOn(velocity>0)
+// events -- used only by practice mode to know what the player still owes at
+// the frozen clock position.
+//
+// Notes meant to be struck together are grouped within a CHORD_TOL window
+// rather than requiring exact ms equality. A real MIDI/MusicXML file quantizes
+// to ticks so simultaneous notes land on the same ms, but audio-transcribed
+// chords (TikTok/Instagram import) almost never do -- onset detection jitter
+// puts "the same" chord's notes a few ms apart. Exact equality there silently
+// splits one visual chord into several 1-note chunks the player must satisfy
+// in an exact, invisible order; pressing the right keys out of that order
+// looks like a stuck/broken practice mode even though nothing was missed.
+// 40ms is generous enough for that jitter but narrow enough not to swallow a
+// genuinely fast separate note (a 32nd note around 150bpm is ~50ms).
 function buildVizChunks(timeline){
+    const CHORD_TOL=40;
     const chunks=[];
     let i=0;
     while(i<timeline.length){
         const ev=timeline[i];
         if(ev.type!=='noteOn'||!(ev.velocity>0)){ i++; continue; }
-        const ms=ev.ms;
+        const msStart=ev.ms;
+        let msEnd=msStart;
         const midis=new Set();
         let j=i;
         while(j<timeline.length){
             const e2=timeline[j];
-            if(e2.ms!==ms)break;
-            if(e2.type==='noteOn'&&e2.velocity>0)midis.add(e2.note);
+            if(e2.ms-msStart>CHORD_TOL)break;
+            if(e2.type==='noteOn'&&e2.velocity>0){ midis.add(e2.note); msEnd=e2.ms; }
             j++;
         }
-        chunks.push({ms,midis});
+        chunks.push({ms:msStart,msEnd,midis});
         i=j;
     }
     return chunks;
@@ -10779,8 +10792,8 @@ function vizPracticeNoteHit(midi){
     vizPracticeNeeded.delete(midi);
     if(vizPracticeNeeded.size===0){
         const chunk=vizChunks[vizPracticeChunkIdx];
-        const ms=chunk?chunk.ms:vizElapsedMs;
-        while(vizEventIdx<vizTimeline.length&&vizTimeline[vizEventIdx].ms===ms&&vizTimeline[vizEventIdx].type==='noteOn'&&vizTimeline[vizEventIdx].velocity>0){
+        const msEnd=chunk?chunk.msEnd:vizElapsedMs;
+        while(vizEventIdx<vizTimeline.length&&vizTimeline[vizEventIdx].ms<=msEnd&&vizTimeline[vizEventIdx].type==='noteOn'&&vizTimeline[vizEventIdx].velocity>0){
             vizEventIdx++;
         }
         vizPracticeChunkIdx++;
