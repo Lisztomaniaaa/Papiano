@@ -3168,7 +3168,7 @@
         if (chatImageFilePicker) chatImageFilePicker.value = '';
     }
 
-    const PAPIANO_BOT_TRIGGER = /^\/papiano\b\s*([\s\S]*)$/i;
+    const PAPIANO_BOT_TRIGGER = /^\/askpapiano\b\s*([\s\S]*)$/i;
 
     function isPapianoBotRoom() {
         return activeChatRoomId === getGroupRoomId('global') || activeChatRoomId === getGroupRoomId('vip');

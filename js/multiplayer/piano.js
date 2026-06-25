@@ -6113,7 +6113,7 @@ midiBtn.onclick = () => {
     const REPORT_COOLDOWN_MS = 60000;
     const FIREBASE_ROOT = 'papianoOnlineBeta';
     const PAPIANO_BOT_PLAYER_ID = 'papiano-bot';
-    const PAPIANO_BOT_TRIGGER = /^\/papiano\b\s*([\s\S]*)$/i;
+    const PAPIANO_BOT_TRIGGER = /^\/askpapiano\b\s*([\s\S]*)$/i;
     let mpHistoryArmed = false;
     let leaveConfirmSource = null;
     let firebaseReady = false;

@@ -1,6 +1,6 @@
 /*
- * /api/botchat — server-side endpoint for the "/papiano" AI chatbot.
- * Triggered from chat when a message starts with "/papiano <prompt>" (global
+ * /api/botchat — server-side endpoint for the "/askpapiano" AI chatbot.
+ * Triggered from chat when a message starts with "/askpapiano <prompt>" (global
  * chat, VIP chat, or a multiplayer room). Calls OpenRouter using the
  * @preset/papiano preset (model/persona/params configured there, not here)
  * and writes the reply back as a synthetic "Papiano" sender via the Admin
@@ -24,7 +24,7 @@ const PROMPT_MAX_LEN = 300;
 const REPLY_MAX_LEN = 400;
 const OPENROUTER_TIMEOUT_MS = 20_000;
 const DEFAULT_MODEL = '@preset/papiano';
-const EMPTY_PROMPT_REPLY = "Hi! Ask me anything about Papiano — try \"/papiano how do I join a room?\"";
+const EMPTY_PROMPT_REPLY = "Hi! Ask me anything about Papiano — try \"/askpapiano how do I join a room?\"";
 const FALLBACK_REPLY = "Sorry, I couldn't come up with a reply just now — try again in a bit.";
 
 const ADMIN_GATE_EMAILS = new Set([

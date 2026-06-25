@@ -17,8 +17,8 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
     then mints a short-lived grant at `roomGrants/{roomId}/{uid}` that the RTDB
     rules require before a join write into `roomPlayers` is allowed.
 
-- **`botchat.js`** — server side of the `/papiano` AI chatbot, triggered from
-  chat when a message starts with `/papiano <prompt>` (global chat, VIP chat,
+- **`botchat.js`** — server side of the `/askpapiano` AI chatbot, triggered from
+  chat when a message starts with `/askpapiano <prompt>` (global chat, VIP chat,
   or a multiplayer room). `POST /api/botchat` with `{ idToken, roomId, prompt }`.
   - Verifies the caller's Firebase ID token, then re-checks server-side that
     `roomId` is one of `'group_global'`, `'group_vip'` (caller must actually be
