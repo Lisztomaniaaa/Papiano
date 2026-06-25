@@ -251,6 +251,7 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
 
 <script src="/js/vendor/tf.min.js?v=dev"></script>
 <script src="/js/vendor/basic-pitch.bundle.js?v=dev"></script>
+<script src="/js/vendor/magenta-transcription.bundle.js?v=dev"></script>
 <script>
 (function(){
 'use strict';
@@ -657,6 +658,56 @@ function harmonicSeparate(x,opts){
     return result;
 }
 
+// Magenta Onsets & Frames -- a PIANO-SPECIFIC transcription model (TF.js,
+// vendored as magenta-transcription.bundle.js), tried before the generic
+// Basic Pitch model. Generic detectors trade recall for not hallucinating
+// other instruments; a model trained only on piano attack/decay/overtone
+// structure doesn't need that trade-off, which is the real lever for fast
+// classical material (dense arpeggios, glissandi) Basic Pitch struggles with.
+// Loaded lazily and cached: the ~30MB quantized checkpoint is fetched once
+// per session and cached by the browser afterward.
+var VIZ_USE_OAF=true;
+var OAF_CHECKPOINT_URL='/models/onsets-frames';
+var _oafModel=null;
+async function getOafModel(){
+    if(_oafModel) return _oafModel;
+    var m=new MagentaTranscriptionLib.OnsetsAndFrames(OAF_CHECKPOINT_URL);
+    await m.initialize();
+    _oafModel=m;
+    return m;
+}
+// OAF's transcribeFromAudioBuffer needs a real AudioBuffer (it constructs an
+// OfflineAudioContext bufferSource around it internally) -- wrap a plain
+// Float32Array (e.g. the HPSS-separated signal) back into one.
+function floatToAudioBuffer(float32,sr){
+    var AudioCtx=window.AudioContext||window.webkitAudioContext;
+    var ctx=new AudioCtx();
+    var buf=ctx.createBuffer(1,float32.length,sr);
+    buf.getChannelData(0).set(float32);
+    ctx.close();
+    return buf;
+}
+// Returns our {pitchMidi,startTimeSeconds,durationSeconds,amplitude} note
+// array, or null on ANY failure (model load, OOM, unexpected NoteSequence
+// shape) so the caller can fall back to the proven Basic Pitch path --
+// never let an experimental engine take down the feature.
+async function transcribeWithOaf(modelInput,sr){
+    try{
+        var oaf=await getOafModel();
+        var buf=(modelInput instanceof Float32Array)?floatToAudioBuffer(modelInput,sr):modelInput;
+        var ns=await oaf.transcribeFromAudioBuffer(buf);
+        var notes=(ns.notes||[]).map(function(nt){
+            return {pitchMidi:nt.pitch,startTimeSeconds:nt.startTime,
+                durationSeconds:Math.max(0.03,nt.endTime-nt.startTime),
+                amplitude:(nt.velocity||64)/127};
+        });
+        return notes.length?notes:null;
+    }catch(e){
+        console.warn('Onsets & Frames transcription failed, falling back to Basic Pitch:',e);
+        return null;
+    }
+}
+
 // Shared by link-import and direct file-upload (video/mp3) transcription --
 // the only difference between the two is how the raw audio bytes are obtained.
 async function audioBufferToMidiBase64(arrayBuf){
@@ -685,6 +736,16 @@ async function audioBufferToMidiBase64(arrayBuf){
         catch(e){ modelInput=resampled; }
     }
 
+    // Try the piano-specific engine first; ANY failure (load error, OOM,
+    // unexpected output) falls through to the proven Basic Pitch path below --
+    // an experimental engine swap must never be able to break the feature.
+    var notesTime=null;
+    if(VIZ_USE_OAF){
+        setImportProgress('Transcribing notes (piano model)...',35);
+        notesTime=await transcribeWithOaf(modelInput,TARGET_SR);
+    }
+
+    if(!notesTime){
     setImportProgress('Transcribing notes...',35);
     var bp=new BasicPitchLib.BasicPitch('/models/basic-pitch/model.json');
     var frames=[],onsets=[],contours=[];
@@ -708,7 +769,7 @@ async function audioBufferToMidiBase64(arrayBuf){
     // extra inference (same frames/onsets, same model pass) and trades a
     // little melodic-legato recall for not hallucinating notes.
     var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5,false);
-    var notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
+    notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
     if(notesTime.length===0)throw new Error('No notes detected in that clip.');
     // Recall-recovery second pass at lenient thresholds (0.40/0.25, minLen 3) --
     // recovers fast/quiet arpeggio & glissando notes the strict pass dropped.
@@ -718,6 +779,9 @@ async function audioBufferToMidiBase64(arrayBuf){
     var leTime=BasicPitchLib.noteFramesToTime(leEvents);
     notesTime=mergeRecall(notesTime,leTime);
     notesTime=extendDurations(notesTime,frames);
+    } // end Basic Pitch fallback
+
+    if(!notesTime||notesTime.length===0)throw new Error('No notes detected in that clip.');
     return notesToMidiBase64(notesTime);
 }
 
