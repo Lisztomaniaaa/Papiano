@@ -92,15 +92,6 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
 .viz-card-sub{font-size:12px;font-weight:600;color:var(--text-faint);margin-top:-10px}
 .viz-consent{display:flex;align-items:flex-start;gap:10px;font-size:12px;font-weight:600;color:var(--text-muted);line-height:1.45;cursor:pointer;padding:2px 2px}
 .viz-consent input[type="checkbox"]{width:19px;height:19px;flex:0 0 auto;margin-top:1px;accent-color:#005BFF;cursor:pointer}
-.viz-mode-group{display:flex;flex-direction:column;gap:8px}
-.viz-mode-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.viz-mode-btn{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:14px 14px;border-radius:16px;border:2px solid rgba(6,17,31,0.12);background:#ffffff;cursor:pointer;text-align:left;transition:border-color .15s,background .15s}
-.viz-mode-btn .material-symbols-rounded{font-size:22px;color:var(--text-faint)}
-.viz-mode-label{font-size:13px;font-weight:800;color:var(--text-main);display:flex;flex-direction:column;gap:2px}
-.viz-mode-label small{font-size:11px;font-weight:600;color:var(--text-faint)}
-.viz-mode-btn.active{border-color:#005BFF;background:rgba(0,91,255,0.06)}
-.viz-mode-btn.active .material-symbols-rounded{color:#005BFF}
-@media(max-width:380px){.viz-mode-row{grid-template-columns:1fr}}
 .viz-faq-group{display:flex;flex-direction:column;gap:8px}
 .viz-faq{border-radius:16px;border:2px solid rgba(6,17,31,0.12);background:#ffffff;overflow:hidden}
 .viz-faq summary{padding:14px 16px;font-weight:800;font-size:13px;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--text-main)}
@@ -190,21 +181,6 @@ body{background:#e7f4ff;color:var(--text-main);overflow-x:hidden;max-width:100vw
             <input type="checkbox" id="vizConsentCheck">
             <span>I confirm I have the right to use this content (my own recording, royalty-free, or for personal/educational use) and understand TikTok/Instagram link and Video/MP3 import are Beta features with imperfect note accuracy.</span>
         </label>
-
-        <!-- Mode select -->
-        <div class="viz-mode-group">
-            <div class="viz-section-title">Play mode</div>
-            <div class="viz-mode-row" id="vizModeRow" role="radiogroup" aria-label="Play mode">
-                <button class="viz-mode-btn active" type="button" data-mode="auto" role="radio" aria-checked="true">
-                    <span class="material-symbols-rounded">play_circle</span>
-                    <span class="viz-mode-label">Visualizer<small>Plays itself — just watch</small></span>
-                </button>
-                <button class="viz-mode-btn" type="button" data-mode="practice" role="radio" aria-checked="false">
-                    <span class="material-symbols-rounded">school</span>
-                    <span class="viz-mode-label">Practice<small>You press the falling notes yourself</small></span>
-                </button>
-            </div>
-        </div>
 
         <!-- Start Button -->
         <button class="viz-start-btn" id="vizStartBtn" type="button" disabled>Start Play</button>
@@ -919,16 +895,7 @@ if(linkInput)linkInput.addEventListener('input',function(){if(linkInput.value.tr
 var consentCheck=document.getElementById('vizConsentCheck');
 if(consentCheck)consentCheck.addEventListener('change',updateBtn);
 
-var modeButtons=document.querySelectorAll('.viz-mode-btn');
-try{ if(!sessionStorage.getItem('vizPlaybackMode'))sessionStorage.setItem('vizPlaybackMode','auto'); }catch(e){}
-modeButtons.forEach(function(btn){
-    btn.addEventListener('click',function(){
-        modeButtons.forEach(function(b){b.classList.remove('active');b.setAttribute('aria-checked','false');});
-        btn.classList.add('active');
-        btn.setAttribute('aria-checked','true');
-        try{sessionStorage.setItem('vizPlaybackMode',btn.dataset.mode);}catch(e){}
-    });
-});
+try{ sessionStorage.removeItem('vizPlaybackMode'); }catch(e){}
 
 function updateBtn(){
     if(!startBtn)return;
