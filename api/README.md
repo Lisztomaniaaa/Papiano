@@ -26,7 +26,7 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
     never trusts the client's claimed room for a privileged write.
   - Per-uid throttle at `botThrottle/{uid}` (Admin-SDK-only) caps calls to one
     every 12s; returns `429` with `Retry-After` when exceeded.
-  - Calls OpenRouter (`OPENROUTER_API_KEY`) using the `@preset/papiano` preset
+  - Calls OpenRouter (`PAPIANOAI_API`) using the `@preset/papiano` preset
     (or `OPENROUTER_MODEL` override) — the preset on the OpenRouter dashboard
     owns the model choice, system prompt/persona, and sampling params, so none
     of that is duplicated server-side here.
@@ -46,7 +46,7 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
 | --- | --- |
 | `FIREBASE_SERVICE_ACCOUNT` | The entire service-account `.json` (Firebase Console → Project settings → Service accounts → *Generate new private key*). Never commit it. `JSON.parse` handles the `\n` in `private_key` automatically. |
 | `FIREBASE_DATABASE_URL` | `https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app` |
-| `OPENROUTER_API_KEY` | Required for `botchat.js`. From the OpenRouter dashboard after topping up credit. Server-side only — never sent to or visible in the browser. |
+| `PAPIANOAI_API` | Required for `botchat.js`. The OpenRouter API key, from the OpenRouter dashboard after topping up credit. Server-side only — never sent to or visible in the browser. |
 | `OPENROUTER_MODEL` | Optional. Defaults to `@preset/papiano` (the OpenRouter preset that carries the model/persona/params). Override only to point at a different preset or a raw model slug. |
 
 Privileged functions verify the caller's Firebase ID token

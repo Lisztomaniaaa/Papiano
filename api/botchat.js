@@ -78,7 +78,7 @@ async function askOpenRouter(prompt) {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${process.env.PAPIANOAI_API}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -136,7 +136,7 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, reason: 'POST only' });
   }
-  if (!process.env.OPENROUTER_API_KEY) {
+  if (!process.env.PAPIANOAI_API) {
     return res.status(503).json({ ok: false, reason: 'not configured' });
   }
 
