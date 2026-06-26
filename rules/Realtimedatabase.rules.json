@@ -155,6 +155,10 @@
       "roomThrottle": {
         ".read": false,
         ".write": false
+      },
+      "botThrottle": {
+        ".read": false,
+        ".write": false
       }
     },
     "roles": {

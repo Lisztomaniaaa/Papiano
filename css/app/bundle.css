@@ -92,6 +92,7 @@ button:focus-visible,.nav-tab-action:focus-visible,.friend-nav-btn:focus-visible
 .row-count-badge{background:#FB3F5C;color:#ffffff;font-size:10px;min-width:22px;height:22px;border:1px solid #06111f;border-radius:999px;display:none;align-items:center;justify-content:center;font-weight:900;padding:0 6px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.22),0 2px 0 #9f1831,0 6px 14px rgba(251,63,92,0.30)}
 .chat-user-name>.role-pill{flex-shrink:0}
 .role-pill{font-size:10px;font-weight:900;padding:2px 8px;border-radius:6px;text-transform:uppercase;border:1.1px solid rgba(6,17,31,0.22);background:#ffffff;color:#06111f;box-shadow:1.5px 1.5px 0 rgba(6,17,31,0.24);display:inline-flex;align-items:center;justify-content:center;gap:4px;max-width:100%}
+.msg-sender-name .msg-bot-badge{margin-left:4px;font-size:9px;padding:1.5px 7px;background:#005BFF;color:#ffffff;border-color:#06111f;box-shadow:1.5px 1.5px 0 #00358f;vertical-align:middle}
 .modal-profile-overlay{position:absolute;inset:0;background:rgba(0,0,0,0.55);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;pointer-events:none;transition:opacity var(--dur-base) var(--ease-out-expo),visibility 0s linear var(--dur-base)}
 .modal-profile-overlay.active{opacity:1;visibility:visible;pointer-events:auto;transition:opacity var(--dur-base) var(--ease-out-expo)}
 .friend-profile-sheet{width:100%;background:var(--surface-raised);border-top:0.5px solid var(--glass-border-col);border-radius:20px 20px 0 0;padding:28px;display:flex;flex-direction:column;gap:16px;max-height:85vh;overflow-y:auto;transform:translateY(28px);opacity:0;transition:transform var(--dur-base) var(--ease-out-expo),opacity var(--dur-base) var(--ease-out-expo)}
@@ -364,6 +365,12 @@ button:focus-visible,.nav-tab-action:focus-visible,.friend-nav-btn:focus-visible
 .msg-bubble{max-width:82%;padding:11px 14px;font-size:13.5px;font-weight:650;line-height:1.45;cursor:pointer;border:1px solid #c4d5e5;box-shadow:0 8px 18px rgba(6,17,31,0.08)}
 .msg-incoming .msg-bubble{background:#ffffff;color:var(--text-main);border-radius:6px 17px 17px 17px}
 .msg-outgoing .msg-bubble{background:var(--accent);color:#ffffff;border-color:#06111f;border-radius:17px 6px 17px 17px;box-shadow:0 8px 18px rgba(0,91,255,0.16)}
+.msg-bubble-typing{cursor:default}
+.msg-typing-dots{display:inline-flex;align-items:center;gap:3px;padding:3px 0}
+.msg-typing-dots span{width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.35;animation:papianoTypingBounce 1.1s ease-in-out infinite}
+.msg-typing-dots span:nth-child(2){animation-delay:.15s}
+.msg-typing-dots span:nth-child(3){animation-delay:.3s}
+@keyframes papianoTypingBounce{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-3px);opacity:.9}}
 .msg-link{color:inherit;font-weight:800;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:2px;overflow-wrap:anywhere}
 .msg-incoming .msg-link{color:#8fd0ff}
 .msg-outgoing .msg-link{color:#ffffff}

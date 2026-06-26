@@ -6112,6 +6112,10 @@ midiBtn.onclick = () => {
     const PROFILE_REACTION_COOLDOWN_MS = 1200;
     const REPORT_COOLDOWN_MS = 60000;
     const FIREBASE_ROOT = 'papianoOnlineBeta';
+    const PAPIANO_BOT_PLAYER_ID = 'papiano-bot';
+    const PAPIANO_BOT_TRIGGER = /^\/askpapiano\b\s*([\s\S]*)$/i;
+    const PAPIANO_BOT_TYPING_TIMEOUT_MS = 28000;
+    const papianoTypingRooms = new Set();
     let mpHistoryArmed = false;
     let leaveConfirmSource = null;
     let firebaseReady = false;
@@ -7215,6 +7219,7 @@ midiBtn.onclick = () => {
     }
     function getPlayer(id){
         if(!id) return currentUser();
+        if(id === PAPIANO_BOT_PLAYER_ID) return normalizePlayer(id, { name:'Papiano', online:false });
         const local = players.find(player => player.id === id);
         if(local) return local;
         if(currentRoom && roomPlayersByRoom[currentRoom.id]?.[id]) return normalizePlayer(id, roomPlayersByRoom[currentRoom.id][id]);
@@ -7913,25 +7918,55 @@ midiBtn.onclick = () => {
             const player = getPlayer(message.playerId);
             const color = playerColor(player);
             const quote = message.replyTo ? `<span class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><span>${escapeHtml(message.replyTo.text)}</span></span>` : '';
+            const botBadge = message.playerId === PAPIANO_BOT_PLAYER_ID ? `<span class="mp-bot-badge">AI</span>` : '';
             return `
                 <button class="mp-message${message.playerId === meId ? ' mine' : ''}" type="button" data-mp-message="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">
                     <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(player)}</span>
                     <span class="mp-bubble">
                         ${quote}
-                        <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
+                        <span class="mp-message-name-row">
+                            <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
+                            ${botBadge}
+                        </span>
                         <span class="mp-message-text">${escapeHtml(message.text)}</span>
                     </span>
                 </button>
             `;
         }).join('');
+        renderBotTypingIndicator();
         renderChatPreview();
         requestAnimationFrame(() => {
             messagesBox.scrollTop = messagesBox.scrollHeight;
         });
     }
 
+    function renderBotTypingIndicator(){
+        if(!messagesBox) return;
+        const existing = messagesBox.querySelector('#mpPapianoTypingRow');
+        if(currentRoom && papianoTypingRooms.has(currentRoom.id)){
+            if(existing) return;
+            const bot = getPlayer(PAPIANO_BOT_PLAYER_ID);
+            const color = playerColor(bot);
+            messagesBox.insertAdjacentHTML('beforeend', `
+                <div class="mp-message mp-message-typing" id="mpPapianoTypingRow">
+                    <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(bot)}</span>
+                    <span class="mp-bubble">
+                        <span class="mp-message-name-row">
+                            <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(bot.name)}</span>
+                            <span class="mp-bot-badge">AI</span>
+                        </span>
+                        <span class="mp-typing-dots"><span></span><span></span><span></span></span>
+                    </span>
+                </div>
+            `);
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+        }else if(existing){
+            existing.remove();
+        }
+    }
+
     function setReply(message){
-        replyTarget = message ? { name:getPlayer(message.playerId).name, text:message.text.length > 42 ? message.text.slice(0,42) + '...' : message.text } : null;
+        replyTarget = message ? { playerId:message.playerId, name:getPlayer(message.playerId).name, text:message.text.length > 42 ? message.text.slice(0,42) + '...' : message.text } : null;
         replyBar.classList.toggle('active', !!replyTarget);
         if(replyTarget){
             replyName.textContent = replyTarget.name;
@@ -7988,19 +8023,28 @@ midiBtn.onclick = () => {
         const user = currentUser();
         const now = Date.now();
         if(!canSendRoomChat(user, now)) return;
+        const replySnapshot = replyTarget;
         const payload = {
             playerId:user.id,
             text:clean,
             createdAt:now,
             time:timeLabel(now),
-            replyTo:replyTarget || null
+            replyTo:replySnapshot || null
         };
         chatInput.value = '';
         updateChatCounter();
         resizeChatInput();
         setReply(null);
         if(firebaseReady && dbApi){
-            try{ await dbApi.push(dbRef(`messages/${currentRoom.id}`), payload); }
+            try{
+                await dbApi.push(dbRef(`messages/${currentRoom.id}`), payload);
+                const botMatch = PAPIANO_BOT_TRIGGER.exec(clean);
+                if(botMatch){
+                    askPapianoBot(currentRoom.id, botMatch[1].trim(), replySnapshot?.playerId === PAPIANO_BOT_PLAYER_ID ? replySnapshot.text : undefined); // not awaited
+                }else if(replySnapshot?.playerId === PAPIANO_BOT_PLAYER_ID && clean){
+                    askPapianoBot(currentRoom.id, clean, replySnapshot.text); // not awaited
+                }
+            }
             catch(e){ showToast('Couldn’t send message. Try again.', { type:'error', title:'Online Room' }); }
         }else{
             messages.push({ id:'m' + now, ...payload });
@@ -8361,6 +8405,7 @@ midiBtn.onclick = () => {
     }
 
     async function openProfile(id){
+        if(id === PAPIANO_BOT_PLAYER_ID) return;
         const player = getPlayer(id);
         selectedPlayer = player;
         if(!isInPianoRoom()){
@@ -8585,6 +8630,29 @@ midiBtn.onclick = () => {
             return data && typeof data === 'object' ? data : { ok:false, reason:'bad response' };
         }catch(e){
             return { ok:false, reason:'network' };
+        }
+    }
+    async function askPapianoBot(roomId, prompt, priorBotText){
+        papianoTypingRooms.add(roomId);
+        renderBotTypingIndicator();
+        const safetyTimer = window.setTimeout(() => {
+            papianoTypingRooms.delete(roomId);
+            renderBotTypingIndicator();
+        }, PAPIANO_BOT_TYPING_TIMEOUT_MS);
+        try{
+            const user = firebaseAuth?.currentUser;
+            if(!user) return; // guest/unauthenticated — silently skip, matches callPrivateRoomApi's own guard
+            const idToken = await user.getIdToken();
+            await fetch('/api/botchat', {
+                method:'POST',
+                headers:{ 'Content-Type':'application/json' },
+                body:JSON.stringify({ idToken, roomId, prompt, priorBotText })
+            });
+        }catch(e){ /* fire-and-forget */ }
+        finally{
+            window.clearTimeout(safetyTimer);
+            papianoTypingRooms.delete(roomId);
+            renderBotTypingIndicator();
         }
     }
 

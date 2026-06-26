@@ -2772,7 +2772,7 @@
 
     async function hydrateMessageProfiles(messages) {
         const ids = [...new Set((messages || []).map(item => item.senderId).filter(Boolean))];
-        const missing = ids.filter(uid => !messageProfiles.has(uid));
+        const missing = ids.filter(uid => uid !== PAPIANO_BOT_UID && !messageProfiles.has(uid));
         if (!missing.length) return;
         const loaded = await hydrateProfilesByIds(missing);
         loaded.forEach((profile, uid) => messageProfiles.set(uid, profile));
@@ -2836,6 +2836,7 @@
     }
 
     function getMessageSenderProfile(message) {
+        if (message.senderId === PAPIANO_BOT_UID) return { uid: PAPIANO_BOT_UID, name: 'Papiano', userId: '', photoURL: '', role: 'bot' };
         if (message.senderId === currentUser?.uid && currentProfile) return currentProfile;
         return messageProfiles.get(message.senderId) || friendProfiles.get(message.senderId) || directChatProfiles.get(message.senderId) || searchProfiles.get(message.senderId) || normalizeProfile(message.senderId || '', {
             name: message.senderName || 'Papiano User',
@@ -2849,6 +2850,9 @@
         const avatarBody = profile?.photoURL && isSafeImage(profile.photoURL)
             ? `<img src="${escapeHtml(profile.photoURL)}" alt="">`
             : escapeHtml(getInitials(profile?.name || 'User'));
+        if (profile?.uid === PAPIANO_BOT_UID) {
+            return `<span class="message-avatar">${avatarBody}</span>`;
+        }
         return `<button class="message-avatar" type="button" onclick="event.stopPropagation(); launchFriendProfileModal('${escapeHtml(profile?.uid || '')}')">${avatarBody}</button>`;
     }
 
@@ -2862,6 +2866,7 @@
         if (!chatMessagesScrollArea) return;
         if (!messages.length) {
             chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">No messages yet.</div>`;
+            renderBotTypingIndicator();
             return;
         }
         activeMessagesCache.clear();
@@ -2887,6 +2892,7 @@
                 : `<button class="msg-reply-icon-btn" type="button" aria-label="Reply" title="Reply" onclick="event.stopPropagation(); beginReplyToMessage('${message.id}')"><span class="material-symbols-rounded">reply</span></button>`;
             const actions = buildMessageActionStrip(message, mine, announcementLocked);
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
+            const botBadge = message.senderId === PAPIANO_BOT_UID ? ' <span class="role-pill msg-bot-badge">AI</span>' : '';
             return `
                 ${dayDivider}
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
@@ -2894,7 +2900,7 @@
                         ${renderMessageAvatar(profile)}
                         <div class="msg-bubble${replyButton ? ' has-reply-action' : ''}"${swipeHandlers}>
                             ${replyButton}
-                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
+                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')}${botBadge}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
                             <div class="msg-meta-line"><time>${formatMessageClock(message.createdAt)}</time></div>
@@ -2912,6 +2918,29 @@
             if (keepRow) keepRow.classList.add('active-actions');
         }
         chatMessagesScrollArea.scrollTop = chatMessagesScrollArea.scrollHeight;
+        renderBotTypingIndicator();
+    }
+
+    function renderBotTypingIndicator() {
+        if (!chatMessagesScrollArea) return;
+        const existing = chatMessagesScrollArea.querySelector('#papianoTypingRow');
+        if (papianoTypingRooms.has(activeChatRoomId)) {
+            if (existing) return;
+            chatMessagesScrollArea.insertAdjacentHTML('beforeend', `
+                <div class="msg-node-row row-incoming msg-incoming" id="papianoTypingRow">
+                    <div class="msg-container-with-avatar">
+                        ${renderMessageAvatar({ uid: PAPIANO_BOT_UID, name: 'Papiano' })}
+                        <div class="msg-bubble msg-bubble-typing">
+                            <b class="msg-sender-name">Papiano <span class="role-pill msg-bot-badge">AI</span></b>
+                            <span class="msg-typing-dots"><span></span><span></span><span></span></span>
+                        </div>
+                    </div>
+                </div>
+            `);
+            chatMessagesScrollArea.scrollTop = chatMessagesScrollArea.scrollHeight;
+        } else if (existing) {
+            existing.remove();
+        }
     }
 
     function isDirectChatRoom() {
@@ -2942,6 +2971,21 @@
             chatMessagesScrollArea.dataset.activeMsg = row.classList.contains('active-actions')
                 ? (row.getAttribute('data-message-id') || '')
                 : '';
+        }
+        if (row.classList.contains('active-actions')) {
+            // Revealing the action strip grows this row's height. On the last row that
+            // growth lands below the scroll viewport (looks "covered" by the input bar/
+            // navbar) since scrollTop doesn't auto-follow a content resize. Nudge it
+            // into view instead of requiring a manual scroll.
+            requestAnimationFrame(() => {
+                if (!chatMessagesScrollArea) return;
+                const rowRect = row.getBoundingClientRect();
+                const boxRect = chatMessagesScrollArea.getBoundingClientRect();
+                const overflowBottom = rowRect.bottom - boxRect.bottom;
+                if (overflowBottom > 0) {
+                    chatMessagesScrollArea.scrollTop += overflowBottom + 12;
+                }
+            });
         }
     }
 
@@ -3168,6 +3212,44 @@
         if (chatImageFilePicker) chatImageFilePicker.value = '';
     }
 
+    const PAPIANO_BOT_TRIGGER = /^\/askpapiano\b\s*([\s\S]*)$/i;
+    const PAPIANO_BOT_UID = 'papiano-bot';
+    const PAPIANO_BOT_TYPING_TIMEOUT_MS = 28_000;
+    const papianoTypingRooms = new Set();
+
+    function isPapianoBotRoom() {
+        return activeChatRoomId === getGroupRoomId('global') || activeChatRoomId === getGroupRoomId('vip');
+    }
+
+    function extractPapianoBotPrompt(text) {
+        const match = PAPIANO_BOT_TRIGGER.exec(String(text || '').trim());
+        return match ? match[1].trim() : null;
+    }
+
+    async function askPapianoBot(prompt, priorBotText) {
+        const roomId = activeChatRoomId;
+        papianoTypingRooms.add(roomId);
+        renderBotTypingIndicator();
+        const safetyTimer = window.setTimeout(() => {
+            papianoTypingRooms.delete(roomId);
+            renderBotTypingIndicator();
+        }, PAPIANO_BOT_TYPING_TIMEOUT_MS);
+        try {
+            if (!currentUser?.uid) return;
+            const idToken = await currentUser.getIdToken();
+            await fetch('/api/botchat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken, roomId, prompt, priorBotText })
+            });
+        } catch (_error) { /* fire-and-forget; failure shows up as the bot's own fallback message */ }
+        finally {
+            window.clearTimeout(safetyTimer);
+            papianoTypingRooms.delete(roomId);
+            renderBotTypingIndicator();
+        }
+    }
+
     async function executeSendMessage() {
         const rawMessageText = String(chatInputFieldMessage?.value || '');
         if (rawMessageText.length > MAX_CHAT_MESSAGE_CHARS) {
@@ -3208,6 +3290,7 @@
                 return;
             }
             const profile = loadProfile();
+            const replySnapshot = activeReplyMessage;
             const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
             const messageRef = roomRef.collection('messages').doc();
             await messageRef.set({
@@ -3219,12 +3302,12 @@
                 text,
                 imageURL: pendingChatImageData || '',
                 imagePath: pendingChatImagePath || '',
-                replyTo: activeReplyMessage ? {
-                    messageId: activeReplyMessage.id || '',
-                    senderId: activeReplyMessage.senderId || '',
-                    senderName: activeReplyMessage.senderName || 'User',
-                    text: activeReplyMessage.text || '',
-                    imageURL: activeReplyMessage.imageURL || ''
+                replyTo: replySnapshot ? {
+                    messageId: replySnapshot.id || '',
+                    senderId: replySnapshot.senderId || '',
+                    senderName: replySnapshot.senderName || 'User',
+                    text: replySnapshot.text || '',
+                    imageURL: replySnapshot.imageURL || ''
                 } : null,
                 hiddenFor: [],
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3258,6 +3341,14 @@
             if (chatInputFieldMessage) { chatInputFieldMessage.value = ''; autoGrowChatInput(chatInputFieldMessage); updateChatInputCounter(); }
             cancelActiveReplyState();
             clearPendingChatImage();
+            if (isPapianoBotRoom()) {
+                const botPrompt = extractPapianoBotPrompt(text);
+                if (botPrompt !== null) {
+                    askPapianoBot(botPrompt, replySnapshot?.senderId === PAPIANO_BOT_UID ? replySnapshot.text : undefined); // not awaited
+                } else if (replySnapshot?.senderId === PAPIANO_BOT_UID && text) {
+                    askPapianoBot(text, replySnapshot.text); // not awaited
+                }
+            }
         } catch (error) {
             showToast('Couldn’t send this message.');
         }
@@ -3302,7 +3393,8 @@
     async function deleteOwnMessageEverywhere(messageId, successText = 'Message deleted.') {
         if (!currentUser?.uid || !activeChatRoomId || !messageId) return;
         try {
-            const ref = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId);
+            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
+            const ref = roomRef.collection('messages').doc(messageId);
             const snap = await ref.get();
             const data = snap.data() || {};
             if (data.senderId !== currentUser.uid) {
@@ -3316,9 +3408,28 @@
                 imagePath: '',
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
+            await refreshRoomLastMessagePreview(roomRef);
             showToast(successText, 'Chat');
         } catch (error) {
             showToast(friendlyError(error, 'Couldn’t delete. Please try again.'));
+        }
+    }
+
+    // The room doc caches lastMessage/lastSenderId/updatedAt for chat-list and
+    // system-room previews (set in executeSendMessage). Deleting a message never
+    // touched that cache, so a deleted "last message" kept showing in previews
+    // forever. Recompute it from the most recent surviving (non-deletedForAll) message.
+    async function refreshRoomLastMessagePreview(roomRef) {
+        try {
+            const snap = await roomRef.collection('messages').orderBy('createdAt', 'desc').limit(20).get();
+            const survivor = snap.docs.map(doc => doc.data()).find(item => !item.deletedForAll);
+            await roomRef.set({
+                lastMessage: survivor ? (survivor.text || (survivor.imageURL ? 'Photo' : '')) : '',
+                lastSenderId: survivor ? (survivor.senderId || '') : '',
+                updatedAt: survivor ? (survivor.createdAt || firebase.firestore.FieldValue.serverTimestamp()) : firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch (error) {
+            // Best-effort cache refresh; the message content itself is already deleted.
         }
     }
 
@@ -3406,6 +3517,7 @@
     let activeFriendProfileData = null;
 
     function launchFriendProfileModal(profileKey) {
+        if (profileKey === PAPIANO_BOT_UID) return;
         const profile = friendProfiles.get(profileKey) || pendingFriendRequests.get(profileKey) || searchProfiles.get(profileKey) || directChatProfiles.get(profileKey) || messageProfiles.get(profileKey) || leaderboardProfiles.get(profileKey);
         const modal = document.getElementById('friendProfileModal');
         if (!profile || !modal) {
