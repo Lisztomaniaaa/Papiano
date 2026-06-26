@@ -7916,12 +7916,16 @@ midiBtn.onclick = () => {
             const player = getPlayer(message.playerId);
             const color = playerColor(player);
             const quote = message.replyTo ? `<span class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><span>${escapeHtml(message.replyTo.text)}</span></span>` : '';
+            const botBadge = message.playerId === PAPIANO_BOT_PLAYER_ID ? `<span class="mp-bot-badge">BETA</span>` : '';
             return `
                 <button class="mp-message${message.playerId === meId ? ' mine' : ''}" type="button" data-mp-message="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">
                     <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(player)}</span>
                     <span class="mp-bubble">
                         ${quote}
-                        <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
+                        <span class="mp-message-name-row">
+                            <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
+                            ${botBadge}
+                        </span>
                         <span class="mp-message-text">${escapeHtml(message.text)}</span>
                     </span>
                 </button>
@@ -8373,6 +8377,7 @@ midiBtn.onclick = () => {
     }
 
     async function openProfile(id){
+        if(id === PAPIANO_BOT_PLAYER_ID) return;
         const player = getPlayer(id);
         selectedPlayer = player;
         if(!isInPianoRoom()){

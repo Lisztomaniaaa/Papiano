@@ -2849,6 +2849,9 @@
         const avatarBody = profile?.photoURL && isSafeImage(profile.photoURL)
             ? `<img src="${escapeHtml(profile.photoURL)}" alt="">`
             : escapeHtml(getInitials(profile?.name || 'User'));
+        if (profile?.uid === PAPIANO_BOT_UID) {
+            return `<span class="message-avatar">${avatarBody}</span>`;
+        }
         return `<button class="message-avatar" type="button" onclick="event.stopPropagation(); launchFriendProfileModal('${escapeHtml(profile?.uid || '')}')">${avatarBody}</button>`;
     }
 
@@ -2887,6 +2890,7 @@
                 : `<button class="msg-reply-icon-btn" type="button" aria-label="Reply" title="Reply" onclick="event.stopPropagation(); beginReplyToMessage('${message.id}')"><span class="material-symbols-rounded">reply</span></button>`;
             const actions = buildMessageActionStrip(message, mine, announcementLocked);
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
+            const botBadge = message.senderId === PAPIANO_BOT_UID ? ' <span class="role-pill msg-bot-badge">BETA</span>' : '';
             return `
                 ${dayDivider}
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
@@ -2894,7 +2898,7 @@
                         ${renderMessageAvatar(profile)}
                         <div class="msg-bubble${replyButton ? ' has-reply-action' : ''}"${swipeHandlers}>
                             ${replyButton}
-                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
+                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}${botBadge}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
                             <div class="msg-meta-line"><time>${formatMessageClock(message.createdAt)}</time></div>
@@ -3439,6 +3443,7 @@
     let activeFriendProfileData = null;
 
     function launchFriendProfileModal(profileKey) {
+        if (profileKey === PAPIANO_BOT_UID) return;
         const profile = friendProfiles.get(profileKey) || pendingFriendRequests.get(profileKey) || searchProfiles.get(profileKey) || directChatProfiles.get(profileKey) || messageProfiles.get(profileKey) || leaderboardProfiles.get(profileKey);
         const modal = document.getElementById('friendProfileModal');
         if (!profile || !modal) {
