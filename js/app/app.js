@@ -1377,11 +1377,7 @@
 
     function updateTopBarProfile(profile = {}) {
         const box = document.getElementById('topUserBox');
-        const avatarImg = document.getElementById('topUserAvatarImg');
-        const avatarIcon = document.getElementById('topUserAvatarIcon');
-        const welcomeLabel = document.getElementById('topWelcomeLabel');
-        const userName = document.getElementById('topUserName');
-        if (!box || !welcomeLabel || !userName) return;
+        if (!box) return;
 
         const signedIn = !!currentUser?.uid;
         box.classList.toggle('is-open-access', !signedIn);
@@ -1389,25 +1385,6 @@
         document.querySelectorAll('.top-auth-btn').forEach(button => {
             button.style.display = signedIn ? 'none' : 'inline-flex';
         });
-
-        if (!signedIn) {
-            welcomeLabel.textContent = 'Papiano';
-            userName.textContent = '';
-            if (avatarImg) {
-                avatarImg.removeAttribute('src');
-                avatarImg.style.display = 'none';
-            }
-            if (avatarIcon) avatarIcon.style.display = '';
-            return;
-        }
-
-        const name = String(profile.name || currentUser.displayName || 'Player').trim().slice(0, 24) || 'Player';
-        welcomeLabel.textContent = name;
-        userName.textContent = 'Account';
-
-        if (!avatarImg || !avatarIcon) return;
-        const photoURL = String(profile.photoURL || currentUser.photoURL || '');
-        applyAvatarSlot(avatarImg, avatarIcon, photoURL, profile.name, !!currentUser, 'account_circle');
     }
 
     function updateProfileView(profile) {
