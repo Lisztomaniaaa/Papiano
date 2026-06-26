@@ -6157,39 +6157,6 @@ midiBtn.onclick = () => {
     const replyText = document.getElementById('mpReplyText');
     const replyClear = document.getElementById('mpReplyClear');
     const MP_REPLY_ICON = '<svg class="mp-reply-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 9 5 14l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 14h8a6 6 0 0 1 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    const profile = document.getElementById('mpProfile');
-    const profileAvatar = document.getElementById('mpProfileAvatar');
-    const profileName = document.getElementById('mpProfileName');
-    const profileRole = document.getElementById('mpProfileRole');
-    const profilePlayTime = document.getElementById('mpProfilePlayTime');
-    const profileId = document.getElementById('mpProfileId');
-    const profileInstrument = document.getElementById('mpProfileInstrument');
-    const profileLayerInstrument = document.getElementById('mpProfileLayerInstrument');
-    const profileCountry = document.getElementById('mpProfileCountry');
-    const friendAction = document.getElementById('mpFriendAction');
-    const blockAction = document.getElementById('mpBlockAction');
-    const reportAction = document.getElementById('mpReportAction');
-    const reportModal = document.getElementById('mpReportModal');
-    const reportClose = document.getElementById('mpReportClose');
-    const reportCancel = document.getElementById('mpReportCancel');
-    const reportSubmit = document.getElementById('mpReportSubmit');
-    const reportTarget = document.getElementById('mpReportTarget');
-    const reportReasons = document.getElementById('mpReportReasons');
-    const reportDetail = document.getElementById('mpReportDetail');
-    const profileBio = document.getElementById('mpProfileBio');
-    const profileLikes = document.getElementById('mpProfileLikes');
-    const profileDislikes = document.getElementById('mpProfileDislikes');
-    const profileLikeButton = document.getElementById('mpProfileLikeBtn');
-    const profileDislikeButton = document.getElementById('mpProfileDislikeBtn');
-    const profileClose = document.getElementById('mpProfileClose');
-    const profileActions = profile ? profile.querySelector('.mp-profile-actions') : null;
-    const kickBan = document.getElementById('mpKickBan');
-    const muteChat = document.getElementById('mpMuteChat');
-    const muteInst = document.getElementById('mpMuteInst');
-    const profileVolumeRow = document.getElementById('mpProfileVolumeRow');
-    const profileVolume = document.getElementById('mpProfileVolume');
-    const profileVolumeValue = document.getElementById('mpProfileVolumeValue');
-    const profilePersonalMute = document.getElementById('mpProfilePersonalMute');
     if(!roomButton || !layer || !playerStrip || !messagesBox) return;
 
         const firebaseConfig = {
@@ -6287,9 +6254,6 @@ midiBtn.onclick = () => {
     if(chatPanel){
         ['pointerdown','keydown','input','focusin','wheel','touchstart'].forEach(ev => chatPanel.addEventListener(ev, bumpChatActivity, { passive:true }));
     }
-    let reportPlayer = null;
-    let selectedReportReason = 'Spam';
-    let blockedPlayersLoadedFor = '';
     let roomPlayersByRoom = {};
     let roomModerationByRoom = {};
     let eventUnsubscribe = null;
@@ -6320,10 +6284,7 @@ midiBtn.onclick = () => {
     const emptyRoomCleanup = new Set();
     const roomDeleteQueue = new Set();
     const profileCache = new Map();
-    const profileVoteCache = new Map();
-    const profileVoteInFlight = new Set();
     const blockedPlayerIds = new Set();
-    const reportCooldownByPlayer = new Map();
     const chatSendTimes = [];
     const remoteMixer = new Map();
     const remoteSustainByPlayer = new Map();
@@ -6530,7 +6491,6 @@ midiBtn.onclick = () => {
                 });
                 renderSearch();
                 renderRoomChrome();
-                if(selectedPlayer && profile.classList.contains('show')) renderProfile(selectedPlayer);
             }, () => {});
         }catch(e){}
     }
@@ -6931,7 +6891,6 @@ midiBtn.onclick = () => {
                 if(index >= 0) players[index] = { ...players[index], ...player };
                 else players.push(player);
                 renderSearch();
-                if(selectedPlayer && selectedPlayer.id === id && profile.classList.contains('show')) renderProfile(player);
             });
             friendUserUnsubscribers.set(id, unsubscribe);
         });
@@ -6970,7 +6929,6 @@ midiBtn.onclick = () => {
                 syncFriendUserSubscriptions();
                 renderRoomChrome();
                 renderSearch();
-                if(selectedPlayer && profile.classList.contains('show')) renderProfile(selectedPlayer);
                 // Pull name / photo / country for newly added friends so offline
                 // friends still show real details instead of a "Player" placeholder.
                 freshIds.forEach(id => {
@@ -7448,7 +7406,6 @@ midiBtn.onclick = () => {
         };
         remoteMixer.set(id, next);
         saveRemoteMixer();
-        if(selectedPlayer && selectedPlayer.id === id) renderProfile(selectedPlayer);
         renderRoomChrome();
     }
 
@@ -7484,71 +7441,6 @@ midiBtn.onclick = () => {
     }
 
     function isPlayerBlocked(id){ return blockedPlayerIds.has(String(id || '')); }
-    function canUseSafetyAction(player){ return !!player && isInPianoRoom() && player.id !== mpSelfId && !isLocalGuestPlayerId(player.id); }
-    function syncSafetyActions(player){
-        const show = canUseSafetyAction(player);
-        if(blockAction){
-            const blocked = show && isPlayerBlocked(player.id);
-            blockAction.hidden = !show;
-            blockAction.style.display = show ? '' : 'none';
-            blockAction.disabled = !show;
-            blockAction.classList.toggle('active', blocked);
-            blockAction.textContent = blocked ? 'Unblock Player' : 'Block Player';
-        }
-        if(reportAction){
-            reportAction.hidden = !show;
-            reportAction.style.display = show ? '' : 'none';
-            reportAction.disabled = !show;
-        }
-    }
-    function attachBlocksListener(){
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return null;
-        try{
-            const col = fsApi.collection(fsDb, 'blocks');
-            const q = fsApi.query(col, fsApi.where('blockerId', '==', mpSelfId));
-            return fsApi.onSnapshot(q, snap => {
-                blockedPlayerIds.clear();
-                snap.forEach(docSnap => {
-                    const data = (docSnap.data && docSnap.data()) || {};
-                    if(data.blockedId) blockedPlayerIds.add(String(data.blockedId));
-                });
-                renderMessages();
-                renderRoomChrome();
-                if(selectedPlayer && profile.classList.contains('show')) syncSafetyActions(selectedPlayer);
-            }, () => {});
-        }catch(e){ return null; }
-    }
-    async function toggleBlockedPlayer(player){
-        if(!canUseSafetyAction(player)) return;
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
-            showToast('Block is available after login.', { type:'error', title:'Profile' });
-            return;
-        }
-        const id = String(player.id);
-        const blocked = blockedPlayerIds.has(id);
-        try{
-            const blockDocId = mpSelfId + '_' + id;
-            const ref = fsApi.doc(fsDb, 'blocks', blockDocId);
-            if(blocked){
-                await fsApi.deleteDoc(ref);
-                blockedPlayerIds.delete(id);
-                showToast('Player unblocked.', { type:'success', title:'Profile' });
-            }else{
-                await fsApi.setDoc(ref, {
-                    blockerId: mpSelfId,
-                    blockedId: id,
-                    createdAt: fsApi.serverTimestamp()
-                });
-                blockedPlayerIds.add(id);
-                showToast('Player blocked.', { type:'success', title:'Profile' });
-            }
-        }catch(e){
-            showToast('Couldn\'t update block. Try again.', { type:'error', title:'Profile' });
-        }
-        syncSafetyActions(player);
-        renderMessages();
-        renderRoomChrome();
-    }
     function mpHistoryKey(screen){
         if(screen === 'home' || screen === 'multiHome') return 'multiHome';
         if(screen === 'pianoMultiGuard') return 'pianoMultiGuard';
@@ -7650,24 +7542,12 @@ midiBtn.onclick = () => {
         if(isStagePianoPage()) window.location.replace('multiplayer.html');
     }
 
-    function mpSelfHasPermission(permName){
-        // Permissions are no longer role-based in the simplified system
-        return false;
-    }
-    function canModeratePlayer(player){
-        if(!player || !isInPianoRoom() || !currentRoom) return false;
-        if(player.id === currentUser().id) return false;
-        if(player.room !== currentRoom.id) return false;
-        if(getState(player.id).banned) return false;
-        return isRoomOwner() || mpSelfHasPermission('kick_player') || mpSelfHasPermission('ban_user') || mpSelfHasPermission('mute_chat') || mpSelfHasPermission('mute_playing');
-    }
     function showLayer(screen='home', options = {}){
         currentScreen = screen;
         document.body.classList.add('mp-lobby-open');
         attachRoomsListener();
         attachUsersListener();
         document.body.classList.remove('mp-chat-open','mp-profile-open','mp-chat-keyboard','mp-chat-dismissed');
-        if(profile) profile.classList.remove('show');
         document.querySelectorAll('[data-mp-screen]').forEach(item => item.classList.toggle('active', item.dataset.mpScreen === screen));
         roomButton.classList.add('active');
         if(screen === 'home') renderRooms();
@@ -8123,61 +8003,12 @@ midiBtn.onclick = () => {
     }
 
 
-    function canOfferFriend(player){
-        return !!player && isInPianoRoom() && isSignedIn() && firebaseReady && dbApi && isAuthenticatedDisplayPlayer(player) && player.id !== mpSelfId && !isFriend(player.id);
-    }
-
-    function syncFriendAction(player){
-        if(!friendAction) return;
-        const show = canOfferFriend(player);
-        friendAction.hidden = !show;
-        friendAction.style.display = show ? '' : 'none';
-        friendAction.disabled = !show;
-        friendAction.classList.remove('active');
-        friendAction.textContent = 'Add Friend';
-    }
-
-    async function toggleFriend(player){
-        if(!canOfferFriend(player)) return;
-        const id = String(player.id);
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
-            showToast('Friends are not available right now.', { type:'error', title:'Friends' });
-            return;
-        }
-        try{
-            const pairId = mpBuildPairId(mpSelfId, id);
-            const ref = fsApi.doc(fsDb, 'friendships', pairId);
-            const snap = await fsApi.getDoc(ref);
-            if(snap && (typeof snap.exists === 'function' ? snap.exists() : snap.exists)){
-                const status = (snap.data && snap.data() || {}).status;
-                showToast(status === 'accepted' ? 'Already friends.' : 'Request already sent.', { type:'info', title:'Friends' });
-                return;
-            }
-            await fsApi.setDoc(ref, {
-                users:[mpSelfId, id],
-                requesterId:mpSelfId,
-                receiverId:id,
-                status:'pending',
-                createdAt:fsApi.serverTimestamp(),
-                updatedAt:fsApi.serverTimestamp()
-            });
-            showToast('Friend request sent.', { type:'success', title:'Friends' });
-            syncFriendAction(player);
-        }catch(e){
-            showToast('Couldn’t send friend request. Try again.', { type:'error', title:'Friends' });
-        }
-    }
 
     function updatePlayerActivityUi(id){
         const player = getPlayer(id);
         const pill = findPlayerPill(id);
         if(pill){
             pill.setAttribute('aria-label', player.name);
-        }
-        if(selectedPlayer && selectedPlayer.id === String(id) && profile.classList.contains('show')){
-            if(profileCountry) profileCountry.textContent = profileCountryText(selectedPlayer);
-            syncFriendAction(selectedPlayer);
-            syncSafetyActions(selectedPlayer);
         }
     }
 
@@ -8206,437 +8037,6 @@ midiBtn.onclick = () => {
                 if(currentRoom) updatePlayerActivityUi(key);
             });
         }
-    }
-
-    function countryFlagEmoji(code){
-        const cc = String(code || '').trim().toUpperCase();
-        if(!/^[A-Z]{2}$/.test(cc)) return '';
-        return String.fromCodePoint(...[...cc].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65));
-    }
-
-    let countryNameLookup;
-    function countryDisplayName(code){
-        const cc = String(code || '').trim().toUpperCase();
-        if(!/^[A-Z]{2}$/.test(cc)) return '';
-        try{
-            if(countryNameLookup === undefined){
-                countryNameLookup = typeof Intl !== 'undefined' && Intl.DisplayNames ? new Intl.DisplayNames(['en'], { type:'region' }) : null;
-            }
-            return (countryNameLookup && countryNameLookup.of(cc)) || cc;
-        }catch(e){ return cc; }
-    }
-
-    function profilePlayHours(player){
-        let seconds = Math.max(0, Number(player?.playTimeSeconds || 0));
-        if(player?.id === mpSelfId){
-            seconds = Math.max(seconds, Number(mpPlayTimeBaseSeconds || 0) + Number(mpPlayTimePending || 0));
-        }
-        const hours = Math.max(0, Math.floor(seconds / 3600));
-        return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
-    }
-
-    function profileCountryText(player){
-        const cc = String(player?.countryCode || '').trim().toUpperCase();
-        if(!cc) return 'Not set';
-        const flag = countryFlagEmoji(cc);
-        const name = countryDisplayName(cc);
-        return (flag ? flag + ' ' : '') + name;
-    }
-
-    function updateProfileVoteButtons(player, voteType = ''){
-        const isSelf = !!player && player.id === mpSelfId;
-        const disabled = !player || isSelf || !firebaseReady || !fsApi || !fsDb;
-        if(profileLikeButton){
-            profileLikeButton.disabled = disabled;
-            profileLikeButton.classList.toggle('active', voteType === 'like');
-        }
-        if(profileDislikeButton){
-            profileDislikeButton.disabled = disabled;
-            profileDislikeButton.classList.toggle('active', voteType === 'dislike');
-        }
-    }
-
-    async function loadProfileVote(player){
-        if(!player || player.id === mpSelfId || !fsApi || !fsDb){
-            updateProfileVoteButtons(player, '');
-            return;
-        }
-        const cacheKey = player.id + ':' + mpSelfId;
-        if(profileVoteCache.has(cacheKey)){
-            updateProfileVoteButtons(player, profileVoteCache.get(cacheKey));
-            return;
-        }
-        try{
-            const snap = await fsApi.getDoc(fsApi.doc(fsDb, 'profiles', player.id, 'reactions', mpSelfId));
-            const type = snap.exists() ? String(snap.data()?.type || '') : '';
-            const vote = type === 'like' || type === 'dislike' ? type : '';
-            profileVoteCache.set(cacheKey, vote);
-            if(selectedPlayer && selectedPlayer.id === player.id) updateProfileVoteButtons(player, vote);
-        }catch(e){
-            updateProfileVoteButtons(player, '');
-        }
-    }
-
-    function safeReactionCount(value){
-        const count = Math.trunc(Number(value || 0));
-        if(!Number.isFinite(count) || count < 0) return 0;
-        return Math.min(count, 1000000);
-    }
-
-    function syncReportReasonButtons(){
-        reportReasons?.querySelectorAll('[data-report-reason]').forEach(button => {
-            button.classList.toggle('active', button.dataset.reportReason === selectedReportReason);
-        });
-    }
-    function openReportModal(player){
-        if(!canUseSafetyAction(player)) return;
-        reportPlayer = player;
-        selectedReportReason = 'Spam';
-        if(reportTarget) reportTarget.textContent = `${player.name} · ${player.displayUserId || player.userId || player.id}`;
-        if(reportDetail) reportDetail.value = '';
-        syncReportReasonButtons();
-        reportModal?.classList.add('show');
-        reportModal?.setAttribute('aria-hidden', 'false');
-        pushMpHistory('report');
-    }
-    function closeReportModal(){
-        reportPlayer = null;
-        reportModal?.classList.remove('show');
-        reportModal?.setAttribute('aria-hidden', 'true');
-    }
-    function cleanReportDetail(value){ return String(value || '').trim().replace(/\s+/g, ' ').slice(0, 300); }
-    async function submitPlayerReport(){
-        const player = reportPlayer;
-        if(!canUseSafetyAction(player)) return;
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
-            showToast('Report is available after login.', { type:'error', title:'Report' });
-            return;
-        }
-        const now = Date.now();
-        const last = Number(reportCooldownByPlayer.get(player.id) || 0);
-        if(last && now - last < REPORT_COOLDOWN_MS){
-            showToast('Report already sent. Wait before sending another one.', { type:'info', title:'Report' });
-            return;
-        }
-        const reportDocId = mpSelfId + '_' + player.id;
-        try{
-            const ref = fsApi.doc(fsDb, 'reports', reportDocId);
-            const existing = await fsApi.getDoc(ref);
-            if(existing && (typeof existing.exists === 'function' ? existing.exists() : existing.exists)){
-                showToast('Already reported this user.', { type:'info', title:'Report' });
-                closeReportModal();
-                return;
-            }
-            await fsApi.setDoc(ref, {
-                reporterId: mpSelfId,
-                reporterName: currentUser().name,
-                targetId: player.id,
-                targetName: player.name,
-                targetUserId: player.displayUserId || player.userId || '',
-                reason: selectedReportReason || 'Other',
-                source: 'multiplayer',
-                roomId: currentRoom?.id || '',
-                roomType: 'multiplayer',
-                messageId: '',
-                messageTextSnapshot: cleanReportDetail(reportDetail?.value),
-                messageImageURL: '',
-                messageSenderName: player.name,
-                createdAt: fsApi.serverTimestamp()
-            });
-            reportCooldownByPlayer.set(player.id, now);
-            closeReportModal();
-            showToast('Report sent.', { type:'success', title:'Report' });
-        }catch(e){
-            showToast('Couldn\'t send report. Try again.', { type:'error', title:'Report' });
-        }
-    }
-
-    async function castProfileVote(voteType){
-        const player = selectedPlayer;
-        if(!player || player.id === mpSelfId) return;
-        if(voteType !== 'like' && voteType !== 'dislike') return;
-        if(!firebaseReady || !fsApi || !fsDb || !isSignedIn()){
-            showToast('Profile reactions are not available right now.', { type:'error', title:'Profile' });
-            return;
-        }
-        const voteKey = player.id + ':' + mpSelfId;
-        if(profileVoteInFlight.has(voteKey)) return;
-        const now = Date.now();
-        const lastVoteAt = Number(profileVoteCache.get(voteKey + ':at') || 0);
-        if(lastVoteAt && now - lastVoteAt < PROFILE_REACTION_COOLDOWN_MS) return;
-        profileVoteInFlight.add(voteKey);
-        profileVoteCache.set(voteKey + ':at', now);
-        if(profileLikeButton) profileLikeButton.disabled = true;
-        if(profileDislikeButton) profileDislikeButton.disabled = true;
-        try{
-            const targetRef = fsApi.doc(fsDb, 'profiles', player.id);
-            const voteRef = fsApi.doc(fsDb, 'profiles', player.id, 'reactions', mpSelfId);
-            const result = await fsApi.runTransaction(fsDb, async transaction => {
-                const [targetSnap, voteSnap] = await Promise.all([transaction.get(targetRef), transaction.get(voteRef)]);
-                const targetData = targetSnap.exists() ? (targetSnap.data() || {}) : {};
-                const oldTypeRaw = voteSnap.exists() ? String(voteSnap.data()?.type || '') : '';
-                const oldType = oldTypeRaw === 'like' || oldTypeRaw === 'dislike' ? oldTypeRaw : '';
-                const nextType = oldType === voteType ? '' : voteType;
-                let likes = safeReactionCount(targetData.likes);
-                let dislikes = safeReactionCount(targetData.dislikes);
-                if(oldType === 'like') likes = Math.max(0, likes - 1);
-                if(oldType === 'dislike') dislikes = Math.max(0, dislikes - 1);
-                if(nextType === 'like') likes += 1;
-                if(nextType === 'dislike') dislikes += 1;
-                transaction.set(targetRef, { likes, dislikes, updatedAt:fsApi.serverTimestamp() }, { merge:true });
-                if(nextType){
-                    transaction.set(voteRef, { type:nextType, voterId:mpSelfId, updatedAt:fsApi.serverTimestamp() }, { merge:true });
-                }else{
-                    transaction.delete(voteRef);
-                }
-                return { likes, dislikes, vote:nextType };
-            });
-            profileVoteCache.set(voteKey, result.vote);
-            const freshProfile = await loadHomeProfile(player.id, player, { force:true });
-            const local = players.find(item => item.id === player.id);
-            const target = applyHomeProfileToPlayer(local || player, freshProfile);
-            if(local && local !== player) applyHomeProfileToPlayer(player, freshProfile);
-            const likes = safeReactionCount(target.likes || freshProfile.likes);
-            const dislikes = safeReactionCount(target.dislikes || freshProfile.dislikes);
-            if(profileLikes) profileLikes.textContent = likes;
-            if(profileDislikes) profileDislikes.textContent = dislikes;
-            updateProfileVoteButtons(player, result.vote);
-            profileCache.set(player.id, freshProfile);
-        }catch(e){
-            showToast('Couldn’t update reaction. Try again.', { type:'error', title:'Profile' });
-            updateProfileVoteButtons(player, profileVoteCache.get(voteKey) || '');
-        }finally{
-            profileVoteInFlight.delete(voteKey);
-        }
-    }
-
-    function renderProfile(player){
-        if(!player) return;
-        profileAvatar.textContent = '';
-        profileAvatar.innerHTML = player.photoURL
-            ? `<img src="${escapeHtml(player.photoURL)}" alt="${escapeHtml(player.name)}">`
-            : escapeHtml((player.name || '?').trim().charAt(0).toUpperCase() || '?');
-        profileAvatar.setAttribute('aria-label', player.name);
-        profileAvatar.style.setProperty('--mp-player-color', playerColor(player));
-        profileName.textContent = player.name;
-        const _rl8300 = getRoleLabel(player.badgeId); const _rc8300 = getRoleColor(player.badgeId);
-        profileRole.textContent = _rl8300;
-        profileRole.dataset.rarity = '';
-        if(_rc8300) profileRole.style.cssText = 'background:'+_rc8300+';color:'+contrastInk(_rc8300)+';';
-        else profileRole.style.cssText = '';
-        profileId.textContent = player.displayUserId || player.userId || 'ID pending';
-        profileInstrument.textContent = playerMainInstrumentText(player);
-        if(profileLayerInstrument) profileLayerInstrument.textContent = playerLayerInstrumentText(player);
-        profileBio.textContent = player.bio;
-        const mixer = getRemoteMixer(player.id);
-        const isSelfProfile = player.id === mpSelfId;
-        if(profileVolumeRow) profileVolumeRow.style.display = isSelfProfile ? 'none' : '';
-        if(profileVolume) profileVolume.value = Math.round((mixer.volume ?? 1) * 100);
-        if(profileVolumeValue) profileVolumeValue.textContent = (mixer.muted ? 'Muted · ' : '') + Math.round((mixer.volume ?? 1) * 100) + '%';
-        if(profilePersonalMute){
-            profilePersonalMute.textContent = mixer.muted ? 'Unmute' : 'Mute';
-            profilePersonalMute.classList.toggle('active', !!mixer.muted);
-        }
-        if(profileLikes) profileLikes.textContent = Number(player.likes || 0);
-        if(profileDislikes) profileDislikes.textContent = Number(player.dislikes || 0);
-        if(profileCountry) profileCountry.textContent = profileCountryText(player);
-        if(profilePlayTime) profilePlayTime.textContent = profilePlayHours(player);
-        syncFriendAction(player);
-        syncSafetyActions(player);
-        const s = getState(player.id);
-        const canModerate = canModeratePlayer(player);
-        if(profileActions){
-            const showFriend = canOfferFriend(player);
-            const showSafety = canUseSafetyAction(player);
-            profileActions.hidden = !canModerate && !showFriend && !showSafety;
-            profileActions.style.display = canModerate || showFriend || showSafety ? '' : 'none';
-        }
-        [kickBan, muteChat, muteInst].forEach(button => {
-            if(!button) return;
-            button.hidden = !canModerate;
-            button.style.display = canModerate ? '' : 'none';
-            button.disabled = !canModerate;
-        });
-        if(canModerate){
-            muteChat.disabled = s.banned;
-            muteInst.disabled = s.banned;
-            kickBan.disabled = s.banned;
-        }
-        muteChat.classList.toggle('active', s.muteChat);
-        muteInst.classList.toggle('active', s.muteInstrument);
-    }
-
-    async function openProfile(id){
-        const player = getPlayer(id);
-        selectedPlayer = player;
-        if(!isInPianoRoom()){
-            openLobbyProfile(player);
-            return;
-        }
-        const wasOpen = profile.classList.contains('show');
-        renderProfile(player);
-        updateProfileVoteButtons(player, profileVoteCache.get(player.id + ':' + mpSelfId) || '');
-        loadProfileVote(player);
-        profile.classList.add('show');
-        document.body.classList.add('mp-profile-open');
-        if(!wasOpen) pushMpHistory('profile');
-        const fresh = await hydratePlayerProfile(player, { force:true });
-        if(selectedPlayer && selectedPlayer.id === player.id && profile.classList.contains('show')){
-            selectedPlayer = fresh;
-            renderProfile(fresh);
-            updateProfileVoteButtons(fresh, profileVoteCache.get(fresh.id + ':' + mpSelfId) || '');
-            loadProfileVote(fresh);
-            renderSearch();
-            renderRoomChrome();
-        }
-    }
-
-    function openLobbyProfile(player){
-        if(!player) return;
-        const overlay = document.getElementById('mpLobbyProfileOverlay');
-        if(!overlay) return;
-        const avatarEl = document.getElementById('mpLobbyProfileAvatar');
-        const nameEl = document.getElementById('mpLobbyProfileName');
-        const badgeEl = document.getElementById('mpLobbyProfileBadge');
-        const playTimeEl = document.getElementById('mpLobbyProfilePlayTime');
-        const flagEl = document.getElementById('mpLobbyProfileFlag');
-        const idEl = document.getElementById('mpLobbyProfileId');
-        const bioEl = document.getElementById('mpLobbyProfileBio');
-        const likeVal = document.getElementById('mpLobbyLikeVal');
-        const dislikeVal = document.getElementById('mpLobbyDislikeVal');
-        const likeBtn = document.getElementById('mpLobbyLikeBtn');
-        const dislikeBtn = document.getElementById('mpLobbyDislikeBtn');
-        const friendBtn = document.getElementById('mpLobbyFriendBtn');
-        const chatBtn = document.getElementById('mpLobbyChatBtn');
-        const unfriendBtn = document.getElementById('mpLobbyUnfriendBtn');
-        const blockBtn = document.getElementById('mpLobbyBlockBtn');
-        const reportBtn = document.getElementById('mpLobbyReportBtn');
-
-        if(avatarEl){
-            if(player.photoURL){
-                avatarEl.innerHTML = '<img src="' + escapeHtml(player.photoURL) + '" alt="' + escapeHtml(player.name) + '">';
-            } else {
-                avatarEl.textContent = (player.name || '?').charAt(0).toUpperCase();
-            }
-        }
-        if(nameEl) nameEl.textContent = player.name || 'Player';
-        if(badgeEl){
-            const _rl = getRoleLabel(player.badgeId); const _rc = getRoleColor(player.badgeId);
-            badgeEl.textContent = _rl;
-            if(_rc) badgeEl.style.cssText='background:'+_rc+';color:'+contrastInk(_rc)+';';
-            else badgeEl.style.cssText='';
-            badgeEl.className='mp-lobby-badge-pill';
-        }
-        if(flagEl){
-            const country = profileCountryText(player);
-            if(country && country !== '—'){ flagEl.textContent = country; flagEl.style.display = ''; }
-            else flagEl.style.display = 'none';
-        }
-        if(idEl) idEl.textContent = player.displayUserId || player.userId || '—';
-        if(bioEl) bioEl.textContent = player.bio || '—';
-        if(playTimeEl) playTimeEl.textContent = profilePlayHours(player);
-        if(likeVal) likeVal.textContent = Number(player.likes || 0);
-        if(dislikeVal) dislikeVal.textContent = Number(player.dislikes || 0);
-
-        likeBtn?.classList.remove('mp-lobby-voted');
-        dislikeBtn?.classList.remove('mp-lobby-voted');
-        const cached = profileVoteCache.get(player.id + ':' + mpSelfId) || '';
-        if(cached === 'like') likeBtn?.classList.add('mp-lobby-voted');
-        if(cached === 'dislike') dislikeBtn?.classList.add('mp-lobby-voted');
-
-        const isSelf = player.id === mpSelfId;
-        const alreadyFriend = isFriend(player.id);
-        if(friendBtn) friendBtn.style.display = (isSelf || alreadyFriend) ? 'none' : 'inline-flex';
-        if(chatBtn) chatBtn.style.display = (isSelf || !alreadyFriend) ? 'none' : 'inline-flex';
-        if(unfriendBtn) unfriendBtn.style.display = (isSelf || !alreadyFriend) ? 'none' : 'inline-flex';
-        if(blockBtn) blockBtn.style.display = isSelf ? 'none' : 'inline-flex';
-        if(reportBtn) reportBtn.style.display = isSelf ? 'none' : 'inline-flex';
-
-        if(likeBtn){
-            likeBtn.onclick = () => { castProfileVote('like'); likeBtn.classList.add('mp-lobby-voted'); dislikeBtn?.classList.remove('mp-lobby-voted'); };
-        }
-        if(dislikeBtn){
-            dislikeBtn.onclick = () => { castProfileVote('dislike'); dislikeBtn.classList.add('mp-lobby-voted'); likeBtn?.classList.remove('mp-lobby-voted'); };
-        }
-        if(friendBtn){
-            friendBtn.onclick = () => {
-                toggleFriend(player);
-                const s = friendBtn.querySelector('span:last-child');
-                if(s) s.textContent = 'Sent';
-                friendBtn.disabled = true;
-            };
-        }
-        if(chatBtn){
-            chatBtn.onclick = () => { closeLobbyProfile(); };
-        }
-        if(unfriendBtn){
-            unfriendBtn.onclick = () => {
-                toggleFriend(player);
-                unfriendBtn.style.display = 'none';
-                if(chatBtn) chatBtn.style.display = 'none';
-                if(friendBtn){ friendBtn.style.display = 'inline-flex'; friendBtn.disabled = false; const s = friendBtn.querySelector('span:last-child'); if(s) s.textContent = 'Add'; }
-            };
-        }
-        if(blockBtn){ blockBtn.onclick = () => { toggleBlockedPlayer(player); closeLobbyProfile(); }; }
-        if(reportBtn){ reportBtn.onclick = () => { closeLobbyProfile(); openReportModal(player); }; }
-
-        overlay.classList.add('active');
-        document.body.classList.add('mp-profile-open');
-        pushMpHistory('profile');
-
-        (async () => {
-            const fresh = await hydratePlayerProfile(player, { force:true });
-            if(selectedPlayer && selectedPlayer.id === player.id && overlay.classList.contains('active')){
-                selectedPlayer = fresh;
-                if(nameEl) nameEl.textContent = fresh.name || 'Player';
-                if(badgeEl){
-                    const _rl2 = getRoleLabel(fresh.badgeId); const _rc2 = getRoleColor(fresh.badgeId);
-                    badgeEl.textContent = _rl2;
-                    if(_rc2) badgeEl.style.cssText='background:'+_rc2+';color:'+contrastInk(_rc2)+';';
-                    else badgeEl.style.cssText='';
-                    badgeEl.className='mp-lobby-badge-pill';
-                }
-                if(idEl) idEl.textContent = fresh.displayUserId || fresh.userId || '—';
-                if(bioEl) bioEl.textContent = fresh.bio || '—';
-                if(playTimeEl) playTimeEl.textContent = profilePlayHours(fresh);
-                if(likeVal) likeVal.textContent = Number(fresh.likes || 0);
-                if(dislikeVal) dislikeVal.textContent = Number(fresh.dislikes || 0);
-                if(flagEl){
-                    const country = profileCountryText(fresh);
-                    if(country && country !== '—'){ flagEl.textContent = country; flagEl.style.display = ''; }
-                    else flagEl.style.display = 'none';
-                }
-                loadProfileVote(fresh);
-                renderSearch();
-            }
-        })();
-    }
-
-    function closeLobbyProfile(){
-        const overlay = document.getElementById('mpLobbyProfileOverlay');
-        if(overlay) overlay.classList.remove('active');
-        document.body.classList.remove('mp-profile-open');
-    }
-
-    window.PapianoMultiplayer = window.PapianoMultiplayer || {};
-    window.PapianoMultiplayer.closeLobbyProfile = closeLobbyProfile;
-
-    (function bindLobbyProfileClose(){
-        const overlay = document.getElementById('mpLobbyProfileOverlay');
-        const xBtn = document.getElementById('mpLobbyProfileCloseX');
-        const closeBtn = document.getElementById('mpLobbyProfileCloseBtn');
-        if(overlay) overlay.addEventListener('click', function(e){ if(e.target === overlay) closeLobbyProfile(); });
-        if(xBtn) xBtn.addEventListener('click', closeLobbyProfile);
-        if(closeBtn) closeBtn.addEventListener('click', closeLobbyProfile);
-    })();
-
-    function closeProfile(){
-        if(!isInPianoRoom()){
-            closeLobbyProfile();
-            return;
-        }
-        profile.classList.remove('show');
-        document.body.classList.remove('mp-profile-open');
     }
 
     function syncMaxPlayers(){
@@ -8669,7 +8069,6 @@ midiBtn.onclick = () => {
         renderRoomChrome();
         renderMessages();
         renderSearch();
-        if(selectedPlayer && profile.classList.contains('show')) openProfile(selectedPlayer.id);
     }
 
     // Private rooms are gated server-side at /api/private-room — the RTDB
@@ -9883,30 +9282,6 @@ midiBtn.onclick = () => {
         };
     }
 
-    async function setModeration(playerId, updates){
-        if(!currentRoom || !playerId) return;
-        if(firebaseReady && dbApi){
-            try{ await dbApi.update(dbRef(`moderation/${currentRoom.id}/${playerId}`), updates); }
-            catch(e){ showToast('Moderation action unavailable.', { type:'error', title:'Online Room' }); }
-        }else{
-            Object.assign(getState(playerId), updates);
-            refreshAll();
-        }
-    }
-
-    async function kickBanPlayer(player){
-        if(!canModeratePlayer(player)) return;
-        await setModeration(player.id, { banned:true, muteChat:true, muteInstrument:true });
-        if(firebaseReady && dbApi && currentRoom){
-            try{ await dbApi.remove(dbRef(`roomPlayers/${currentRoom.id}/${player.id}`)); }catch(e){}
-            try{ await dbApi.update(dbRef(`users/${player.id}`), { room:null, updatedAt:Date.now() }); }catch(e){}
-        }else{
-            player.room = null;
-        }
-        closeProfile();
-        refreshAll();
-    }
-
     function refreshChatViewport(){
         if(chatViewportRaf) cancelAnimationFrame(chatViewportRaf);
         chatViewportRaf = requestAnimationFrame(() => {
@@ -10033,7 +9408,6 @@ midiBtn.onclick = () => {
         friendIds.clear();
         friendProfiles.clear();
         friendsUnsubscribe = attachFirestoreFriends();
-        attachBlocksListener();
         startAccountBanWatcher(mpSelfId);
         syncAuthUi();
         attachRoomsListener();
@@ -10350,7 +9724,7 @@ midiBtn.onclick = () => {
     bindDragScroll(messagesBox, 'y');
     bindDragScroll(searchResults, 'y');
     window.setInterval(updateAllPlayerActivityUi, 15000);
-    [layer, chatPanel, chatPreview, playerStrip, profile, reportModal, roomTypeModal, maxPlayersModal, passwordModal, leaveConfirm].forEach(isolate);
+    [layer, chatPanel, chatPreview, playerStrip, roomTypeModal, maxPlayersModal, passwordModal, leaveConfirm].forEach(isolate);
     refreshChatViewport();
 
     roomButton.addEventListener('click', () => {
@@ -10382,21 +9756,6 @@ midiBtn.onclick = () => {
         refreshChatViewport();
     }, { passive:true });
     window.visualViewport?.addEventListener('scroll', refreshChatViewport, { passive:true });
-    profileClose.addEventListener('click', closeProfile);
-    blockAction?.addEventListener('click', () => toggleBlockedPlayer(selectedPlayer));
-    reportAction?.addEventListener('click', () => openReportModal(selectedPlayer));
-    reportClose?.addEventListener('click', closeReportModal);
-    reportCancel?.addEventListener('click', closeReportModal);
-    reportSubmit?.addEventListener('click', submitPlayerReport);
-    reportReasons?.addEventListener('click', event => {
-        const button = event.target.closest('[data-report-reason]');
-        if(!button) return;
-        selectedReportReason = button.dataset.reportReason || 'Other';
-        syncReportReasonButtons();
-    });
-    profileLikeButton?.addEventListener('click', () => castProfileVote('like'));
-    profileDislikeButton?.addEventListener('click', () => castProfileVote('dislike'));
-    friendAction?.addEventListener('click', () => toggleFriend(selectedPlayer));
     replyClear.addEventListener('click', () => setReply(null));
     statusFilterButtons.forEach(button => {
         button.addEventListener('click', () => {
@@ -10439,12 +9798,6 @@ midiBtn.onclick = () => {
             if(isHomeMultiplayerPage()) openStagePiano({ action:'quick' });
             else await quickMatch();
         }
-        else if(player) openProfile(player.dataset.mpPlayer);
-    });
-
-    playerStrip.addEventListener('click', event => {
-        const player = event.target.closest('[data-mp-player]');
-        if(player) openProfile(player.dataset.mpPlayer);
     });
 
     function handleMessageAction(event){
@@ -10463,47 +9816,21 @@ midiBtn.onclick = () => {
         }
     });
 
-    profileVolume?.addEventListener('input', () => {
-        if(!selectedPlayer) return;
-        setRemoteMixer(selectedPlayer.id, { volume:(Number(profileVolume.value) || 0) / 100 });
-    });
-    profilePersonalMute?.addEventListener('click', () => {
-        if(!selectedPlayer) return;
-        const mixer = getRemoteMixer(selectedPlayer.id);
-        setRemoteMixer(selectedPlayer.id, { muted:!mixer.muted });
-    });
-
-    kickBan.addEventListener('click', () => kickBanPlayer(selectedPlayer));
-    muteChat.addEventListener('click', () => {
-        if(!canModeratePlayer(selectedPlayer)) return;
-        const s = getState(selectedPlayer.id);
-        setModeration(selectedPlayer.id, { muteChat:!s.muteChat });
-    });
-    muteInst.addEventListener('click', () => {
-        if(!canModeratePlayer(selectedPlayer)) return;
-        const s = getState(selectedPlayer.id);
-        setModeration(selectedPlayer.id, { muteInstrument:!s.muteInstrument });
-    });
-
     document.addEventListener('keydown', event => {
         if(event.key !== 'Escape') return;
         if(leaveConfirm?.classList.contains('show')) stayInPianoRoom();
-        else if(reportModal?.classList.contains('show')) closeReportModal();
         else if(roomTypeModal?.classList.contains('show')) closeRoomTypeModal();
         else if(maxPlayersModal?.classList.contains('show')) closeMaxPlayersModal();
         else if(passwordModal?.classList.contains('show')) closePasswordModal();
-        else if(profile.classList.contains('show')) closeProfile();
         else if(document.body.classList.contains('mp-chat-open')) setChatOpen(false);
         else if(document.body.classList.contains('mp-lobby-open') && currentScreen !== 'home') showLayer('home');
     });
 
     window.addEventListener('popstate', event => {
         if(leaveConfirm?.classList.contains('show')){ stayInPianoRoom(); return; }
-        if(reportModal?.classList.contains('show')){ closeReportModal(); return; }
         if(roomTypeModal?.classList.contains('show')){ closeRoomTypeModal(); return; }
         if(maxPlayersModal?.classList.contains('show')){ closeMaxPlayersModal(); return; }
         if(passwordModal?.classList.contains('show')){ closePasswordModal(); return; }
-        if(profile?.classList.contains('show')){ closeProfile(); return; }
         if(document.body.classList.contains('mp-chat-open')){ setChatOpen(false); if(isInPianoRoom()) armPianoHistory(); return; }
         if(isInPianoRoom()){
             event.preventDefault?.();
