@@ -10559,10 +10559,10 @@ midiBtn.onclick = () => {
         setPianoInputReady(true);
         if(typeof forceBootVisible === 'function') forceBootVisible();
     }
-    // Solo build — loaded ONLY by solo.html. This is a standalone copy of the
-    // piano engine that only ever runs solo (no Firebase, rooms or chat).
-    // Multiplayer has its OWN copy in js/multiplayer/piano.js, so editing one
-    // never affects the other.
+    // Visualizer build — loaded by visualizer-stage.html. This boots the piano
+    // engine in solo mode (no Firebase room/chat); the multiplayer room/chat
+    // markup this IIFE checks for at the top is hidden via CSS (.solo-mode),
+    // not removed, because bootSoloPiano() below lives inside this same IIFE.
     window.PAPIANO_SOLO = true;
     bootSoloPiano();
 })();
