@@ -7918,12 +7918,16 @@ midiBtn.onclick = () => {
             const player = getPlayer(message.playerId);
             const color = playerColor(player);
             const quote = message.replyTo ? `<span class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><span>${escapeHtml(message.replyTo.text)}</span></span>` : '';
+            const botBadge = message.playerId === PAPIANO_BOT_PLAYER_ID ? `<span class="mp-bot-badge">AI</span>` : '';
             return `
                 <button class="mp-message${message.playerId === meId ? ' mine' : ''}" type="button" data-mp-message="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">
                     <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(player)}</span>
                     <span class="mp-bubble">
                         ${quote}
-                        <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
+                        <span class="mp-message-name-row">
+                            <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
+                            ${botBadge}
+                        </span>
                         <span class="mp-message-text">${escapeHtml(message.text)}</span>
                     </span>
                 </button>
@@ -7947,7 +7951,10 @@ midiBtn.onclick = () => {
                 <div class="mp-message mp-message-typing" id="mpPapianoTypingRow">
                     <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(bot)}</span>
                     <span class="mp-bubble">
-                        <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(bot.name)}</span>
+                        <span class="mp-message-name-row">
+                            <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(bot.name)}</span>
+                            <span class="mp-bot-badge">AI</span>
+                        </span>
                         <span class="mp-typing-dots"><span></span><span></span><span></span></span>
                     </span>
                 </div>

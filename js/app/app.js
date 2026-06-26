@@ -2892,6 +2892,7 @@
                 : `<button class="msg-reply-icon-btn" type="button" aria-label="Reply" title="Reply" onclick="event.stopPropagation(); beginReplyToMessage('${message.id}')"><span class="material-symbols-rounded">reply</span></button>`;
             const actions = buildMessageActionStrip(message, mine, announcementLocked);
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
+            const botBadge = message.senderId === PAPIANO_BOT_UID ? ' <span class="role-pill msg-bot-badge">AI</span>' : '';
             return `
                 ${dayDivider}
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
@@ -2899,7 +2900,7 @@
                         ${renderMessageAvatar(profile)}
                         <div class="msg-bubble${replyButton ? ' has-reply-action' : ''}"${swipeHandlers}>
                             ${replyButton}
-                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')}</b>` : ''}
+                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')}${botBadge}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
                             <div class="msg-meta-line"><time>${formatMessageClock(message.createdAt)}</time></div>
@@ -2930,7 +2931,7 @@
                     <div class="msg-container-with-avatar">
                         ${renderMessageAvatar({ uid: PAPIANO_BOT_UID, name: 'Papiano' })}
                         <div class="msg-bubble msg-bubble-typing">
-                            <b class="msg-sender-name">Papiano</b>
+                            <b class="msg-sender-name">Papiano <span class="role-pill msg-bot-badge">AI</span></b>
                             <span class="msg-typing-dots"><span></span><span></span><span></span></span>
                         </div>
                     </div>
