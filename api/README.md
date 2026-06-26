@@ -19,7 +19,9 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
 
 - **`botchat.js`** — server side of the `/askpapiano` AI chatbot, triggered from
   chat when a message starts with `/askpapiano <prompt>` (global chat, VIP chat,
-  or a multiplayer room). `POST /api/botchat` with `{ idToken, roomId, prompt }`.
+  or a multiplayer room), or when a reply with no prefix targets one of the
+  bot's own prior messages (reply-to-continue — see below). `POST /api/botchat`
+  with `{ idToken, roomId, prompt, priorBotText? }`.
   - Verifies the caller's Firebase ID token, then re-checks server-side that
     `roomId` is one of `'group_global'`, `'group_vip'` (caller must actually be
     VIP/admin-allowlisted), or a multiplayer room the caller has joined —
@@ -30,6 +32,12 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
     (or `OPENROUTER_MODEL` override) — the preset on the OpenRouter dashboard
     owns the model choice, system prompt/persona, and sampling params, so none
     of that is duplicated server-side here.
+  - **Reply-to-continue**: replying to one of the bot's own chat messages (no
+    `/askpapiano` prefix needed) continues the conversation — the client sends
+    the bot's immediately-prior reply text as `priorBotText` (light, single-hop
+    context only; no multi-message history, no server-side fetches), and the
+    server sends it to OpenRouter as one extra `assistant`-role turn ahead of
+    the new prompt.
   - Writes the reply back as a synthetic `Papiano` sender via the Admin SDK
     (Firestore `chatRooms/{roomId}/messages` for global/VIP, RTDB
     `papianoOnlineBeta/messages/{roomId}` for multiplayer rooms), bypassing the

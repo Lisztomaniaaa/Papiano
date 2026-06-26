@@ -1,14 +1,20 @@
 /*
  * /api/botchat — server-side endpoint for the "/askpapiano" AI chatbot.
  * Triggered from chat when a message starts with "/askpapiano <prompt>" (global
- * chat, VIP chat, or a multiplayer room). Calls OpenRouter using the
- * @preset/papiano preset (model/persona/params configured there, not here)
- * and writes the reply back as a synthetic "Papiano" sender via the Admin
- * SDK, which bypasses the normal sender-must-equal-auth-uid write rules.
+ * chat, VIP chat, or a multiplayer room), or when a reply with no prefix
+ * targets one of the bot's own prior messages (reply-to-continue). Calls
+ * OpenRouter using the @preset/papiano preset (model/persona/params
+ * configured there, not here) and writes the reply back as a synthetic
+ * "Papiano" sender via the Admin SDK, which bypasses the normal
+ * sender-must-equal-auth-uid write rules.
  *
- *   POST { idToken, roomId, prompt }
+ *   POST { idToken, roomId, prompt, priorBotText? }
  *   -> 200 { ok:true } — reply lands via the existing realtime listeners
  *   -> 4xx/5xx { ok:false, reason } on auth/validation/throttle failure
+ *
+ * priorBotText is optional light context: when the client is continuing a
+ * conversation via reply-to-continue, it carries the bot's own immediately-
+ * prior reply text, sent to OpenRouter as one extra assistant-role turn.
  *
  * roomId must be one of: 'group_global', 'group_vip', or a multiplayer room
  * id matching /^room_[0-9a-z_]+$/i — anything else is rejected. VIP and
@@ -73,8 +79,11 @@ async function classifyRoom(admin, roomId, uid, email) {
   return { ok: false, status: 400, reason: 'bad roomId' };
 }
 
-async function askOpenRouter(prompt) {
+async function askOpenRouter(prompt, priorBotText) {
   try {
+    const messages = priorBotText
+      ? [{ role: 'assistant', content: priorBotText }, { role: 'user', content: prompt }]
+      : [{ role: 'user', content: prompt }];
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -83,7 +92,7 @@ async function askOpenRouter(prompt) {
       },
       body: JSON.stringify({
         model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
-        messages: [{ role: 'user', content: prompt }],
+        messages,
       }),
       signal: AbortSignal.timeout(OPENROUTER_TIMEOUT_MS),
     });
@@ -151,6 +160,7 @@ module.exports = async (req, res) => {
     const idToken = String(body?.idToken || '');
     const roomId = String(body?.roomId || '');
     const prompt = String(body?.prompt || '').trim();
+    const priorBotText = String(body?.priorBotText || '').trim().slice(0, 200);
     if (!idToken || !roomId) {
       return res.status(400).json({ ok: false, reason: 'missing fields' });
     }
@@ -184,7 +194,7 @@ module.exports = async (req, res) => {
     }
     await throttleRef.set({ lastAt: Date.now() });
 
-    const reply = prompt ? await askOpenRouter(prompt) : EMPTY_PROMPT_REPLY;
+    const reply = prompt ? await askOpenRouter(prompt, priorBotText) : EMPTY_PROMPT_REPLY;
     await writeReply(admin, classification.surface, roomId, reply);
 
     return res.status(200).json({ ok: true });

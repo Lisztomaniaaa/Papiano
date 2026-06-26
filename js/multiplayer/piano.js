@@ -7934,7 +7934,7 @@ midiBtn.onclick = () => {
     }
 
     function setReply(message){
-        replyTarget = message ? { name:getPlayer(message.playerId).name, text:message.text.length > 42 ? message.text.slice(0,42) + '...' : message.text } : null;
+        replyTarget = message ? { playerId:message.playerId, name:getPlayer(message.playerId).name, text:message.text.length > 42 ? message.text.slice(0,42) + '...' : message.text } : null;
         replyBar.classList.toggle('active', !!replyTarget);
         if(replyTarget){
             replyName.textContent = replyTarget.name;
@@ -7991,12 +7991,13 @@ midiBtn.onclick = () => {
         const user = currentUser();
         const now = Date.now();
         if(!canSendRoomChat(user, now)) return;
+        const replySnapshot = replyTarget;
         const payload = {
             playerId:user.id,
             text:clean,
             createdAt:now,
             time:timeLabel(now),
-            replyTo:replyTarget || null
+            replyTo:replySnapshot || null
         };
         chatInput.value = '';
         updateChatCounter();
@@ -8006,7 +8007,11 @@ midiBtn.onclick = () => {
             try{
                 await dbApi.push(dbRef(`messages/${currentRoom.id}`), payload);
                 const botMatch = PAPIANO_BOT_TRIGGER.exec(clean);
-                if(botMatch) askPapianoBot(currentRoom.id, botMatch[1].trim()); // not awaited
+                if(botMatch){
+                    askPapianoBot(currentRoom.id, botMatch[1].trim(), replySnapshot?.playerId === PAPIANO_BOT_PLAYER_ID ? replySnapshot.text : undefined); // not awaited
+                }else if(replySnapshot?.playerId === PAPIANO_BOT_PLAYER_ID && clean){
+                    askPapianoBot(currentRoom.id, clean, replySnapshot.text); // not awaited
+                }
             }
             catch(e){ showToast('Couldn’t send message. Try again.', { type:'error', title:'Online Room' }); }
         }else{
@@ -8594,7 +8599,7 @@ midiBtn.onclick = () => {
             return { ok:false, reason:'network' };
         }
     }
-    async function askPapianoBot(roomId, prompt){
+    async function askPapianoBot(roomId, prompt, priorBotText){
         try{
             const user = firebaseAuth?.currentUser;
             if(!user) return; // guest/unauthenticated — silently skip, matches callPrivateRoomApi's own guard
@@ -8602,7 +8607,7 @@ midiBtn.onclick = () => {
             await fetch('/api/botchat', {
                 method:'POST',
                 headers:{ 'Content-Type':'application/json' },
-                body:JSON.stringify({ idToken, roomId, prompt })
+                body:JSON.stringify({ idToken, roomId, prompt, priorBotText })
             });
         }catch(e){ /* fire-and-forget */ }
     }

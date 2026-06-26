@@ -3169,6 +3169,7 @@
     }
 
     const PAPIANO_BOT_TRIGGER = /^\/askpapiano\b\s*([\s\S]*)$/i;
+    const PAPIANO_BOT_UID = 'papiano-bot';
 
     function isPapianoBotRoom() {
         return activeChatRoomId === getGroupRoomId('global') || activeChatRoomId === getGroupRoomId('vip');
@@ -3179,14 +3180,14 @@
         return match ? match[1].trim() : null;
     }
 
-    async function askPapianoBot(prompt) {
+    async function askPapianoBot(prompt, priorBotText) {
         try {
             if (!currentUser?.uid) return;
             const idToken = await currentUser.getIdToken();
             await fetch('/api/botchat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idToken, roomId: activeChatRoomId, prompt })
+                body: JSON.stringify({ idToken, roomId: activeChatRoomId, prompt, priorBotText })
             });
         } catch (_error) { /* fire-and-forget; failure shows up as the bot's own fallback message */ }
     }
@@ -3231,6 +3232,7 @@
                 return;
             }
             const profile = loadProfile();
+            const replySnapshot = activeReplyMessage;
             const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
             const messageRef = roomRef.collection('messages').doc();
             await messageRef.set({
@@ -3242,12 +3244,12 @@
                 text,
                 imageURL: pendingChatImageData || '',
                 imagePath: pendingChatImagePath || '',
-                replyTo: activeReplyMessage ? {
-                    messageId: activeReplyMessage.id || '',
-                    senderId: activeReplyMessage.senderId || '',
-                    senderName: activeReplyMessage.senderName || 'User',
-                    text: activeReplyMessage.text || '',
-                    imageURL: activeReplyMessage.imageURL || ''
+                replyTo: replySnapshot ? {
+                    messageId: replySnapshot.id || '',
+                    senderId: replySnapshot.senderId || '',
+                    senderName: replySnapshot.senderName || 'User',
+                    text: replySnapshot.text || '',
+                    imageURL: replySnapshot.imageURL || ''
                 } : null,
                 hiddenFor: [],
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3283,7 +3285,11 @@
             clearPendingChatImage();
             if (isPapianoBotRoom()) {
                 const botPrompt = extractPapianoBotPrompt(text);
-                if (botPrompt !== null) askPapianoBot(botPrompt); // not awaited
+                if (botPrompt !== null) {
+                    askPapianoBot(botPrompt, replySnapshot?.senderId === PAPIANO_BOT_UID ? replySnapshot.text : undefined); // not awaited
+                } else if (replySnapshot?.senderId === PAPIANO_BOT_UID && text) {
+                    askPapianoBot(text, replySnapshot.text); // not awaited
+                }
             }
         } catch (error) {
             showToast('Couldn’t send this message.');
