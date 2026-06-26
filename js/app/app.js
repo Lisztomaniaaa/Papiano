@@ -2772,7 +2772,7 @@
 
     async function hydrateMessageProfiles(messages) {
         const ids = [...new Set((messages || []).map(item => item.senderId).filter(Boolean))];
-        const missing = ids.filter(uid => !messageProfiles.has(uid));
+        const missing = ids.filter(uid => uid !== PAPIANO_BOT_UID && !messageProfiles.has(uid));
         if (!missing.length) return;
         const loaded = await hydrateProfilesByIds(missing);
         loaded.forEach((profile, uid) => messageProfiles.set(uid, profile));
@@ -2836,6 +2836,7 @@
     }
 
     function getMessageSenderProfile(message) {
+        if (message.senderId === PAPIANO_BOT_UID) return { uid: PAPIANO_BOT_UID, name: 'Papiano', userId: '', photoURL: '', role: 'bot' };
         if (message.senderId === currentUser?.uid && currentProfile) return currentProfile;
         return messageProfiles.get(message.senderId) || friendProfiles.get(message.senderId) || directChatProfiles.get(message.senderId) || searchProfiles.get(message.senderId) || normalizeProfile(message.senderId || '', {
             name: message.senderName || 'Papiano User',
@@ -2898,7 +2899,7 @@
                         ${renderMessageAvatar(profile)}
                         <div class="msg-bubble${replyButton ? ' has-reply-action' : ''}"${swipeHandlers}>
                             ${replyButton}
-                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
+                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
                             <div class="msg-meta-line"><time>${formatMessageClock(message.createdAt)}</time></div>
