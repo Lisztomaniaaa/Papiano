@@ -2972,6 +2972,21 @@
                 ? (row.getAttribute('data-message-id') || '')
                 : '';
         }
+        if (row.classList.contains('active-actions')) {
+            // Revealing the action strip grows this row's height. On the last row that
+            // growth lands below the scroll viewport (looks "covered" by the input bar/
+            // navbar) since scrollTop doesn't auto-follow a content resize. Nudge it
+            // into view instead of requiring a manual scroll.
+            requestAnimationFrame(() => {
+                if (!chatMessagesScrollArea) return;
+                const rowRect = row.getBoundingClientRect();
+                const boxRect = chatMessagesScrollArea.getBoundingClientRect();
+                const overflowBottom = rowRect.bottom - boxRect.bottom;
+                if (overflowBottom > 0) {
+                    chatMessagesScrollArea.scrollTop += overflowBottom + 12;
+                }
+            });
+        }
     }
 
     function startMessageSwipe(event, bubble) {
@@ -3378,7 +3393,8 @@
     async function deleteOwnMessageEverywhere(messageId, successText = 'Message deleted.') {
         if (!currentUser?.uid || !activeChatRoomId || !messageId) return;
         try {
-            const ref = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId);
+            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
+            const ref = roomRef.collection('messages').doc(messageId);
             const snap = await ref.get();
             const data = snap.data() || {};
             if (data.senderId !== currentUser.uid) {
@@ -3392,9 +3408,28 @@
                 imagePath: '',
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
+            await refreshRoomLastMessagePreview(roomRef);
             showToast(successText, 'Chat');
         } catch (error) {
             showToast(friendlyError(error, 'Couldn’t delete. Please try again.'));
+        }
+    }
+
+    // The room doc caches lastMessage/lastSenderId/updatedAt for chat-list and
+    // system-room previews (set in executeSendMessage). Deleting a message never
+    // touched that cache, so a deleted "last message" kept showing in previews
+    // forever. Recompute it from the most recent surviving (non-deletedForAll) message.
+    async function refreshRoomLastMessagePreview(roomRef) {
+        try {
+            const snap = await roomRef.collection('messages').orderBy('createdAt', 'desc').limit(20).get();
+            const survivor = snap.docs.map(doc => doc.data()).find(item => !item.deletedForAll);
+            await roomRef.set({
+                lastMessage: survivor ? (survivor.text || (survivor.imageURL ? 'Photo' : '')) : '',
+                lastSenderId: survivor ? (survivor.senderId || '') : '',
+                updatedAt: survivor ? (survivor.createdAt || firebase.firestore.FieldValue.serverTimestamp()) : firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch (error) {
+            // Best-effort cache refresh; the message content itself is already deleted.
         }
     }
 
