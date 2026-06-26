@@ -6114,6 +6114,8 @@ midiBtn.onclick = () => {
     const FIREBASE_ROOT = 'papianoOnlineBeta';
     const PAPIANO_BOT_PLAYER_ID = 'papiano-bot';
     const PAPIANO_BOT_TRIGGER = /^\/askpapiano\b\s*([\s\S]*)$/i;
+    const PAPIANO_BOT_TYPING_TIMEOUT_MS = 28000;
+    const papianoTypingRooms = new Set();
     let mpHistoryArmed = false;
     let leaveConfirmSource = null;
     let firebaseReady = false;
@@ -7916,25 +7918,44 @@ midiBtn.onclick = () => {
             const player = getPlayer(message.playerId);
             const color = playerColor(player);
             const quote = message.replyTo ? `<span class="mp-quote"><b>${escapeHtml(message.replyTo.name)}</b><span>${escapeHtml(message.replyTo.text)}</span></span>` : '';
-            const botBadge = message.playerId === PAPIANO_BOT_PLAYER_ID ? `<span class="mp-bot-badge">BETA</span>` : '';
             return `
                 <button class="mp-message${message.playerId === meId ? ' mine' : ''}" type="button" data-mp-message="${escapeHtml(message.id)}" aria-label="Reply to ${escapeHtml(player.name)}">
                     <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(player)}</span>
                     <span class="mp-bubble">
                         ${quote}
-                        <span class="mp-message-name-row">
-                            <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
-                            ${botBadge}
-                        </span>
+                        <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(player.name)}</span>
                         <span class="mp-message-text">${escapeHtml(message.text)}</span>
                     </span>
                 </button>
             `;
         }).join('');
+        renderBotTypingIndicator();
         renderChatPreview();
         requestAnimationFrame(() => {
             messagesBox.scrollTop = messagesBox.scrollHeight;
         });
+    }
+
+    function renderBotTypingIndicator(){
+        if(!messagesBox) return;
+        const existing = messagesBox.querySelector('#mpPapianoTypingRow');
+        if(currentRoom && papianoTypingRooms.has(currentRoom.id)){
+            if(existing) return;
+            const bot = getPlayer(PAPIANO_BOT_PLAYER_ID);
+            const color = playerColor(bot);
+            messagesBox.insertAdjacentHTML('beforeend', `
+                <div class="mp-message mp-message-typing" id="mpPapianoTypingRow">
+                    <span class="mp-message-avatar" style="--mp-player-color:${escapeHtml(color)}">${chatAvatarContent(bot)}</span>
+                    <span class="mp-bubble">
+                        <span class="mp-message-name" style="color:${escapeHtml(color)}">${escapeHtml(bot.name)}</span>
+                        <span class="mp-typing-dots"><span></span><span></span><span></span></span>
+                    </span>
+                </div>
+            `);
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+        }else if(existing){
+            existing.remove();
+        }
     }
 
     function setReply(message){
@@ -8605,6 +8626,12 @@ midiBtn.onclick = () => {
         }
     }
     async function askPapianoBot(roomId, prompt, priorBotText){
+        papianoTypingRooms.add(roomId);
+        renderBotTypingIndicator();
+        const safetyTimer = window.setTimeout(() => {
+            papianoTypingRooms.delete(roomId);
+            renderBotTypingIndicator();
+        }, PAPIANO_BOT_TYPING_TIMEOUT_MS);
         try{
             const user = firebaseAuth?.currentUser;
             if(!user) return; // guest/unauthenticated — silently skip, matches callPrivateRoomApi's own guard
@@ -8615,6 +8642,11 @@ midiBtn.onclick = () => {
                 body:JSON.stringify({ idToken, roomId, prompt, priorBotText })
             });
         }catch(e){ /* fire-and-forget */ }
+        finally{
+            window.clearTimeout(safetyTimer);
+            papianoTypingRooms.delete(roomId);
+            renderBotTypingIndicator();
+        }
     }
 
     function openPasswordModal(room){

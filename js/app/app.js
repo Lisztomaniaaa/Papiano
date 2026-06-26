@@ -2865,6 +2865,7 @@
         if (!chatMessagesScrollArea) return;
         if (!messages.length) {
             chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">No messages yet.</div>`;
+            renderBotTypingIndicator();
             return;
         }
         activeMessagesCache.clear();
@@ -2890,7 +2891,6 @@
                 : `<button class="msg-reply-icon-btn" type="button" aria-label="Reply" title="Reply" onclick="event.stopPropagation(); beginReplyToMessage('${message.id}')"><span class="material-symbols-rounded">reply</span></button>`;
             const actions = buildMessageActionStrip(message, mine, announcementLocked);
             const swipeHandlers = announcementLocked ? '' : ` onpointerdown="startMessageSwipe(event, this)" onpointermove="moveMessageSwipe(event, this)" onpointerup="endMessageSwipe(event, this, '${message.id}')" onpointercancel="cancelMessageSwipe(this)"`;
-            const botBadge = message.senderId === PAPIANO_BOT_UID ? ' <span class="role-pill msg-bot-badge">BETA</span>' : '';
             return `
                 ${dayDivider}
                 <div class="msg-node-row ${rowClass}" data-message-id="${escapeHtml(message.id)}" onclick="handleMessageRowClick(event, this)">
@@ -2898,7 +2898,7 @@
                         ${renderMessageAvatar(profile)}
                         <div class="msg-bubble${replyButton ? ' has-reply-action' : ''}"${swipeHandlers}>
                             ${replyButton}
-                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}${botBadge}</b>` : ''}
+                            ${!mine || activeChatRoomType === 'group' ? `<b class="msg-sender-name">${escapeHtml(profile.name || message.senderName || 'Papiano User')} ${escapeHtml(profile.userId || message.senderUserId || '')}</b>` : ''}
                             ${createReplyPreview(message.replyTo)}
                             ${text}${image}
                             <div class="msg-meta-line"><time>${formatMessageClock(message.createdAt)}</time></div>
@@ -2916,6 +2916,29 @@
             if (keepRow) keepRow.classList.add('active-actions');
         }
         chatMessagesScrollArea.scrollTop = chatMessagesScrollArea.scrollHeight;
+        renderBotTypingIndicator();
+    }
+
+    function renderBotTypingIndicator() {
+        if (!chatMessagesScrollArea) return;
+        const existing = chatMessagesScrollArea.querySelector('#papianoTypingRow');
+        if (papianoTypingRooms.has(activeChatRoomId)) {
+            if (existing) return;
+            chatMessagesScrollArea.insertAdjacentHTML('beforeend', `
+                <div class="msg-node-row row-incoming msg-incoming" id="papianoTypingRow">
+                    <div class="msg-container-with-avatar">
+                        ${renderMessageAvatar({ uid: PAPIANO_BOT_UID, name: 'Papiano' })}
+                        <div class="msg-bubble msg-bubble-typing">
+                            <b class="msg-sender-name">Papiano</b>
+                            <span class="msg-typing-dots"><span></span><span></span><span></span></span>
+                        </div>
+                    </div>
+                </div>
+            `);
+            chatMessagesScrollArea.scrollTop = chatMessagesScrollArea.scrollHeight;
+        } else if (existing) {
+            existing.remove();
+        }
     }
 
     function isDirectChatRoom() {
@@ -3174,6 +3197,8 @@
 
     const PAPIANO_BOT_TRIGGER = /^\/askpapiano\b\s*([\s\S]*)$/i;
     const PAPIANO_BOT_UID = 'papiano-bot';
+    const PAPIANO_BOT_TYPING_TIMEOUT_MS = 28_000;
+    const papianoTypingRooms = new Set();
 
     function isPapianoBotRoom() {
         return activeChatRoomId === getGroupRoomId('global') || activeChatRoomId === getGroupRoomId('vip');
@@ -3185,15 +3210,27 @@
     }
 
     async function askPapianoBot(prompt, priorBotText) {
+        const roomId = activeChatRoomId;
+        papianoTypingRooms.add(roomId);
+        renderBotTypingIndicator();
+        const safetyTimer = window.setTimeout(() => {
+            papianoTypingRooms.delete(roomId);
+            renderBotTypingIndicator();
+        }, PAPIANO_BOT_TYPING_TIMEOUT_MS);
         try {
             if (!currentUser?.uid) return;
             const idToken = await currentUser.getIdToken();
             await fetch('/api/botchat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ idToken, roomId: activeChatRoomId, prompt, priorBotText })
+                body: JSON.stringify({ idToken, roomId, prompt, priorBotText })
             });
         } catch (_error) { /* fire-and-forget; failure shows up as the bot's own fallback message */ }
+        finally {
+            window.clearTimeout(safetyTimer);
+            papianoTypingRooms.delete(roomId);
+            renderBotTypingIndicator();
+        }
     }
 
     async function executeSendMessage() {
