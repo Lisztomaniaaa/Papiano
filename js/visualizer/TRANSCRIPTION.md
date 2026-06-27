@@ -12,11 +12,11 @@ sound into playable notes.
    (`audioBufferToMidiBase64` in `visualizer.html`), then encode as a 16-bit
    PCM WAV (`encodeWavMono16`).
 3. **Transcribe server-side.** The WAV is POSTed to `/api/transcribe`
-   (`callTranscribeApi`), which is a Vercel function that gates abuse
-   (per-IP/per-uid throttling, see `api/README.md`) and forwards the audio to
+   (`callTranscribeApi`), which is a Vercel function that forwards the audio to
    a Modal-hosted piano-specific transcription model (repo:
    `Lisztomaniaaa/audio-midi`, app `papiano-transcribe`). The Modal API key
-   never reaches the browser.
+   never reaches the browser. No rate-limiting/abuse gate currently — see
+   `api/README.md`.
 4. **Use the response directly.** `/api/transcribe` already returns a
    standard format-0 MIDI as `midi_base64`, routed through the same
    `parseMidi → midiToTimeline` playback path as an uploaded `.mid` file —

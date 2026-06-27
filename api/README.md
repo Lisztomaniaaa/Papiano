@@ -48,16 +48,11 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
   pipeline. The browser never holds the Modal API key and never calls
   Modal directly.
   `POST /api/transcribe` with raw audio bytes, `Content-Type` set to the
-  audio mime, optional `X-Auth-Token` header carrying a Firebase ID token.
-  - **Anonymous callers** get a small per-IP daily allowance
-    (`ANON_DAILY_LIMIT`, currently 3/day, tracked at
-    `transcribeThrottle/{ipHash}/{yyyymmdd}` via Admin SDK). Once spent,
-    returns `401 { needsLogin:true }` instead of forwarding to Modal — the
-    client should then prompt sign-in and retry with `X-Auth-Token`.
-  - **Signed-in callers** get a minimum gap between calls
-    (`USER_MIN_GAP_MS`) and a higher daily cap (`USER_DAILY_LIMIT`),
-    tracked per-uid at `transcribeUserThrottle/{uid}/{yyyymmdd}` — same
-    shape as `botchat.js`'s `botThrottle`.
+  audio mime.
+  - No rate-limiting/abuse gate currently — every request is forwarded to
+    Modal as long as it passes the basic checks below. (Was previously
+    gated by per-IP/per-uid throttling; removed at the project owner's
+    request while iterating. Re-add before any wider rollout.)
   - Rejects audio over 15 MB and disallowed content types before ever
     contacting Modal.
   - Re-encodes the audio as `{ audio_base64 }` JSON and forwards it to
