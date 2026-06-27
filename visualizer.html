@@ -272,9 +272,8 @@ function encodeWavMono16(audioBuffer){
     return buf;
 }
 
-// Forwards audio to /api/transcribe (server-side gate in front of the Modal
-// audio-midi service). Anonymous callers get a small daily allowance; once
-// spent the server returns 401 needsLogin instead of a transcription.
+// Forwards audio to /api/transcribe (server-side proxy to the Modal
+// audio-midi service).
 async function callTranscribeApi(audioBytes,contentType){
     var res=await fetch('/api/transcribe',{
         method:'POST',
