@@ -12,9 +12,6 @@
     },
     "api/transcribe.js": {
       "maxDuration": 60
-    },
-    "api/dev-keys.js": {
-      "maxDuration": 15
     }
   },
   "redirects": [

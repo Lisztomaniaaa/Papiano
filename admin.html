@@ -427,27 +427,6 @@ tr:last-child td{border-bottom:none}
         <div class="card"><div id="auditList"><div class="lrow">Loading…</div></div></div>
       </div>
 
-      <!-- DEV API KEYS -->
-      <div class="page" id="pageDevkeys">
-        <div class="ph"><div><div class="pt">API Keys</div><div class="ps">Issue per-key transcription quota for fellow developers calling /api/transcribe directly. Not for end users.</div></div>
-          <button class="btn bgh bsm" data-act="devKeysReload">↻ Refresh</button></div>
-        <div class="card">
-          <div class="ct">Issue New Key</div>
-          <div class="fgrid3">
-            <div class="frow"><label>Label</label><input class="fc" id="devKeyLabel" placeholder="e.g. budi-mobile-app" maxlength="60"></div>
-            <div class="frow"><label>Daily limit</label><input class="fc" id="devKeyLimit" type="number" min="1" max="5000" placeholder="20"></div>
-          </div>
-          <div class="faction"><button class="btn bg" data-act="genDevKey">Generate Key</button></div>
-        </div>
-        <div class="card">
-          <div class="ct">Issued Keys</div>
-          <div class="twrap"><table>
-            <thead><tr><th>Label</th><th>Daily limit</th><th>Status</th><th>Created</th><th style="text-align:right">Actions</th></tr></thead>
-            <tbody id="devKeysTbody"><tr><td colspan="5" class="lrow">Loading…</td></tr></tbody>
-          </table></div>
-        </div>
-      </div>
-
       <!-- RESET -->
       <div class="page" id="pageReset">
         <div class="ph"><div><div class="pt">Reset Zone</div><div class="ps">Irreversible. Handle with care.</div></div></div>
@@ -516,12 +495,6 @@ tr:last-child td{border-bottom:none}
   <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mPost">Cancel</button><button class="btn bp" data-act="doPost">Post</button></div>
 </div></div>
 
-<div class="modal-bg" id="mDevKey"><div class="modal">
-  <h3>Key Generated</h3><p class="msub">Copy this now — it won't be shown again. Give it to <strong id="devKeyForName">—</strong> to send as the <code>X-Dev-Key</code> header.</p>
-  <div class="frow"><input class="fc" id="devKeyRaw" readonly></div>
-  <div class="mfooter"><button class="btn bgh" data-act="closeModal" data-id="mDevKey">Close</button><button class="btn bp" data-act="copyDevKey">Copy</button></div>
-</div></div>
-
 <div class="modal-bg" id="mConfirm"><div class="modal">
   <h3 id="cfTitle">Confirm</h3><p class="msub" id="cfMsg">Are you sure?</p>
   <div class="frow" id="cfTypeWrap" style="display:none"><label>Type <strong id="cfTypeWord">CONFIRM</strong> to proceed</label><input class="fc" id="cfTypeInput" autocomplete="off"></div>
@@ -547,7 +520,6 @@ const NAV=[
   {id:'reports',label:'Reports',sec:'Moderation',icon:'M4 22V4a2 2 0 0 1 2-2h9l5 5v15M4 13h16'},
   {id:'dons',label:'Donations',sec:'Finance',icon:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z'},
   {id:'audit',label:'Audit Log',sec:'System',icon:'M12 8v4l3 3M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'},
-  {id:'devkeys',label:'API Keys',sec:'System',icon:'M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4'},
   {id:'reset',label:'Reset Zone',sec:'System',icon:'M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01'},
 ];
 const BOTTOM=['dash','users','chat','mp'];
@@ -640,7 +612,6 @@ function go(page){
   closeSheet();
   if(page==='reports') loadReports();
   if(page==='audit') loadAudit();
-  if(page==='devkeys') loadDevKeys();
   if(page==='mp') renderMpRooms();
   if(page==='chat' && !ctx.chatChannel) chatTab('group_global');
 }
@@ -1033,50 +1004,6 @@ async function loadAudit(){
   }catch(e){ el.innerHTML=`<div class="empty">Failed: ${x(e.message)}</div>`; }
 }
 
-/* ───────── DEV API KEYS ───────── */
-async function devKeysCall(action,extra){
-  const idToken=await AUTH.currentUser.getIdToken();
-  const res=await fetch('/api/dev-keys',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,idToken,...extra})});
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok||!data.ok) throw new Error(data.reason||'request failed');
-  return data;
-}
-async function loadDevKeys(){
-  const tb=$('devKeysTbody'); tb.innerHTML='<tr><td colspan="5" class="lrow">Loading…</td></tr>';
-  try{
-    const {keys}=await devKeysCall('list');
-    if(!keys.length){ tb.innerHTML='<tr><td colspan="5" class="empty">No keys issued yet.</td></tr>'; return; }
-    tb.innerHTML=keys.map(k=>`<tr>
-      <td>${x(k.label)}</td><td>${x(k.dailyLimit)}/day</td>
-      <td>${k.revoked?'<span class="tag danger">revoked</span>':'<span class="tag on">active</span>'}</td>
-      <td>${fmtDate(k.createdAt)}</td>
-      <td style="text-align:right">${k.revoked?'—':`<button class="btn br bsm" data-act="revokeDevKey" data-id="${x(k.keyId)}" data-name="${x(k.label)}">Revoke</button>`}</td>
-    </tr>`).join('');
-  }catch(e){ tb.innerHTML=`<tr><td colspan="5" class="empty">Failed: ${x(e.message)}</td></tr>`; }
-}
-async function genDevKey(){
-  const label=$('devKeyLabel').value.trim();
-  if(!label) return toast('Enter a label','err');
-  const dailyLimit=parseInt($('devKeyLimit').value,10)||undefined;
-  try{
-    const {key}=await devKeysCall('create',{label,dailyLimit});
-    await logAction('devkey.create',label,'limit '+( dailyLimit||20));
-    $('devKeyForName').textContent=label; $('devKeyRaw').value=key;
-    $('devKeyLabel').value=''; $('devKeyLimit').value='';
-    openModal('mDevKey'); loadDevKeys();
-  }catch(e){ toast('Failed: '+e.message,'err'); }
-}
-function copyDevKey(){
-  const el=$('devKeyRaw'); el.select();
-  navigator.clipboard?.writeText(el.value).then(()=>toast('Copied','ok')).catch(()=>toast('Copy failed','err'));
-}
-function revokeDevKey(d){
-  confirmAction('Revoke key?',`Revoke the key for "${d.name}"? It stops working immediately.`,async()=>{
-    try{ await devKeysCall('revoke',{keyId:d.id}); await logAction('devkey.revoke',d.name,d.id.slice(0,8)); toast('Revoked','ok'); loadDevKeys(); }
-    catch(e){ toast('Failed: '+e.message,'err'); }
-  });
-}
-
 /* ───────── RESET ZONE ───────── */
 function deleteAllRoles(){
   confirmAction('Delete ALL roles?','Removes every role definition and strips roles from all profiles.',async()=>{
@@ -1146,7 +1073,6 @@ const H={
   mpMute:d=>mpMute(d.room,d.uid,d.f,d.v), mpKick:d=>mpKick(d.room,d.uid,d.name),
   reportsReload:loadReports, resolveReport:d=>resolveReport(d.id),
   auditReload:loadAudit,
-  devKeysReload:loadDevKeys, genDevKey, copyDevKey, revokeDevKey:d=>revokeDevKey(d),
   donorSearch:searchDonor, addDonation, delDon:d=>confirmAction('Remove donation?',`Remove record for ${d.name}? Supporter role stays.`,async()=>{ try{ await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,`${PRESENCE}/donations/${d.uid}`)); await logAction('donation.remove',d.uid,d.name); toast('Removed','ok'); loadDonations(); }catch(e){ toast('Failed: '+e.message,'err'); } }),
   deleteAllRoles, resetAllUsers,
   confirmOk:()=>{ if(ctx.confirmWord && $('cfTypeInput').value.trim().toUpperCase()!==ctx.confirmWord) return toast(`Type ${ctx.confirmWord} to confirm`,'err'); const fn=ctx.confirmFn; closeModal('mConfirm'); ctx.confirmFn=null; fn&&fn(); },

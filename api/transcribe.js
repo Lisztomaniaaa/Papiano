@@ -10,14 +10,10 @@
  *   - Once signed in (Firebase idToken in the X-Auth-Token header), the
  *     caller gets a per-uid minimum gap between calls plus a higher daily
  *     cap, the same shape as botchat.js's botThrottle.
- *   - Fellow developers with a key issued via /api/dev-keys (X-Dev-Key
- *     header) skip the IP/uid gates entirely and get the admin-assigned
- *     daily quota on that key instead.
  *
  *   POST <raw audio bytes>
  *     headers: 'Content-Type' = audio mime, optional 'X-Auth-Token' = Firebase
- *     ID token, optional 'X-Dev-Key' = key issued via /api/dev-keys (takes
- *     priority over X-Auth-Token if both are sent)
+ *     ID token
  *   -> 200 { notes:[{pitch,onset,offset,velocity}], pedals:[{onset,offset}], midi_base64 }
  *      (passed through as-is from the audio-midi Modal endpoint)
  *   -> 401 { error, needsLogin:true } once the anonymous IP allowance is used up
@@ -43,9 +39,6 @@ const ANON_DAILY_LIMIT = 3;
 const USER_ROOT = 'transcribeUserThrottle';
 const USER_MIN_GAP_MS = 20_000;
 const USER_DAILY_LIMIT = 50;
-
-const DEV_KEY_ROOT = 'devApiKeys';
-const DEV_KEY_USAGE_ROOT = 'devApiKeyUsage';
 
 const UPSTREAM_TIMEOUT_MS = 45_000;
 
@@ -115,26 +108,6 @@ async function checkUserThrottle(admin, db, idToken) {
   return { ok: true };
 }
 
-async function checkDevKeyThrottle(db, rawKey) {
-  const hash = crypto.createHash('sha256').update(rawKey).digest('hex');
-  const ref = db.ref(`${DEV_KEY_ROOT}/${hash}`);
-  const snap = await ref.get();
-  if (!snap.exists()) return { ok: false, status: 401, body: { error: 'Invalid API key.' } };
-
-  const rec = snap.val() || {};
-  if (rec.revoked) return { ok: false, status: 401, body: { error: 'API key revoked.' } };
-
-  const usageRef = db.ref(`${DEV_KEY_USAGE_ROOT}/${hash}/${dayKey(Date.now())}`);
-  const usageSnap = await usageRef.get();
-  const count = Number(usageSnap.val()) || 0;
-  const dailyLimit = Number(rec.dailyLimit) || 0;
-  if (count >= dailyLimit) {
-    return { ok: false, status: 429, body: { error: 'Daily limit reached for this API key.' } };
-  }
-  await usageRef.set(count + 1);
-  return { ok: true };
-}
-
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
@@ -152,14 +125,11 @@ module.exports = async (req, res) => {
   }
   const db = admin.database();
 
-  const devKey = req.headers['x-dev-key'];
   const idToken = req.headers['x-auth-token'];
   try {
-    const gate = devKey
-      ? await checkDevKeyThrottle(db, String(devKey))
-      : idToken
-        ? await checkUserThrottle(admin, db, idToken)
-        : await checkAnonThrottle(db, req);
+    const gate = idToken
+      ? await checkUserThrottle(admin, db, idToken)
+      : await checkAnonThrottle(db, req);
     if (!gate.ok) {
       res.status(gate.status).json(gate.body);
       return;
