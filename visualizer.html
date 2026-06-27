@@ -684,6 +684,52 @@ async function transcribeWithOaf(modelInput,sr){
     }
 }
 
+// Encodes a decoded/resampled mono AudioBuffer as a 16-bit PCM WAV --
+// the format /api/transcribe's ALLOWED_CONTENT_TYPES whitelist accepts.
+function encodeWavMono16(audioBuffer){
+    var samples=audioBuffer.getChannelData(0);
+    var sr=audioBuffer.sampleRate;
+    var dataSize=samples.length*2;
+    var buf=new ArrayBuffer(44+dataSize);
+    var view=new DataView(buf);
+    function writeStr(off,str){for(var i=0;i<str.length;i++)view.setUint8(off+i,str.charCodeAt(i));}
+    writeStr(0,'RIFF');
+    view.setUint32(4,36+dataSize,true);
+    writeStr(8,'WAVE');
+    writeStr(12,'fmt ');
+    view.setUint32(16,16,true);
+    view.setUint16(20,1,true); // PCM
+    view.setUint16(22,1,true); // mono
+    view.setUint32(24,sr,true);
+    view.setUint32(28,sr*2,true);
+    view.setUint16(32,2,true);
+    view.setUint16(34,16,true);
+    writeStr(36,'data');
+    view.setUint32(40,dataSize,true);
+    var off=44;
+    for(var i=0;i<samples.length;i++){
+        var s=Math.max(-1,Math.min(1,samples[i]));
+        view.setInt16(off,s<0?s*0x8000:s*0x7FFF,true);
+        off+=2;
+    }
+    return buf;
+}
+
+// Forwards audio to /api/transcribe (server-side gate in front of the Modal
+// audio-midi service). Anonymous callers get a small daily allowance; once
+// spent the server returns 401 needsLogin instead of a transcription.
+async function callTranscribeApi(audioBytes,contentType){
+    var res=await fetch('/api/transcribe',{
+        method:'POST',
+        headers:{'Content-Type':contentType},
+        body:audioBytes
+    });
+    var data={};
+    try{ data=await res.json(); }catch(e){}
+    if(!res.ok) throw new Error(data.error||'Transcription service unavailable.');
+    return data;
+}
+
 // Shared by link-import and direct file-upload (video/mp3) transcription --
 // the only difference between the two is how the raw audio bytes are obtained.
 async function audioBufferToMidiBase64(arrayBuf){
@@ -700,65 +746,15 @@ async function audioBufferToMidiBase64(arrayBuf){
     var resampled=await offline.startRendering();
     decodeCtx.close();
 
-    // Isolate the tonal/harmonic content before the model sees it, so drums,
-    // hats and vocal noise can't surface as ghost notes. evaluateModel accepts
-    // a raw Float32Array, so we pass the separated signal straight through.
-    var modelInput=resampled;
-    if(VIZ_USE_HPSS){
-        setImportProgress('Isolating instrument...',30);
-        // yield a frame so the overlay can paint before the CPU-heavy pass
-        await new Promise(function(r){setTimeout(r,16);});
-        try{ modelInput=harmonicSeparate(resampled.getChannelData(0),{}); }
-        catch(e){ modelInput=resampled; }
-    }
+    setImportProgress('Encoding audio...',30);
+    var wavBuf=encodeWavMono16(resampled);
 
-    // Try the piano-specific engine first; ANY failure (load error, OOM,
-    // unexpected output) falls through to the proven Basic Pitch path below --
-    // an experimental engine swap must never be able to break the feature.
-    var notesTime=null;
-    if(VIZ_USE_OAF){
-        setImportProgress('Transcribing notes (piano model)...',35);
-        notesTime=await transcribeWithOaf(modelInput,TARGET_SR);
-    }
-
-    if(!notesTime){
-    setImportProgress('Transcribing notes...',35);
-    var bp=new BasicPitchLib.BasicPitch('/models/basic-pitch/model.json');
-    var frames=[],onsets=[],contours=[];
-    await bp.evaluateModel(modelInput,function(f,o,c){
-        for(var i=0;i<f.length;i++)frames.push(f[i]);
-        for(var i=0;i<o.length;i++)onsets.push(o[i]);
-        for(var i=0;i<c.length;i++)contours.push(c[i]);
-    },function(pct){setImportProgress('Transcribing notes...',35+pct*55);});
+    setImportProgress('Transcribing notes...',40);
+    var result=await callTranscribeApi(wavBuf,'audio/wav');
+    if(!result||!result.midi_base64) throw new Error('No notes detected in that clip.');
 
     setImportProgress('Building timeline...',95);
-    // Raise the onset/frame confidence thresholds above basic-pitch's
-    // solo-instrument defaults (0.5/0.3) and clamp to the piano's range
-    // (A0..C8, in Hz -- outputToNotesPoly's maxFreq/minFreq are frequencies,
-    // not MIDI numbers) so a full song mix doesn't surface every faintly
-    // pitched vocal/bass/drum transient as a "note". melodiaTrick=false
-    // (9th arg) -- that flag is designed to greedily invent extra notes from
-    // leftover spectral energy that never had a real onset, meant for
-    // monophonic melody continuation. On a full mix that leftover energy is
-    // just as likely to be another instrument bleeding through, so it's a
-    // direct route to fabricating notes nobody played; disabling it costs no
-    // extra inference (same frames/onsets, same model pass) and trades a
-    // little melodic-legato recall for not hallucinating notes.
-    var noteEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.65,0.4,5,true,4186,27.5,false);
-    notesTime=BasicPitchLib.noteFramesToTime(noteEvents);
-    if(notesTime.length===0)throw new Error('No notes detected in that clip.');
-    // Recall-recovery second pass at lenient thresholds (0.40/0.25, minLen 3) --
-    // recovers fast/quiet arpeggio & glissando notes the strict pass dropped.
-    // Free: reuses the same frames/onsets, no second model inference. mergeRecall
-    // folds in only de-duped notes amid already-confident playing (see above).
-    var leEvents=BasicPitchLib.outputToNotesPoly(frames,onsets,0.40,0.25,3,true,4186,27.5,false);
-    var leTime=BasicPitchLib.noteFramesToTime(leEvents);
-    notesTime=mergeRecall(notesTime,leTime);
-    notesTime=extendDurations(notesTime,frames);
-    } // end Basic Pitch fallback
-
-    if(!notesTime||notesTime.length===0)throw new Error('No notes detected in that clip.');
-    return notesToMidiBase64(notesTime);
+    return result.midi_base64;
 }
 
 async function importFromLink(url){
