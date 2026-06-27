@@ -66,10 +66,12 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
     rejected with `401` before ever reaching Modal.
   - Rejects audio over 15 MB and disallowed content types before ever
     contacting Modal.
-  - Forwards to `MODAL_TRANSCRIBE_URL` with `Authorization: Bearer
-    ${MODAL_API_KEY}`, with a 45s timeout; upstream errors are logged
-    server-side and returned to the client as a generic `502`, never
-    leaking Modal's response body.
+  - Re-encodes the audio as `{ audio_base64 }` JSON and forwards it to
+    `MODAL_TRANSCRIBE_URL` with header `X-API-Key: ${MODAL_API_KEY}`,
+    matching the audio-midi service's contract (`POST /transcribe` ->
+    `{ notes, pedals, midi_base64 }`), with a 45s timeout; upstream errors
+    are logged server-side and returned to the client as a generic `502`,
+    never leaking Modal's response body.
 
 - **`dev-keys.js`** — admin-only issuing of API keys for fellow developers
   who want their own `/api/transcribe` quota instead of sharing the
@@ -100,8 +102,8 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
 | `FIREBASE_DATABASE_URL` | `https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app` |
 | `PAPIANOAI_API` | Required for `botchat.js`. The OpenRouter API key, from the OpenRouter dashboard after topping up credit. Server-side only — never sent to or visible in the browser. |
 | `OPENROUTER_MODEL` | Optional. Defaults to `@preset/papiano` (the OpenRouter preset that carries the model/persona/params). Override only to point at a different preset or a raw model slug. |
-| `MODAL_TRANSCRIBE_URL` | Required for `transcribe.js`. The deployed Modal endpoint URL for the audio-midi transcription service. |
-| `MODAL_API_KEY` | Required for `transcribe.js`. Sent as `Authorization: Bearer ${MODAL_API_KEY}` to the Modal endpoint. Server-side only — never sent to or visible in the browser. |
+| `MODAL_TRANSCRIBE_URL` | Required for `transcribe.js`. The deployed Modal web endpoint for the audio-midi transcription service, e.g. `https://<workspace>--papiano-transcribe-web.modal.run/transcribe`. |
+| `MODAL_API_KEY` | Required for `transcribe.js`. Sent as `X-API-Key: ${MODAL_API_KEY}` to the Modal endpoint — must match the shared secret the Modal app checks. Server-side only — never sent to or visible in the browser. |
 
 Privileged functions verify the caller's Firebase ID token
 (`admin.auth().verifyIdToken(idToken)`) before acting — never trust a UID sent

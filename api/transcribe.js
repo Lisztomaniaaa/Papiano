@@ -18,10 +18,15 @@
  *     headers: 'Content-Type' = audio mime, optional 'X-Auth-Token' = Firebase
  *     ID token, optional 'X-Dev-Key' = key issued via /api/dev-keys (takes
  *     priority over X-Auth-Token if both are sent)
- *   -> 200 <raw JSON from the transcription service, passed through>
+ *   -> 200 { notes:[{pitch,onset,offset,velocity}], pedals:[{onset,offset}], midi_base64 }
+ *      (passed through as-is from the audio-midi Modal endpoint)
  *   -> 401 { error, needsLogin:true } once the anonymous IP allowance is used up
  *   -> 413/429 { error } on oversized audio / throttle
  *   -> 5xx { error } on server misconfiguration or upstream failure
+ *
+ * Forwarding to Modal: this endpoint re-encodes the audio as
+ * { audio_base64 } JSON and sends it with an X-API-Key header, matching the
+ * audio-midi service's contract (POST /transcribe).
  */
 const crypto = require('crypto');
 const { getAdmin } = require('./_admin');
@@ -177,11 +182,10 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // TODO: fill in once the audio-midi Modal endpoint contract is final.
-  // Expected: POST raw audio bytes -> JSON notes (or MIDI base64).
+  // audio-midi Modal contract: POST { audio_base64 } -> { notes, pedals, midi_base64 }
   const modalUrl = process.env.MODAL_TRANSCRIBE_URL;
   const modalKey = process.env.MODAL_API_KEY;
-  if (!modalUrl) {
+  if (!modalUrl || !modalKey) {
     res.status(500).json({ error: 'Transcription service not configured.' });
     return;
   }
@@ -193,10 +197,10 @@ module.exports = async (req, res) => {
     const upstream = await fetch(modalUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': contentType,
-        ...(modalKey ? { Authorization: `Bearer ${modalKey}` } : {}),
+        'Content-Type': 'application/json',
+        'X-API-Key': modalKey,
       },
-      body: audio,
+      body: JSON.stringify({ audio_base64: audio.toString('base64') }),
       signal: controller.signal,
     });
 
