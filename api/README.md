@@ -43,6 +43,28 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
     `papianoOnlineBeta/messages/{roomId}` for multiplayer rooms), bypassing the
     normal sender-must-equal-auth-uid rules.
 
+- **`transcribe.js`** — server-side proxy to the external audio-midi
+  (Modal) transcription service for the visualizer's audio-to-notes
+  pipeline. The browser never holds the Modal API key and never calls
+  Modal directly.
+  `POST /api/transcribe` with raw audio bytes, `Content-Type` set to the
+  audio mime, optional `X-Auth-Token` header carrying a Firebase ID token.
+  - **Anonymous callers** get a small per-IP daily allowance
+    (`ANON_DAILY_LIMIT`, currently 3/day, tracked at
+    `transcribeThrottle/{ipHash}/{yyyymmdd}` via Admin SDK). Once spent,
+    returns `401 { needsLogin:true }` instead of forwarding to Modal — the
+    client should then prompt sign-in and retry with `X-Auth-Token`.
+  - **Signed-in callers** get a minimum gap between calls
+    (`USER_MIN_GAP_MS`) and a higher daily cap (`USER_DAILY_LIMIT`),
+    tracked per-uid at `transcribeUserThrottle/{uid}/{yyyymmdd}` — same
+    shape as `botchat.js`'s `botThrottle`.
+  - Rejects audio over 15 MB and disallowed content types before ever
+    contacting Modal.
+  - Forwards to `MODAL_TRANSCRIBE_URL` with `Authorization: Bearer
+    ${MODAL_API_KEY}`, with a 45s timeout; upstream errors are logged
+    server-side and returned to the client as a generic `502`, never
+    leaking Modal's response body.
+
 ## Helpers
 
 - **`_admin.js`** — lazily initialises the `firebase-admin` SDK once per warm
@@ -56,6 +78,8 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
 | `FIREBASE_DATABASE_URL` | `https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app` |
 | `PAPIANOAI_API` | Required for `botchat.js`. The OpenRouter API key, from the OpenRouter dashboard after topping up credit. Server-side only — never sent to or visible in the browser. |
 | `OPENROUTER_MODEL` | Optional. Defaults to `@preset/papiano` (the OpenRouter preset that carries the model/persona/params). Override only to point at a different preset or a raw model slug. |
+| `MODAL_TRANSCRIBE_URL` | Required for `transcribe.js`. The deployed Modal endpoint URL for the audio-midi transcription service. |
+| `MODAL_API_KEY` | Required for `transcribe.js`. Sent as `Authorization: Bearer ${MODAL_API_KEY}` to the Modal endpoint. Server-side only — never sent to or visible in the browser. |
 
 Privileged functions verify the caller's Firebase ID token
 (`admin.auth().verifyIdToken(idToken)`) before acting — never trust a UID sent

@@ -9,6 +9,9 @@
     },
     "api/botchat.js": {
       "maxDuration": 30
+    },
+    "api/transcribe.js": {
+      "maxDuration": 60
     }
   },
   "redirects": [
