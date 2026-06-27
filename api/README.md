@@ -58,12 +58,34 @@ are **helpers**, not endpoints — Vercel does not expose them publicly.
     (`USER_MIN_GAP_MS`) and a higher daily cap (`USER_DAILY_LIMIT`),
     tracked per-uid at `transcribeUserThrottle/{uid}/{yyyymmdd}` — same
     shape as `botchat.js`'s `botThrottle`.
+  - **Dev-key callers** send `X-Dev-Key` (issued via `dev-keys.js`) instead
+    of `X-Auth-Token` — it takes priority over the other two tiers, skips
+    the IP/uid gates, and is checked against the admin-assigned daily quota
+    on that key (`devApiKeys/{sha256(key)}`), tracked at
+    `devApiKeyUsage/{sha256(key)}/{yyyymmdd}`. An unknown or revoked key is
+    rejected with `401` before ever reaching Modal.
   - Rejects audio over 15 MB and disallowed content types before ever
     contacting Modal.
   - Forwards to `MODAL_TRANSCRIBE_URL` with `Authorization: Bearer
     ${MODAL_API_KEY}`, with a 45s timeout; upstream errors are logged
     server-side and returned to the client as a generic `502`, never
     leaking Modal's response body.
+
+- **`dev-keys.js`** — admin-only issuing of API keys for fellow developers
+  who want their own `/api/transcribe` quota instead of sharing the
+  anonymous/signed-in-user limits. `POST /api/dev-keys` with
+  `{ action, idToken, ... }`; caller must be an admin (email in the shared
+  `ADMIN_GATE_EMAILS` set, or Firestore `profiles/{uid}.role`/`badgeId` is
+  `'admin'`/`'dev'` — the same gate admin.html uses for panel access).
+  - `action:'create'` `{ label, dailyLimit }` — generates a random
+    `papi_dev_<64-hex>` key, stores only its SHA-256 hash plus metadata at
+    `devApiKeys/{hash}`, and returns the raw key **once**; it is never
+    stored or logged afterwards.
+  - `action:'list'` — returns issued keys' metadata (label, dailyLimit,
+    revoked, createdAt) keyed by hash; the raw key itself is never
+    retrievable again after creation.
+  - `action:'revoke'` `{ keyId }` — flags a key `revoked:true`; `/api/transcribe`
+    rejects it on the next call.
 
 ## Helpers
 
