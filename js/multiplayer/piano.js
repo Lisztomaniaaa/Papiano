@@ -1630,6 +1630,7 @@ document.querySelectorAll('.label-selector-vertical').forEach(selector => {
     });
 });
 
+let cachedWrapRect = null;
 function invalidateWrapRect() { cachedWrapRect = null; }
 
 function updateKeyHitCache(){
