@@ -2,9 +2,9 @@
  * /api/extract-audio — server-side audio extraction for the "import from
  * video link" visualizer feature. Runs the vendored yt-dlp binary
  * (bin/yt-dlp) against an allow-list of platforms (TikTok, Instagram) and
- * streams back the best-audio track. The browser decodes + transcribes it
- * client-side (Basic Pitch via TensorFlow.js) — no audio is ever processed
- * or stored beyond this request.
+ * streams back the best-audio track. The browser then forwards that audio
+ * to /api/transcribe (the Modal audio-midi service) for note transcription
+ * — no audio is ever stored beyond this request.
  *
  *   POST { url }
  *   -> 200, raw audio bytes, Content-Type matching the extracted container
