@@ -80,15 +80,9 @@
         measurementId: "G-3FVZ17Q69B"
     };
 
-    const supabaseStorageConfig = {
-        url: "https://yddzwxmzxdagiltrjmgc.supabase.co",
-        key: "sb_publishable_OzcmvT0haHr9JrFhP9bHiA_EQpY86Ka"
-    };
-
     let firebaseAuth = null;
     let realtimeDb = null;
     let firestoreDb = null;
-    let supabaseStorageClient = null;
 
     let _authBootstrapped = false;
 
@@ -97,7 +91,7 @@
     }
 
     // Phase 1: auth only. Resolves the signed-in/out state as soon as possible
-    // (no waiting for database/firestore/supabase to download).
+    // (no waiting for database/firestore to download).
     function initAuthEarly() {
         if (firebaseAuth) return;
         ensureFirebaseApp();
@@ -115,16 +109,6 @@
         if (!firebaseAuth) firebaseAuth = firebase.auth();
         realtimeDb = firebase.database();
         firestoreDb = firebase.firestore();
-        try {
-            supabaseStorageClient = window.supabase.createClient(
-                supabaseStorageConfig.url,
-                supabaseStorageConfig.key
-            );
-        } catch (_e) {
-            // Supabase is only used for image uploads — not critical for
-            // profile loading. Swallow the error so the boot continues.
-            supabaseStorageClient = null;
-        }
         if (!_authBootstrapped) {
             _authBootstrapped = true;
             startPapianoAuthBootstrap();
@@ -1420,7 +1404,7 @@
         return /^(data:image\/(png|jpe?g|webp);base64,|https:\/\/)/i.test(String(src || ''));
     }
 
-    function safeSupabaseStorageName(value, fallback = 'image') {
+    function safeStorageName(value, fallback = 'image') {
         const clean = String(value || fallback)
             .toLowerCase()
             .replace(/[^a-z0-9_.-]/g, '_')
@@ -1462,32 +1446,37 @@
         return '';
     }
 
-    async function uploadImageToSupabaseStorage(bucketName, file, folderName, fileNamePrefix, options = {}) {
-        if (!supabaseStorageClient) throw new Error('Image upload is unavailable right now.');
+    async function uploadImageToS3(bucketPrefix, file, folderName, fileNamePrefix, options = {}) {
         if (!currentUser?.uid) throw new Error('Sign in to upload images.');
         const validationError = validateUploadImageFile(file, options.maxBytes || MAX_CHAT_IMAGE_BYTES, options.label || 'Image');
         if (validationError) throw new Error(validationError);
 
         const ext = getImageExtensionFromFile(file);
-        const safeOriginalName = safeSupabaseStorageName(file.name || `${fileNamePrefix}.${ext}`);
-        const safeUid = safeSupabaseStorageName(currentUser.uid, 'user');
-        const safeFolder = safeSupabaseStorageName(folderName, 'uploads');
-        const safePrefix = safeSupabaseStorageName(fileNamePrefix, 'image');
-        const path = `${safeUid}/${safeFolder}/${safePrefix}_${Date.now()}_${safeOriginalName}`;
+        const safeOriginalName = safeStorageName(file.name || `${fileNamePrefix}.${ext}`);
+        const safeFolder = safeStorageName(folderName, 'uploads');
+        const safePrefix = safeStorageName(fileNamePrefix, 'image');
+        const fileName = `${safePrefix}_${Date.now()}_${safeOriginalName}`;
+        const contentType = file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`;
 
-        const { error } = await supabaseStorageClient
-            .storage
-            .from(bucketName)
-            .upload(path, file, {
-                cacheControl: '3600',
-                contentType: file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`,
-                upsert: false
-            });
+        const idToken = await currentUser.getIdToken();
+        const presignRes = await fetch('/api/storage-presign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken, bucket: bucketPrefix, folder: safeFolder, fileName, contentType })
+        });
+        const presignData = await presignRes.json().catch(() => null);
+        if (!presignRes.ok || !presignData?.uploadUrl) {
+            throw new Error('Image upload is unavailable right now.');
+        }
 
-        if (error) throw error;
-        const { data } = supabaseStorageClient.storage.from(bucketName).getPublicUrl(path);
-        if (!data?.publicUrl) throw new Error('Image upload is unavailable right now.');
-        return { url: data.publicUrl, path };
+        const putRes = await fetch(presignData.uploadUrl, {
+            method: 'PUT',
+            headers: { 'Content-Type': contentType },
+            body: file
+        });
+        if (!putRes.ok) throw new Error('Image upload is unavailable right now.');
+
+        return { url: presignData.publicUrl, path: presignData.key };
     }
 
     async function applyProfileConfiguration() {
@@ -1573,7 +1562,7 @@
             return;
         }
         try {
-            const upload = await uploadImageToSupabaseStorage('avatars', file, 'profile', 'avatar', {
+            const upload = await uploadImageToS3('avatars', file, 'profile', 'avatar', {
                 maxBytes: MAX_PROFILE_IMAGE_BYTES,
                 label: 'Profile photo'
             });
@@ -3164,14 +3153,14 @@
             return;
         }
         try {
-            const upload = await uploadImageToSupabaseStorage('chat-images', file, 'chat', 'message', {
+            const upload = await uploadImageToS3('chat-images', file, 'chat', 'message', {
                 maxBytes: MAX_CHAT_IMAGE_BYTES,
                 label: 'Chat image'
             });
             pendingChatImageData = upload.url;
             pendingChatImagePath = upload.path;
             if (chatSelectedImagePreviewImg) chatSelectedImagePreviewImg.src = pendingChatImageData;
-            if (chatSelectedImagePreviewText) chatSelectedImagePreviewText.textContent = safeSupabaseStorageName(file.name || 'image');
+            if (chatSelectedImagePreviewText) chatSelectedImagePreviewText.textContent = safeStorageName(file.name || 'image');
             if (chatSelectedImagePreview) chatSelectedImagePreview.classList.add('active');
         } catch (error) {
             showToast(friendlyError(error, 'Couldn’t upload the image. Please try again.'));

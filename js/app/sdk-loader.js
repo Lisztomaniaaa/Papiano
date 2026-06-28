@@ -4,8 +4,7 @@
     // Heavier modules are loaded AFTER auth so login state resolves first.
     var REST_URLS = [
         'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
-        'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js',
-        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+        'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js'
     ];
     function loadScript(src) {
         return new Promise(function (resolve, reject) {
