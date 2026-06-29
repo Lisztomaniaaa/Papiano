@@ -29,6 +29,8 @@ const handlers = {
     myRoomGrant: (id, a, identity) => grants.myRoomGrant(identity, a.roomId),
 
     getProfile: (id, a) => profiles.getProfile(a.uid),
+    getProfileByPublicId: (id, a) => profiles.getProfileByPublicId(a.publicId),
+    getProfileByUserId: (id, a) => profiles.getProfileByUserId(a.userId),
     searchProfilesByName: (id, a) => profiles.searchProfilesByName(a.prefix),
     getLeaderboard: (id, a) => profiles.getLeaderboard(a.windowSeconds),
     myProfileReaction: (id, a, identity) => profiles.myProfileReaction(identity, a.profileUid),
@@ -81,6 +83,11 @@ const handlers = {
     editChatMessage: (id, a, identity) => chat.editChatMessage(identity, a.roomId, a.createdAt, a.text),
     hideChatMessageForMe: (id, a, identity) => chat.hideChatMessageForMe(identity, a.roomId, a.createdAt),
     deleteChatMessage: (id, a, identity) => chat.deleteChatMessage(identity, a.roomId, a.createdAt),
+    hideChatRoomForMe: (id, a, identity) => chat.hideChatRoomForMe(identity, a.roomId),
+    unhideChatRoomForMe: (id, a, identity) => chat.unhideChatRoomForMe(identity, a.roomId),
+    clearChatHistory: (id, a, identity) => chat.clearChatHistory(identity, a.roomId),
+    markChatRoomRead: (id, a, identity) => chat.markChatRoomRead(identity, a.roomId),
+    leaveChatRoom: (id, a, identity) => chat.leaveChatRoom(identity, a.roomId),
 
     sendFriendRequest: (id, a, identity) => friendships.sendFriendRequest(identity, a.otherUid),
     acceptFriendRequest: (id, a, identity) => friendships.acceptFriendRequest(identity, a.otherUid),

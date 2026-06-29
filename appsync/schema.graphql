@@ -144,6 +144,8 @@ type ChatRoom {
   lastMessage: String
   lastSenderId: String
   unreadCount: AWSJSON
+  hiddenFor: [String!]
+  clearedAt: AWSJSON
   updatedAt: AWSTimestamp!
 }
 
@@ -244,6 +246,8 @@ type Query {
   myRoomGrant(roomId: ID!): AWSJSON
 
   getProfile(uid: ID!): Profile
+  getProfileByPublicId(publicId: Int!): Profile
+  getProfileByUserId(userId: String!): Profile
   searchProfilesByName(prefix: String!): [Profile!]!
   getLeaderboard(windowSeconds: Int): [LeaderboardEntry!]!
   myProfileReaction(profileUid: ID!): String
@@ -297,6 +301,11 @@ type Mutation {
   editChatMessage(roomId: ID!, createdAt: String!, text: String!): ChatMessage!
   hideChatMessageForMe(roomId: ID!, createdAt: String!): Boolean!
   deleteChatMessage(roomId: ID!, createdAt: String!): Boolean!
+  hideChatRoomForMe(roomId: ID!): Boolean!
+  unhideChatRoomForMe(roomId: ID!): Boolean!
+  clearChatHistory(roomId: ID!): Boolean!
+  markChatRoomRead(roomId: ID!): Boolean!
+  leaveChatRoom(roomId: ID!): Boolean!
 
   sendFriendRequest(otherUid: String!): Friendship!
   acceptFriendRequest(otherUid: String!): Friendship!

@@ -42,7 +42,8 @@ async function createChatRoom(identity, input) {
   const now = Date.now();
   const room = {
     roomId, type: input.type, roomKey, participants: input.participants,
-    historyVisible: true, lastMessage: null, lastSenderId: null, unreadCount: {}, updatedAt: now,
+    historyVisible: true, lastMessage: null, lastSenderId: null, unreadCount: {},
+    hiddenFor: [], clearedAt: {}, updatedAt: now,
   };
   const transactItems = [
     { Put: { TableName: T.chatRooms, Item: room, ConditionExpression: 'attribute_not_exists(roomId)' } },
@@ -100,12 +101,109 @@ async function sendChatMessage(identity, roomId, input) {
     replyTo: input.replyTo || null, deletedForAll: false, updatedAt: now,
   };
   await doc.send(new PutCommand({ TableName: T.messages, Item: item }));
+
+  const others = room.participants.filter((p) => p !== uid);
+  const unreadNames = {};
+  const unreadVals = { ':lm': input.text || '[media]', ':ls': uid, ':u': now };
+  const unreadSets = ['lastMessage = :lm', 'lastSenderId = :ls', 'updatedAt = :u'];
+  others.forEach((p, idx) => {
+    const nameKey = `#u${idx}`;
+    const valKey = `:c${idx}`;
+    unreadNames[nameKey] = p;
+    unreadVals[valKey] = ((room.unreadCount && room.unreadCount[p]) || 0) + 1;
+    unreadSets.push(`unreadCount.${nameKey} = ${valKey}`);
+  });
+  // Re-surface the room for any recipient who had previously hidden it.
+  if (Array.isArray(room.hiddenFor) && room.hiddenFor.length && others.some((p) => room.hiddenFor.includes(p))) {
+    const keepFor = room.hiddenFor.filter((p) => !others.includes(p));
+    unreadSets.push('hiddenFor = :hf');
+    unreadVals[':hf'] = keepFor;
+  }
   await doc.send(new UpdateCommand({
     TableName: T.chatRooms, Key: { roomId },
-    UpdateExpression: 'SET lastMessage = :lm, lastSenderId = :ls, updatedAt = :u',
-    ExpressionAttributeValues: { ':lm': input.text || '[media]', ':ls': uid, ':u': now },
+    UpdateExpression: 'SET ' + unreadSets.join(', '),
+    ExpressionAttributeNames: Object.keys(unreadNames).length ? unreadNames : undefined,
+    ExpressionAttributeValues: unreadVals,
   }));
   return item;
+}
+
+async function markChatRoomRead(identity, roomId) {
+  const uid = requireSignedIn(identity);
+  const room = await getChatRoom(roomId);
+  if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
+  if (!room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
+  await doc.send(new UpdateCommand({
+    TableName: T.chatRooms, Key: { roomId },
+    UpdateExpression: 'SET unreadCount.#u = :z',
+    ExpressionAttributeNames: { '#u': uid },
+    ExpressionAttributeValues: { ':z': 0 },
+  }));
+  return true;
+}
+
+async function hideChatRoomForMe(identity, roomId) {
+  const uid = requireSignedIn(identity);
+  const room = await getChatRoom(roomId);
+  if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
+  if (!room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
+  await doc.send(new UpdateCommand({
+    TableName: T.chatRooms, Key: { roomId },
+    UpdateExpression: 'SET hiddenFor = list_append(if_not_exists(hiddenFor, :empty), :u)',
+    ConditionExpression: 'not contains(hiddenFor, :uid) OR attribute_not_exists(hiddenFor)',
+    ExpressionAttributeValues: { ':empty': [], ':u': [uid], ':uid': uid },
+  })).catch((e) => { if (e.name !== 'ConditionalCheckFailedException') throw e; });
+  return true;
+}
+
+async function unhideChatRoomForMe(identity, roomId) {
+  const uid = requireSignedIn(identity);
+  const room = await getChatRoom(roomId);
+  if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
+  if (!room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
+  const keepFor = (room.hiddenFor || []).filter((p) => p !== uid);
+  await doc.send(new UpdateCommand({
+    TableName: T.chatRooms, Key: { roomId },
+    UpdateExpression: 'SET hiddenFor = :hf',
+    ExpressionAttributeValues: { ':hf': keepFor },
+  }));
+  return true;
+}
+
+async function clearChatHistory(identity, roomId) {
+  const uid = requireSignedIn(identity);
+  const room = await getChatRoom(roomId);
+  if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
+  if (!room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
+  await doc.send(new UpdateCommand({
+    TableName: T.chatRooms, Key: { roomId },
+    UpdateExpression: 'SET clearedAt.#u = :now',
+    ExpressionAttributeNames: { '#u': uid },
+    ExpressionAttributeValues: { ':now': Date.now() },
+  }));
+  return true;
+}
+
+async function leaveChatRoom(identity, roomId) {
+  const uid = requireSignedIn(identity);
+  const room = await getChatRoom(roomId);
+  if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
+  if (!room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
+  if (room.type === 'dm') throw new GraphqlError('Use hideChatRoomForMe for direct messages', 'BadRequest');
+  const remaining = room.participants.filter((p) => p !== uid);
+  await doc.send(new TransactWriteCommand({
+    TransactItems: [
+      {
+        Update: {
+          TableName: T.chatRooms, Key: { roomId },
+          UpdateExpression: 'SET participants = :p, updatedAt = :u',
+          ExpressionAttributeValues: { ':p': remaining, ':u': Date.now() },
+        },
+      },
+      { Delete: { TableName: T.userChatRooms, Key: { uid, roomId } } },
+    ],
+  }));
+  return true;
 }
 
 async function editChatMessage(identity, roomId, createdAt, text) {
@@ -146,4 +244,5 @@ async function deleteChatMessage(identity, roomId, createdAt) {
 module.exports = {
   getChatRoom, listMyChatRooms, createChatRoom, updateChatRoom,
   listChatMessages, sendChatMessage, editChatMessage, hideChatMessageForMe, deleteChatMessage,
+  markChatRoomRead, hideChatRoomForMe, unhideChatRoomForMe, clearChatHistory, leaveChatRoom,
 };

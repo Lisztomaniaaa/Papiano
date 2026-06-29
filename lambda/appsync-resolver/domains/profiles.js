@@ -10,6 +10,26 @@ async function getProfile(uid) {
   return r.Item || null;
 }
 
+async function getProfileByPublicId(publicId) {
+  const r = await doc.send(new QueryCommand({
+    TableName: T.profiles, IndexName: 'PublicIdIndex',
+    KeyConditionExpression: 'publicId = :p',
+    ExpressionAttributeValues: { ':p': publicId },
+    Limit: 1,
+  }));
+  return (r.Items && r.Items[0]) || null;
+}
+
+async function getProfileByUserId(userId) {
+  const r = await doc.send(new QueryCommand({
+    TableName: T.profiles, IndexName: 'UserIdIndex',
+    KeyConditionExpression: 'userId = :u',
+    ExpressionAttributeValues: { ':u': userId },
+    Limit: 1,
+  }));
+  return (r.Items && r.Items[0]) || null;
+}
+
 async function searchProfilesByName(prefix) {
   const searchName = searchNameOf(prefix);
   if (!searchName) return [];
@@ -187,4 +207,7 @@ async function voteProfile(identity, profileUid, type) {
   return getProfile(profileUid);
 }
 
-module.exports = { getProfile, searchProfilesByName, getLeaderboard, createProfile, updateProfile, myProfileReaction, voteProfile };
+module.exports = {
+  getProfile, getProfileByPublicId, getProfileByUserId, searchProfilesByName, getLeaderboard,
+  createProfile, updateProfile, myProfileReaction, voteProfile,
+};
