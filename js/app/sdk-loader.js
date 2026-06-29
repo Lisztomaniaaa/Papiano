@@ -1,7 +1,9 @@
 (function () {
     var APP_URL  = 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js';
-    var AUTH_URL = 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js';
-    // Heavier modules are loaded AFTER auth so login state resolves first.
+    // Auth now resolves via cognito-auth.js (window.papianoAuth), loaded
+    // separately and earlier in index.html — no firebase-auth-compat.js here.
+    // These remain Firebase-backed pending the data-layer migration off
+    // RTDB/Firestore to AppSync.
     var REST_URLS = [
         'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
         'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js'
@@ -17,16 +19,8 @@
         });
     }
     function loadAll() {
-        // Phase 1: app + auth → announce auth-ready so the app can resolve the
-        // signed-in/out state immediately, without waiting for db/firestore.
         loadScript(APP_URL)
-            .then(function () { return loadScript(AUTH_URL); })
-            .then(function () {
-                window.__papianoAuthReady = true;
-                window.dispatchEvent(new Event('papiano-auth-ready'));
-                // Phase 2: the rest, in parallel.
-                return Promise.all(REST_URLS.map(loadScript));
-            })
+            .then(function () { return Promise.all(REST_URLS.map(loadScript)); })
             .then(function () {
                 window.__papianoSDKsReady = true;
                 window.dispatchEvent(new Event('papiano-sdks-ready'));

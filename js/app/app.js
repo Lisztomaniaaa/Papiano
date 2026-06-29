@@ -80,7 +80,6 @@
         measurementId: "G-3FVZ17Q69B"
     };
 
-    let firebaseAuth = null;
     let realtimeDb = null;
     let firestoreDb = null;
 
@@ -93,20 +92,16 @@
     // Phase 1: auth only. Resolves the signed-in/out state as soon as possible
     // (no waiting for database/firestore to download).
     function initAuthEarly() {
-        if (firebaseAuth) return;
-        ensureFirebaseApp();
-        firebaseAuth = firebase.auth();
-        if (!_authBootstrapped) {
-            _authBootstrapped = true;
-            startPapianoAuthBootstrap();
-        }
+        if (_authBootstrapped) return;
+        _authBootstrapped = true;
+        startPapianoAuthBootstrap();
     }
 
-    // Phase 2: the heavier clients. Also picks up a logged-in user that resolved
-    // before Firestore was ready and finishes loading their profile.
+    // Phase 2: the heavier clients (still Firebase RTDB/Firestore pending the
+    // data-layer migration). Also picks up a logged-in user that resolved
+    // before they were ready and finishes loading their profile.
     function initPapianoSDKs() {
         ensureFirebaseApp();
-        if (!firebaseAuth) firebaseAuth = firebase.auth();
         realtimeDb = firebase.database();
         firestoreDb = firebase.firestore();
         if (!_authBootstrapped) {
@@ -130,6 +125,10 @@
     } else {
         window.addEventListener('papiano-sdks-ready', initPapianoSDKs, { once: true });
     }
+    window.addEventListener('papiano-auth-error', e => {
+        appContainer?.classList.remove('auth-pending');
+        showToast((e.detail && e.detail.description) || 'Google sign-in failed. Please try again.');
+    });
 
     let currentUser = null;
     let currentProfile = null;
@@ -508,7 +507,7 @@
         localStorage.removeItem(storageKey);
         currentProfile = null;
         accessSessionActive = false;
-        try { await firebaseAuth.signOut(); } catch (_error) {}
+        try { await window.papianoAuth.signOut(); } catch (_error) {}
         showLoginScreen();
         showAccountRestrictionNotice();
     }
@@ -562,31 +561,21 @@
 
     async function processAppAuth(mode) {
         if (mode === 'google') {
-            // Guard against the user clicking before lazy-loaded SDKs are ready.
-            if (!firebaseAuth || typeof firebase === 'undefined') {
+            // Guard against the user clicking before the auth module is ready.
+            if (!window.papianoAuth) {
                 showToast('Hold on, signing-in service is still loading…', 'Please wait');
-                // Retry once SDKs are ready.
-                window.addEventListener('papiano-sdks-ready', () => processAppAuth('google'), { once: true });
+                window.addEventListener('papiano-auth-ready', () => processAppAuth('google'), { once: true });
                 return;
             }
             accessSessionActive = false;
             try {
                 appContainer.classList.add('auth-pending');
-                const provider = new firebase.auth.GoogleAuthProvider();
-                const result = await firebaseAuth.signInWithPopup(provider);
-                await ensureUserProfile(result.user);
+                // Full-page redirect to the Cognito Hosted UI — control returns to
+                // this page after Google auth completes, where cognito-auth.js's
+                // init() picks up the ?code= and resolves onAuthStateChanged.
+                await window.papianoAuth.signInWithGoogleRedirect();
             } catch (error) {
                 appContainer.classList.remove('auth-pending');
-                if (error?.code === 'auth/account-exists-with-different-credential') {
-                    await handleGoogleSignInConflict(error);
-                    return;
-                }
-                if (isAccountRestrictionError(error)) {
-                    try { await firebaseAuth.signOut(); } catch (_error) {}
-                    showLoginScreen();
-                    showAccountRestrictionNotice();
-                    return;
-                }
                 showToast(friendlyError(error, 'Sign in didn’t work. Please try again.'));
             }
             return;
@@ -595,35 +584,6 @@
         currentUser = null;
         currentProfile = loadProfile();
         openMainApp();
-    }
-
-    // Google sign-in hit an email that already has a password account. Ask the
-    // user to sign in with that password; the pending Google credential is then
-    // linked in the email sign-in success path (auth-email.js), so both methods
-    // end up on one account instead of erroring out.
-    async function handleGoogleSignInConflict(error) {
-        const email = error?.email || error?.customData?.email || '';
-        let pendingCred = error?.credential || null;
-        try {
-            if (!pendingCred && firebase?.auth?.GoogleAuthProvider?.credentialFromError) {
-                pendingCred = firebase.auth.GoogleAuthProvider.credentialFromError(error);
-            }
-        } catch (_) {}
-        if (!email || !pendingCred) {
-            showToast('Couldn’t connect Google automatically. Sign in with your email instead.');
-            return;
-        }
-        let methods = [];
-        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
-        if (methods.includes('password')) {
-            window._pendingGoogleLinkCredential = pendingCred;
-            openAuthEntryPopup('signin');
-            const emailInput = document.getElementById('authSigninEmail');
-            if (emailInput) emailInput.value = email;
-            showToast('This email already uses a password. Sign in to connect Google.', 'Connect Google');
-        } else {
-            showToast('This email is registered with a different sign-in method.');
-        }
     }
 
     function populateBrandSheet() {
@@ -703,7 +663,7 @@
                 try { await _mpPresenceRef.update({ online: false, updatedAt: Date.now() }); } catch (_e) {}
                 _mpPresenceRef = null;
             }
-            await firebaseAuth.signOut();
+            await window.papianoAuth.signOut();
         } catch (_error) {}
         // Clear profile cache so UI resets to default (no stale name/avatar)
         localStorage.removeItem(storageKey);
@@ -790,7 +750,6 @@
             return;
         }
 
-        const user = firebaseAuth.currentUser;
         const uid = currentUser.uid;
         const publicId = expectedId;
         const userId = formatPublicUserId(publicId);
@@ -827,9 +786,9 @@
             }
 
             try {
-                await user?.delete();
+                await window.papianoAuth.deleteCurrentUser();
             } catch (_error) {
-                try { await firebaseAuth.signOut(); } catch (__error) {}
+                try { await window.papianoAuth.signOut(); } catch (__error) {}
             }
 
             localStorage.removeItem(storageKey);
@@ -4122,7 +4081,7 @@
     }, 30000);
 
     function startPapianoAuthBootstrap() {
-        firebaseAuth.onAuthStateChanged(async user => {
+        window.papianoAuth.onAuthStateChanged(async user => {
             authStateResolved = true;
             if (user?.uid) {
                 // Email/password accounts must confirm their email before they

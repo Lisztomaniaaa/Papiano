@@ -1,7 +1,7 @@
 // === Papiano — Email Auth Extension ===
-// Requires: app.min.js (firebaseAuth, firestoreDb, ensureUserProfile,
-//           closeAuthEntryPopup, showToast, friendlyError)
-// Uses Firebase native email verification (no third-party OTP service).
+// Requires: app.min.js (ensureUserProfile, closeAuthEntryPopup, showToast,
+//           friendlyError), cognito-auth.js (window.papianoAuth).
+// Uses Cognito's native code-based verification + password reset (no links).
 
 // ── Allowed email domains ──────────────────────────────────────────────────────
 const _ALLOWED_DOMAINS = new Set([
@@ -32,6 +32,13 @@ function _isDomainAllowed(email) {
 // ── State ──────────────────────────────────────────────────────────────────────
 let _authCurrentScreen = 'signin';
 let _authBusy = false;
+// Held in memory between SignUp and ConfirmSignUp so we can sign the user in
+// immediately once their code is confirmed (Cognito SignUp does not
+// auto-authenticate the way Firebase's createUserWithEmailAndPassword did).
+let _pendingSignup = null;
+// Email captured on the "forgot password" screen, carried into the
+// confirm-reset screen so authConfirmReset() knows which account to target.
+let _pendingResetEmail = '';
 
 // ── Overlay observer ───────────────────────────────────────────────────────────
 (function () {
@@ -63,11 +70,11 @@ function authShowScreen(screen) {
     const sub   = document.getElementById('authEntrySubtitle');
     const tabs  = document.getElementById('authTabBar');
     const cfg = {
-        signin: { t: 'Sign In',        s: 'Access multiplayer, profiles, chat, and more.', tabs: true  },
-        signup: { t: 'Create Account', s: "Join Papiano — it's free.",                     tabs: true  },
-        verify: { t: 'Verify Email',   s: '',                                               tabs: false },
-        forgot: { t: 'Reset Password', s: 'Enter your email to receive a reset link.',      tabs: false },
-        sent:   { t: 'Check Your Email', s: '',                                             tabs: false },
+        signin: { t: 'Sign In',          s: 'Access multiplayer, profiles, chat, and more.', tabs: true  },
+        signup: { t: 'Create Account',   s: "Join Papiano — it's free.",                     tabs: true  },
+        verify: { t: 'Verify Email',     s: '',                                               tabs: false },
+        forgot: { t: 'Reset Password',   s: 'Enter your email to receive a reset code.',      tabs: false },
+        sent:   { t: 'Reset Password',   s: '',                                               tabs: false },
     };
     const c = cfg[screen] || cfg.signin;
     if (title) title.textContent = c.t;
@@ -80,11 +87,11 @@ function authShowScreen(screen) {
 // ── Generic helpers ────────────────────────────────────────────────────────────
 function _showErr(id, msg) { const e = document.getElementById(id); if (e) e.textContent = msg; }
 function _authClearErr() {
-    ['authSigninErr','authSignupErr','authForgotErr','authVerifyErr'].forEach(id => _showErr(id, ''));
+    ['authSigninErr','authSignupErr','authForgotErr','authVerifyErr','authResetErr'].forEach(id => _showErr(id, ''));
 }
 function _setLoading(busy) {
     _authBusy = !!busy;
-    ['authSigninBtn','authSignupBtn','authForgotBtn','authVerifyBtn'].forEach(id => {
+    ['authSigninBtn','authSignupBtn','authForgotBtn','authVerifyBtn','authResetBtn'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.disabled = busy;
     });
@@ -92,12 +99,16 @@ function _setLoading(busy) {
 function _friendly(err) {
     if (typeof friendlyError === 'function') return friendlyError(err, 'Something went wrong. Please try again.');
     const c = String(err?.code || err?.message || '').toLowerCase();
-    if (c.includes('invalid-email'))         return 'Invalid email address.';
-    if (c.includes('user-not-found') || c.includes('wrong-password') || c.includes('invalid-credential'))
+    if (c.includes('invalid-email') || c.includes('invalidparameter'))   return 'Invalid email address.';
+    if (c.includes('notauthorized') || c.includes('wrong-password') || c.includes('invalid-credential'))
                                              return 'Incorrect email or password.';
-    if (c.includes('email-already-in-use')) return 'Email already registered. Sign in instead.';
-    if (c.includes('weak-password'))        return 'Password too weak.';
-    if (c.includes('too-many-requests'))    return 'Too many attempts. Try again later.';
+    if (c.includes('usernotfound'))         return 'No account found with that email.';
+    if (c.includes('usernotconfirmed'))     return 'Please verify your email first.';
+    if (c.includes('usernameexists') || c.includes('email-already-in-use')) return 'Email already registered. Sign in instead.';
+    if (c.includes('codemismatch'))         return 'Incorrect code. Please try again.';
+    if (c.includes('expiredcode'))          return 'That code expired. Request a new one.';
+    if (c.includes('invalidpassword') || c.includes('weak-password'))   return 'Password too weak.';
+    if (c.includes('limitexceeded') || c.includes('too-many-requests'))    return 'Too many attempts. Try again later.';
     if (c.includes('network'))              return 'Network error. Check your connection.';
     return err?.message || 'Something went wrong.';
 }
@@ -122,22 +133,11 @@ function authTogglePwd(inputId, btn) {
     if (icon) icon.textContent = show ? 'visibility_off' : 'visibility';
 }
 
-// ── Email verification helpers ──────────────────────────────────────────────────
-async function _sendVerification(user) {
-    if (!user) return;
-    try {
-        await user.sendEmailVerification({ url: location.origin, handleCodeInApp: false });
-    } catch (err) {
-        // Non-fatal; surface a friendly message where the caller renders it.
-        throw err;
-    }
-}
-
 // ── Sign In / Sign Up entry point ──────────────────────────────────────────────
 async function authEntryWithEmail(mode) {
     if (_authBusy) return;
-    if (!firebaseAuth) {
-        window.addEventListener('papiano-sdks-ready', () => authEntryWithEmail(mode), { once: true });
+    if (!window.papianoAuth) {
+        window.addEventListener('papiano-auth-ready', () => authEntryWithEmail(mode), { once: true });
         if (typeof showToast === 'function') showToast('Loading auth service, please wait…');
         return;
     }
@@ -151,26 +151,17 @@ async function authEntryWithEmail(mode) {
 
         _setLoading(true); _authClearErr();
         try {
-            let methods = [];
-            try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
-            if (methods.includes('google.com') && !methods.includes('password')) {
-                _showErr('authSigninErr', 'This email is linked to Google. Use "Continue with Google" to sign in.');
-                return;
-            }
-
-            const cred = await firebaseAuth.signInWithEmailAndPassword(email, pass);
-            // If we arrived here to resolve a Google-link conflict, attach the
-            // pending Google credential now that the password owner is verified.
-            if (window._pendingGoogleLinkCredential) {
-                try {
-                    await cred.user.linkWithCredential(window._pendingGoogleLinkCredential);
-                    if (typeof showToast === 'function') showToast('Google account connected to your profile.', 'Connected');
-                } catch (_) {}
-                window._pendingGoogleLinkCredential = null;
-            }
-            if (typeof ensureUserProfile === 'function') await ensureUserProfile(cred.user);
+            const { user } = await window.papianoAuth.signInWithEmailAndPassword(email, pass);
+            if (typeof ensureUserProfile === 'function') await ensureUserProfile(user);
             if (typeof closeAuthEntryPopup === 'function') closeAuthEntryPopup();
         } catch (err) {
+            if (err?.code === 'UserNotConfirmedException') {
+                const addr = document.getElementById('authVerifyEmailAddr');
+                if (addr) addr.textContent = email;
+                _pendingSignup = { email, password: pass };
+                authShowScreen('verify');
+                return;
+            }
             _showErr('authSigninErr', _friendly(err));
         } finally {
             _setLoading(false);
@@ -201,34 +192,10 @@ async function authEntryWithEmail(mode) {
 
         _setLoading(true); _authClearErr();
         try {
-            let methods = [];
-            try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
-            if (methods.length > 0) {
-                _showErr('authSignupErr', methods.includes('google.com')
-                    ? 'This email is already linked to a Google account. Use "Continue with Google".'
-                    : 'Email already registered. Sign in instead.');
-                if (!methods.includes('google.com')) setTimeout(() => authShowScreen('signin'), 1600);
-                return;
-            }
-
-            // Create the Firebase account, set the display name, then send the
-            // verification link via Firebase.
-            const cred = await firebaseAuth.createUserWithEmailAndPassword(email, pass);
-            await cred.user.updateProfile({ displayName: name });
-
-            // NOTE: Do NOT create a partial profile doc here. The name is
-            // already stored on the Firebase Auth user (updateProfile above).
-            // ensureUserProfile() will CREATE the full profile document after
-            // email verification — if we pre-create a partial doc, the Firestore
-            // security rules block the subsequent update that adds publicId/userId.
-
-            try {
-                await _sendVerification(cred.user);
-            } catch (verifyErr) {
-                // Account exists but the email failed to send — let them resend.
-                if (typeof showToast === 'function')
-                    showToast('Account created, but the verification email failed. Tap "Resend Link".', 'Heads up');
-            }
+            // Create the Cognito account; it stays UNCONFIRMED until the code
+            // sent to their inbox is submitted via authCheckVerification().
+            await window.papianoAuth.signUpWithEmailAndPassword(email, pass, name);
+            _pendingSignup = { email, password: pass };
 
             const addr = document.getElementById('authVerifyEmailAddr');
             if (addr) addr.textContent = email;
@@ -245,25 +212,22 @@ async function authEntryWithEmail(mode) {
 // ── Email verification — continue / resend ──────────────────────────────────────
 async function authCheckVerification() {
     if (_authBusy) return;
-    const user = firebaseAuth?.currentUser;
-    if (!user) {
-        _showErr('authVerifyErr', 'Session expired. Please sign in again.');
-        authShowScreen('signin');
+    const email = _pendingSignup?.email || '';
+    const code = (document.getElementById('authVerifyCode')?.value || '').trim();
+    if (!email) {
+        _showErr('authVerifyErr', 'Session expired. Please sign up again.');
+        authShowScreen('signup');
         return;
     }
+    if (!code) { _showErr('authVerifyErr', 'Please enter the 6-digit code.'); return; }
 
     _setLoading(true); _authClearErr();
     try {
-        await user.reload();
-        const fresh = firebaseAuth.currentUser;
-        // Check verification BEFORE touching the profile, so an early tap doesn't
-        // close the popup or boot a still-unverified user.
-        if (!fresh || !fresh.emailVerified) {
-            _showErr('authVerifyErr', "We haven't received your verification yet. Open the link in your inbox (check spam), then tap this button again.");
-            return;
-        }
-        // Verified — reload so the app boots cleanly as a fully signed-in user
-        // (starts profile, listeners, presence via the normal auth-state path).
+        await window.papianoAuth.confirmSignUp(email, code);
+        // Confirmed — sign in immediately with the password held from signup.
+        const { user } = await window.papianoAuth.signInWithEmailAndPassword(email, _pendingSignup.password);
+        _pendingSignup = null;
+        if (typeof ensureUserProfile === 'function') await ensureUserProfile(user);
         if (typeof showToast === 'function') showToast('Email verified — welcome to Papiano!', 'Verified');
         setTimeout(() => location.reload(), 700);
     } catch (err) {
@@ -274,16 +238,16 @@ async function authCheckVerification() {
 }
 
 async function authResendVerification() {
-    const user = firebaseAuth?.currentUser;
-    if (!user) {
+    const email = _pendingSignup?.email || '';
+    if (!email) {
         _showErr('authVerifyErr', 'Session expired. Please sign up again.');
         authShowScreen('signup');
         return;
     }
     try {
-        await _sendVerification(user);
+        await window.papianoAuth.resendConfirmationCode(email);
         _showErr('authVerifyErr', '');
-        if (typeof showToast === 'function') showToast('Fresh verification link on its way — check your inbox.', 'Resent');
+        if (typeof showToast === 'function') showToast('Fresh code on its way — check your inbox.', 'Resent');
     } catch (err) {
         _showErr('authVerifyErr', _friendly(err));
     }
@@ -293,12 +257,12 @@ async function authResendVerification() {
 // ── Delete account — complete override ────────────────────────────────────────
 // Replaces deletePapianoAccount() entirely to fix:
 // 1. closeDeleteAccountModal won't close when accountDeleteBusy=true (original bug)
-// 2. email/password users need reauthenticateWithCredential before user.delete()
-// 3. Google users also re-auth if needed (catches auth/requires-recent-login)
+// 2. email/password users need a fresh sign-in before deleteCurrentUser()
+// 3. Google users go straight through (no password to check)
 (function () {
     function install() {
         window.deletePapianoAccount = async function () {
-            const user = (typeof firebaseAuth !== 'undefined') && firebaseAuth?.currentUser;
+            const user = window.papianoAuth?.currentUser;
             if (!user?.uid) {
                 if (typeof showToast === 'function') showToast('Sign in to manage your account.');
                 return;
@@ -314,28 +278,25 @@ async function authResendVerification() {
                 return;
             }
 
-            // Email/password users: require password re-auth
-            if (user.email) {
-                let methods = [];
-                try { methods = await firebaseAuth.fetchSignInMethodsForEmail(user.email); } catch (_) {}
-                if (methods.includes('password')) {
-                    const wrap   = document.getElementById('accountDeletePasswordWrap');
-                    const passEl = document.getElementById('accountDeletePasswordInput');
-                    const pass   = (passEl?.value || '').trim();
-                    if (!pass) {
-                        if (wrap) wrap.style.display = '';
-                        passEl?.focus();
-                        if (typeof showToast === 'function') showToast('Enter your password to confirm.', 'Required');
-                        return;
-                    }
-                    try {
-                        const cred = firebase.auth.EmailAuthProvider.credential(user.email, pass);
-                        await user.reauthenticateWithCredential(cred);
-                    } catch (_) {
-                        if (passEl) passEl.value = '';
-                        if (typeof showToast === 'function') showToast('Incorrect password.', 'Error');
-                        return;
-                    }
+            // Email/password users: require password re-auth (refreshes the
+            // access token Cognito's DeleteUser call needs).
+            const isPasswordUser = (user.providerData || []).some(p => p?.providerId === 'password');
+            if (isPasswordUser) {
+                const wrap   = document.getElementById('accountDeletePasswordWrap');
+                const passEl = document.getElementById('accountDeletePasswordInput');
+                const pass   = (passEl?.value || '').trim();
+                if (!pass) {
+                    if (wrap) wrap.style.display = '';
+                    passEl?.focus();
+                    if (typeof showToast === 'function') showToast('Enter your password to confirm.', 'Required');
+                    return;
+                }
+                try {
+                    await window.papianoAuth.reauthenticateWithPassword(user.email, pass);
+                } catch (_) {
+                    if (passEl) passEl.value = '';
+                    if (typeof showToast === 'function') showToast('Incorrect password.', 'Error');
+                    return;
                 }
             }
 
@@ -370,8 +331,8 @@ async function authResendVerification() {
                     }, { merge: true }).catch(() => {});
                 }
 
-                // Delete Firebase Auth user (the critical step)
-                await user.delete();
+                // Delete the Cognito user (the critical step)
+                await window.papianoAuth.deleteCurrentUser();
 
                 // Clear local caches
                 try { localStorage.removeItem('papiano_profile_cache_v2'); } catch (_) {}
@@ -387,10 +348,7 @@ async function authResendVerification() {
 
             } catch (err) {
                 if (btn) { btn.disabled = false; btn.textContent = 'Delete Account'; }
-                const msg = err?.code === 'auth/requires-recent-login'
-                    ? 'Session expired. Sign out, sign back in, then try again.'
-                    : (err?.message || 'Failed to delete account. Please try again.');
-                if (typeof showToast === 'function') showToast(msg, 'Error');
+                if (typeof showToast === 'function') showToast(err?.message || 'Failed to delete account. Please try again.', 'Error');
             }
         };
     }
@@ -400,25 +358,51 @@ async function authResendVerification() {
 
 // ── Password reset (login overlay "forgot password") ────────────────────────────
 async function authSendReset() {
-    if (_authBusy || !firebaseAuth) return;
+    if (_authBusy || !window.papianoAuth) return;
     const email = (document.getElementById('authForgotEmail')?.value || '').trim();
     if (!email) { _showErr('authForgotErr', 'Please enter your email.'); return; }
 
     _setLoading(true); _authClearErr();
     try {
-        let methods = [];
-        try { methods = await firebaseAuth.fetchSignInMethodsForEmail(email); } catch (_) {}
-        if (methods.includes('google.com') && !methods.includes('password')) {
-            _showErr('authForgotErr', 'This account uses Google sign-in. Use "Continue with Google" — there is no password to reset.');
-            return;
-        }
-
-        await firebaseAuth.sendPasswordResetEmail(email, { url: location.origin });
+        await window.papianoAuth.forgotPassword(email);
+        _pendingResetEmail = email;
         const addr = document.getElementById('authSentEmailAddr');
         if (addr) addr.textContent = email;
         authShowScreen('sent');
     } catch (err) {
         _showErr('authForgotErr', _friendly(err));
+    } finally {
+        _setLoading(false);
+    }
+}
+
+async function authConfirmReset() {
+    if (_authBusy || !window.papianoAuth) return;
+    const email = _pendingResetEmail;
+    const code = (document.getElementById('authResetCode')?.value || '').trim();
+    const newPassword = document.getElementById('authResetNewPassword')?.value || '';
+    if (!email) {
+        _showErr('authResetErr', 'Session expired. Please request a new code.');
+        authShowScreen('forgot');
+        return;
+    }
+    if (!code) { _showErr('authResetErr', 'Please enter the 6-digit code.'); return; }
+    const req = _validPass(newPassword);
+    if (!req.length || !req.upper || !req.symbol) {
+        _showErr('authResetErr', 'Password needs 8+ chars, one uppercase letter, and one symbol.');
+        return;
+    }
+
+    _setLoading(true); _authClearErr();
+    try {
+        await window.papianoAuth.confirmForgotPassword(email, code, newPassword);
+        _pendingResetEmail = '';
+        if (typeof showToast === 'function') showToast('Password reset. Please sign in.', 'Done');
+        const signinEmail = document.getElementById('authSigninEmail');
+        if (signinEmail) signinEmail.value = email;
+        authShowScreen('signin');
+    } catch (err) {
+        _showErr('authResetErr', _friendly(err));
     } finally {
         _setLoading(false);
     }
