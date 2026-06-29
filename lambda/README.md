@@ -63,16 +63,23 @@ aws lambda update-function-configuration --function-name papiano-<name> \
   --environment "Variables={KEY1=value1,KEY2=value2}" --region ap-southeast-1
 ```
 
-## Known blocker as of this writing
+## Resolved: Function URL 403 AccessDeniedException (new-account anti-abuse)
 
-Public (`AuthType: NONE`) invocation of the Function URLs is currently
-rejected by AWS with `AccessDeniedException`, despite a correct resource
-policy and direct SDK `aws lambda invoke` working fine — almost certainly a
-new-account anti-abuse restriction (the account's `ConcurrentExecutions`
-limit is 10, not the normal default of 1000). No code/config change needed
-on our side; re-test with:
-```bash
-curl -X POST https://<function-url> -H "Content-Type: application/json" -d '{}'
-```
-once AWS Support confirms the restriction is lifted or the account ages out
-of it.
+Public (`AuthType: NONE`) invocation initially returned `AccessDeniedException`
+for every Function URL created via the IAM user's access key (CLI/SDK),
+despite a fully correct resource policy and despite direct SDK
+`aws lambda invoke` working fine. Root/console-created Function URLs (same
+account, same region) worked immediately. Root cause confirmed via
+CloudTrail: this AWS account's new-account anti-abuse system restricts
+public Function URL creation to actions taken by the **root** identity;
+the same action performed by an IAM user (any access key, regardless of
+its attached IAM policies — this is not a permissions issue) is blocked
+at the data-plane invoke level, account-wide.
+
+Fix applied: for each of the 5 functions, the Function URL config (not the
+function itself) was deleted and recreated via the AWS Console while
+logged in as the **root** user. The resulting Function URLs are wired into
+the Amplify app's custom rules (see `amplify.yml`'s app config / AWS
+Console > Amplify > Custom rules). If a Function URL is ever recreated
+again, it must be done as root via Console, not via CLI/IAM user — otherwise
+the 403 returns.
