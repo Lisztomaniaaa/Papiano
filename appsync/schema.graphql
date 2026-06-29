@@ -1,0 +1,330 @@
+schema {
+  query: Query
+  mutation: Mutation
+  subscription: Subscription
+}
+
+# ---------- Realtime domain (replaces Firebase Realtime Database) ----------
+
+type Room {
+  roomId: ID!
+  roomNumber: Int!
+  name: String!
+  owner: String!
+  ownerUid: String!
+  mode: String!          # "Public" | "Private"
+  max: Int!
+  count: Int!
+  activeCount: Int!
+  chatEnabled: Boolean!
+  createdAt: AWSTimestamp!
+  updatedAt: AWSTimestamp!
+}
+
+input CreateRoomInput {
+  name: String!
+  owner: String!
+  mode: String!
+  max: Int!
+  chatEnabled: Boolean
+}
+
+input UpdateRoomInput {
+  name: String
+  mode: String
+  count: Int
+  activeCount: Int
+  chatEnabled: Boolean
+}
+
+type RoomPlayer {
+  roomId: ID!
+  playerId: String!
+  lastSeen: AWSTimestamp!
+  joinedAt: AWSTimestamp!
+}
+
+type RoomSeat {
+  roomId: ID!
+  seat: Int!
+  uid: String!
+  joinedAt: AWSTimestamp!
+  lastSeen: AWSTimestamp!
+}
+
+type Presence {
+  uid: String!
+  room: ID
+  updatedAt: AWSTimestamp!
+}
+
+type RoomMessage {
+  roomId: ID!
+  createdAt: String!
+  messageId: String!
+  playerId: String!
+  text: String!
+}
+
+type Stream {
+  roomId: ID!
+  playerId: String!
+  p: AWSJSON!
+  updatedAt: AWSTimestamp!
+}
+
+type Moderation {
+  roomId: ID!
+  data: AWSJSON!
+  updatedAt: AWSTimestamp!
+}
+
+type RoleEntry {
+  uid: String!
+  role: String!
+}
+
+type DeletedAccount {
+  uid: String!
+  deletedAt: AWSTimestamp!
+  reason: String
+}
+
+# ---------- Persistent domain (replaces Firestore) ----------
+
+type Profile {
+  uid: ID!
+  name: String!
+  searchName: String!
+  desc: String
+  photoURL: String
+  countryCode: String
+  role: String
+  publicId: Int
+  userId: String
+  playTimeSeconds: Int
+  playTime: String
+  playTimeLeaderboardUpdatedAt: AWSTimestamp
+  likes: Int!
+  dislikes: Int!
+  deleted: Boolean
+  createdAt: AWSTimestamp!
+  updatedAt: AWSTimestamp!
+}
+
+input CreateProfileInput {
+  name: String!
+  desc: String
+  photoURL: String
+  countryCode: String
+}
+
+input UpdateProfileInput {
+  name: String
+  desc: String
+  photoURL: String
+  countryCode: String
+  playTimeSeconds: Int
+  playTime: String
+}
+
+type LeaderboardEntry {
+  uid: String!
+  name: String!
+  photoURL: String
+  playTimeSeconds: Int!
+}
+
+type ChatRoom {
+  roomId: ID!
+  type: String!          # "group" | "dm"
+  roomKey: String!
+  participants: [String!]!
+  historyVisible: Boolean
+  lastMessage: String
+  lastSenderId: String
+  unreadCount: AWSJSON
+  updatedAt: AWSTimestamp!
+}
+
+input CreateChatRoomInput {
+  type: String!
+  participants: [String!]!
+}
+
+type ChatMessage {
+  roomId: ID!
+  createdAt: String!
+  messageId: String!
+  senderId: String!
+  senderName: String!
+  senderUserId: String
+  senderPhotoURL: String
+  senderBadgeId: String
+  text: String
+  imageURL: String
+  imagePath: String
+  replyTo: AWSJSON
+  deletedForAll: Boolean
+  editedAt: AWSTimestamp
+  updatedAt: AWSTimestamp!
+}
+
+input SendChatMessageInput {
+  text: String
+  imageURL: String
+  imagePath: String
+  replyTo: AWSJSON
+}
+
+type ChatMessageConnection {
+  items: [ChatMessage!]!
+  nextToken: String
+}
+
+type Friendship {
+  uid: String!
+  otherUid: String!
+  status: String!  # accepted | pending_sent | pending_received
+  requesterId: String!
+  receiverId: String!
+  createdAt: AWSTimestamp!
+  acceptedAt: AWSTimestamp
+}
+
+type Block {
+  blockerId: String!
+  blockedId: String!
+  createdAt: AWSTimestamp!
+}
+
+type Report {
+  reporterId: String!
+  targetId: String!
+  targetName: String
+  reason: String!
+  source: String
+  roomId: String
+  roomType: String
+  messageId: String
+  createdAt: AWSTimestamp!
+}
+
+input SubmitReportInput {
+  targetId: String!
+  targetName: String
+  reason: String!
+  source: String
+  roomId: String
+  roomType: String
+  messageId: String
+  messageTextSnapshot: String
+  messageImageURL: String
+  messageSenderName: String
+}
+
+type Donation {
+  donationId: ID!
+  name: String
+  amount: Int
+  message: String
+  createdAt: AWSTimestamp!
+}
+
+type Query {
+  getRoom(roomId: ID!): Room
+  listPublicRooms: [Room!]!
+  listRoomPlayers(roomId: ID!): [RoomPlayer!]!
+  listRoomSeats(roomId: ID!): [RoomSeat!]!
+  getPresence(uid: String!): Presence
+  listRoomMessages(roomId: ID!): [RoomMessage!]!
+  getModeration(roomId: ID!): Moderation
+  listRoles: [RoleEntry!]!
+  getDeletedAccount(uid: String!): DeletedAccount
+  myRoomGrant(roomId: ID!): AWSJSON
+
+  getProfile(uid: ID!): Profile
+  searchProfilesByName(prefix: String!): [Profile!]!
+  getLeaderboard(windowSeconds: Int): [LeaderboardEntry!]!
+  myProfileReaction(profileUid: ID!): String
+
+  listMyChatRooms: [ChatRoom!]!
+  getChatRoom(roomId: ID!): ChatRoom
+  listChatMessages(roomId: ID!, limit: Int, nextToken: String): ChatMessageConnection!
+
+  listMyFriends: [Friendship!]!
+  listIncomingFriendRequests: [Friendship!]!
+  listMyBlocks: [Block!]!
+
+  listMyReports: [Report!]!
+  listAllReports: [Report!]!
+
+  listDonations: [Donation!]!
+}
+
+type Mutation {
+  createRoom(input: CreateRoomInput!): Room!
+  updateRoom(roomId: ID!, input: UpdateRoomInput!): Room!
+  deleteRoom(roomId: ID!): Boolean!
+
+  joinRoom(roomId: ID!, grantToken: String): RoomPlayer!
+  leaveRoom(roomId: ID!): Boolean!
+  heartbeatPlayer(roomId: ID!): RoomPlayer!
+
+  claimSeat(roomId: ID!, seat: Int!): RoomSeat!
+  releaseSeat(roomId: ID!, seat: Int!): Boolean!
+  heartbeatSeat(roomId: ID!, seat: Int!): RoomSeat!
+
+  updatePresence(room: ID): Presence!
+
+  sendRoomMessage(roomId: ID!, text: String!): RoomMessage!
+  deleteRoomMessages(roomId: ID!): Boolean!
+
+  updateStream(roomId: ID!, playerId: String, p: AWSJSON!): Stream!
+
+  updateModeration(roomId: ID!, data: AWSJSON!): Moderation!
+
+  setRole(uid: String!, role: String!): RoleEntry!
+  setDeletedAccount(uid: String!, reason: String): DeletedAccount!
+
+  createProfile(input: CreateProfileInput!): Profile!
+  updateProfile(uid: ID!, input: UpdateProfileInput!): Profile!
+  voteProfile(uid: ID!, type: String!): Profile!  # type: "like" | "dislike" | "none"
+
+  createChatRoom(input: CreateChatRoomInput!): ChatRoom!
+  updateChatRoom(roomId: ID!, participants: [String!]): ChatRoom!
+  sendChatMessage(roomId: ID!, input: SendChatMessageInput!): ChatMessage!
+  editChatMessage(roomId: ID!, createdAt: String!, text: String!): ChatMessage!
+  hideChatMessageForMe(roomId: ID!, createdAt: String!): Boolean!
+  deleteChatMessage(roomId: ID!, createdAt: String!): Boolean!
+
+  sendFriendRequest(otherUid: String!): Friendship!
+  acceptFriendRequest(otherUid: String!): Friendship!
+  removeFriendship(otherUid: String!): Boolean!
+
+  blockUser(blockedId: String!): Block!
+  unblockUser(blockedId: String!): Boolean!
+
+  submitReport(input: SubmitReportInput!): Report!
+
+  upsertDonation(donationId: ID, name: String, amount: Int, message: String): Donation!
+}
+
+type Subscription {
+  onRoomChanged(roomId: ID!): Room
+    @aws_subscribe(mutations: ["updateRoom"])
+  onRoomPlayersChanged(roomId: ID!): RoomPlayer
+    @aws_subscribe(mutations: ["joinRoom", "heartbeatPlayer"])
+  onRoomSeatsChanged(roomId: ID!): RoomSeat
+    @aws_subscribe(mutations: ["claimSeat", "heartbeatSeat"])
+  onPresenceChanged(uid: String!): Presence
+    @aws_subscribe(mutations: ["updatePresence"])
+  onRoomMessageAdded(roomId: ID!): RoomMessage
+    @aws_subscribe(mutations: ["sendRoomMessage"])
+  onStreamChanged(roomId: ID!): Stream
+    @aws_subscribe(mutations: ["updateStream"])
+  onModerationChanged(roomId: ID!): Moderation
+    @aws_subscribe(mutations: ["updateModeration"])
+  onChatMessageAdded(roomId: ID!): ChatMessage
+    @aws_subscribe(mutations: ["sendChatMessage"])
+}
