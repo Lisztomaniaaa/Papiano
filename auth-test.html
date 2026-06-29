@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Papiano — Cognito Auth Test</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 560px; margin: 40px auto; padding: 0 16px; background: #111; color: #eee; }
+  h1 { font-size: 20px; }
+  button { display: block; width: 100%; padding: 12px; margin: 8px 0; font-size: 15px; border-radius: 8px; border: none; cursor: pointer; }
+  .google { background: #4285F4; color: white; }
+  .cognito { background: #2d8a4e; color: white; }
+  .logout { background: #802; color: white; }
+  pre { background: #000; color: #6f6; padding: 12px; border-radius: 8px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  .err { color: #f66; }
+</style>
+</head>
+<body>
+<h1>Papiano — Cognito Auth Test</h1>
+<div id="loggedOut">
+  <button class="google" id="btnGoogle">Login dengan Google</button>
+  <button class="cognito" id="btnCognito">Login / Daftar dengan Email</button>
+</div>
+<div id="loggedIn" style="display:none">
+  <p>Login berhasil:</p>
+  <pre id="claims"></pre>
+  <button class="logout" id="btnLogout">Logout</button>
+</div>
+<p id="status"></p>
+
+<script>
+const DOMAIN = 'papiano-auth.auth.ap-southeast-1.amazoncognito.com';
+const CLIENT_ID = '6np9l79eo6om3dtm3f1kgghajn';
+const REDIRECT_URI = location.origin + location.pathname;
+
+function b64url(buf) {
+  return btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function makePkcePair() {
+  const verifierBytes = new Uint8Array(32);
+  crypto.getRandomValues(verifierBytes);
+  const verifier = b64url(verifierBytes);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const challenge = b64url(digest);
+  return { verifier, challenge };
+}
+
+async function startLogin(identityProvider) {
+  const { verifier, challenge } = await makePkcePair();
+  sessionStorage.setItem('pkce_verifier', verifier);
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    response_type: 'code',
+    scope: 'openid email profile',
+    redirect_uri: REDIRECT_URI,
+    code_challenge: challenge,
+    code_challenge_method: 'S256',
+  });
+  if (identityProvider) params.set('identity_provider', identityProvider);
+  location.href = `https://${DOMAIN}/oauth2/authorize?${params.toString()}`;
+}
+
+async function exchangeCodeForTokens(code) {
+  const verifier = sessionStorage.getItem('pkce_verifier');
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: CLIENT_ID,
+    code,
+    redirect_uri: REDIRECT_URI,
+    code_verifier: verifier,
+  });
+  const res = await fetch(`https://${DOMAIN}/oauth2/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+function decodeJwt(token) {
+  const payload = token.split('.')[1];
+  return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+}
+
+function showLoggedIn(tokens) {
+  document.getElementById('loggedOut').style.display = 'none';
+  document.getElementById('loggedIn').style.display = 'block';
+  const claims = decodeJwt(tokens.id_token);
+  document.getElementById('claims').textContent = JSON.stringify(claims, null, 2);
+  sessionStorage.setItem('id_token', tokens.id_token);
+}
+
+async function init() {
+  const params = new URLSearchParams(location.search);
+  const code = params.get('code');
+  const err = params.get('error');
+  if (err) {
+    document.getElementById('status').innerHTML = `<span class="err">Error: ${err} — ${params.get('error_description') || ''}</span>`;
+    return;
+  }
+  if (code) {
+    document.getElementById('status').textContent = 'Menukar code dengan token...';
+    try {
+      const tokens = await exchangeCodeForTokens(code);
+      history.replaceState({}, '', location.pathname);
+      document.getElementById('status').textContent = '';
+      showLoggedIn(tokens);
+    } catch (e) {
+      document.getElementById('status').innerHTML = `<span class="err">Gagal tukar token: ${e.message}</span>`;
+    }
+    return;
+  }
+  const existing = sessionStorage.getItem('id_token');
+  if (existing) showLoggedIn({ id_token: existing });
+}
+
+document.getElementById('btnGoogle').onclick = () => startLogin('Google');
+document.getElementById('btnCognito').onclick = () => startLogin();
+document.getElementById('btnLogout').onclick = () => {
+  sessionStorage.removeItem('id_token');
+  sessionStorage.removeItem('pkce_verifier');
+  const params = new URLSearchParams({ client_id: CLIENT_ID, logout_uri: REDIRECT_URI });
+  location.href = `https://${DOMAIN}/logout?${params.toString()}`;
+};
+
+init();
+</script>
+</body>
+</html>
