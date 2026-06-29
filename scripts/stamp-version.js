@@ -18,7 +18,6 @@ console.log(`version.json -> ${version}`);
   // area (app / solo / multiplayer / shared) is stamped unambiguously.
   html = html.replace(/(app\/bundle\.min\.css)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(app\/app\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
-  html = html.replace(/(app\/sdk-loader\.min\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(app\/auth-email\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(app\/edit-modal\.js)\?v=[^"']*/g, '$1?v=' + version);
   html = html.replace(/(shared\/updater\.min\.js)\?v=[^"']*/g, '$1?v=' + version);

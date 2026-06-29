@@ -312,23 +312,12 @@ async function authResendVerification() {
                 });
                 if (typeof pausePlayTimeTracker === 'function') try { pausePlayTimeTracker(true); } catch (_) {}
 
-                // Mark deleted in Realtime DB (non-fatal)
-                if (typeof realtimeDb !== 'undefined' && realtimeDb) {
-                    await realtimeDb.ref('deletedAccounts/' + uid).set({
-                        deleted: true,
-                        deletedAt: firebase.database.ServerValue.TIMESTAMP
-                    }).catch(() => {});
-                }
-
-                // Wipe Firestore profile (non-fatal)
-                if (typeof firestoreDb !== 'undefined' && firestoreDb) {
-                    await firestoreDb.collection('profiles').doc(uid).set({
-                        deleted: true,
-                        name: 'Deleted Account',
-                        searchName: 'deleted account',
-                        desc: '', photoURL: '', avatarURL: '',
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true }).catch(() => {});
+                // Wipe profile (non-fatal — the Cognito delete below is the critical step)
+                if (window.papianoData) {
+                    await window.papianoData.gql(
+                        `mutation($u: ID!, $i: UpdateProfileInput!) { updateProfile(uid: $u, input: $i) { uid } }`,
+                        { u: uid, i: { deleted: true, name: 'Deleted Account', photoURL: '', desc: '' } }
+                    ).catch(() => {});
                 }
 
                 // Delete the Cognito user (the critical step)

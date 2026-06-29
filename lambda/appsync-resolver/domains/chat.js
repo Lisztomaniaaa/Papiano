@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { doc, T, GetCommand, PutCommand, UpdateCommand, DeleteCommand, QueryCommand, TransactWriteCommand } = require('../dynamo');
 const { requireSignedIn, isAdmin, GraphqlError } = require('../auth');
+const { getProfile } = require('./profiles');
 
 function roomKeyForDm(uidA, uidB) {
   return [uidA, uidB].sort().join('_');
@@ -94,9 +95,13 @@ async function sendChatMessage(identity, roomId, input) {
 
   const now = Date.now();
   const messageId = crypto.randomUUID();
+  const profile = await getProfile(uid);
   const item = {
     roomId, createdAt: `${String(now).padStart(13, '0')}#${messageId}`, messageId,
-    senderId: uid, senderName: '', text: input.text || null,
+    senderId: uid, senderName: profile?.name || 'Papiano User',
+    senderUserId: profile?.userId || null, senderPhotoURL: profile?.photoURL || null,
+    senderBadgeId: profile?.role || 'player',
+    text: input.text || null,
     imageURL: input.imageURL || null, imagePath: input.imagePath || null,
     replyTo: input.replyTo || null, deletedForAll: false, updatedAt: now,
   };
@@ -179,17 +184,29 @@ async function unhideChatRoomForMe(identity, roomId) {
   return true;
 }
 
-async function clearChatHistory(identity, roomId) {
+async function clearChatHistory(identity, roomId, forAll) {
   const uid = requireSignedIn(identity);
   const room = await getChatRoom(roomId);
   if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
   if (!room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
-  await doc.send(new UpdateCommand({
-    TableName: T.chatRooms, Key: { roomId },
-    UpdateExpression: 'SET clearedAt.#u = :now',
-    ExpressionAttributeNames: { '#u': uid },
-    ExpressionAttributeValues: { ':now': Date.now() },
-  }));
+  const now = Date.now();
+  if (forAll) {
+    if (room.type !== 'dm') throw new GraphqlError('Can only clear for all in direct messages', 'BadRequest');
+    const clearedAt = { ...(room.clearedAt || {}) };
+    room.participants.forEach((p) => { clearedAt[p] = now; });
+    await doc.send(new UpdateCommand({
+      TableName: T.chatRooms, Key: { roomId },
+      UpdateExpression: 'SET clearedAt = :c, lastMessage = :lm, lastSenderId = :ls, updatedAt = :u',
+      ExpressionAttributeValues: { ':c': clearedAt, ':lm': null, ':ls': null, ':u': now },
+    }));
+  } else {
+    await doc.send(new UpdateCommand({
+      TableName: T.chatRooms, Key: { roomId },
+      UpdateExpression: 'SET clearedAt.#u = :now',
+      ExpressionAttributeNames: { '#u': uid },
+      ExpressionAttributeValues: { ':now': now },
+    }));
+  }
   return true;
 }
 
@@ -247,6 +264,21 @@ async function deleteChatMessage(identity, roomId, createdAt) {
   if (!existing.Item) return true;
   if (existing.Item.senderId !== uid && !isAdmin(identity)) throw new GraphqlError('Forbidden', 'Forbidden');
   await doc.send(new DeleteCommand({ TableName: T.messages, Key: { roomId, createdAt } }));
+
+  const r = await doc.send(new QueryCommand({
+    TableName: T.messages, KeyConditionExpression: 'roomId = :r', ExpressionAttributeValues: { ':r': roomId },
+    ScanIndexForward: false, Limit: 1,
+  }));
+  const survivor = (r.Items || [])[0] || null;
+  await doc.send(new UpdateCommand({
+    TableName: T.chatRooms, Key: { roomId },
+    UpdateExpression: 'SET lastMessage = :lm, lastSenderId = :ls, updatedAt = :u',
+    ExpressionAttributeValues: {
+      ':lm': survivor ? (survivor.text || (survivor.imageURL ? 'Photo' : '')) : null,
+      ':ls': survivor ? (survivor.senderId || null) : null,
+      ':u': Date.now(),
+    },
+  })).catch(() => {});
   return true;
 }
 

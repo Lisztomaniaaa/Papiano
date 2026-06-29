@@ -87,7 +87,7 @@ const handlers = {
     deleteChatMessage: (id, a, identity) => chat.deleteChatMessage(identity, a.roomId, a.createdAt),
     hideChatRoomForMe: (id, a, identity) => chat.hideChatRoomForMe(identity, a.roomId),
     unhideChatRoomForMe: (id, a, identity) => chat.unhideChatRoomForMe(identity, a.roomId),
-    clearChatHistory: (id, a, identity) => chat.clearChatHistory(identity, a.roomId),
+    clearChatHistory: (id, a, identity) => chat.clearChatHistory(identity, a.roomId, a.forAll),
     markChatRoomRead: (id, a, identity) => chat.markChatRoomRead(identity, a.roomId),
     leaveChatRoom: (id, a, identity) => chat.leaveChatRoom(identity, a.roomId),
 

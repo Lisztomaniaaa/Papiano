@@ -308,7 +308,7 @@ type Mutation {
   deleteChatMessage(roomId: ID!, createdAt: String!): Boolean!
   hideChatRoomForMe(roomId: ID!): Boolean!
   unhideChatRoomForMe(roomId: ID!): Boolean!
-  clearChatHistory(roomId: ID!): Boolean!
+  clearChatHistory(roomId: ID!, forAll: Boolean): Boolean!
   markChatRoomRead(roomId: ID!): Boolean!
   leaveChatRoom(roomId: ID!): Boolean!
 

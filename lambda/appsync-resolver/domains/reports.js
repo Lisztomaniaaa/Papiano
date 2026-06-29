@@ -27,7 +27,7 @@ async function submitReport(identity, input) {
   };
   await doc.send(new PutCommand({
     TableName: T.reports, Item: item,
-    ConditionExpression: 'attribute_not_exists(reporterId)',
+    ConditionExpression: 'attribute_not_exists(reporterId) AND attribute_not_exists(targetId)',
   })).catch((e) => {
     if (e.name === 'ConditionalCheckFailedException') return; // idempotent: already reported
     throw e;

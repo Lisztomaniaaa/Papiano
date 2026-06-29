@@ -18,7 +18,6 @@ const steps = [
   // JS: compress + mangle locals only (top-level names are kept so the
   // inline onclick handlers in index.html keep resolving).
   'npx --yes terser js/app/app.js -c -m -o js/app/app.min.js',
-  'npx --yes terser js/app/sdk-loader.js -c -m -o js/app/sdk-loader.min.js',
   'npx --yes terser js/shared/updater.js -c -m -o js/shared/updater.min.js',
   // CSS: level-1 only (whitespace/comments) — no rule reordering, so the
   // cascade is preserved exactly.

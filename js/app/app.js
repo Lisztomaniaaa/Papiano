@@ -70,60 +70,19 @@
     let currentActiveTabIndex = 0;
     let nativeBackGuardReady = false;
     const storageKey = 'papiano_profile_cache_v2';
-    const firebaseConfig = {
-        apiKey: "AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY",
-        authDomain: "papianoverse.firebaseapp.com",
-        databaseURL: "https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "papianoverse",
-        messagingSenderId: "240332627380",
-        appId: "1:240332627380:web:c80d08fa1f89b1acdb26e1",
-        measurementId: "G-3FVZ17Q69B"
-    };
-
-    let realtimeDb = null;
-    let firestoreDb = null;
 
     let _authBootstrapped = false;
 
-    function ensureFirebaseApp() {
-        if (!(firebase.apps && firebase.apps.length)) firebase.initializeApp(firebaseConfig);
-    }
-
-    // Phase 1: auth only. Resolves the signed-in/out state as soon as possible
-    // (no waiting for database/firestore to download).
     function initAuthEarly() {
         if (_authBootstrapped) return;
         _authBootstrapped = true;
         startPapianoAuthBootstrap();
     }
 
-    // Phase 2: the heavier clients (still Firebase RTDB/Firestore pending the
-    // data-layer migration). Also picks up a logged-in user that resolved
-    // before they were ready and finishes loading their profile.
-    function initPapianoSDKs() {
-        ensureFirebaseApp();
-        realtimeDb = firebase.database();
-        firestoreDb = firebase.firestore();
-        if (!_authBootstrapped) {
-            _authBootstrapped = true;
-            startPapianoAuthBootstrap();
-        }
-        if (_deferredAuthUser) {
-            const user = _deferredAuthUser;
-            _deferredAuthUser = null;
-            finishLoggedInBoot(user);
-        }
-    }
-
     if (window.__papianoAuthReady) {
         initAuthEarly();
     } else {
         window.addEventListener('papiano-auth-ready', initAuthEarly, { once: true });
-    }
-    if (window.__papianoSDKsReady) {
-        initPapianoSDKs();
-    } else {
-        window.addEventListener('papiano-sdks-ready', initPapianoSDKs, { once: true });
     }
     window.addEventListener('papiano-auth-error', e => {
         appContainer?.classList.remove('auth-pending');
@@ -133,7 +92,6 @@
     let currentUser = null;
     let currentProfile = null;
     let authStateResolved = false;
-    let _deferredAuthUser = null;
     let _authBootHidden = false;
 
     // Hide the boot overlay exactly once the auth state is known (or as a safety
@@ -207,10 +165,8 @@
     // Role registry map — loaded from Realtime DB at /roles, admin-managed.
     // Each entry: { label: 'VIP', color: '#FFD700' }
     let roleRegistry = {};
-    let rolesRef = null;
-    let rolesHandler = null;
-    let deletedAccountRef = null;
-    let deletedAccountHandler = null;
+    let rolesPollTimer = null;
+    let deletedAccountPollTimer = null;
     let pendingChatImageData = '';
     let pendingChatImagePath = '';
     let activeReplyMessage = null;
@@ -247,8 +203,6 @@
     const PLAYTIME_SYNC_MS = 60000;
     const ANNOUNCEMENT_OWNER_EMAILS = new Set(['akunpolos0444000@gmail.com', 'papianobase@gmail.com']);
 
-    const ROLE_PATH = 'roles';
-    const DELETED_ACCOUNTS_PATH = 'deletedAccounts';
 
     function normalizeRole(value) {
         return String(value || 'player').trim().toLowerCase().slice(0, 40) || 'player';
@@ -431,7 +385,7 @@
         updateProfileView(loadProfile());
         if (currentUser?.uid) {
             startPlayTimeTracker();
-            if (firestoreDb) startCommunityListeners();
+            startCommunityListeners();
         } else {
             pausePlayTimeTracker(false);
             stopCommunityListeners();
@@ -456,49 +410,51 @@
         openMainApp();
     }
 
-    function startRoleRegistryListener() {
-        if (rolesRef || !realtimeDb || !currentUser?.uid) return;
-        rolesRef = realtimeDb.ref(ROLE_PATH);
-        rolesHandler = snapshot => {
-            const data = snapshot.val() || {};
-            roleRegistry = {};
-            Object.entries(data).forEach(([id, role]) => {
-                roleRegistry[id] = {
-                    label: String(role.label || id).slice(0, 28),
-                    color: (typeof role.color === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(role.color)) ? role.color : ''
-                };
+    const ROLES_POLL_MS = 60000;
+    const DELETED_ACCOUNT_POLL_MS = 60000;
+
+    async function refreshRoleRegistry() {
+        try {
+            const data = await window.papianoData.gql(`query { listRoles { uid role } }`);
+            const next = {};
+            (data?.listRoles || []).forEach(entry => {
+                next[entry.uid] = { label: String(entry.role || entry.uid).slice(0, 28), color: '' };
             });
+            roleRegistry = next;
             updateProfileView(loadProfile());
             if (document.getElementById('brandSheetOverlay')?.classList.contains('active')) populateBrandSheet();
-        };
-        rolesRef.on('value', rolesHandler);
+        } catch (_e) {}
+    }
+
+    function startRoleRegistryListener() {
+        if (rolesPollTimer || !currentUser?.uid) return;
+        refreshRoleRegistry();
+        rolesPollTimer = setInterval(refreshRoleRegistry, ROLES_POLL_MS);
     }
 
     function stopRoleRegistryListener() {
-        if (rolesRef && rolesHandler) rolesRef.off('value', rolesHandler);
-        rolesRef = null;
-        rolesHandler = null;
+        if (rolesPollTimer) clearInterval(rolesPollTimer);
+        rolesPollTimer = null;
     }
 
     function stopDeletedAccountWatcher() {
-        if (deletedAccountRef && deletedAccountHandler) deletedAccountRef.off('value', deletedAccountHandler);
-        deletedAccountRef = null;
-        deletedAccountHandler = null;
+        if (deletedAccountPollTimer) clearInterval(deletedAccountPollTimer);
+        deletedAccountPollTimer = null;
     }
 
     const ADMIN_GATE_EMAILS = new Set(['utamairfan44@gmail.com', 'akunpolos0444000@gmail.com', 'papianobase@gmail.com']);
 
     async function isAccountDeleted(uid, email) {
-        if (!uid || !realtimeDb) return false;
+        if (!uid) return false;
         // Admin emails can never be flagged as deleted — they are the moderators.
         if (email && ADMIN_GATE_EMAILS.has(String(email).toLowerCase())) return false;
         try {
-            const snapshot = await realtimeDb.ref(`${DELETED_ACCOUNTS_PATH}/${uid}`).once('value');
-            return Boolean(snapshot.val()?.deleted);
+            const data = await window.papianoData.gql(`query($uid: String!) { getDeletedAccount(uid: $uid) { uid } }`, { uid });
+            return Boolean(data?.getDeletedAccount);
         } catch (_e) {
-            // RTDB read can fail due to transient auth-token propagation delay
-            // or network issues. Treat as "not deleted" so profile loading
-            // continues — the real-time watcher will catch it later if needed.
+            // Transient auth-token propagation delay or network issue. Treat
+            // as "not deleted" so profile loading continues — the periodic
+            // watcher will catch it later if needed.
             return false;
         }
     }
@@ -514,15 +470,13 @@
 
     function startDeletedAccountWatcher(uid) {
         stopDeletedAccountWatcher();
-        if (!uid || !realtimeDb) return;
+        if (!uid) return;
         // Admin emails are immune to the deleted-account gate.
         const email = currentUser?.email || '';
         if (ADMIN_GATE_EMAILS.has(String(email).toLowerCase())) return;
-        deletedAccountRef = realtimeDb.ref(`${DELETED_ACCOUNTS_PATH}/${uid}`);
-        deletedAccountHandler = snapshot => {
-            if (snapshot.val()?.deleted) exitDeletedAccount();
-        };
-        deletedAccountRef.on('value', deletedAccountHandler);
+        deletedAccountPollTimer = setInterval(async () => {
+            if (await isAccountDeleted(uid, email)) exitDeletedAccount();
+        }, DELETED_ACCOUNT_POLL_MS);
     }
 
     function setAuthEntryMode(mode) {
@@ -658,10 +612,10 @@
         try {
             // Mark multiplayer presence offline + stop the heartbeat before
             // signing out, so a logged-out account doesn't linger as "online".
-            if (_mpPresenceRef) {
-                try { _mpPresenceRef.onDisconnect().cancel(); } catch (_e) {}
-                try { await _mpPresenceRef.update({ online: false, updatedAt: Date.now() }); } catch (_e) {}
-                _mpPresenceRef = null;
+            if (_mpPresenceActive) {
+                _mpPresenceActive = false;
+                clearInterval(_mpPresenceHeartbeat);
+                _mpPresenceHeartbeat = null;
             }
             await window.papianoAuth.signOut();
         } catch (_error) {}
@@ -751,8 +705,6 @@
         }
 
         const uid = currentUser.uid;
-        const publicId = expectedId;
-        const userId = formatPublicUserId(publicId);
         try {
             setDeleteAccountBusy(true);
             stopCommunityListeners();
@@ -760,30 +712,12 @@
             stopDeletedAccountWatcher();
             pausePlayTimeTracker(true);
 
-            if (realtimeDb) {
-                await realtimeDb.ref(`${DELETED_ACCOUNTS_PATH}/${uid}`).set({
-                    deleted: true,
-                    publicId,
-                    userId,
-                    deletedAt: firebase.database.ServerValue.TIMESTAMP
-                });
-            }
-
-            if (firestoreDb) {
-                await firestoreDb.collection('profiles').doc(uid).delete().catch(async () => {
-                    await firestoreDb.collection('profiles').doc(uid).set({
-                        deleted: true,
-                        name: 'Deleted Account',
-                        searchName: 'deleted account',
-                        desc: '',
-                        bio: '',
-                        photoURL: '',
-                        avatarURL: '',
-                        countryCode: '',
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                });
-            }
+            try {
+                await window.papianoData.gql(
+                    `mutation($uid: ID!, $input: UpdateProfileInput!) { updateProfile(uid: $uid, input: $input) { uid } }`,
+                    { uid, input: { name: 'Deleted Account', desc: '', photoURL: '', countryCode: '', deleted: true } }
+                );
+            } catch (_e) {}
 
             try {
                 await window.papianoAuth.deleteCurrentUser();
@@ -861,15 +795,18 @@
     }
 
     async function detectAndSaveCountry(uid) {
-        if (!uid || !firestoreDb) return;
+        if (!uid) return;
         try {
-            const snap = await firestoreDb.collection('profiles').doc(uid).get();
-            if (snap.exists && snap.data()?.countryCode) return; // already set
+            const existing = await window.papianoData.gql(`query($uid: ID!) { getProfile(uid: $uid) { countryCode } }`, { uid });
+            if (existing?.getProfile?.countryCode) return; // already set
             const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(4000) });
             const data = await res.json();
             const code = String(data.country_code || '').toUpperCase();
             if (code.length === 2) {
-                await firestoreDb.collection('profiles').doc(uid).set({ countryCode: code }, { merge: true });
+                await window.papianoData.gql(
+                    `mutation($uid: ID!, $input: UpdateProfileInput!) { updateProfile(uid: $uid, input: $input) { uid } }`,
+                    { uid, input: { countryCode: code } }
+                );
                 if (currentProfile) {
                     currentProfile.countryCode = code;
                     saveProfile(currentProfile);
@@ -960,63 +897,41 @@
         return haystack.includes(q);
     }
 
+    const PROFILE_GQL_FIELDS = `uid name searchName desc photoURL countryCode role publicId userId
+        playTimeSeconds playTime likes dislikes deleted createdAt updatedAt`;
+
     async function ensureUserProfile(user) {
         if (!user?.uid) return null;
         if (await isAccountDeleted(user.uid, user.email)) throw new Error('Account data was removed by moderation.');
-        const profileRef = firestoreDb.collection('profiles').doc(user.uid);
-        const counterRef = firestoreDb.collection('counters').doc('publicUserId');
-        const base = {
-            name: user.displayName || 'Papiano User',
-            searchName: String(user.displayName || 'Papiano User').toLowerCase(),
-            desc: '',
-            photoURL: user.photoURL || '',
-            playTimeSeconds: 0,
-            playTime: '0 Min',
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
 
-        const profileData = await firestoreDb.runTransaction(async transaction => {
-            const snap = await transaction.get(profileRef);
-            const oldData = snap.exists ? (snap.data() || {}) : {};
-            let publicId = Number(oldData.publicId || 0);
-
-            if (!Number.isInteger(publicId) || publicId < 1) {
-                const counterSnap = await transaction.get(counterRef);
-                const nextId = Number(counterSnap.exists ? counterSnap.data().next : 1) || 1;
-                publicId = Math.max(1, nextId);
-                transaction.set(counterRef, { next: publicId + 1 }, { merge: true });
-            }
-
-            const merged = {
-                ...base,
-                ...oldData,
-                publicId,
-                userId: formatPublicUserId(publicId),
-                searchName: String(oldData.searchName || oldData.name || base.name || 'Papiano User').toLowerCase(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-
-            if (!snap.exists) {
-                transaction.set(profileRef, {
-                    ...merged,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            } else {
-                transaction.set(profileRef, merged, { merge: true });
-            }
-
-            return merged;
-        });
-
+        let profileData = null;
         try {
-            const nameKey = String(profileData.name || '').trim().toLowerCase();
-            if (nameKey) await firestoreDb.collection('displayNames').doc(nameKey).set({ uid: user.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        } catch (_) {}
+            const existing = await window.papianoData.gql(
+                `query($uid: ID!) { getProfile(uid: $uid) { ${PROFILE_GQL_FIELDS} } }`, { uid: user.uid }
+            );
+            profileData = existing?.getProfile || null;
+        } catch (_e) {}
+
+        if (!profileData) {
+            const created = await window.papianoData.gql(
+                `mutation($input: CreateProfileInput!) { createProfile(input: $input) { ${PROFILE_GQL_FIELDS} } }`,
+                { input: { name: user.displayName || 'Papiano User', desc: '', photoURL: user.photoURL || '' } }
+            ).catch(async (e) => {
+                // Already created concurrently (e.g. duplicate auth callback) — re-fetch.
+                if (e.errorType === 'Conflict') {
+                    const refetched = await window.papianoData.gql(
+                        `query($uid: ID!) { getProfile(uid: $uid) { ${PROFILE_GQL_FIELDS} } }`, { uid: user.uid }
+                    );
+                    return { createProfile: refetched?.getProfile };
+                }
+                throw e;
+            });
+            profileData = created?.createProfile || null;
+        }
 
         currentUser = user;
-        currentProfile = normalizeProfile(user.uid, profileData);
-        // Firestore is the source of truth for play time.
-        // Set serverBaseSeconds from the authoritative Firestore value.
+        currentProfile = normalizeProfile(user.uid, profileData || {});
+        // AppSync/DynamoDB is the source of truth for play time.
         serverBaseSeconds = Math.max(0, Number(currentProfile.playTimeSeconds) || 0);
         // Reload per-user read markers so badge logic uses correct data
         reloadLocallyReadRooms();
@@ -1068,7 +983,7 @@
     }
 
     function syncPlayTimeToFirestore(force = false) {
-        if (!currentUser?.uid || !firestoreDb) return;
+        if (!currentUser?.uid) return;
         flushElapsedToPending();
         // Skip write if nothing accumulated since last sync
         if (playTimePendingDelta <= 0 && !force) return;
@@ -1085,12 +1000,10 @@
             currentProfile.playTime = formatPlayTime(totalSeconds);
         }
         saveProfile(currentProfile);
-        firestoreDb.collection('profiles').doc(currentUser.uid).set({
-            playTimeSeconds: firebase.firestore.FieldValue.increment(deltaSeconds),
-            playTime: formatPlayTime(totalSeconds),
-            playTimeLeaderboardUpdatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true }).then(() => {
+        window.papianoData.gql(
+            `mutation($d: Int!) { incrementPlayTimeSeconds(deltaSeconds: $d) { playTimeSeconds } }`,
+            { d: deltaSeconds }
+        ).then(() => {
             playTimeSyncInFlight = false;
             clearTimeout(playTimeRetryTimer);
         }).catch((err) => {
@@ -1452,48 +1365,34 @@
         const profileUid = currentUser?.uid || loadProfile().uid || 'test_user';
 
         const cached = loadProfile();
-
-        const currentName = String(currentProfile?.name || cached.name || '').trim();
-        const normalizedNew = cleanName.toLowerCase();
-        const normalizedOld = currentName.toLowerCase();
-        if (currentUser?.uid && normalizedNew !== normalizedOld) {
-            try {
-                await firestoreDb.runTransaction(async tx => {
-                    const newRef = firestoreDb.collection('displayNames').doc(normalizedNew);
-                    const newSnap = await tx.get(newRef);
-                    if (newSnap.exists && newSnap.data()?.uid !== currentUser.uid) throw new Error('NAME_TAKEN');
-                    tx.set(newRef, { uid: currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-                    if (normalizedOld) tx.delete(firestoreDb.collection('displayNames').doc(normalizedOld));
-                });
-            } catch (e) {
-                showToast(e?.message === 'NAME_TAKEN' ? 'That name is already taken.' : 'Couldn’t update your name.');
-                profileSaveBusy = false;
-                return;
-            }
-        }
+        const photoURL = formInputPhotoUrl?.value || '';
 
         const profile = {
             uid: profileUid,
             name: cleanName,
             searchName: cleanName.toLowerCase(),
             desc: cleanDesc,
-            photoURL: formInputPhotoUrl?.value || '',
+            photoURL,
             countryCode: cleanCountry,
             role: document.getElementById('accountRoleSelect')?.value || '',
             playTimeSeconds: parsePlayTimeSeconds(cached),
-            updatedAt: currentUser?.uid ? firebase.firestore.FieldValue.serverTimestamp() : Date.now()
+            updatedAt: Date.now()
         };
         try {
             if (currentUser?.uid) {
-                const { likes, dislikes, publicId, userId, playTime, playTimeSeconds, ...editable } = profile;
-                await firestoreDb.collection('profiles').doc(currentUser.uid).set(editable, { merge: true });
+                // The resolver enforces name-uniqueness via the displayNames
+                // table and throws a Conflict error if it's already taken.
+                await window.papianoData.gql(
+                    `mutation($uid: ID!, $input: UpdateProfileInput!) { updateProfile(uid: $uid, input: $input) { uid } }`,
+                    { uid: currentUser.uid, input: { name: cleanName, desc: cleanDesc, photoURL, countryCode: cleanCountry } }
+                );
             }
             currentProfile = normalizeProfile(profileUid, { ...cached, ...profile });
             saveProfile(currentProfile);
             updateProfileView(currentProfile);
             showToast('Profile saved.', 'Saved');
         } catch (error) {
-            showToast('Couldn’t save your profile.');
+            showToast(error?.errorType === 'Conflict' ? 'That name is already taken.' : 'Couldn’t save your profile.');
         } finally {
             profileSaveBusy = false;
         }
@@ -1731,8 +1630,27 @@
         }
     }
 
+    const LEADERBOARD_POLL_MS = 30000;
+
+    async function fetchPlayTimeLeaderboard() {
+        const cutoff = getLeaderboardTimeCutoff(activeLeaderboardBoard);
+        const windowSeconds = cutoff ? Math.max(1, Math.floor((Date.now() - cutoff.getTime()) / 1000)) : null;
+        try {
+            const data = await window.papianoData.gql(
+                `query($w: Int) { getLeaderboard(windowSeconds: $w) { uid name photoURL playTimeSeconds } }`,
+                { w: windowSeconds }
+            );
+            leaderboardRemoteRows = (data?.getLeaderboard || []).map(p => normalizeProfile(p.uid, p));
+            lastLeaderboardMinute = -1;
+            renderLiveLeaderboard();
+        } catch (error) {
+            console.warn('[Papiano] Leaderboard query error:', error?.message || error);
+            renderLeaderboardError('leaderboardPlayTimeList', 'Leaderboard is unavailable right now.');
+        }
+    }
+
     function subscribePlayTimeLeaderboard() {
-        if (unsubscribeLeaderboardPlayTime || !firestoreDb) return;
+        if (unsubscribeLeaderboardPlayTime) return;
         if (!currentUser?.uid) {
             renderLeaderboardError('leaderboardPlayTimeList', 'Sign in to view leaderboard.');
             return;
@@ -1740,32 +1658,9 @@
         const target = document.getElementById('leaderboardPlayTimeList');
         if (target) target.innerHTML = '<div class="leaderboard-empty">Loading...</div>';
 
-        const cutoff = getLeaderboardTimeCutoff(activeLeaderboardBoard);
-        let query = firestoreDb.collection('profiles');
-
-        if (cutoff) {
-            // Time-filtered: only players active within the period
-            query = query.where('playTimeLeaderboardUpdatedAt', '>=', cutoff)
-                         .orderBy('playTimeLeaderboardUpdatedAt', 'asc')
-                         .orderBy('playTimeSeconds', 'desc')
-                         .limit(LEADERBOARD_VISIBLE_LIMIT);
-        } else {
-            // Total: all-time ranking
-            query = query.orderBy('playTimeSeconds', 'desc')
-                         .limit(LEADERBOARD_VISIBLE_LIMIT);
-        }
-
-        unsubscribeLeaderboardPlayTime = query.onSnapshot(snapshot => {
-            let rows = snapshot.docs.map(doc => normalizeProfile(doc.id, doc.data() || {}));
-            // For time-filtered boards, re-sort client-side by playTimeSeconds
-            if (cutoff) rows.sort((a, b) => b.playTimeSeconds - a.playTimeSeconds);
-            leaderboardRemoteRows = rows;
-            lastLeaderboardMinute = -1;
-            renderLiveLeaderboard();
-        }, error => {
-            console.warn('[Papiano] Leaderboard query error:', error?.message || error);
-            renderLeaderboardError('leaderboardPlayTimeList', 'Leaderboard is unavailable right now.');
-        });
+        fetchPlayTimeLeaderboard();
+        const pollTimer = setInterval(fetchPlayTimeLeaderboard, LEADERBOARD_POLL_MS);
+        unsubscribeLeaderboardPlayTime = () => clearInterval(pollTimer);
         startLeaderboardLiveTicker();
     }
 
@@ -2049,8 +1944,8 @@
         if (!validIds.length) return result;
         await Promise.all(validIds.map(async uid => {
             try {
-                const snap = await firestoreDb.collection('profiles').doc(uid).get();
-                result.set(uid, normalizeProfile(uid, snap.exists ? snap.data() : {}));
+                const data = await window.papianoData.gql(`query($uid: ID!) { getProfile(uid: $uid) { ${PROFILE_GQL_FIELDS} } }`, { uid });
+                result.set(uid, normalizeProfile(uid, data?.getProfile || {}));
             } catch (_error) {
                 result.set(uid, normalizeProfile(uid, {}));
             }
@@ -2060,13 +1955,14 @@
 
     async function hasBlockBetween(uidA, uidB) {
         if (!uidA || !uidB) return true;
-        const forward = `${uidA}_${uidB}`;
-        const reverse = `${uidB}_${uidA}`;
-        const [a, b] = await Promise.all([
-            firestoreDb.collection('blocks').doc(forward).get(),
-            firestoreDb.collection('blocks').doc(reverse).get()
-        ]);
-        return a.exists || b.exists;
+        try {
+            const data = await window.papianoData.gql(
+                `query($o: String!) { hasBlockBetween(otherUid: $o) }`, { o: uidB }
+            );
+            return Boolean(data?.hasBlockBetween);
+        } catch (_e) {
+            return true;
+        }
     }
 
     function renderSmallBadge(node, total) {
@@ -2227,6 +2123,8 @@
         recomputeSystemUnread();
     }
 
+    const SYSTEM_ROOM_POLL_MS = 20000;
+
     function startSystemRoomListeners() {
         const map = [
             { roomKey: 'announcements', stampId: 'announcementStamp', snippetId: 'announcementSnippet', badgeId: 'announcementUnreadBadge', defaultStamp: 'PUBLIC', defaultSnippet: 'Papiano updates.', alert: true },
@@ -2234,36 +2132,99 @@
             { roomKey: 'feedback',      stampId: 'feedbackStamp',     snippetId: 'feedbackSnippet',     defaultStamp: 'FEEDBACK', defaultSnippet: 'Feedback panel.', alert: false },
             { roomKey: 'vip',           stampId: 'vipChatStamp',      snippetId: 'vipChatSnippet',      badgeId: 'vipChatUnreadBadge', defaultStamp: 'VIP', defaultSnippet: 'Exclusive VIP chat.', alert: true }
         ];
-        map.forEach(({ roomKey, stampId, snippetId, badgeId, defaultStamp, defaultSnippet, alert }) => {
+        const refreshOne = async ({ roomKey, stampId, snippetId, badgeId, defaultStamp, defaultSnippet, alert }) => {
             const docId = getGroupRoomId(roomKey);
-            const unsub = firestoreDb.collection('chatRooms').doc(docId).onSnapshot(snap => {
-                const data = snap.exists ? (snap.data() || {}) : {};
-                const stampNode = document.getElementById(stampId);
-                const snippetNode = document.getElementById(snippetId);
-                if (snippetNode) {
-                    snippetNode.textContent = data.lastMessage ? String(data.lastMessage).slice(0, 120) : defaultSnippet;
-                }
-                if (stampNode) {
-                    const ts = data.updatedAt;
-                    const date = ts?.toDate ? ts.toDate() : null;
-                    stampNode.textContent = date
-                        ? formatChatListStamp(date)
-                        : defaultStamp;
-                }
-                if (alert && badgeId) {
-                    // Treat the room as unread when it was updated by someone else
-                    // after our last read (suppressed while we're viewing it).
-                    const isViewing = activeChatRoomId === docId;
-                    const unread = isViewing ? 0 : getRoomUnreadForMe({ id: docId, ...data });
-                    systemRoomUnread.set(docId, unread);
-                    renderSmallBadge(document.getElementById(badgeId), unread);
-                    recomputeSystemUnread();
-                }
-            }, _err => {
-                // On error keep defaults silently
+            let data = {};
+            try {
+                const r = await window.papianoData.gql(
+                    `query($id: ID!) { getChatRoom(roomId: $id) { lastMessage lastSenderId updatedAt unreadCount lastReadAt } }`,
+                    { id: docId }
+                );
+                data = r?.getChatRoom || {};
+            } catch (_err) { return; }
+            const stampNode = document.getElementById(stampId);
+            const snippetNode = document.getElementById(snippetId);
+            if (snippetNode) {
+                snippetNode.textContent = data.lastMessage ? String(data.lastMessage).slice(0, 120) : defaultSnippet;
+            }
+            if (stampNode) {
+                const date = data.updatedAt ? new Date(data.updatedAt) : null;
+                stampNode.textContent = date ? formatChatListStamp(date) : defaultStamp;
+            }
+            if (alert && badgeId) {
+                const isViewing = activeChatRoomId === docId;
+                const unread = isViewing ? 0 : getRoomUnreadForMe({ id: docId, ...data });
+                systemRoomUnread.set(docId, unread);
+                renderSmallBadge(document.getElementById(badgeId), unread);
+                recomputeSystemUnread();
+            }
+        };
+        const refreshAll = () => map.forEach(refreshOne);
+        refreshAll();
+        const pollTimer = setInterval(refreshAll, SYSTEM_ROOM_POLL_MS);
+        unsubscribeSystemRooms.push(() => clearInterval(pollTimer));
+    }
+
+    const COMMUNITY_POLL_MS = 15000;
+
+    async function refreshCommunityData() {
+        if (!currentUser?.uid) return;
+        try {
+            const data = await window.papianoData.gql(`query {
+                listMyFriends { otherUid status createdAt }
+                listIncomingFriendRequests { otherUid status createdAt }
+                listMyBlocks { blockedId createdAt }
+                listMyChatRooms { roomId type participants lastMessage lastSenderId unreadCount hiddenFor clearedAt updatedAt }
+            }`);
+
+            const accepted = (data?.listMyFriends || []).filter(item => item.status === 'accepted');
+            friendProfiles = await hydrateProfilesByIds(accepted.map(item => item.otherUid));
+
+            const requestItems = (data?.listIncomingFriendRequests || []).filter(item => item.status === 'pending_received');
+            const requestProfiles = await hydrateProfilesByIds(requestItems.map(item => item.otherUid));
+            pendingFriendRequests.clear();
+            requestItems.forEach(item => {
+                const profile = requestProfiles.get(item.otherUid) || normalizeProfile(item.otherUid, {});
+                pendingFriendRequests.set(item.otherUid, { ...profile, requestId: item.otherUid });
             });
-            unsubscribeSystemRooms.push(unsub);
-        });
+            cachedRequestDocs = requestItems;
+            recomputeFriendRequestUnread();
+
+            const blockedIds = (data?.listMyBlocks || []).map(item => item.blockedId).filter(Boolean);
+            blockedUserIds = new Set(blockedIds);
+            blockedProfiles = await hydrateProfilesByIds(blockedIds);
+
+            const rooms = (data?.listMyChatRooms || []).filter(room => room.type === 'dm' && Array.isArray(room.participants));
+            const targetIds = [...new Set(rooms.map(room => room.participants.find(uid => uid !== currentUser.uid)).filter(Boolean))]
+                .filter(uid => !blockedUserIds.has(uid));
+            const hydrated = await hydrateProfilesByIds(targetIds);
+            directChatProfiles.clear();
+            rooms.forEach(room => {
+                const targetUid = room.participants.find(uid => uid !== currentUser.uid);
+                if (!targetUid || blockedUserIds.has(targetUid)) return;
+                if (Array.isArray(room.hiddenFor) && room.hiddenFor.includes(currentUser.uid)) return;
+
+                const myClearedAt = Number(room.clearedAt?.[currentUser.uid]) || 0;
+                const updatedMs = toMillisTimestamp(room.updatedAt);
+                const noActivityFromOther = !room.lastSenderId || room.lastSenderId === currentUser.uid;
+                const previewCleared = myClearedAt > 0 && updatedMs <= myClearedAt;
+                if (previewCleared && noActivityFromOther) return;
+
+                const profile = hydrated.get(targetUid) || normalizeProfile(targetUid, {});
+                const isCurrentlyViewing = activeChatRoomType === 'dm' && activeChatTargetUid === targetUid;
+                const unreadForMe = (previewCleared || isCurrentlyViewing) ? 0 : getRoomUnreadForMe({ id: room.roomId, ...room });
+                directChatProfiles.set(targetUid, {
+                    ...profile,
+                    lastMessage: previewCleared ? 'No messages yet.' : (room.lastMessage || 'No messages yet.'),
+                    lastMessageAt: previewCleared ? null : (room.updatedAt || null),
+                    unreadForMe
+                });
+            });
+            syncDirectUnreadFromProfiles();
+            renderFriendRows();
+        } catch (_error) {
+            // keep last-known state on transient errors
+        }
     }
 
     function startCommunityListeners() {
@@ -2273,101 +2234,22 @@
             return;
         }
         startSystemRoomListeners();
-        unsubscribeFriends = firestoreDb.collection('friendships')
-            .where('users', 'array-contains', currentUser.uid)
-            .onSnapshot(async snapshot => {
-                const accepted = snapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(item => item.status === 'accepted' && Array.isArray(item.users));
-                const friendIds = [...new Set(accepted.map(item => item.users.find(uid => uid !== currentUser.uid)).filter(Boolean))];
-                friendProfiles = await hydrateProfilesByIds(friendIds);
-                renderFriendRows();
-            }, error => showToast('Couldn’t load friends.'));
-
-        unsubscribeRequests = firestoreDb.collection('friendships')
-            .where('receiverId', '==', currentUser.uid)
-            .where('status', '==', 'pending')
-            .onSnapshot(async snapshot => {
-                const requestDocs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                const senderIds = [...new Set(requestDocs.map(item => item.requesterId).filter(Boolean))];
-                const profiles = await hydrateProfilesByIds(senderIds);
-                pendingFriendRequests.clear();
-                requestDocs.forEach(item => {
-                    const profile = profiles.get(item.requesterId) || normalizeProfile(item.requesterId, {});
-                    pendingFriendRequests.set(item.id, { ...profile, requestId: item.id });
-                });
-                cachedRequestDocs = requestDocs;
-                recomputeFriendRequestUnread();
-                renderFriendRows();
-            }, error => showToast('Couldn’t load requests.'));
-
-        unsubscribeBlocks = firestoreDb.collection('blocks')
-            .where('blockerId', '==', currentUser.uid)
-            .onSnapshot(async snapshot => {
-                const blockedIds = snapshot.docs.map(doc => doc.data()?.blockedId).filter(Boolean);
-                blockedUserIds = new Set(blockedIds);
-                blockedProfiles = await hydrateProfilesByIds(blockedIds);
-                blockedUserIds.forEach(uid => directChatProfiles.delete(uid));
-                renderFriendRows();
-            }, error => showToast('Couldn’t load blocked users.'));
-
-        unsubscribeDirectChats = firestoreDb.collection('chatRooms')
-            .where('participants', 'array-contains', currentUser.uid)
-            .onSnapshot(async snapshot => {
-                const rooms = snapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .filter(room => room.type === 'dm' && Array.isArray(room.participants));
-                const targetIds = [...new Set(rooms.map(room => room.participants.find(uid => uid !== currentUser.uid)).filter(Boolean))]
-                    .filter(uid => !blockedUserIds.has(uid));
-                const hydrated = await hydrateProfilesByIds(targetIds);
-                directChatProfiles.clear();
-                rooms.forEach(room => {
-                    const targetUid = room.participants.find(uid => uid !== currentUser.uid);
-                    // Double-check blockedUserIds after async hydration (may have updated during await)
-                    if (!targetUid || blockedUserIds.has(targetUid)) return;
-                    const folderHidden = Array.isArray(room.hiddenFolderFor) && room.hiddenFolderFor.includes(currentUser.uid);
-                    const blockedFolder = Array.isArray(room.blockedFor) && room.blockedFor.includes(currentUser.uid);
-                    if (folderHidden || blockedFolder) return;
-
-                    // Robust cleared-state detection (also handles legacy data where
-                    // an old buggy unblock wiped hiddenFolderFor/clearedBy):
-                    // - If I'm in clearedBy AND the other user hasn't sent anything new -> hide.
-                    // - If lastMessage is the legacy sentinel 'Chat cleared' or empty AND
-                    //   no fresh activity from the other user -> hide.
-                    const myInClearedBy = Array.isArray(room.clearedBy) && room.clearedBy.includes(currentUser.uid);
-                    const noActivityFromOther = !room.lastSenderId || room.lastSenderId === currentUser.uid;
-                    const lastMsgEmpty = !room.lastMessage;
-                    const lastMsgLegacyCleared = room.lastMessage === 'Chat cleared';
-                    if (myInClearedBy && noActivityFromOther) return;
-                    if ((lastMsgEmpty || lastMsgLegacyCleared) && noActivityFromOther) return;
-
-                    const profile = hydrated.get(targetUid) || normalizeProfile(targetUid, {});
-                    const previewCleared = myInClearedBy;
-                    // If this DM is currently being viewed, treat as read (covers race
-                    // conditions where the snapshot fires before serverTimestamp resolves).
-                    const isCurrentlyViewing = activeChatRoomType === 'dm' && activeChatTargetUid === targetUid;
-                    const unreadForMe = (previewCleared || isCurrentlyViewing) ? 0 : getRoomUnreadForMe(room);
-                    directChatProfiles.set(targetUid, {
-                        ...profile,
-                        lastMessage: previewCleared ? 'No messages yet.' : (room.lastMessage || 'No messages yet.'),
-                        lastMessageAt: previewCleared ? null : (room.updatedAt || null),
-                        unreadForMe
-                    });
-                });
-                syncDirectUnreadFromProfiles();
-                renderFriendRows();
-            }, error => showToast('Couldn’t load private chats.'));
+        refreshCommunityData();
+        const pollTimer = setInterval(refreshCommunityData, COMMUNITY_POLL_MS);
+        unsubscribeFriends = () => clearInterval(pollTimer);
     }
 
-    async function respondFriendRequest(requestId, accept) {
-        if (!currentUser?.uid || !requestId) return;
+    async function respondFriendRequest(otherUid, accept) {
+        if (!currentUser?.uid || !otherUid) return;
         try {
-            const ref = firestoreDb.collection('friendships').doc(requestId);
             if (accept) {
-                await ref.set({ status: 'accepted', acceptedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                await window.papianoData.gql(`mutation($o: String!) { acceptFriendRequest(otherUid: $o) { uid } }`, { o: otherUid });
             } else {
-                await ref.delete();
+                await window.papianoData.gql(`mutation($o: String!) { removeFriendship(otherUid: $o) }`, { o: otherUid });
             }
+            pendingFriendRequests.delete(otherUid);
+            recomputeFriendRequestUnread();
+            refreshCommunityData();
             showToast(accept ? 'Friend request accepted.' : 'Friend request declined.', 'Friends');
         } catch (error) {
             showToast('Couldn’t update this request.');
@@ -2394,32 +2276,18 @@
                 showToast('Friend request blocked.');
                 return;
             }
-            const pairId = buildPairId(currentUser.uid, targetUid);
-            const ref = firestoreDb.collection('friendships').doc(pairId);
-            const snap = await ref.get();
-            if (snap.exists) {
-                const status = snap.data()?.status;
-                showToast(status === 'accepted' ? 'Already friends.' : 'Request already sent.');
-                return;
-            }
-            await ref.set({
-                users: [currentUser.uid, targetUid],
-                requesterId: currentUser.uid,
-                receiverId: targetUid,
-                status: 'pending',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            await window.papianoData.gql(`mutation($o: String!) { sendFriendRequest(otherUid: $o) { uid } }`, { o: targetUid });
             searchProfiles.delete(targetUid);
             renderFriendRows();
+            refreshCommunityData();
             showToast('Friend request sent.', 'Friends');
         } catch (error) {
-            showToast(friendlyError(error, 'Couldn’t send the friend request.'));
+            showToast(error?.errorType === 'Conflict' ? 'Already friends or request already sent.' : friendlyError(error, 'Couldn’t send the friend request.'));
         }
     }
 
     async function searchProfileByPublicId(query) {
-        if (!currentUser?.uid || !firestoreDb) return;
+        if (!currentUser?.uid) return;
         const clean = String(query || '').trim();
         const normalized = clean.toLowerCase();
         if (normalized === lastProfileSearchQuery) return;
@@ -2434,42 +2302,17 @@
             if (/^#?\d+$/.test(clean)) {
                 const publicId = Number(clean.replace('#', ''));
                 if (Number.isInteger(publicId) && publicId > 0) {
-                    const idSnap = await firestoreDb.collection('profiles').where('publicId', '==', publicId).limit(12).get().catch(() => null);
-                    idSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
-                    const userIdSnap = await firestoreDb.collection('profiles').where('userId', '==', formatPublicUserId(publicId)).limit(12).get().catch(() => null);
-                    userIdSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
+                    const r = await window.papianoData.gql(
+                        `query($p: Int!) { getProfileByPublicId(publicId: $p) { ${PROFILE_GQL_FIELDS} } }`, { p: publicId }
+                    ).catch(() => null);
+                    if (r?.getProfileByPublicId) found.set(r.getProfileByPublicId.uid, normalizeProfile(r.getProfileByPublicId.uid, r.getProfileByPublicId));
                 }
             }
             if (clean.length >= 2) {
-                const lowerSnap = await firestoreDb.collection('profiles')
-                    .orderBy('searchName')
-                    .startAt(normalized)
-                    .endAt(normalized + '')
-                    .limit(20)
-                    .get()
-                    .catch(() => null);
-                lowerSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
-
-                const nameSnap = await firestoreDb.collection('profiles')
-                    .orderBy('name')
-                    .startAt(clean)
-                    .endAt(clean + '')
-                    .limit(20)
-                    .get()
-                    .catch(() => null);
-                nameSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
-            }
-            if (!found.size || /^#?\d+$/.test(clean)) {
-                // Targeted search by publicId for numeric queries
-                const numericId = Number(clean.replace(/^#/, ''));
-                if (Number.isInteger(numericId) && numericId > 0) {
-                    const idSnap = await firestoreDb.collection('profiles')
-                        .where('publicId', '==', numericId)
-                        .limit(5)
-                        .get()
-                        .catch(() => null);
-                    idSnap?.forEach(doc => found.set(doc.id, normalizeProfile(doc.id, doc.data() || {})));
-                }
+                const r = await window.papianoData.gql(
+                    `query($p: String!) { searchProfilesByName(prefix: $p) { ${PROFILE_GQL_FIELDS} } }`, { p: normalized }
+                ).catch(() => null);
+                (r?.searchProfilesByName || []).forEach(p => found.set(p.uid, normalizeProfile(p.uid, p)));
             }
             found.forEach((profile, uid) => {
                 if (uid !== currentUser.uid && !friendProfiles.has(uid)) searchProfiles.set(uid, profile);
@@ -2559,19 +2402,9 @@
         clearSystemRoomUnread(activeChatRoomId);
     }
 
-    async function ensureGroupRoomHistoryVisible(roomId) {
-        if (!currentUser?.uid || !firestoreDb || !activeChatRoomId) return;
-        try {
-            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
-            await roomRef.set({
-                type: 'group',
-                roomKey: roomId || 'global',
-                historyVisible: true,
-                participants: []
-            }, { merge: true });
-        } catch (error) {
-            console.warn('Group room history metadata skipped:', error);
-        }
+    async function ensureGroupRoomHistoryVisible(_roomId) {
+        // System group rooms (announcements/global/feedback/vip) are pre-provisioned
+        // in DynamoDB with fixed roomIds — nothing to create here.
     }
 
     async function openDirectRoom(targetUid) {
@@ -2603,24 +2436,18 @@
                 showToast('Private chat is blocked.');
                 return;
             }
-            const friendRef = firestoreDb.collection('friendships').doc(buildPairId(currentUser.uid, targetUid));
-            const friendSnap = await friendRef.get();
-            if (!friendSnap.exists || friendSnap.data()?.status !== 'accepted') {
+            if (!friendProfiles.has(targetUid)) {
                 closeChatOverlayRoom();
                 showToast('Add this user as friend first.');
                 return;
             }
             // Only modify MY own state when opening a chat. Don't wipe the other
-            // user's hiddenFolderFor/clearedBy (that's their decision).
-            await firestoreDb.collection('chatRooms').doc(roomId).set({
-                type: 'dm',
-                participants: [currentUser.uid, targetUid],
-                hiddenFolderFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
-                clearedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
-                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid),
-                [`unreadCount.${currentUser.uid}`]: 0,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            // user's hidden/cleared state (that's their decision).
+            await window.papianoData.gql(
+                `mutation($i: CreateChatRoomInput!) { createChatRoom(input: $i) { roomId } }`,
+                { i: { type: 'dm', participants: [currentUser.uid, targetUid] } }
+            );
+            await window.papianoData.gql(`mutation($r: ID!) { unhideChatRoomForMe(roomId: $r) }`, { r: roomId }).catch(() => {});
             listenToActiveRoomMessages();
             markActiveRoomRead();
         } catch (error) {
@@ -2633,7 +2460,7 @@
     let lastMarkedRoomId = '';
 
     async function markActiveRoomRead() {
-        if (!currentUser?.uid || !activeChatRoomId || !firestoreDb) return;
+        if (!currentUser?.uid || !activeChatRoomId) return;
         markRoomLocallyRead(activeChatRoomId);
         if (activeChatRoomType === 'dm' && activeChatTargetUid && directChatProfiles.has(activeChatTargetUid)) {
             directChatProfiles.set(activeChatTargetUid, { ...directChatProfiles.get(activeChatTargetUid), unreadForMe: 0 });
@@ -2643,15 +2470,10 @@
         lastMarkedRoomId = activeChatRoomId;
         clearTimeout(markReadTimer);
         const roomId = activeChatRoomId;
-        const readerUid = currentUser.uid;
         markReadTimer = setTimeout(async () => {
             markReadTimer = null;
-            if (!readerUid || !firestoreDb) return;
             try {
-                await firestoreDb.collection('chatRooms').doc(roomId).set({
-                    [`unreadCount.${readerUid}`]: 0,
-                    [`lastReadAt.${readerUid}`]: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
+                await window.papianoData.gql(`mutation($r: ID!) { markChatRoomRead(roomId: $r) }`, { r: roomId });
                 if (roomId === getGroupRoomId('announcements')) {
                     localStorage.setItem(getAnnouncementReadStorageKey(), String(Date.now()));
                 }
@@ -2675,24 +2497,49 @@
             `;
         }
         const historyLimit = activeChatRoomType === 'group' ? 180 : 80;
-        unsubscribeMessages = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages')
-            .orderBy('createdAt', 'desc')
-            .limit(historyLimit)
-            .onSnapshot(async snapshot => {
-                const messages = snapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() }))
-                    .reverse()
-                    .filter(item => !(Array.isArray(item.hiddenFor) && currentUser?.uid && item.hiddenFor.includes(currentUser.uid)))
-                    .filter(item => item.deletedForAll !== true)
-                    .filter(item => !item.senderId || !blockedUserIds.has(item.senderId));
-                await hydrateMessageProfiles(messages);
-                renderChatMessages(messages);
-                // Auto mark-read whenever the listener fires while the chat is open,
-                // so incoming messages don't leave a lingering unread badge.
-                markActiveRoomRead();
-            }, error => {
-                if (chatMessagesScrollArea) chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Couldn’t load messages.</div>`;
-            });
+        const roomId = activeChatRoomId;
+        const messagesById = new Map();
+        let myClearedAtMs = 0;
+        const MESSAGE_FIELDS = `roomId createdAt messageId senderId senderName senderUserId senderPhotoURL senderBadgeId text imageURL imagePath replyTo deletedForAll editedAt hiddenFor updatedAt`;
+
+        const applyAndRender = async () => {
+            const messages = [...messagesById.values()]
+                .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))
+                .filter(item => !myClearedAtMs || (parseInt(item.createdAt, 10) || 0) > myClearedAtMs)
+                .filter(item => !(Array.isArray(item.hiddenFor) && currentUser?.uid && item.hiddenFor.includes(currentUser.uid)))
+                .filter(item => item.deletedForAll !== true)
+                .filter(item => !item.senderId || !blockedUserIds.has(item.senderId));
+            await hydrateMessageProfiles(messages);
+            renderChatMessages(messages);
+            // Auto mark-read whenever new data arrives while the chat is open,
+            // so incoming messages don't leave a lingering unread badge.
+            markActiveRoomRead();
+        };
+
+        window.papianoData.gql(
+            `query($r: ID!, $l: Int) { listChatMessages(roomId: $r, limit: $l) { items { ${MESSAGE_FIELDS} } } getChatRoom(roomId: $r) { clearedAt } }`,
+            { r: roomId, l: historyLimit }
+        ).then(data => {
+            myClearedAtMs = Number(data?.getChatRoom?.clearedAt?.[currentUser.uid]) || 0;
+            (data?.listChatMessages?.items || []).forEach(m => messagesById.set(m.messageId, { ...m, id: m.messageId }));
+            applyAndRender();
+        }).catch(() => {
+            if (chatMessagesScrollArea) chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Couldn’t load messages.</div>`;
+        });
+
+        let stopSub = null;
+        let stopped = false;
+        window.papianoData.subscribe(
+            `subscription($r: ID!) { onChatMessageAdded(roomId: $r) { ${MESSAGE_FIELDS} } }`,
+            { r: roomId },
+            data => {
+                const m = data?.onChatMessageAdded;
+                if (!m) return;
+                messagesById.set(m.messageId, { ...m, id: m.messageId });
+                applyAndRender();
+            }
+        ).then(fn => { if (stopped) fn(); else stopSub = fn; }).catch(() => {});
+        unsubscribeMessages = () => { stopped = true; if (stopSub) { try { stopSub(); } catch (_e) {} } };
     }
 
     async function hydrateMessageProfiles(messages) {
@@ -2706,7 +2553,14 @@
     const CHAT_LOCALE = 'en-US';
 
     function chatTimestampToDate(value) {
-        return value?.toDate ? value.toDate() : value instanceof Date ? value : (typeof value === 'number' && value > 0 ? new Date(value) : null);
+        if (value?.toDate) return value.toDate();
+        if (value instanceof Date) return value;
+        if (typeof value === 'number' && value > 0) return new Date(value);
+        if (typeof value === 'string') {
+            const ms = parseInt(value, 10);
+            if (Number.isFinite(ms) && ms > 0) return new Date(ms);
+        }
+        return null;
     }
 
     function startOfChatDay(date) {
@@ -2990,25 +2844,6 @@
         chatToolsModal?.classList.remove('active');
     }
 
-    async function patchChatRoomMessagesInBatches(roomRef, patchFactory) {
-        const messagesRef = roomRef.collection('messages');
-        let total = 0;
-        let snap = await messagesRef.orderBy('createdAt', 'desc').limit(500).get();
-        while (!snap.empty) {
-            const batch = firestoreDb.batch();
-            snap.docs.forEach(doc => {
-                const patch = typeof patchFactory === 'function' ? patchFactory(doc) : patchFactory;
-                batch.set(doc.ref, patch, { merge: true });
-            });
-            await batch.commit();
-            total += snap.docs.length;
-            if (snap.docs.length < 500) break;
-            const lastDoc = snap.docs[snap.docs.length - 1];
-            snap = await messagesRef.orderBy('createdAt', 'desc').startAfter(lastDoc).limit(500).get();
-        }
-        return total;
-    }
-
     async function clearActiveChatHistory() {
         if (!currentUser?.uid || !activeChatRoomId) {
             showToast('No active chat.');
@@ -3020,17 +2855,7 @@
             return;
         }
         try {
-            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
-            await patchChatRoomMessagesInBatches(roomRef, {
-                hiddenFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            const roomPatch = {
-                clearedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            if (activeChatRoomType === 'dm') roomPatch.hiddenFolderFor = firebase.firestore.FieldValue.arrayUnion(currentUser.uid);
-            await roomRef.set(roomPatch, { merge: true });
+            await window.papianoData.gql(`mutation($r: ID!) { clearChatHistory(roomId: $r) }`, { r: activeChatRoomId });
             if (activeChatRoomType === 'dm' && activeChatTargetUid) directChatProfiles.delete(activeChatTargetUid);
             renderFriendRows();
             closeChatToolsMenu();
@@ -3059,27 +2884,7 @@
             danger: true
         })) return;
         try {
-            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
-            const roomSnap = await roomRef.get().catch(() => null);
-            const roomData = roomSnap?.exists ? (roomSnap.data() || {}) : {};
-            const participants = Array.isArray(roomData.participants) && roomData.participants.length
-                ? roomData.participants
-                : [currentUser.uid, activeChatTargetUid].filter(Boolean);
-            await patchChatRoomMessagesInBatches(roomRef, {
-                deletedForAll: true,
-                text: '',
-                imageURL: '',
-                imagePath: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            const roomPatch = {
-                lastMessage: '',
-                lastSenderId: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                clearedBy: firebase.firestore.FieldValue.arrayUnion(...participants)
-            };
-            if (activeChatRoomType === 'dm') roomPatch.hiddenFolderFor = firebase.firestore.FieldValue.arrayUnion(...participants);
-            await roomRef.set(roomPatch, { merge: true });
+            await window.papianoData.gql(`mutation($r: ID!) { clearChatHistory(roomId: $r, forAll: true) }`, { r: activeChatRoomId });
             if (activeChatRoomType === 'dm' && activeChatTargetUid) directChatProfiles.delete(activeChatTargetUid);
             renderFriendRows();
             closeChatToolsMenu();
@@ -3214,55 +3019,23 @@
                 showToast('Private chat is blocked.');
                 return;
             }
-            const profile = loadProfile();
             const replySnapshot = activeReplyMessage;
-            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
-            const messageRef = roomRef.collection('messages').doc();
-            await messageRef.set({
-                senderId: currentUser.uid,
-                senderName: profile.name || 'Papiano User',
-                senderUserId: profile.userId || '',
-                senderPhotoURL: profile.photoURL || '',
-                senderBadgeId: profile.role || 'player',
-                text,
-                imageURL: pendingChatImageData || '',
-                imagePath: pendingChatImagePath || '',
+            const input = {
+                text: text || null,
+                imageURL: pendingChatImageData || null,
+                imagePath: pendingChatImagePath || null,
                 replyTo: replySnapshot ? {
                     messageId: replySnapshot.id || '',
                     senderId: replySnapshot.senderId || '',
                     senderName: replySnapshot.senderName || 'User',
                     text: replySnapshot.text || '',
                     imageURL: replySnapshot.imageURL || ''
-                } : null,
-                hiddenFor: [],
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            const roomUpdate = {
-                type: activeChatRoomType || 'group',
-                participants: activeChatRoomType === 'dm' ? [currentUser.uid, activeChatTargetUid] : [],
-                lastMessage: text || 'Photo',
-                lastSenderId: currentUser.uid,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                } : null
             };
-            if (activeChatRoomType === 'dm' && activeChatTargetUid) {
-                // Sending a message revives the chat for BOTH participants:
-                // - sender obviously wants to chat now
-                // - receiver should see the new message in their folder/list
-                // This is gated by hasBlockBetween earlier in this function and the
-                // friendship check in openDirectRoom, so blocked/unfriended pairs
-                // can't reach here. State preservation for unblock case is therefore
-                // safe (they can't open chat to send anything).
-                roomUpdate.hiddenFolderFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
-                roomUpdate.clearedBy = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
-                roomUpdate.blockedFor = firebase.firestore.FieldValue.arrayRemove(currentUser.uid, activeChatTargetUid);
-                roomUpdate[`unreadCount.${activeChatTargetUid}`] = firebase.firestore.FieldValue.increment(1);
-                roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
-            }
-            if (activeChatRoomType === 'group') {
-                roomUpdate[`unreadCount.${currentUser.uid}`] = 0;
-            }
-            await roomRef.set(roomUpdate, { merge: true });
+            await window.papianoData.gql(
+                `mutation($r: ID!, $i: SendChatMessageInput!) { sendChatMessage(roomId: $r, input: $i) { messageId } }`,
+                { r: activeChatRoomId, i: input }
+            );
             if (chatInputFieldMessage) { chatInputFieldMessage.value = ''; autoGrowChatInput(chatInputFieldMessage); updateChatInputCounter(); }
             cancelActiveReplyState();
             clearPendingChatImage();
@@ -3282,10 +3055,8 @@
     async function editOwnMessage(messageId) {
         if (!currentUser?.uid || !activeChatRoomId || !messageId) return;
         try {
-            const ref = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId);
-            const snap = await ref.get();
-            const data = snap.data() || {};
-            if (data.senderId !== currentUser.uid) {
+            const data = activeMessagesCache.get(messageId);
+            if (!data || data.senderId !== currentUser.uid) {
                 showToast('Only your messages can be edited.');
                 return;
             }
@@ -3293,11 +3064,11 @@
                 ? await window.__papianoEditModal.show(data.text || '')
                 : prompt('Edit message', data.text || '');
             if (nextText === null) return;
-            await ref.set({
-                text: String(nextText).trim().slice(0, 500),
-                editedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            await window.papianoData.gql(
+                `mutation($r: ID!, $c: String!, $t: String!) { editChatMessage(roomId: $r, createdAt: $c, text: $t) { messageId } }`,
+                { r: activeChatRoomId, c: data.createdAt, t: String(nextText).trim().slice(0, 500) }
+            );
+            listenToActiveRoomMessages();
         } catch (error) {
             showToast('Couldn’t edit this message.');
         }
@@ -3306,10 +3077,13 @@
     async function deleteMessageForMe(messageId) {
         if (!currentUser?.uid || !activeChatRoomId || !messageId) return;
         try {
-            await firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId).set({
-                hiddenFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            const data = activeMessagesCache.get(messageId);
+            if (!data) return;
+            await window.papianoData.gql(
+                `mutation($r: ID!, $c: String!) { hideChatMessageForMe(roomId: $r, createdAt: $c) }`,
+                { r: activeChatRoomId, c: data.createdAt }
+            );
+            listenToActiveRoomMessages();
         } catch (error) {
             showToast(friendlyError(error, 'Couldn’t delete. Please try again.'));
         }
@@ -3318,43 +3092,19 @@
     async function deleteOwnMessageEverywhere(messageId, successText = 'Message deleted.') {
         if (!currentUser?.uid || !activeChatRoomId || !messageId) return;
         try {
-            const roomRef = firestoreDb.collection('chatRooms').doc(activeChatRoomId);
-            const ref = roomRef.collection('messages').doc(messageId);
-            const snap = await ref.get();
-            const data = snap.data() || {};
-            if (data.senderId !== currentUser.uid) {
+            const data = activeMessagesCache.get(messageId);
+            if (!data || data.senderId !== currentUser.uid) {
                 showToast('Only your messages can be deleted.');
                 return;
             }
-            await ref.set({
-                deletedForAll: true,
-                text: '',
-                imageURL: '',
-                imagePath: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            await refreshRoomLastMessagePreview(roomRef);
+            await window.papianoData.gql(
+                `mutation($r: ID!, $c: String!) { deleteChatMessage(roomId: $r, createdAt: $c) }`,
+                { r: activeChatRoomId, c: data.createdAt }
+            );
+            listenToActiveRoomMessages();
             showToast(successText, 'Chat');
         } catch (error) {
             showToast(friendlyError(error, 'Couldn’t delete. Please try again.'));
-        }
-    }
-
-    // The room doc caches lastMessage/lastSenderId/updatedAt for chat-list and
-    // system-room previews (set in executeSendMessage). Deleting a message never
-    // touched that cache, so a deleted "last message" kept showing in previews
-    // forever. Recompute it from the most recent surviving (non-deletedForAll) message.
-    async function refreshRoomLastMessagePreview(roomRef) {
-        try {
-            const snap = await roomRef.collection('messages').orderBy('createdAt', 'desc').limit(20).get();
-            const survivor = snap.docs.map(doc => doc.data()).find(item => !item.deletedForAll);
-            await roomRef.set({
-                lastMessage: survivor ? (survivor.text || (survivor.imageURL ? 'Photo' : '')) : '',
-                lastSenderId: survivor ? (survivor.senderId || '') : '',
-                updatedAt: survivor ? (survivor.createdAt || firebase.firestore.FieldValue.serverTimestamp()) : firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-        } catch (error) {
-            // Best-effort cache refresh; the message content itself is already deleted.
         }
     }
 
@@ -3406,13 +3156,8 @@
         if (!activeChatRoomId || !messageId) return;
         if (isAnnouncementRoom() && !isAnnouncementOwner()) return;
         try {
-            let data = activeMessagesCache.get(messageId);
-            if (!data) {
-                const ref = firestoreDb.collection('chatRooms').doc(activeChatRoomId).collection('messages').doc(messageId);
-                const snap = await ref.get();
-                if (!snap.exists) return;
-                data = { id: snap.id, ...snap.data() };
-            }
+            const data = activeMessagesCache.get(messageId);
+            if (!data) return;
             const profile = getMessageSenderProfile(data);
             activeReplyMessage = {
                 id: data.id,
@@ -3538,26 +3283,6 @@
         openDirectRoom(activeFriendProfileKey);
     }
 
-    // Helper: delete ALL messages in a DM (paginated). Used by block + unfriend.
-    async function purgeDirectRoomMessages(dmId) {
-        const messagesRef = firestoreDb.collection('chatRooms').doc(dmId).collection('messages');
-        let snap = await messagesRef.orderBy('createdAt', 'desc').limit(500).get();
-        while (!snap.empty) {
-            const deleteBatch = firestoreDb.batch();
-            snap.docs.forEach(doc => deleteBatch.set(doc.ref, {
-                deletedForAll: true,
-                text: '',
-                imageURL: '',
-                imagePath: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true }));
-            await deleteBatch.commit();
-            if (snap.docs.length < 500) break;
-            const lastDoc = snap.docs[snap.docs.length - 1];
-            snap = await messagesRef.orderBy('createdAt', 'desc').startAfter(lastDoc).limit(500).get();
-        }
-    }
-
     async function unfriendFromProfile() {
         if (!currentUser?.uid || !activeFriendProfileKey) {
             showToast('No profile selected.');
@@ -3573,26 +3298,10 @@
             return;
         }
         try {
-            const pairId = buildPairId(currentUser.uid, targetUid);
             const dmId = getDirectRoomId(currentUser.uid, targetUid);
+            await window.papianoData.gql(`mutation($o: String!) { removeFriendship(otherUid: $o) }`, { o: targetUid });
+            await window.papianoData.gql(`mutation($r: ID!) { clearChatHistory(roomId: $r, forAll: true) }`, { r: dmId }).catch(() => {});
 
-            // Delete ALL messages in the DM (same as block)
-            await purgeDirectRoomMessages(dmId);
-
-            // Remove friendship + hide folder + mark cleared on my side
-            const batch = firestoreDb.batch();
-            batch.delete(firestoreDb.collection('friendships').doc(pairId));
-            batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
-                clearedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                hiddenFolderFor: firebase.firestore.FieldValue.arrayUnion(currentUser.uid),
-                [`unreadCount.${currentUser.uid}`]: 0,
-                lastMessage: '',
-                lastSenderId: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            await batch.commit();
-
-            // Local state
             const oldProfile = friendProfiles.get(targetUid) || activeFriendProfileData || normalizeProfile(targetUid, {});
             friendProfiles.delete(targetUid);
             directChatProfiles.delete(targetUid);
@@ -3618,32 +3327,9 @@
         }
         try {
             const dmId = getDirectRoomId(currentUser.uid, targetUid);
-            const participants = [currentUser.uid, targetUid];
-
-            // Delete ALL messages (paginated helper)
-            await purgeDirectRoomMessages(dmId);
-
-            // Commit the block + friendship removal + room cleanup
-            const batch = firestoreDb.batch();
-            const pairId = buildPairId(currentUser.uid, targetUid);
-            batch.delete(firestoreDb.collection('friendships').doc(pairId));
-            const blockId = `${currentUser.uid}_${targetUid}`;
-            batch.set(firestoreDb.collection('blocks').doc(blockId), {
-                blockerId: currentUser.uid,
-                blockedId: targetUid,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
-                type: 'dm',
-                participants,
-                clearedBy: firebase.firestore.FieldValue.arrayUnion(...participants),
-                blockedFor: firebase.firestore.FieldValue.arrayUnion(...participants),
-                hiddenFolderFor: firebase.firestore.FieldValue.arrayUnion(...participants),
-                lastMessage: '',
-                lastSenderId: '',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            await batch.commit();
+            await window.papianoData.gql(`mutation($b: String!) { blockUser(blockedId: $b) { blockedId } }`, { b: targetUid });
+            await window.papianoData.gql(`mutation($o: String!) { removeFriendship(otherUid: $o) }`, { o: targetUid }).catch(() => {});
+            await window.papianoData.gql(`mutation($r: ID!) { clearChatHistory(roomId: $r, forAll: true) }`, { r: dmId }).catch(() => {});
 
             // Immediately update local state
             blockedUserIds.add(targetUid);
@@ -3675,18 +3361,7 @@
             return;
         }
         try {
-            const blockId = `${currentUser.uid}_${targetUid}`;
-            const dmId = getDirectRoomId(currentUser.uid, targetUid);
-            const batch = firestoreDb.batch();
-            // Only remove the block. Keep hiddenFolderFor & clearedBy intact so the
-            // chat folder stays cleared after unblock (user must add friend / start
-            // a new chat to bring it back).
-            batch.delete(firestoreDb.collection('blocks').doc(blockId));
-            batch.set(firestoreDb.collection('chatRooms').doc(dmId), {
-                blockedFor: firebase.firestore.FieldValue.arrayRemove(currentUser.uid, targetUid),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-            await batch.commit();
+            await window.papianoData.gql(`mutation($b: String!) { unblockUser(blockedId: $b) }`, { b: targetUid });
             blockedUserIds.delete(targetUid);
             blockedProfiles.delete(targetUid);
             // Make sure the DM doesn't reappear in the chat list locally
@@ -3725,47 +3400,20 @@
         const targetUid = activeFriendProfileKey;
         setProfileReactionBusy(true);
         try {
-            const profileRef = firestoreDb.collection('profiles').doc(targetUid);
-            const reactionRef = profileRef.collection('reactions').doc(currentUser.uid);
-            const result = await firestoreDb.runTransaction(async transaction => {
-                const profileSnap = await transaction.get(profileRef);
-                const reactionSnap = await transaction.get(reactionRef);
-                const profileData = profileSnap.exists ? (profileSnap.data() || {}) : {};
-                const oldType = reactionSnap.exists ? String(reactionSnap.data()?.type || '') : '';
-                let likes = Math.max(0, Number(profileData.likes || 0));
-                let dislikes = Math.max(0, Number(profileData.dislikes || 0));
-                let activeType = voteType;
-
-                if (oldType === voteType) {
-                    if (voteType === 'like') likes = Math.max(0, likes - 1);
-                    if (voteType === 'dislike') dislikes = Math.max(0, dislikes - 1);
-                    activeType = '';
-                    transaction.delete(reactionRef);
-                } else {
-                    if (oldType === 'like') likes = Math.max(0, likes - 1);
-                    if (oldType === 'dislike') dislikes = Math.max(0, dislikes - 1);
-                    if (voteType === 'like') likes += 1;
-                    if (voteType === 'dislike') dislikes += 1;
-                    transaction.set(reactionRef, {
-                        type: voteType,
-                        voterId: currentUser.uid,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                }
-
-                transaction.set(profileRef, {
-                    likes,
-                    dislikes,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-                return { likes, dislikes, activeType };
-            });
+            const reactionData = await window.papianoData.gql(`query($p: ID!) { myProfileReaction(profileUid: $p) }`, { p: targetUid });
+            const oldType = reactionData?.myProfileReaction || '';
+            const nextType = oldType === voteType ? 'none' : voteType;
+            const data = await window.papianoData.gql(
+                `mutation($u: ID!, $t: String!) { voteProfile(uid: $u, type: $t) { likes dislikes } }`,
+                { u: targetUid, t: nextType }
+            );
+            const updated = data?.voteProfile || {};
 
             if (activeFriendProfileKey !== targetUid) return;
             const profile = {
                 ...(activeFriendProfileData || normalizeProfile(targetUid, {})),
-                likes: result.likes,
-                dislikes: result.dislikes
+                likes: updated.likes || 0,
+                dislikes: updated.dislikes || 0
             };
             activeFriendProfileData = profile;
             if (friendProfiles.has(targetUid)) friendProfiles.set(targetUid, profile);
@@ -3775,8 +3423,8 @@
             if (leaderboardProfiles.has(targetUid)) leaderboardProfiles.set(targetUid, profile);
             updateFriendProfileVoteUI(profile);
 
-            if (result.activeType) {
-                const votedBtn = document.querySelector(result.activeType === 'dislike' ? '.vote-btn-panel.v-dislike' : '.vote-btn-panel.v-like');
+            if (nextType !== 'none') {
+                const votedBtn = document.querySelector(nextType === 'dislike' ? '.vote-btn-panel.v-dislike' : '.vote-btn-panel.v-like');
                 if (votedBtn) {
                     votedBtn.classList.remove('just-voted');
                     requestAnimationFrame(() => {
@@ -3810,29 +3458,22 @@
             return;
         }
         try {
-            const reportId = `${currentUser.uid}_${activeFriendProfileKey}`;
-            const reportRef = firestoreDb.collection('reports').doc(reportId);
-            const existing = await reportRef.get();
-            if (existing.exists) {
-                showToast('Already reported this user.');
-                closeReportModal();
-                return;
-            }
             const context = activeReportContext && activeReportContext.targetId === activeFriendProfileKey ? activeReportContext : null;
-            await reportRef.set({
-                reporterId: currentUser.uid,
-                targetId: activeFriendProfileKey,
-                targetName: activeFriendProfileData?.name || '',
-                reason,
-                source: context?.source || 'profile',
-                roomId: context?.roomId || '',
-                roomType: context?.roomType || '',
-                messageId: context?.messageId || '',
-                messageTextSnapshot: context?.messageTextSnapshot || '',
-                messageImageURL: context?.messageImageURL || '',
-                messageSenderName: context?.messageSenderName || '',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            await window.papianoData.gql(
+                `mutation($i: SubmitReportInput!) { submitReport(input: $i) { targetId } }`,
+                { i: {
+                    targetId: activeFriendProfileKey,
+                    targetName: activeFriendProfileData?.name || '',
+                    reason,
+                    source: context?.source || 'profile',
+                    roomId: context?.roomId || '',
+                    roomType: context?.roomType || '',
+                    messageId: context?.messageId || '',
+                    messageTextSnapshot: context?.messageTextSnapshot || '',
+                    messageImageURL: context?.messageImageURL || '',
+                    messageSenderName: context?.messageSenderName || ''
+                } }
+            );
             showToast('Report submitted. Thank you.');
             closeReportModal();
         } catch (error) {
@@ -4026,59 +3667,25 @@
     window.addEventListener('pagehide', _playtimeLastChanceSync);
     window.addEventListener('beforeunload', _playtimeLastChanceSync);
 
-    var _mpPresenceRef = null;
+    var _mpPresenceActive = false;
+    var _mpPresenceHeartbeat = null;
 
     function restoreMultiplayerPresence(uid) {
-        if (!realtimeDb || !uid) return;
-        try {
-            var profile = currentProfile || {};
-            var now = Date.now();
-            _mpPresenceRef = realtimeDb.ref('papianoOnlineBeta/users/' + uid);
-            _mpPresenceRef.update({
-                id: uid,
-                uid: uid,
-                name: profile.name || 'Papiano User',
-                uidLabel: profile.userId || '',
-                userId: profile.userId || '',
-                publicId: profile.publicId || 0,
-                role: profile.role || 'player',
-                photoURL: profile.photoURL || '',
-                bio: profile.desc || '',
-                desc: profile.desc || '',
-                color: profile.color || '',
-                countryCode: profile.countryCode || '',
-                online: true,
-                room: null,
-                lastSeen: now,
-                lastActive: now,
-                updatedAt: now
-            });
-            _mpPresenceRef.onDisconnect().update({
-                online: false,
-                updatedAt: Date.now()
-            });
-        } catch (e) {}
+        if (!uid) return;
+        _mpPresenceActive = true;
+        touchMultiplayerPresence();
+        clearInterval(_mpPresenceHeartbeat);
+        _mpPresenceHeartbeat = setInterval(touchMultiplayerPresence, 30000);
     }
 
     function touchMultiplayerPresence() {
-        if (!_mpPresenceRef) return;
-        try {
-            _mpPresenceRef.update({
-                online: true,
-                lastSeen: Date.now(),
-                lastActive: Date.now(),
-                updatedAt: Date.now()
-            });
-        } catch (e) {}
+        if (!_mpPresenceActive) return;
+        window.papianoData.gql(`mutation { updatePresence(room: null) { uid updatedAt } }`).catch(() => {});
     }
 
     document.addEventListener('visibilitychange', function() {
-        if (!document.hidden && _mpPresenceRef) touchMultiplayerPresence();
+        if (!document.hidden && _mpPresenceActive) touchMultiplayerPresence();
     });
-
-    setInterval(function() {
-        if (!document.hidden && _mpPresenceRef) touchMultiplayerPresence();
-    }, 30000);
 
     function startPapianoAuthBootstrap() {
         window.papianoAuth.onAuthStateChanged(async user => {
@@ -4097,7 +3704,6 @@
                 if (needsEmailVerify && !currentProfile) {
                     currentUser = null;
                     currentProfile = null;
-                    _deferredAuthUser = null;
                     openMainApp();
                     hideAuthBootOverlay();
                     const verifyAddr = document.getElementById('authVerifyEmailAddr');
@@ -4107,17 +3713,6 @@
                     return;
                 }
                 currentUser = user; // mark signed-in now so the UI stops looking "logged out"
-                if (!firestoreDb) {
-                    // Auth resolved before Firestore finished downloading. Reveal the
-                    // app immediately as "signed in" using the cached profile, and
-                    // finish loading once initPapianoSDKs() runs.
-                    _deferredAuthUser = user;
-                    currentProfile = currentProfile || loadProfile();
-                    openMainApp();
-                    navigateActiveTab(currentActiveTabIndex, appTabHeaderTitles[currentActiveTabIndex]);
-                    hideAuthBootOverlay();
-                    return;
-                }
                 await finishLoggedInBoot(user);
                 hideAuthBootOverlay();
                 return;
@@ -4126,7 +3721,6 @@
             accessSessionActive = true;
             currentUser = null;
             currentProfile = null;
-            _deferredAuthUser = null;
             openMainApp();
             hideAuthBootOverlay();
         });
@@ -4150,12 +3744,12 @@
                 }
             }
             // Fallback: try a plain read (no write) so the profile at least shows
-            if (!currentProfile && firestoreDb && user?.uid) {
+            if (!currentProfile && user?.uid) {
                 try {
-                    const snap = await firestoreDb.collection('profiles').doc(user.uid).get();
-                    if (snap.exists) {
+                    const data = await window.papianoData.gql(`query($uid: ID!) { getProfile(uid: $uid) { ${PROFILE_GQL_FIELDS} } }`, { uid: user.uid });
+                    if (data?.getProfile) {
                         currentUser = user;
-                        currentProfile = normalizeProfile(user.uid, snap.data());
+                        currentProfile = normalizeProfile(user.uid, data.getProfile);
                         saveProfile(currentProfile);
                         updateProfileView(currentProfile);
                     }
