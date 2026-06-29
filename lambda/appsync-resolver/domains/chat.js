@@ -42,7 +42,7 @@ async function createChatRoom(identity, input) {
   const now = Date.now();
   const room = {
     roomId, type: input.type, roomKey, participants: input.participants,
-    historyVisible: true, lastMessage: null, lastSenderId: null, unreadCount: {},
+    historyVisible: true, lastMessage: null, lastSenderId: null, unreadCount: {}, lastReadAt: {},
     hiddenFor: [], clearedAt: {}, updatedAt: now,
   };
   const transactItems = [
@@ -90,7 +90,7 @@ async function sendChatMessage(identity, roomId, input) {
   const uid = requireSignedIn(identity);
   const room = await getChatRoom(roomId);
   if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
-  if (!room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
+  if (room.participants.length && !room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
 
   const now = Date.now();
   const messageId = crypto.randomUUID();
@@ -132,13 +132,22 @@ async function markChatRoomRead(identity, roomId) {
   const uid = requireSignedIn(identity);
   const room = await getChatRoom(roomId);
   if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
-  if (!room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
-  await doc.send(new UpdateCommand({
-    TableName: T.chatRooms, Key: { roomId },
-    UpdateExpression: 'SET unreadCount.#u = :z',
-    ExpressionAttributeNames: { '#u': uid },
-    ExpressionAttributeValues: { ':z': 0 },
-  }));
+  if (room.participants.length && !room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
+  if (room.participants.length === 0) {
+    await doc.send(new UpdateCommand({
+      TableName: T.chatRooms, Key: { roomId },
+      UpdateExpression: 'SET lastReadAt.#u = :now',
+      ExpressionAttributeNames: { '#u': uid },
+      ExpressionAttributeValues: { ':now': Date.now() },
+    }));
+  } else {
+    await doc.send(new UpdateCommand({
+      TableName: T.chatRooms, Key: { roomId },
+      UpdateExpression: 'SET unreadCount.#u = :z',
+      ExpressionAttributeNames: { '#u': uid },
+      ExpressionAttributeValues: { ':z': 0 },
+    }));
+  }
   return true;
 }
 

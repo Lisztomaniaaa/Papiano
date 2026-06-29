@@ -145,6 +145,7 @@ type ChatRoom {
   lastMessage: String
   lastSenderId: String
   unreadCount: AWSJSON
+  lastReadAt: AWSJSON
   hiddenFor: [String!]
   clearedAt: AWSJSON
   updatedAt: AWSTimestamp!
@@ -170,6 +171,7 @@ type ChatMessage {
   replyTo: AWSJSON
   deletedForAll: Boolean
   editedAt: AWSTimestamp
+  hiddenFor: [String!]
   updatedAt: AWSTimestamp!
 }
 
