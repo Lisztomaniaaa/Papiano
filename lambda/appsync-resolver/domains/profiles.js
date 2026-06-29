@@ -143,12 +143,32 @@ async function updateProfile(identity, uid, input) {
     vals[':pts'] = input.playTimeSeconds; vals[':ptu'] = now; vals[':lbs'] = 'ALL';
   }
   if (input.playTime !== undefined) { sets.push('playTime = :pt'); vals[':pt'] = input.playTime; }
+  if (input.deleted !== undefined) { sets.push('deleted = :del'); vals[':del'] = input.deleted; }
 
   const r = await doc.send(new UpdateCommand({
     TableName: T.profiles, Key: { uid },
     UpdateExpression: 'SET ' + sets.join(', '),
     ExpressionAttributeNames: Object.keys(names).length ? names : undefined,
     ExpressionAttributeValues: vals,
+    ReturnValues: 'ALL_NEW',
+  }));
+  return r.Attributes;
+}
+
+async function incrementPlayTimeSeconds(identity, deltaSeconds) {
+  const uid = requireSignedIn(identity);
+  const delta = Math.max(0, Math.floor(Number(deltaSeconds) || 0));
+  if (!delta) {
+    const profile = await getProfile(uid);
+    if (!profile) throw new GraphqlError('Profile not found', 'NotFound');
+    return profile;
+  }
+  const now = Date.now();
+  const r = await doc.send(new UpdateCommand({
+    TableName: T.profiles, Key: { uid },
+    UpdateExpression: 'ADD playTimeSeconds :d SET playTimeLeaderboardUpdatedAt = :now, leaderboardShard = :lbs, updatedAt = :now',
+    ConditionExpression: 'attribute_exists(uid)',
+    ExpressionAttributeValues: { ':d': delta, ':now': now, ':lbs': 'ALL' },
     ReturnValues: 'ALL_NEW',
   }));
   return r.Attributes;
@@ -209,5 +229,5 @@ async function voteProfile(identity, profileUid, type) {
 
 module.exports = {
   getProfile, getProfileByPublicId, getProfileByUserId, searchProfilesByName, getLeaderboard,
-  createProfile, updateProfile, myProfileReaction, voteProfile,
+  createProfile, updateProfile, incrementPlayTimeSeconds, myProfileReaction, voteProfile,
 };

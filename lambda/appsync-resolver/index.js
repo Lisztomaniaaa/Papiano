@@ -42,6 +42,7 @@ const handlers = {
     listMyFriends: (id, a, identity) => friendships.listMyFriends(identity),
     listIncomingFriendRequests: (id, a, identity) => friendships.listIncomingFriendRequests(identity),
     listMyBlocks: (id, a, identity) => blocks.listMyBlocks(identity),
+    hasBlockBetween: (id, a, identity) => blocks.hasBlockBetween(identity, a.otherUid),
 
     listMyReports: (id, a, identity) => reports.listMyReports(identity),
     listAllReports: (id, a, identity) => reports.listAllReports(identity),
@@ -75,6 +76,7 @@ const handlers = {
 
     createProfile: (id, a, identity) => profiles.createProfile(identity, a.input),
     updateProfile: (id, a, identity) => profiles.updateProfile(identity, a.uid, a.input),
+    incrementPlayTimeSeconds: (id, a, identity) => profiles.incrementPlayTimeSeconds(identity, a.deltaSeconds),
     voteProfile: (id, a, identity) => profiles.voteProfile(identity, a.uid, a.type),
 
     createChatRoom: (id, a, identity) => chat.createChatRoom(identity, a.input),

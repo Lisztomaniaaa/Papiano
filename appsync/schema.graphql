@@ -126,6 +126,7 @@ input UpdateProfileInput {
   countryCode: String
   playTimeSeconds: Int
   playTime: String
+  deleted: Boolean
 }
 
 type LeaderboardEntry {
@@ -259,6 +260,7 @@ type Query {
   listMyFriends: [Friendship!]!
   listIncomingFriendRequests: [Friendship!]!
   listMyBlocks: [Block!]!
+  hasBlockBetween(otherUid: String!): Boolean!
 
   listMyReports: [Report!]!
   listAllReports: [Report!]!
@@ -293,6 +295,7 @@ type Mutation {
 
   createProfile(input: CreateProfileInput!): Profile!
   updateProfile(uid: ID!, input: UpdateProfileInput!): Profile!
+  incrementPlayTimeSeconds(deltaSeconds: Int!): Profile!
   voteProfile(uid: ID!, type: String!): Profile!  # type: "like" | "dislike" | "none"
 
   createChatRoom(input: CreateChatRoomInput!): ChatRoom!

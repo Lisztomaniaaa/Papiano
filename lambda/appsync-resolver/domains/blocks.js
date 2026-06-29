@@ -1,5 +1,14 @@
-const { doc, T, PutCommand, DeleteCommand, QueryCommand } = require('../dynamo');
+const { doc, T, PutCommand, DeleteCommand, QueryCommand, GetCommand } = require('../dynamo');
 const { requireSignedIn, GraphqlError } = require('../auth');
+
+async function hasBlockBetween(identity, otherUid) {
+  const uid = requireSignedIn(identity);
+  const [mine, theirs] = await Promise.all([
+    doc.send(new GetCommand({ TableName: T.blocks, Key: { blockerId: uid, blockedId: otherUid } })),
+    doc.send(new GetCommand({ TableName: T.blocks, Key: { blockerId: otherUid, blockedId: uid } })),
+  ]);
+  return Boolean(mine.Item || theirs.Item);
+}
 
 async function listMyBlocks(identity) {
   const uid = requireSignedIn(identity);
@@ -23,4 +32,4 @@ async function unblockUser(identity, blockedId) {
   return true;
 }
 
-module.exports = { listMyBlocks, blockUser, unblockUser };
+module.exports = { listMyBlocks, hasBlockBetween, blockUser, unblockUser };
