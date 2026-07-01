@@ -170,7 +170,31 @@
             if (claims && claims.exp * 1000 > Date.now() + 30000) {
                 currentUser = userFromIdToken(idToken);
             } else if (refreshToken) {
-                try { await refreshSession(); } catch (_e) { clearTokens(); currentUser = null; }
+                try {
+                    await refreshSession();
+                } catch (e) {
+                    if (e && e.code !== undefined) {
+                        // Structured rejection from Cognito itself (e.g.
+                        // NotAuthorizedException for a revoked/expired refresh
+                        // token) — the session really is over.
+                        clearTokens(); currentUser = null;
+                    } else {
+                        // Network-level failure (fetch() rejected outright, no
+                        // e.code) — common right after a phone wakes from sleep
+                        // or a tab regains connectivity, where the very first
+                        // request often fails before the network is ready. One
+                        // short retry before giving up, so a momentary blip
+                        // doesn't force a fresh login on top of a still-valid
+                        // refresh token.
+                        await new Promise(function (r) { setTimeout(r, 1200); });
+                        try {
+                            await refreshSession();
+                        } catch (e2) {
+                            if (e2 && e2.code !== undefined) { clearTokens(); currentUser = null; }
+                            // else: keep the tokens; the next reload gets another try.
+                        }
+                    }
+                }
             } else {
                 clearTokens(); currentUser = null;
             }
