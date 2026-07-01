@@ -1242,7 +1242,10 @@
         const box = document.getElementById('topUserBox');
         if (!box) return;
 
-        const signedIn = !!currentUser?.uid;
+        // Optimistic like the rest of the chrome: a returning user with a
+        // stored session must never see the top-bar "Log in" button flash
+        // (or linger) while tokens/profile load over the network.
+        const signedIn = isProbablySignedIn();
         box.classList.toggle('is-open-access', !signedIn);
 
         document.querySelectorAll('.top-auth-btn').forEach(button => {
