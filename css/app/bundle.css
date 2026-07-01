@@ -1611,3 +1611,15 @@ select.form-input-control::-ms-expand{display:none}
 }
 
 .mention-tag{color:#3578e5;font-weight:600}
+
+/* ── Auth-boot chrome guard ─────────────────────────────────────────────
+   The inline <head> script adds .auth-boot to <html> when a stored session
+   token exists but JS hasn't confirmed auth state yet. While it's present,
+   auth-dependent chrome stays invisible so a signed-in user never sees a
+   "Log in" / "Sign in" button flash on first paint. app.js removes the
+   class the moment auth resolves; the buttons then fade in smoothly only
+   when the visitor is genuinely signed out. */
+.top-auth-btn,
+.sidebar-extra-auth { transition: opacity .25s ease; }
+html.auth-boot .top-auth-btn,
+html.auth-boot .sidebar-extra-auth { opacity: 0; pointer-events: none; }

@@ -3703,6 +3703,10 @@
     function startPapianoAuthBootstrap() {
         window.papianoAuth.onAuthStateChanged(async user => {
             authStateResolved = true;
+            // Auth state is now definitive — release the auth-boot chrome
+            // guard (set by the inline <head> script) so auth-dependent
+            // buttons fade to their real state instead of flashing at paint.
+            document.documentElement.classList.remove('auth-boot');
             if (user?.uid) {
                 // Email/password accounts must confirm their email before they
                 // get into the app. Creating an account auto-signs-in the user,
