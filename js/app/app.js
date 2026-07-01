@@ -611,9 +611,9 @@
     }
 
     async function logoutPapianoAccount() {
-        // All local cleanup happens BEFORE signOut(): signOut navigates away
-        // (through Cognito's /logout to clear its SSO cookie), so nothing
-        // after it is guaranteed to run.
+        // Sign-out is instant and local — no navigation, no reload. The UI
+        // flips to logged-out right here; Cognito-side session cleanup runs
+        // in the background (see cognito-auth.js signOut()).
         // Mark multiplayer presence offline + stop the heartbeat before
         // signing out, so a logged-out account doesn't linger as "online".
         if (_mpPresenceActive) {
@@ -636,9 +636,8 @@
         // and prevent the unread badge from flashing on re-authentication.
         try {
             await window.papianoAuth.signOut();
-        } catch (_error) {
-            showLoginScreen();
-        }
+        } catch (_error) {}
+        showLoginScreen();
     }
 
     function parsePublicIdInput(value) {

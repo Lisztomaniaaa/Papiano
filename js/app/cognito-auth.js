@@ -36,6 +36,17 @@
     var TOK_ACCESS = 'papiano_access_token';
     var TOK_REFRESH = 'papiano_refresh_token';
     var PKCE_KEY = 'papiano_pkce_verifier';
+    // Set when a sign-out couldn't clear the Hosted UI SSO cookie on the
+    // Cognito domain (cross-site → impossible without a navigation). The
+    // next Google sign-in consumes it by bouncing through /logout first.
+    var SSO_STALE_KEY = 'papiano_sso_stale';
+    // Set just before that /logout bounce; on return, init() consumes it
+    // and continues straight into the Google authorize redirect.
+    var RESUME_GOOGLE_KEY = 'papiano_resume_google';
+    // When the auth domain is a papiano.app subdomain, requests from the
+    // app are same-site, so SameSite=Lax session cookies DO travel on a
+    // background fetch — sign-out can clear the Hosted UI session silently.
+    var SAME_SITE_AUTH = /\.papiano\.app$/.test(COGNITO_DOMAIN);
 
     // Refresh when less than this much ID-token lifetime remains.
     var REFRESH_SKEW_MS = 5 * 60 * 1000;
@@ -286,6 +297,17 @@
     }
 
     async function init() {
+        // Returning from the pre-sign-in /logout bounce? Head straight into
+        // the Google authorize redirect — the user already clicked "sign in
+        // with Google"; this page load is just a hop in that flow.
+        try {
+            if (sessionStorage.getItem(RESUME_GOOGLE_KEY) === '1') {
+                sessionStorage.removeItem(RESUME_GOOGLE_KEY);
+                await signInWithGoogleRedirect();
+                return; // navigating away
+            }
+        } catch (_e) {}
+
         // Restore FIRST: a failed ?code= exchange (stale code from a reload
         // or back-button) must never wipe out a valid stored session.
         loadPersistedTokens();
@@ -372,29 +394,37 @@
         } catch (_e) {}
     }
 
-    // Local-only sign-out: clears this page's session without navigating.
-    // For programmatic paths (ban watcher, deleted-account gate, delete
-    // fallback) that manage their own UI/navigation afterwards.
-    function signOutLocal() {
-        var rt = refreshToken;
-        endSession();
-        revokeSessionToken(rt);
-    }
-
-    // User-initiated sign-out: also clears the Hosted UI's SSO session
-    // cookie on the amazoncognito.com domain via a real top-level
-    // navigation to /logout. That cookie is SameSite=Lax — a background
-    // fetch() can never carry or clear it — and leaving it behind makes
-    // the next Google sign-in silently reuse the old Cognito session.
-    // The revocation request uses keepalive so it survives the unload.
+    // Instant sign-out: clears local state and notifies the UI immediately —
+    // no navigation, no reload. The refresh-token revocation runs in the
+    // background (keepalive, so it survives even if the user navigates).
+    //
+    // The Hosted UI's SSO session cookie on the Cognito domain is the one
+    // thing that can't always be cleared from here: it's SameSite=Lax, so a
+    // cross-site background fetch never carries it. Two strategies:
+    //  - Same-site auth domain (auth.papiano.app): the fetch DOES carry the
+    //    cookie — clear the session silently right now.
+    //  - Cross-site (amazoncognito.com): mark the session stale; the next
+    //    Google sign-in bounces through /logout first (see
+    //    signInWithGoogleRedirect), clearing it in a navigation that flow
+    //    already needs. Email sign-in is unaffected either way.
     async function signOut() {
         var rt = refreshToken;
         endSession();
         revokeSessionToken(rt);
-        // logout_uri must exactly match a registered Logout URL.
-        location.href = 'https://' + COGNITO_DOMAIN + '/logout?client_id=' + CLIENT_ID
-            + '&logout_uri=' + encodeURIComponent(REDIRECT_URI);
+        if (SAME_SITE_AUTH) {
+            try {
+                fetch('https://' + COGNITO_DOMAIN + '/logout?client_id=' + CLIENT_ID
+                    + '&logout_uri=' + encodeURIComponent(REDIRECT_URI),
+                    { mode: 'no-cors', credentials: 'include', keepalive: true }).catch(function () {});
+            } catch (_e) {}
+        } else {
+            try { localStorage.setItem(SSO_STALE_KEY, '1'); } catch (_e) {}
+        }
     }
+
+    // Kept as a separate export name for existing call sites (ban watcher,
+    // deleted-account gate, delete fallback) — same instant behavior.
+    var signOutLocal = signOut;
 
     async function signInWithEmailAndPassword(email, password) {
         var data = await cognitoRequest('InitiateAuth', {
@@ -457,6 +487,24 @@
     }
 
     async function signInWithGoogleRedirect() {
+        // A previous sign-out left a stale Hosted UI session on the Cognito
+        // domain (cross-site, uncleaable at logout time). Bounce through
+        // /logout first — it clears the session and 302s straight back to
+        // this page, where init() sees RESUME_GOOGLE_KEY and continues into
+        // the real authorize redirect. One extra hop, only on the first
+        // Google sign-in after a logout, and only until the auth domain
+        // moves same-site.
+        var stale = false;
+        try {
+            stale = localStorage.getItem(SSO_STALE_KEY) === '1';
+            if (stale) localStorage.removeItem(SSO_STALE_KEY);
+        } catch (_e) {}
+        if (stale && !SAME_SITE_AUTH) {
+            try { sessionStorage.setItem(RESUME_GOOGLE_KEY, '1'); } catch (_e) {}
+            location.href = 'https://' + COGNITO_DOMAIN + '/logout?client_id=' + CLIENT_ID
+                + '&logout_uri=' + encodeURIComponent(REDIRECT_URI);
+            return;
+        }
         var pair = await makePkcePair();
         sessionStorage.setItem(PKCE_KEY, pair.verifier);
         var params = new URLSearchParams({
