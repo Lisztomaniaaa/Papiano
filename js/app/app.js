@@ -102,6 +102,26 @@
     function isProbablySignedIn() {
         return !!currentUser || (!authStateResolved && authBootLikely);
     }
+    // Companion to the optimistic chrome above, for ACTIONS: during the
+    // first seconds after load the UI already looks signed in while tokens
+    // refresh over the network — clicking Edit/Delete/Chat/etc. in that
+    // window must briefly wait for the real auth state instead of bouncing
+    // a genuinely signed-in user with a "Sign in" toast.
+    async function ensureAuthedUser() {
+        if (currentUser?.uid) return currentUser;
+        if (!authStateResolved && authBootLikely && window.papianoAuth) {
+            await new Promise(resolve => {
+                // The bootstrap listener registered earlier runs first and
+                // sets currentUser synchronously before this resolves.
+                const off = window.papianoAuth.onAuthStateChanged(() => {
+                    try { off(); } catch (_e) {}
+                    resolve();
+                });
+                setTimeout(resolve, 8000); // never leave a click hanging
+            });
+        }
+        return currentUser?.uid ? currentUser : null;
+    }
     // No-op kept so existing call sites don't need touching — the "Checking
     // your session…" boot overlay was removed (it confused more than it
     // helped: signed-in state resolves fast enough without it).
@@ -662,8 +682,8 @@
         }
     }
 
-    function openDeleteAccountModal() {
-        if (!currentUser?.uid) {
+    async function openDeleteAccountModal() {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to manage your account.');
             openAuthEntryPopup('signin');
             return;
@@ -697,7 +717,7 @@
 
     async function deletePapianoAccount() {
         if (accountDeleteBusy) return;
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             closeDeleteAccountModal();
             showToast('Sign in to manage your account.');
             return;
@@ -1328,7 +1348,7 @@
     }
 
     async function uploadImageToS3(bucketPrefix, file, folderName, fileNamePrefix, options = {}) {
-        if (!currentUser?.uid) throw new Error('Sign in to upload images.');
+        if (!(await ensureAuthedUser())) throw new Error('Sign in to upload images.');
         const validationError = validateUploadImageFile(file, options.maxBytes || MAX_CHAT_IMAGE_BYTES, options.label || 'Image');
         if (validationError) throw new Error(validationError);
 
@@ -1361,7 +1381,7 @@
     }
 
     async function applyProfileConfiguration() {
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to save profile.');
             return;
         }
@@ -1407,8 +1427,8 @@
         }
     }
 
-    function triggerProfilePhotoPicker() {
-        if (!currentUser?.uid) {
+    async function triggerProfilePhotoPicker() {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to upload photo.');
             return;
         }
@@ -1423,7 +1443,7 @@
             if (event?.target) event.target.value = '';
             return;
         }
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to upload photo.');
             if (event?.target) event.target.value = '';
             return;
@@ -1661,9 +1681,9 @@
         }
     }
 
-    function subscribePlayTimeLeaderboard() {
+    async function subscribePlayTimeLeaderboard() {
         if (unsubscribeLeaderboardPlayTime) return;
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             renderLeaderboardError('leaderboardPlayTimeList', 'Sign in to view leaderboard.');
             return;
         }
@@ -2269,7 +2289,7 @@
     }
 
     async function sendFriendRequest(targetUid) {
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to add friends.');
             return;
         }
@@ -2396,7 +2416,7 @@
     }
 
     async function openCommunityRoom(roomId) {
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to use chat.');
             openAuthEntryPopup('signin');
             return;
@@ -2420,7 +2440,7 @@
     }
 
     async function openDirectRoom(targetUid) {
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to open private chat.');
             return;
         }
@@ -2493,10 +2513,10 @@
         }, 2000);
     }
 
-    function listenToActiveRoomMessages() {
+    async function listenToActiveRoomMessages() {
         if (typeof unsubscribeMessages === 'function') unsubscribeMessages();
         unsubscribeMessages = null;
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             if (chatMessagesScrollArea) chatMessagesScrollArea.innerHTML = `<div class="chat-system-note">Sign in to view chat.</div>`;
             return;
         }
@@ -2907,8 +2927,8 @@
         }
     }
 
-    function triggerChatImagePicker() {
-        if (!currentUser?.uid) {
+    async function triggerChatImagePicker() {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to upload image.');
             return;
         }
@@ -2923,7 +2943,7 @@
             if (event?.target) event.target.value = '';
             return;
         }
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to upload image.');
             if (event?.target) event.target.value = '';
             return;
@@ -3003,7 +3023,7 @@
             return;
         }
         const text = rawMessageText.trim();
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to send messages.');
             return;
         }
@@ -3455,7 +3475,7 @@
     }
 
     async function reportUserFromProfile() {
-        if (!currentUser?.uid) {
+        if (!(await ensureAuthedUser())) {
             showToast('Sign in to report users.');
             return;
         }
@@ -3493,8 +3513,8 @@
         }
     }
 
-    function openReportModal(context = null) {
-        if (!currentUser?.uid) { showToast('Sign in to report users.'); return; }
+    async function openReportModal(context = null) {
+        if (!(await ensureAuthedUser())) { showToast('Sign in to report users.'); return; }
         if (!activeFriendProfileKey || activeFriendProfileKey === currentUser.uid) { showToast('Cannot report this profile.'); return; }
         activeReportContext = context && context.targetId === activeFriendProfileKey ? context : null;
         const modal = document.getElementById('reportUserModal');

@@ -260,9 +260,23 @@ async function authResendVerification() {
 // 2. email/password users need a fresh sign-in before deleteCurrentUser()
 // 3. Google users go straight through (no password to check)
 (function () {
+    // Right after a reload the UI is optimistically signed in while tokens
+    // refresh — wait for auth to actually resolve before rejecting the
+    // action, so a signed-in user never gets a bogus "Sign in" toast.
+    async function waitAuthUser() {
+        if (window.papianoAuth?.currentUser) return window.papianoAuth.currentUser;
+        if (!window.__papianoAuthReady) {
+            await new Promise(resolve => {
+                window.addEventListener('papiano-auth-ready', resolve, { once: true });
+                setTimeout(resolve, 8000);
+            });
+        }
+        return window.papianoAuth?.currentUser || null;
+    }
+
     function install() {
         window.deletePapianoAccount = async function () {
-            const user = window.papianoAuth?.currentUser;
+            const user = await waitAuthUser();
             if (!user?.uid) {
                 if (typeof showToast === 'function') showToast('Sign in to manage your account.');
                 return;
