@@ -5,7 +5,7 @@
  */
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const { getAdmin } = require('./_admin');
+const { verifyIdToken } = require('./_cognito');
 
 const BUCKET = process.env.AWS_S3_BUCKET || 'papiano-storage';
 const REGION = process.env.AWS_REGION || 'ap-southeast-1';
@@ -47,12 +47,6 @@ module.exports = async (req, res) => {
     return res.status(405).json({ ok: false, reason: 'POST only' });
   }
 
-  let admin;
-  try { admin = getAdmin(); }
-  catch (e) {
-    return res.status(500).json({ ok: false, reason: 'server not configured' });
-  }
-
   try {
     const body = await readBody(req);
     const idToken = String(body?.idToken || '');
@@ -67,7 +61,7 @@ module.exports = async (req, res) => {
 
     let uid;
     try {
-      const decoded = await admin.auth().verifyIdToken(idToken, true);
+      const decoded = await verifyIdToken(idToken);
       uid = decoded.uid;
     } catch (e) {
       return res.status(401).json({ ok: false, reason: 'bad token' });

@@ -1,11 +1,23 @@
 /*
- * Lambda port of api/botchat.js — server side of the "/askpapiano" bot.
- * Logic is identical to the Vercel version; only the require path for the
- * admin helper differs.
+ * Server side of the "/askpapiano" bot. Ported from Firebase (Firestore +
+ * Realtime Database) to DynamoDB as part of the Cognito/AWS migration —
+ * same request/response contract as the old Vercel version.
  */
-const { getAdmin } = require('./_admin');
+const crypto = require('crypto');
+const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { verifyIdToken } = require('./_cognito');
 
-const BOT_ROOT = 'papianoOnlineBeta';
+const doc = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const T = {
+  profiles: 'papiano-profiles',
+  chatRooms: 'papiano-chat-rooms',
+  messages: 'papiano-messages',
+  roomPlayers: 'papiano-room-players',
+  roomMessages: 'papiano-room-messages',
+  botThrottle: 'papiano-bot-throttle',
+};
+
 const PAPIANO_BOT_UID = 'papiano-bot';
 const BOT_THROTTLE_MS = 12_000;
 const PROMPT_MAX_LEN = 300;
@@ -38,27 +50,19 @@ function readBody(req) {
   });
 }
 
-function timeLabel(now) {
-  const date = new Date(now);
-  return String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0');
-}
-
-async function classifyRoom(admin, roomId, uid, email) {
-  if (roomId === 'group_global') return { ok: true, surface: 'firestore' };
+async function classifyRoom(roomId, uid, email) {
+  if (roomId === 'group_global') return { ok: true, surface: 'chat' };
   if (roomId === 'group_vip') {
-    const doc = await admin.firestore().collection('profiles').doc(uid).get();
-    const role = normalizeRole(doc.exists ? doc.data().role : '');
+    const r = await doc.send(new GetCommand({ TableName: T.profiles, Key: { uid } }));
+    const role = normalizeRole(r.Item?.role);
     if (role === 'vip' || ADMIN_GATE_EMAILS.has(String(email || '').toLowerCase())) {
-      return { ok: true, surface: 'firestore' };
+      return { ok: true, surface: 'chat' };
     }
     return { ok: false, status: 403, reason: 'not vip' };
   }
-  if (/^room_[0-9a-z_]+$/i.test(roomId) && roomId.length <= 80) {
-    const snap = await admin.database().ref(`${BOT_ROOT}/roomPlayers/${roomId}/${uid}`).get();
-    if (snap.exists()) return { ok: true, surface: 'rtdb' };
-    return { ok: false, status: 403, reason: 'not in room' };
-  }
-  return { ok: false, status: 400, reason: 'bad roomId' };
+  const r = await doc.send(new GetCommand({ TableName: T.roomPlayers, Key: { roomId, playerId: uid } }));
+  if (r.Item) return { ok: true, surface: 'room' };
+  return { ok: false, status: 403, reason: 'not in room' };
 }
 
 async function askOpenRouter(prompt, priorBotText) {
@@ -88,38 +92,33 @@ async function askOpenRouter(prompt, priorBotText) {
   }
 }
 
-async function writeReply(admin, surface, roomId, text) {
-  if (surface === 'firestore') {
-    const roomRef = admin.firestore().collection('chatRooms').doc(roomId);
-    await roomRef.collection('messages').doc().set({
-      senderId: PAPIANO_BOT_UID,
-      senderName: 'Papiano',
-      senderUserId: '',
-      senderPhotoURL: '',
-      senderBadgeId: 'bot',
-      text,
-      imageURL: '',
-      imagePath: '',
-      replyTo: null,
-      hiddenFor: [],
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-    await roomRef.set({
-      lastMessage: text,
-      lastSenderId: PAPIANO_BOT_UID,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    }, { merge: true });
+async function writeReply(surface, roomId, text) {
+  const now = Date.now();
+  const messageId = crypto.randomUUID();
+  if (surface === 'chat') {
+    await doc.send(new PutCommand({
+      TableName: T.messages,
+      Item: {
+        roomId, createdAt: `${String(now).padStart(13, '0')}#${messageId}`, messageId,
+        senderId: PAPIANO_BOT_UID, senderName: 'Papiano', senderUserId: null, senderPhotoURL: null,
+        senderBadgeId: 'bot', text, imageURL: null, imagePath: null, replyTo: null,
+        deletedForAll: false, updatedAt: now,
+      },
+    }));
+    await doc.send(new UpdateCommand({
+      TableName: T.chatRooms, Key: { roomId },
+      UpdateExpression: 'SET lastMessage = :lm, lastSenderId = :ls, updatedAt = :u',
+      ExpressionAttributeValues: { ':lm': text, ':ls': PAPIANO_BOT_UID, ':u': now },
+    })).catch(() => {});
     return;
   }
-  const now = Date.now();
-  await admin.database().ref(`${BOT_ROOT}/messages/${roomId}`).push({
-    playerId: PAPIANO_BOT_UID,
-    text,
-    createdAt: now,
-    time: timeLabel(now),
-    replyTo: null,
-  });
+  await doc.send(new PutCommand({
+    TableName: T.roomMessages,
+    Item: {
+      roomId, createdAt: `${String(now).padStart(13, '0')}#${messageId}`, messageId,
+      playerId: PAPIANO_BOT_UID, senderName: 'Papiano', senderPhotoURL: null, text,
+    },
+  }));
 }
 
 module.exports = async (req, res) => {
@@ -129,12 +128,6 @@ module.exports = async (req, res) => {
   }
   if (!process.env.PAPIANOAI_API) {
     return res.status(503).json({ ok: false, reason: 'not configured' });
-  }
-
-  let admin;
-  try { admin = getAdmin(); }
-  catch (e) {
-    return res.status(500).json({ ok: false, reason: 'server not configured' });
   }
 
   try {
@@ -152,32 +145,30 @@ module.exports = async (req, res) => {
 
     let uid, email;
     try {
-      const decoded = await admin.auth().verifyIdToken(idToken, true);
+      const decoded = await verifyIdToken(idToken);
       uid = decoded.uid;
       email = decoded.email;
     } catch (e) {
       return res.status(401).json({ ok: false, reason: 'bad token' });
     }
 
-    const classification = await classifyRoom(admin, roomId, uid, email);
+    const classification = await classifyRoom(roomId, uid, email);
     if (!classification.ok) {
       return res.status(classification.status).json({ ok: false, reason: classification.reason });
     }
 
-    const db = admin.database();
-    const throttleRef = db.ref(`${BOT_ROOT}/botThrottle/${uid}`);
-    const throttleSnap = await throttleRef.get();
-    const lastAt = Number(throttleSnap.val()?.lastAt) || 0;
+    const throttleSnap = await doc.send(new GetCommand({ TableName: T.botThrottle, Key: { uid } }));
+    const lastAt = Number(throttleSnap.Item?.lastAt) || 0;
     const elapsed = Date.now() - lastAt;
     if (lastAt && elapsed < BOT_THROTTLE_MS) {
       const retryAfter = Math.ceil((BOT_THROTTLE_MS - elapsed) / 1000);
       res.setHeader('Retry-After', String(retryAfter));
       return res.status(429).json({ ok: false, reason: 'too many requests', retryAfter });
     }
-    await throttleRef.set({ lastAt: Date.now() });
+    await doc.send(new PutCommand({ TableName: T.botThrottle, Item: { uid, lastAt: Date.now() } }));
 
     const reply = prompt ? await askOpenRouter(prompt, priorBotText) : EMPTY_PROMPT_REPLY;
-    await writeReply(admin, classification.surface, roomId, reply);
+    await writeReply(classification.surface, roomId, reply);
 
     return res.status(200).json({ ok: true });
   } catch (e) {

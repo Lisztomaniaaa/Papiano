@@ -6086,17 +6086,6 @@ midiBtn.onclick = () => {
     const profilePersonalMute = document.getElementById('mpProfilePersonalMute');
     if(!roomButton || !layer || !playerStrip || !messagesBox) return;
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY",
-            authDomain: "papianoverse.firebaseapp.com",
-            databaseURL: "https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "papianoverse",
-            storageBucket: "papianoverse.firebasestorage.app",
-            messagingSenderId: "240332627380",
-            appId: "1:240332627380:web:c80d08fa1f89b1acdb26e1",
-            measurementId: "G-3FVZ17Q69B"
-        };
-
     const MAX_ROOMS = 15;
     const ROOM_CREATE_COOLDOWN_MS = 30000;
     const ROOM_CREATE_GRACE_MS = 4000;
@@ -6112,7 +6101,6 @@ midiBtn.onclick = () => {
     const STREAM_MAX_EVENTS_PER_WRITE = 49;
     const PROFILE_REACTION_COOLDOWN_MS = 1200;
     const REPORT_COOLDOWN_MS = 60000;
-    const FIREBASE_ROOT = 'papianoOnlineBeta';
     const PAPIANO_BOT_PLAYER_ID = 'papiano-bot';
     const PAPIANO_BOT_TRIGGER = /^\/askpapiano\b\s*([\s\S]*)$/i;
     const PAPIANO_BOT_TYPING_TIMEOUT_MS = 28000;
@@ -6122,13 +6110,9 @@ midiBtn.onclick = () => {
     let firebaseReady = false;
     let firebaseStarting = false;
     let firebaseInitPromise = null;
-    let authApi = null;
-    let firebaseAuth = null;
     let currentAuthUser = null;
     let dbApi = null;
     let db = null;
-    let fsApi = null;
-    let fsDb = null;
     let mpSelfId = 'local_self';
     let currentRoom = null;
     let currentScreen = 'home';
@@ -6443,7 +6427,7 @@ midiBtn.onclick = () => {
             if(snap.val()?.deleted){
                 try{ banWatcherUnsubscribe?.(); }catch(e){}
                 try{ writeSelfUser({ online:false, room:null }); }catch(e){}
-                try{ authApi.signOut(firebaseAuth); }catch(e){}
+                try{ window.papianoAuth.signOut(); }catch(e){}
                 window.location.assign('/');
             }
         }, () => {});
@@ -6479,55 +6463,45 @@ midiBtn.onclick = () => {
         };
     }
 
+    const PIANO_PROFILE_GQL_FIELDS = `uid name desc photoURL countryCode role publicId userId likes dislikes playTimeSeconds playTime`;
+
     async function loadHomeProfile(uid, fallback = {}, options = {}){
         const key = String(uid || '');
         if(!key) return normalizeHomeProfile('', fallback);
         if(!options.force && profileCache.has(key)) return profileCache.get(key);
         let profile = normalizeHomeProfile(key, fallback);
-        if(fsApi && fsDb){
-            try{
-                const snap = await fsApi.getDoc(fsApi.doc(fsDb, 'profiles', key));
-                if(snap.exists()) profile = normalizeHomeProfile(key, { ...fallback, ...(snap.data() || {}) });
-            }catch(e){}
-        }
+        try{
+            const data = await window.papianoData.gql(`query($uid: ID!) { getProfile(uid: $uid) { ${PIANO_PROFILE_GQL_FIELDS} } }`, { uid: key });
+            if(data?.getProfile) profile = normalizeHomeProfile(key, { ...fallback, ...data.getProfile, badgeId: data.getProfile.role });
+        }catch(e){}
         profileCache.set(key, profile);
         return profile;
     }
 
     async function ensureHomeProfile(authUser, fallback = {}){
         const uid = String(authUser?.uid || '');
-        if(!uid || !fsApi || !fsDb) return loadHomeProfile(uid, fallback);
+        if(!uid) return loadHomeProfile(uid, fallback);
         try{
-            const profileRef = fsApi.doc(fsDb, 'profiles', uid);
-            const counterRef = fsApi.doc(fsDb, 'counters', 'publicUserId');
-            const data = await fsApi.runTransaction(fsDb, async transaction => {
-                const snap = await transaction.get(profileRef);
-                const oldData = snap.exists() ? (snap.data() || {}) : {};
-                let publicId = Number(oldData.publicId || 0);
-                if(!Number.isInteger(publicId) || publicId < 1){
-                    const counterSnap = await transaction.get(counterRef);
-                    const next = Number(counterSnap.exists() ? counterSnap.data().next : 1) || 1;
-                    publicId = Math.max(1, next);
-                    transaction.set(counterRef, { next: publicId + 1 }, { merge:true });
-                }
+            let profileData = null;
+            try{
+                const existing = await window.papianoData.gql(`query($uid: ID!) { getProfile(uid: $uid) { ${PIANO_PROFILE_GQL_FIELDS} } }`, { uid });
+                profileData = existing?.getProfile || null;
+            }catch(e){}
+            if(!profileData){
                 const baseName = sanitizeText(authUser.displayName || fallback.name || fallback.displayName, 'Papiano User').slice(0, 24);
-                const merged = {
-                    name:baseName,
-                    searchName:baseName.toLowerCase(),
-                    desc:String(fallback.desc || fallback.bio || '').slice(0, 160),
-                    badgeId:'common',
-                    photoURL:String(authUser.photoURL || fallback.photoURL || ''),
-                    likes:0,
-                    dislikes:0,
-                    ...oldData,
-                    publicId,
-                    userId:formatMpSequentialId(publicId),
-                    updatedAt:fsApi.serverTimestamp()
-                };
-                transaction.set(profileRef, merged, { merge:true });
-                return merged;
-            });
-            const profile = normalizeHomeProfile(uid, data);
+                const created = await window.papianoData.gql(
+                    `mutation($input: CreateProfileInput!) { createProfile(input: $input) { ${PIANO_PROFILE_GQL_FIELDS} } }`,
+                    { input: { name: baseName, desc: String(fallback.desc || fallback.bio || '').slice(0, 160), photoURL: String(authUser.photoURL || fallback.photoURL || '') } }
+                ).catch(async e => {
+                    if(e.errorType === 'Conflict'){
+                        const refetched = await window.papianoData.gql(`query($uid: ID!) { getProfile(uid: $uid) { ${PIANO_PROFILE_GQL_FIELDS} } }`, { uid });
+                        return { createProfile: refetched?.getProfile };
+                    }
+                    throw e;
+                });
+                profileData = created?.createProfile || null;
+            }
+            const profile = normalizeHomeProfile(uid, { ...(profileData || {}), badgeId: profileData?.role });
             profileCache.set(uid, profile);
             return profile;
         }catch(e){
@@ -6840,24 +6814,18 @@ midiBtn.onclick = () => {
         return [uidA, uidB].filter(Boolean).map(String).sort().join('_');
     }
 
-    // Friends are owned by the main app's Firestore "friendships" collection
-    // (doc per pair, status 'accepted'). Multiplayer used to read a separate,
-    // empty Realtime DB node, so the Friends tab never detected real friends.
-    // Subscribe to the same Firestore source so both apps stay in sync, then
-    // resolve each friend's live online status from the realtime users node.
+    // Friends live in the same AppSync "friendships" table the main app uses
+    // (listMyFriends returns accepted + pending rows for the caller). There is
+    // no realtime subscription for friendship changes, so poll periodically.
     function attachFirestoreFriends(){
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return null;
-        try{
-            const col = fsApi.collection(fsDb, 'friendships');
-            const friendsQuery = fsApi.query(col, fsApi.where('users', 'array-contains', mpSelfId));
-            return fsApi.onSnapshot(friendsQuery, snap => {
+        if(!mpSelfId || isLocalGuestPlayerId(mpSelfId)) return null;
+        let stopped = false;
+        async function refresh(){
+            if(stopped) return;
+            try{
+                const data = await window.papianoData.gql(`query { listMyFriends { uid otherUid status } }`);
                 const nextIds = new Set();
-                snap.forEach(docSnap => {
-                    const data = (docSnap.data && docSnap.data()) || {};
-                    if(data.status !== 'accepted' || !Array.isArray(data.users)) return;
-                    const other = data.users.find(uid => uid && String(uid) !== mpSelfId);
-                    if(other) nextIds.add(String(other));
-                });
+                (data?.listMyFriends || []).forEach(f => { if(f.status === 'accepted' && f.otherUid) nextIds.add(String(f.otherUid)); });
                 const freshIds = [];
                 nextIds.forEach(id => { if(!friendProfiles.has(id)) freshIds.push(id); });
                 Array.from(friendProfiles.keys()).forEach(id => { if(!nextIds.has(id)) friendProfiles.delete(id); });
@@ -6870,8 +6838,6 @@ midiBtn.onclick = () => {
                 renderRoomChrome();
                 renderSearch();
                 if(selectedPlayer && profile.classList.contains('show')) renderProfile(selectedPlayer);
-                // Pull name / photo / country for newly added friends so offline
-                // friends still show real details instead of a "Player" placeholder.
                 freshIds.forEach(id => {
                     const seed = players.find(item => item.id === id) || friendProfiles.get(id) || { id, name:'Player', online:false };
                     hydratePlayerProfile(seed, { force:false }).then(updated => {
@@ -6879,8 +6845,11 @@ midiBtn.onclick = () => {
                         renderSearch();
                     }).catch(() => {});
                 });
-            }, () => {});
-        }catch(e){ return null; }
+            }catch(e){}
+        }
+        refresh();
+        const poll = setInterval(refresh, 20000);
+        return () => { stopped = true; clearInterval(poll); };
     }
 
     function mpPlayTimeDateKey(ms = Date.now()){
@@ -6915,7 +6884,7 @@ midiBtn.onclick = () => {
     // the main app and no risk of rolling the total backwards.
     function mpPersistPlayTime(syncRemote = false){
         mpAccumulatePlayTime();
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return;
+        if(!mpSelfId || isLocalGuestPlayerId(mpSelfId)) return;
         if(mpPlayTimePending <= 0) return;
         const now = Date.now();
         // Forced flushes (tab hidden, sign-out, page unload) always write.
@@ -6927,22 +6896,14 @@ midiBtn.onclick = () => {
         mpPlayTimePending = 0;
         mpPlayTimeRemoteSyncedAt = now;
         mpPlayTimeBaseSeconds += deltaSeconds;
-        try{
-            const ref = fsApi.doc(fsDb, 'profiles', mpSelfId);
-            fsApi.setDoc(ref, {
-                playTimeSeconds: fsApi.increment(deltaSeconds),
-                playTime: mpFormatPlayTime(mpPlayTimeBaseSeconds),
-                playTimeLeaderboardUpdatedAt: fsApi.serverTimestamp(),
-                updatedAt: fsApi.serverTimestamp()
-            }, { merge:true }).then(mpMarkPlayTimeSyncedToday).catch(() => {
-                // Write failed: put the delta back so it retries on the next flush.
-                mpPlayTimePending += deltaSeconds;
-                mpPlayTimeBaseSeconds -= deltaSeconds;
-            });
-        }catch(e){
+        window.papianoData.gql(
+            `mutation($d: Int!) { incrementPlayTimeSeconds(deltaSeconds: $d) { playTimeSeconds } }`,
+            { d: deltaSeconds }
+        ).then(mpMarkPlayTimeSyncedToday).catch(() => {
+            // Write failed: put the delta back so it retries on the next flush.
             mpPlayTimePending += deltaSeconds;
             mpPlayTimeBaseSeconds -= deltaSeconds;
-        }
+        });
     }
     function startMpPlayTimeTracker(){
         if(!mpSelfId || isLocalGuestPlayerId(mpSelfId)) return;
@@ -6963,7 +6924,7 @@ midiBtn.onclick = () => {
         document.body.classList.toggle('mp-auth-signed-out', !signedIn);
     }
 
-    function dbRef(path){ return dbApi.ref(db, `${FIREBASE_ROOT}/${path}`); }
+    function dbRef(path){ return dbApi.ref(db, path); }
     function roomPlayersKnown(roomId){
         return Object.prototype.hasOwnProperty.call(roomPlayersByRoom, roomId);
     }
@@ -7008,59 +6969,18 @@ midiBtn.onclick = () => {
         if(!isSignedIn()) return null;
         return visibleRooms().find(room => room.ownerUid === mpSelfId) || null;
     }
+    // Ownership uniqueness ("one live room per owner") has no dedicated backing
+    // table anymore — the local `rooms` cache (populated from listPublicRooms +
+    // whatever room the player is currently in) is the only source used to
+    // detect a room the caller already owns.
     async function loadOwnedLiveRoom(){
-        const local = ownedLiveRoom();
-        if(local) return local;
-        if(!firebaseReady || !dbApi || !isSignedIn()) return null;
-        try{
-            const claimSnap = await dbApi.get(dbRef(`ownerRooms/${mpSelfId}`));
-            const claim = claimSnap.val() || null;
-            const roomId = String(claim?.roomId || '');
-            if(!roomId) return null;
-            const roomSnap = await dbApi.get(dbRef(`rooms/${roomId}`));
-            if(!roomSnap.exists()){
-                await dbApi.remove(dbRef(`ownerRooms/${mpSelfId}`)).catch(() => {});
-                return null;
-            }
-            const room = normalizeRoom(roomId, roomSnap.val() || {});
-            const playersSnap = await dbApi.get(dbRef(`roomPlayers/${roomId}`));
-            const live = playersSnap.val() || {};
-            const activeCount = activeRoomPlayerEntries(live).length;
-            if(activeCount <= 0){
-                await dbApi.remove(dbRef(`ownerRooms/${mpSelfId}`)).catch(() => {});
-                await dbApi.remove(dbRef(`rooms/${roomId}`)).catch(() => {});
-                return null;
-            }
-            const index = rooms.findIndex(item => item.id === room.id);
-            if(index >= 0) rooms[index] = room;
-            else rooms.unshift(room);
-            return room;
-        }catch(e){
-            return null;
-        }
+        return ownedLiveRoom();
     }
-    async function claimOwnerRoom(room){
-        if(!firebaseReady || !dbApi || !room || !isSignedIn()) return true;
-        const now = Date.now();
-        try{
-            const result = await dbApi.runTransaction(dbRef(`ownerRooms/${mpSelfId}`), value => {
-                if(value && value.roomId && value.roomId !== room.id) return value;
-                return { roomId:room.id, ownerUid:mpSelfId, createdAt:Number(room.createdAt || now), updatedAt:now };
-            });
-            const value = result?.snapshot?.val?.() || null;
-            return !!(result.committed && value && value.roomId === room.id);
-        }catch(e){
-            return false;
-        }
+    async function claimOwnerRoom(){
+        return true;
     }
-    async function releaseOwnerRoom(room){
-        if(!firebaseReady || !dbApi || !room || !room.ownerUid) return;
-        try{
-            await dbApi.runTransaction(dbRef(`ownerRooms/${room.ownerUid}`), value => {
-                if(value && value.roomId && value.roomId !== room.id) return value;
-                return null;
-            });
-        }catch(e){}
+    async function releaseOwnerRoom(){
+        return;
     }
     function isKnownEmptyRoom(room){
         if(!room || !roomPastCreateGrace(room)) return false;
@@ -7402,43 +7322,38 @@ midiBtn.onclick = () => {
         }
     }
     function attachBlocksListener(){
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)) return null;
-        try{
-            const col = fsApi.collection(fsDb, 'blocks');
-            const q = fsApi.query(col, fsApi.where('blockerId', '==', mpSelfId));
-            return fsApi.onSnapshot(q, snap => {
+        if(!mpSelfId || isLocalGuestPlayerId(mpSelfId)) return null;
+        let stopped = false;
+        async function refresh(){
+            if(stopped) return;
+            try{
+                const data = await window.papianoData.gql(`query { listMyBlocks { blockerId blockedId } }`);
                 blockedPlayerIds.clear();
-                snap.forEach(docSnap => {
-                    const data = (docSnap.data && docSnap.data()) || {};
-                    if(data.blockedId) blockedPlayerIds.add(String(data.blockedId));
-                });
+                (data?.listMyBlocks || []).forEach(b => { if(b.blockedId) blockedPlayerIds.add(String(b.blockedId)); });
                 renderMessages();
                 renderRoomChrome();
                 if(selectedPlayer && profile.classList.contains('show')) syncSafetyActions(selectedPlayer);
-            }, () => {});
-        }catch(e){ return null; }
+            }catch(e){}
+        }
+        refresh();
+        const poll = setInterval(refresh, 20000);
+        return () => { stopped = true; clearInterval(poll); };
     }
     async function toggleBlockedPlayer(player){
         if(!canUseSafetyAction(player)) return;
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
+        if(!mpSelfId || isLocalGuestPlayerId(mpSelfId)){
             showToast('Block is available after login.', { type:'error', title:'Profile' });
             return;
         }
         const id = String(player.id);
         const blocked = blockedPlayerIds.has(id);
         try{
-            const blockDocId = mpSelfId + '_' + id;
-            const ref = fsApi.doc(fsDb, 'blocks', blockDocId);
             if(blocked){
-                await fsApi.deleteDoc(ref);
+                await window.papianoData.gql(`mutation($id: String!) { unblockUser(blockedId: $id) }`, { id });
                 blockedPlayerIds.delete(id);
                 showToast('Player unblocked.', { type:'success', title:'Profile' });
             }else{
-                await fsApi.setDoc(ref, {
-                    blockerId: mpSelfId,
-                    blockedId: id,
-                    createdAt: fsApi.serverTimestamp()
-                });
+                await window.papianoData.gql(`mutation($id: String!) { blockUser(blockedId: $id) { blockedId } }`, { id });
                 blockedPlayerIds.add(id);
                 showToast('Player blocked.', { type:'success', title:'Profile' });
             }
@@ -7731,7 +7646,7 @@ midiBtn.onclick = () => {
     function touchGlobalPresence(){
         if(!firebaseReady || !dbApi || !mpSelfId || mpSelfId === 'local_self') return;
         const now = Date.now();
-        dbApi.update(dbRef(`users/${mpSelfId}`), { online:true, lastSeen:now, updatedAt:now }).catch(() => {});
+        dbApi.update(dbRef(`users/${mpSelfId}`), { online:true, lastSeen:now, updatedAt:now, room:currentRoom ? currentRoom.id : null }).catch(() => {});
     }
 
     function startGlobalPresenceHeartbeat(){
@@ -8079,31 +7994,17 @@ midiBtn.onclick = () => {
     async function toggleFriend(player){
         if(!canOfferFriend(player)) return;
         const id = String(player.id);
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
+        if(!mpSelfId || isLocalGuestPlayerId(mpSelfId)){
             showToast('Friends are not available right now.', { type:'error', title:'Friends' });
             return;
         }
         try{
-            const pairId = mpBuildPairId(mpSelfId, id);
-            const ref = fsApi.doc(fsDb, 'friendships', pairId);
-            const snap = await fsApi.getDoc(ref);
-            if(snap && (typeof snap.exists === 'function' ? snap.exists() : snap.exists)){
-                const status = (snap.data && snap.data() || {}).status;
-                showToast(status === 'accepted' ? 'Already friends.' : 'Request already sent.', { type:'info', title:'Friends' });
-                return;
-            }
-            await fsApi.setDoc(ref, {
-                users:[mpSelfId, id],
-                requesterId:mpSelfId,
-                receiverId:id,
-                status:'pending',
-                createdAt:fsApi.serverTimestamp(),
-                updatedAt:fsApi.serverTimestamp()
-            });
+            await window.papianoData.gql(`mutation($u: String!) { sendFriendRequest(otherUid: $u) { status } }`, { u: id });
             showToast('Friend request sent.', { type:'success', title:'Friends' });
             syncFriendAction(player);
         }catch(e){
-            showToast('Couldn’t send friend request. Try again.', { type:'error', title:'Friends' });
+            if(e.errorType === 'Conflict') showToast('Already friends or request already sent.', { type:'info', title:'Friends' });
+            else showToast('Couldn’t send friend request. Try again.', { type:'error', title:'Friends' });
         }
     }
 
@@ -8184,7 +8085,7 @@ midiBtn.onclick = () => {
 
     function updateProfileVoteButtons(player, voteType = ''){
         const isSelf = !!player && player.id === mpSelfId;
-        const disabled = !player || isSelf || !firebaseReady || !fsApi || !fsDb;
+        const disabled = !player || isSelf || !firebaseReady;
         if(profileLikeButton){
             profileLikeButton.disabled = disabled;
             profileLikeButton.classList.toggle('active', voteType === 'like');
@@ -8196,7 +8097,7 @@ midiBtn.onclick = () => {
     }
 
     async function loadProfileVote(player){
-        if(!player || player.id === mpSelfId || !fsApi || !fsDb){
+        if(!player || player.id === mpSelfId){
             updateProfileVoteButtons(player, '');
             return;
         }
@@ -8206,8 +8107,8 @@ midiBtn.onclick = () => {
             return;
         }
         try{
-            const snap = await fsApi.getDoc(fsApi.doc(fsDb, 'profiles', player.id, 'reactions', mpSelfId));
-            const type = snap.exists() ? String(snap.data()?.type || '') : '';
+            const data = await window.papianoData.gql(`query($p: ID!) { myProfileReaction(profileUid: $p) }`, { p: player.id });
+            const type = String(data?.myProfileReaction || '');
             const vote = type === 'like' || type === 'dislike' ? type : '';
             profileVoteCache.set(cacheKey, vote);
             if(selectedPlayer && selectedPlayer.id === player.id) updateProfileVoteButtons(player, vote);
@@ -8247,7 +8148,7 @@ midiBtn.onclick = () => {
     async function submitPlayerReport(){
         const player = reportPlayer;
         if(!canUseSafetyAction(player)) return;
-        if(!fsApi || !fsDb || !mpSelfId || isLocalGuestPlayerId(mpSelfId)){
+        if(!mpSelfId || isLocalGuestPlayerId(mpSelfId)){
             showToast('Report is available after login.', { type:'error', title:'Report' });
             return;
         }
@@ -8257,31 +8158,20 @@ midiBtn.onclick = () => {
             showToast('Report already sent. Wait before sending another one.', { type:'info', title:'Report' });
             return;
         }
-        const reportDocId = mpSelfId + '_' + player.id;
         try{
-            const ref = fsApi.doc(fsDb, 'reports', reportDocId);
-            const existing = await fsApi.getDoc(ref);
-            if(existing && (typeof existing.exists === 'function' ? existing.exists() : existing.exists)){
-                showToast('Already reported this user.', { type:'info', title:'Report' });
-                closeReportModal();
-                return;
-            }
-            await fsApi.setDoc(ref, {
-                reporterId: mpSelfId,
-                reporterName: currentUser().name,
-                targetId: player.id,
-                targetName: player.name,
-                targetUserId: player.displayUserId || player.userId || '',
-                reason: selectedReportReason || 'Other',
-                source: 'multiplayer',
-                roomId: currentRoom?.id || '',
-                roomType: 'multiplayer',
-                messageId: '',
-                messageTextSnapshot: cleanReportDetail(reportDetail?.value),
-                messageImageURL: '',
-                messageSenderName: player.name,
-                createdAt: fsApi.serverTimestamp()
-            });
+            await window.papianoData.gql(
+                `mutation($input: SubmitReportInput!) { submitReport(input: $input) { targetId } }`,
+                { input: {
+                    targetId: player.id,
+                    targetName: player.name,
+                    reason: selectedReportReason || 'Other',
+                    source: 'multiplayer',
+                    roomId: currentRoom?.id || '',
+                    roomType: 'multiplayer',
+                    messageTextSnapshot: cleanReportDetail(reportDetail?.value),
+                    messageSenderName: player.name,
+                } }
+            );
             reportCooldownByPlayer.set(player.id, now);
             closeReportModal();
             showToast('Report sent.', { type:'success', title:'Report' });
@@ -8294,7 +8184,7 @@ midiBtn.onclick = () => {
         const player = selectedPlayer;
         if(!player || player.id === mpSelfId) return;
         if(voteType !== 'like' && voteType !== 'dislike') return;
-        if(!firebaseReady || !fsApi || !fsDb || !isSignedIn()){
+        if(!firebaseReady || !isSignedIn()){
             showToast('Profile reactions are not available right now.', { type:'error', title:'Profile' });
             return;
         }
@@ -8308,28 +8198,14 @@ midiBtn.onclick = () => {
         if(profileLikeButton) profileLikeButton.disabled = true;
         if(profileDislikeButton) profileDislikeButton.disabled = true;
         try{
-            const targetRef = fsApi.doc(fsDb, 'profiles', player.id);
-            const voteRef = fsApi.doc(fsDb, 'profiles', player.id, 'reactions', mpSelfId);
-            const result = await fsApi.runTransaction(fsDb, async transaction => {
-                const [targetSnap, voteSnap] = await Promise.all([transaction.get(targetRef), transaction.get(voteRef)]);
-                const targetData = targetSnap.exists() ? (targetSnap.data() || {}) : {};
-                const oldTypeRaw = voteSnap.exists() ? String(voteSnap.data()?.type || '') : '';
-                const oldType = oldTypeRaw === 'like' || oldTypeRaw === 'dislike' ? oldTypeRaw : '';
-                const nextType = oldType === voteType ? '' : voteType;
-                let likes = safeReactionCount(targetData.likes);
-                let dislikes = safeReactionCount(targetData.dislikes);
-                if(oldType === 'like') likes = Math.max(0, likes - 1);
-                if(oldType === 'dislike') dislikes = Math.max(0, dislikes - 1);
-                if(nextType === 'like') likes += 1;
-                if(nextType === 'dislike') dislikes += 1;
-                transaction.set(targetRef, { likes, dislikes, updatedAt:fsApi.serverTimestamp() }, { merge:true });
-                if(nextType){
-                    transaction.set(voteRef, { type:nextType, voterId:mpSelfId, updatedAt:fsApi.serverTimestamp() }, { merge:true });
-                }else{
-                    transaction.delete(voteRef);
-                }
-                return { likes, dislikes, vote:nextType };
-            });
+            const reactionData = await window.papianoData.gql(`query($p: ID!) { myProfileReaction(profileUid: $p) }`, { p: player.id });
+            const oldType = reactionData?.myProfileReaction || '';
+            const nextType = oldType === voteType ? 'none' : voteType;
+            const data = await window.papianoData.gql(
+                `mutation($u: ID!, $t: String!) { voteProfile(uid: $u, type: $t) { likes dislikes } }`,
+                { u: player.id, t: nextType }
+            );
+            const result = { likes: safeReactionCount(data?.voteProfile?.likes), dislikes: safeReactionCount(data?.voteProfile?.dislikes), vote: nextType === 'none' ? '' : nextType };
             profileVoteCache.set(voteKey, result.vote);
             const freshProfile = await loadHomeProfile(player.id, player, { force:true });
             const local = players.find(item => item.id === player.id);
@@ -8619,9 +8495,8 @@ midiBtn.onclick = () => {
     // returns { ok:true } on success or { ok:false, reason } on failure.
     async function callPrivateRoomApi(action, roomId, password){
         try{
-            const user = firebaseAuth?.currentUser;
-            if(!user) return { ok:false, reason:'not signed in' };
-            const idToken = await user.getIdToken();
+            const idToken = window.papianoAuth?.getIdToken();
+            if(!idToken) return { ok:false, reason:'not signed in' };
             const response = await fetch('/api/private-room', {
                 method:'POST',
                 headers:{ 'Content-Type':'application/json' },
@@ -8641,9 +8516,8 @@ midiBtn.onclick = () => {
             renderBotTypingIndicator();
         }, PAPIANO_BOT_TYPING_TIMEOUT_MS);
         try{
-            const user = firebaseAuth?.currentUser;
-            if(!user) return; // guest/unauthenticated — silently skip, matches callPrivateRoomApi's own guard
-            const idToken = await user.getIdToken();
+            const idToken = window.papianoAuth?.getIdToken();
+            if(!idToken) return; // guest/unauthenticated — silently skip, matches callPrivateRoomApi's own guard
             await fetch('/api/botchat', {
                 method:'POST',
                 headers:{ 'Content-Type':'application/json' },
@@ -8743,48 +8617,31 @@ midiBtn.onclick = () => {
         return seen > 0 && now - seen > ROOM_PLAYER_STALE_MS;
     }
 
+    // claimSeat already enforces occupancy/staleness server-side (see
+    // lambda/appsync-resolver/domains/seats.js), so seat reservation here is a
+    // simple try-in-order loop against the real mutation rather than a local
+    // transaction over the whole seat map.
     async function reserveRoomSeat(room, live = {}){
         if(!firebaseReady || !dbApi || !room) return 0;
         const max = Math.min(6, Math.max(2, Number(room.max || 6)));
-        const now = Date.now();
         const existingSeat = Number(live?.[mpSelfId]?.seat || currentRoomSeat || 0);
-        try{
-            const result = await dbApi.runTransaction(dbRef(`roomSeats/${room.id}`), allSeats => {
-                const seats = allSeats || {};
-                // Check if already has a valid seat
-                if(existingSeat >= 1 && existingSeat <= max){
-                    const existing = seats[existingSeat];
-                    if(existing && existing.uid === mpSelfId) return seats;
-                    if(!existing || isStaleSeatValue(existing, now)){
-                        seats[existingSeat] = { uid:mpSelfId, seat:existingSeat, joinedAt:now, lastSeen:now };
-                        return seats;
-                    }
-                }
-                // Find first available seat
-                for(let s = 1; s <= max; s++){
-                    const entry = seats[s];
-                    if(!entry || entry.uid === mpSelfId || isStaleSeatValue(entry, now)){
-                        seats[s] = { uid:mpSelfId, seat:s, joinedAt:now, lastSeen:now };
-                        return seats;
-                    }
-                }
-                return seats; // All taken
-            });
-            const committed = result?.snapshot?.val?.() || {};
-            for(let s = 1; s <= max; s++){
-                if(committed[s] && committed[s].uid === mpSelfId) return s;
-            }
-        }catch(e){}
+        const order = [];
+        if(existingSeat >= 1 && existingSeat <= max) order.push(existingSeat);
+        for(let s = 1; s <= max; s++){ if(!order.includes(s)) order.push(s); }
+        for(const seat of order){
+            try{
+                await window.papianoData.gql(`mutation($r: ID!, $s: Int!) { claimSeat(roomId: $r, seat: $s) { seat } }`, { r: room.id, s: seat });
+                return seat;
+            }catch(e){ /* seat occupied — try next */ }
+        }
         return 0;
     }
 
     async function releaseRoomSeat(room, seat){
         if(!firebaseReady || !dbApi || !room) return;
         const number = Number(seat || currentRoomSeat || 0);
-        const removals = [];
-        if(isRoomSeatNumber(room, number)) removals.push(dbApi.remove(dbRef(`roomSeats/${room.id}/${number}`)));
-        removals.push(dbApi.remove(dbRef(`roomSeatClaims/${room.id}/${mpSelfId}`)));
-        await Promise.allSettled(removals);
+        if(!isRoomSeatNumber(room, number)) return;
+        await window.papianoData.gql(`mutation($r: ID!, $s: Int!) { releaseSeat(roomId: $r, seat: $s) }`, { r: room.id, s: number }).catch(() => {});
     }
 
     async function enterFirebaseRoom(room){
@@ -8847,7 +8704,14 @@ midiBtn.onclick = () => {
                 joinedAt:alreadyInside ? Number(live?.[mpSelfId]?.joinedAt || now) : now,
                 updatedAt:now
             };
-            await dbApi.set(dbRef(`roomPlayers/${room.id}/${mpSelfId}`), playerPayload);
+            await window.papianoData.gql(
+                `mutation($r: ID!, $i: JoinRoomInput) { joinRoom(roomId: $r, input: $i) { playerId } }`,
+                { r: room.id, i: {
+                    instrumentKey: playerPayload.instrumentKey, instrument: playerPayload.instrument,
+                    stringsEnabled: playerPayload.stringsEnabled, stringInstrumentKey: playerPayload.stringInstrumentKey,
+                    stringInstrument: playerPayload.stringInstrument, seat, sessionId: roomSessionId,
+                } }
+            );
             currentRoom = room;
             user.room = room.id;
             roomPlayersByRoom[room.id] = { ...(live || {}), [mpSelfId]:playerPayload };
@@ -8877,7 +8741,7 @@ midiBtn.onclick = () => {
 
     async function requireSignedInAccount(){
         await initFirebase();
-        const existing = firebaseAuth?.currentUser || null;
+        const existing = window.papianoAuth?.currentUser || null;
         if(existing){
             await applyAuthenticatedUser(existing);
             return true;
@@ -8938,28 +8802,6 @@ midiBtn.onclick = () => {
         else showToast('No public rooms are open.', { type:'info', title:'Online Room' });
     }
 
-    async function reserveRoomSlot(){
-        if(!firebaseReady || !dbApi || !isSignedIn()){
-            const roomNumber = nextRoomNumber();
-            return roomNumber ? { roomNumber, roomId:'room_' + roomNumber + '_' + Date.now().toString(36) } : null;
-        }
-        const knownRoomIds = new Set(rooms.map(room => room.id));
-        for(let number = 1; number <= MAX_ROOMS; number++){
-            const roomId = 'room_' + number + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
-            const now = Date.now();
-            try{
-                const result = await dbApi.runTransaction(dbRef(`roomSlots/${number}`), value => {
-                    if(value && value.roomId && knownRoomIds.has(value.roomId)) return value;
-                    if(value && value.roomId && Number(value.createdAt || 0) && now - Number(value.createdAt || 0) < 15000) return value;
-                    return { roomId, ownerUid:mpSelfId, createdAt:now };
-                });
-                const reserved = result?.snapshot?.val?.();
-                if(result.committed && reserved && reserved.roomId === roomId) return { roomNumber:number, roomId };
-            }catch(e){}
-        }
-        return null;
-    }
-
     async function createRoom(){
         if(!(await requireSignedInAccount())) return;
         const ownerRoom = await loadOwnedLiveRoom();
@@ -8982,65 +8824,40 @@ midiBtn.onclick = () => {
             roomPasswordInput?.focus();
             return;
         }
-        const reservation = await reserveRoomSlot();
-        if(!reservation){ showToast('Room limit reached.', { type:'error', title:'Online Room' }); return; }
-        const roomNumber = reservation.roomNumber;
-        const now = Date.now();
-        const room = {
-            id:reservation.roomId,
-            roomNumber,
-            name:roomName,
-            owner:user.name,
-            ownerUid:user.id,
-            mode,
-            max:maxPlayers,
-            count:0,
-            activeCount:0,
-            // Private-room passwords are NEVER stored at rooms/{id}/password
-            // anymore — every signed-in user can read this node, so plaintext
-            // there is trivially harvestable. The real secret lives at
-            // roomSecrets/{id} (Admin-SDK only) and is set via /api/private-room.
-            password:'',
-            chatEnabled:true,
-            createdAt:now,
-            updatedAt:now
-        };
+        let room;
         if(firebaseReady && dbApi){
-            let claimed = false;
             try{
-                claimed = await claimOwnerRoom(room);
-                if(!claimed){
-                    await releaseRoomSlot(room);
-                    const existing = await loadOwnedLiveRoom();
-                    if(existing) await enterRoom(existing);
-                    return;
-                }
-                await dbApi.set(dbRef(`rooms/${room.id}`), room);
+                const data = await window.papianoData.gql(
+                    `mutation($i: CreateRoomInput!) { createRoom(input: $i) { ${ROOM_FIELDS} } }`,
+                    { i: { name:roomName, owner:user.name, mode, max:maxPlayers, chatEnabled:true } }
+                );
+                room = normalizeRoom(data.createRoom.roomId, data.createRoom);
                 if(mode === 'Private'){
                     const result = await callPrivateRoomApi('set', room.id, roomPassword);
                     if(!result?.ok){
-                        await Promise.allSettled([
-                            dbApi.remove(dbRef(`rooms/${room.id}`)),
-                            releaseOwnerRoom(room),
-                            releaseRoomSlot(room)
-                        ]);
+                        await window.papianoData.gql(`mutation($id: ID!) { deleteRoom(roomId: $id) }`, { id: room.id }).catch(() => {});
                         showToast('Couldn’t set room password. Try again.', { type:'error', title:'Host Room' });
                         return;
                     }
                 }
             }catch(e){
-                if(claimed) await releaseOwnerRoom(room);
-                await releaseRoomSlot(room);
                 showToast('Couldn’t update room. Try again.', { type:'error', title:'Online Room' });
                 return;
             }
         }else{
+            const roomNumber = nextRoomNumber();
+            room = {
+                id:'room_' + (roomNumber || 1) + '_' + Date.now().toString(36),
+                roomNumber:roomNumber || 1, name:roomName, owner:user.name, ownerUid:user.id,
+                mode, max:maxPlayers, count:0, activeCount:0, password:'', chatEnabled:true,
+                createdAt:Date.now(), updatedAt:Date.now()
+            };
             rooms.unshift(room);
         }
-        markRoomCreated(now);
+        markRoomCreated(Date.now());
         const entered = await enterRoom(room);
         if(!entered && firebaseReady && dbApi){
-            await Promise.allSettled([dbApi.remove(dbRef(`rooms/${room.id}`)), releaseOwnerRoom(room), releaseRoomSlot(room)]);
+            await window.papianoData.gql(`mutation($id: ID!) { deleteRoom(roomId: $id) }`, { id: room.id }).catch(() => {});
         }
     }
 
@@ -9937,7 +9754,7 @@ midiBtn.onclick = () => {
     }
 
     async function applyAuthenticatedUser(authUser){
-        if(!authUser || !dbApi || !fsApi || !fsDb) return null;
+        if(!authUser || !dbApi) return null;
         if(currentAuthUser && currentAuthUser.uid === authUser.uid && players.some(player => player.id === authUser.uid)) return currentUser();
         currentAuthUser = authUser;
         mpSelfId = authUser.uid;
@@ -10192,93 +10009,200 @@ midiBtn.onclick = () => {
         else if(isInPianoRoom()) leaveRoomToHome();
     }
 
-    function createCompatDatabaseApi(firebaseGlobal){
+    const ROOM_PLAYER_FIELDS = `roomId playerId lastSeen joinedAt name userId publicId role badgeId photoURL countryCode color bio likes dislikes instrumentKey instrument stringsEnabled stringInstrumentKey stringInstrument seat sessionId`;
+    const ROOM_FIELDS = `roomId roomNumber name owner ownerUid mode max count activeCount chatEnabled createdAt updatedAt`;
+
+    function makeSnap(val, key){
+        return { val:() => val, exists:() => val !== null && val !== undefined, key: key !== undefined ? key : null };
+    }
+    function noop(){}
+
+    async function fetchRoomPlayersMap(roomId){
+        const data = await window.papianoData.gql(`query($r:ID!){ listRoomPlayers(roomId:$r){ ${ROOM_PLAYER_FIELDS} } }`, { r: roomId }).catch(() => null);
+        const map = {};
+        (data?.listRoomPlayers || []).forEach(p => { map[p.playerId] = p; });
+        return map;
+    }
+    async function fetchRoomSeatsMap(roomId){
+        const data = await window.papianoData.gql(`query($r:ID!){ listRoomSeats(roomId:$r){ roomId seat uid joinedAt lastSeen } }`, { r: roomId }).catch(() => null);
+        const map = {};
+        (data?.listRoomSeats || []).forEach(s => { map[s.seat] = s; });
+        return map;
+    }
+    async function fetchModerationMap(roomId){
+        const data = await window.papianoData.gql(`query($r:ID!){ getModeration(roomId:$r){ roomId data updatedAt } }`, { r: roomId }).catch(() => null);
+        return (data?.getModeration && data.getModeration.data) || {};
+    }
+    async function fetchPresenceMap(){
+        const data = await window.papianoData.gql(`query{ listPresence{ uid room updatedAt name photoURL role countryCode color } }`).catch(() => null);
+        const map = {};
+        (data?.listPresence || []).forEach(p => { map[p.uid] = p; });
+        return map;
+    }
+
+    function createAppSyncDatabaseApi(){
         return {
-            ref(database, path){ return database.ref(path); },
-            onValue(ref, callback, reject){ ref.on('value', callback, reject); return () => ref.off('value', callback); },
-            onChildAdded(ref, callback, reject){ ref.on('child_added', callback, reject); return () => ref.off('child_added', callback); },
-            onChildChanged(ref, callback, reject){ ref.on('child_changed', callback, reject); return () => ref.off('child_changed', callback); },
-            set(ref, value){ return ref.set(value); },
-            update(ref, value){ return ref.update(value); },
-            remove(ref){ return ref.remove(); },
-            get(ref){ return ref.once('value'); },
-            push(ref, value){ return value === undefined ? ref.push() : ref.push(value); },
-            onDisconnect(ref){ return ref.onDisconnect(); },
-            runTransaction(ref, update){ return ref.transaction(update).then(result => ({ committed:result.committed, snapshot:result.snapshot })); },
-            query(ref, ...ops){ return ops.reduce((query, op) => op ? op(query) : query, ref); },
-            limitToLast(count){ return query => query.limitToLast(count); }
-        };
-    }
+            ref(_database, path){ return { path:String(path || '') }; },
+            onValue(ref, callback){
+                const parts = String(ref?.path || '').split('/').filter(Boolean);
+                const kind = parts[0];
+                let stopped = false, gqlSub = null, poll = null;
 
-    function wrapCompatDoc(snap){
-        return { id:snap.id, exists:() => !!snap.exists, data:() => snap.data() || {} };
-    }
+                async function fetchAndEmit(){
+                    try{
+                        if(kind === 'rooms' && parts.length === 1){
+                            const data = await window.papianoData.gql(`query{ listPublicRooms{ ${ROOM_FIELDS} } }`);
+                            const map = {};
+                            (data?.listPublicRooms || []).forEach(r => { map[r.roomId] = r; });
+                            if(!stopped) callback(makeSnap(map));
+                        }else if(kind === 'rooms'){
+                            const data = await window.papianoData.gql(`query($id:ID!){ getRoom(roomId:$id){ ${ROOM_FIELDS} } }`, { id: parts[1] });
+                            if(!stopped) callback(makeSnap(data?.getRoom || null));
+                        }else if(kind === 'roomPlayers'){
+                            const map = await fetchRoomPlayersMap(parts[1]);
+                            if(!stopped) callback(makeSnap(parts.length > 2 ? (map[parts[2]] || null) : map));
+                        }else if(kind === 'roomSeats'){
+                            const map = await fetchRoomSeatsMap(parts[1]);
+                            if(!stopped) callback(makeSnap(parts.length > 2 ? (map[Number(parts[2])] || null) : map));
+                        }else if(kind === 'moderation'){
+                            const map = await fetchModerationMap(parts[1]);
+                            if(!stopped) callback(makeSnap(parts.length > 2 ? (map[parts[2]] || null) : map));
+                        }else if(kind === 'deletedAccounts'){
+                            const data = await window.papianoData.gql(`query($u:String!){ getDeletedAccount(uid:$u){ uid deletedAt reason } }`, { u: parts[1] });
+                            if(!stopped) callback(makeSnap(data?.getDeletedAccount || null));
+                        }else if(kind === 'users'){
+                            const map = await fetchPresenceMap();
+                            if(!stopped) callback(makeSnap(parts.length > 1 ? (map[parts[1]] || null) : map));
+                        }else if(kind === 'roles'){
+                            if(!stopped) callback(makeSnap({}));
+                        }
+                    }catch(e){}
+                }
 
-    function createCompatFirestoreApi(firebaseGlobal){
-        const makeOp = (method, args) => ({ method, args });
-        return {
-            collection(database, ...parts){
-                let ref = database.collection(parts[0]);
-                for(let i = 1; i < parts.length; i += 2) ref = ref.doc(parts[i]).collection(parts[i + 1]);
-                return ref;
+                fetchAndEmit();
+                (async () => {
+                    try{
+                        if(kind === 'roomPlayers' && parts.length === 1){
+                            gqlSub = await window.papianoData.subscribe(`subscription($r:ID!){ onRoomPlayersChanged(roomId:$r){ ${ROOM_PLAYER_FIELDS} } }`, { r: parts[1] }, fetchAndEmit);
+                        }else if(kind === 'roomSeats' && parts.length === 1){
+                            gqlSub = await window.papianoData.subscribe(`subscription($r:ID!){ onRoomSeatsChanged(roomId:$r){ roomId seat uid joinedAt lastSeen } }`, { r: parts[1] }, fetchAndEmit);
+                        }else if(kind === 'moderation' && parts.length === 1){
+                            gqlSub = await window.papianoData.subscribe(`subscription($r:ID!){ onModerationChanged(roomId:$r){ roomId data updatedAt } }`, { r: parts[1] }, fetchAndEmit);
+                        }else if(kind === 'deletedAccounts' || kind === 'users'){
+                            poll = setInterval(fetchAndEmit, 15000);
+                        }else if(kind === 'rooms'){
+                            poll = setInterval(fetchAndEmit, 6000);
+                        }
+                    }catch(e){}
+                })();
+
+                return () => { stopped = true; if(gqlSub) try{ gqlSub(); }catch(e){} if(poll) clearInterval(poll); };
             },
-            doc(database, ...parts){
-                let ref = database.collection(parts[0]).doc(parts[1]);
-                for(let i = 2; i < parts.length; i += 2) ref = ref.collection(parts[i]).doc(parts[i + 1]);
-                return ref;
+            onChildAdded(ref, callback){
+                const parts = String(ref?.path || '').split('/').filter(Boolean);
+                if(parts[0] !== 'streams' || parts.length !== 1) return noop;
+                const roomId = parts[1];
+                let unsub = noop;
+                (async () => {
+                    try{
+                        unsub = await window.papianoData.subscribe(
+                            `subscription($r:ID!){ onStreamChanged(roomId:$r){ roomId playerId p updatedAt } }`,
+                            { r: roomId },
+                            data => { const s = data?.onStreamChanged; if(s) callback(makeSnap(s.p, s.playerId)); }
+                        );
+                    }catch(e){}
+                })();
+                return () => { try{ unsub(); }catch(e){} };
             },
-            getDoc(ref){ return ref.get().then(wrapCompatDoc); },
-            getDocs(query){ return query.get().then(snap => ({ forEach(callback){ snap.forEach(item => callback(wrapCompatDoc(item))); } })); },
-            setDoc(ref, data, options){ return options?.merge ? ref.set(data, { merge:true }) : ref.set(data); },
-            deleteDoc(ref){ return ref.delete(); },
-            addDoc(collectionRef, data){ return collectionRef.add(data); },
-            runTransaction(database, handler){ return database.runTransaction(handler); },
-            increment(n){ return firebaseGlobal.firestore.FieldValue.increment(n); },
-            serverTimestamp(){ return firebaseGlobal.firestore.FieldValue.serverTimestamp(); },
-            arrayUnion(...args){ return firebaseGlobal.firestore.FieldValue.arrayUnion(...args); },
-            arrayRemove(...args){ return firebaseGlobal.firestore.FieldValue.arrayRemove(...args); },
-            onSnapshot(query, onNext, onError){
-                if(typeof onError === 'function') return query.onSnapshot(onNext, onError);
-                return query.onSnapshot(onNext);
+            onChildChanged(){ return noop; },
+            async set(ref, value){
+                const parts = String(ref?.path || '').split('/').filter(Boolean);
+                if(parts[0] === 'streams' && parts.length === 2){
+                    await window.papianoData.gql(`mutation($r:ID!,$p:String!,$d:AWSJSON!){ updateStream(roomId:$r, playerId:$p, p:$d){ roomId } }`, { r: parts[1], p: parts[2], d: JSON.stringify(value) });
+                }
             },
-            where(...args){ return makeOp('where', args); },
-            orderBy(...args){ return makeOp('orderBy', args); },
-            startAt(...args){ return makeOp('startAt', args); },
-            endAt(...args){ return makeOp('endAt', args); },
-            limit(...args){ return makeOp('limit', args); },
-            query(collection, ...ops){
-                return ops.reduce((query, op) => op && op.method ? query[op.method](...op.args) : query, collection);
-            }
+            async update(ref, value){
+                const parts = String(ref?.path || '').split('/').filter(Boolean);
+                const kind = parts[0];
+                if(kind === 'rooms' && parts.length === 2){
+                    const input = {};
+                    ['name','mode','count','activeCount','chatEnabled'].forEach(f => { if(value[f] !== undefined) input[f] = value[f]; });
+                    await window.papianoData.gql(`mutation($id:ID!,$i:UpdateRoomInput!){ updateRoom(roomId:$id, input:$i){ roomId } }`, { id: parts[1], i: input });
+                }else if(kind === 'roomPlayers' && parts.length === 3){
+                    const input = {};
+                    ['instrumentKey','instrument','stringsEnabled','stringInstrumentKey','stringInstrument','seat'].forEach(f => { if(value[f] !== undefined) input[f] = value[f]; });
+                    await window.papianoData.gql(`mutation($r:ID!,$i:HeartbeatPlayerInput){ heartbeatPlayer(roomId:$r, input:$i){ roomId } }`, { r: parts[1], i: input }).catch(() => {});
+                }else if(kind === 'moderation' && parts.length === 3){
+                    const roomId = parts[1], playerId = parts[2];
+                    const current = await fetchModerationMap(roomId);
+                    current[playerId] = { ...(current[playerId] || {}), ...value };
+                    await window.papianoData.gql(`mutation($r:ID!,$d:AWSJSON!){ updateModeration(roomId:$r, data:$d){ roomId } }`, { r: roomId, d: JSON.stringify(current) });
+                }else if(kind === 'users' && value.room !== undefined){
+                    await window.papianoData.gql(`mutation($rm:ID){ updatePresence(room:$rm){ uid } }`, { rm: value.room }).catch(() => {});
+                }
+            },
+            async remove(ref){
+                const parts = String(ref?.path || '').split('/').filter(Boolean);
+                const kind = parts[0];
+                if(kind === 'rooms' && parts.length === 2){
+                    await window.papianoData.gql(`mutation($id:ID!){ deleteRoom(roomId:$id) }`, { id: parts[1] }).catch(() => {});
+                }else if(kind === 'roomPlayers' && parts.length === 3){
+                    await window.papianoData.gql(`mutation($r:ID!,$t:String){ leaveRoom(roomId:$r, targetUid:$t) }`, { r: parts[1], t: parts[2] }).catch(() => {});
+                }else if(kind === 'roomSeats' && parts.length === 3){
+                    await window.papianoData.gql(`mutation($r:ID!,$s:Int!){ releaseSeat(roomId:$r, seat:$s) }`, { r: parts[1], s: Number(parts[2]) }).catch(() => {});
+                }else if(kind === 'messages' && parts.length === 2){
+                    await window.papianoData.gql(`mutation($r:ID!){ deleteRoomMessages(roomId:$r) }`, { r: parts[1] }).catch(() => {});
+                }
+                // roomSeatClaims / ownerRooms / roomSlots / per-room streams removal have
+                // no server-side row of their own anymore — best-effort no-op.
+            },
+            async get(ref){
+                const parts = String(ref?.path || '').split('/').filter(Boolean);
+                const kind = parts[0];
+                try{
+                    if(kind === 'rooms' && parts.length === 1){
+                        const data = await window.papianoData.gql(`query{ listPublicRooms{ ${ROOM_FIELDS} } }`);
+                        const map = {}; (data?.listPublicRooms || []).forEach(r => { map[r.roomId] = r; });
+                        return makeSnap(map);
+                    }
+                    if(kind === 'rooms'){
+                        const data = await window.papianoData.gql(`query($id:ID!){ getRoom(roomId:$id){ ${ROOM_FIELDS} } }`, { id: parts[1] });
+                        return makeSnap(data?.getRoom || null);
+                    }
+                    if(kind === 'roomPlayers'){
+                        const map = await fetchRoomPlayersMap(parts[1]);
+                        return makeSnap(parts.length > 2 ? (map[parts[2]] || null) : map);
+                    }
+                    if(kind === 'roomSeats'){
+                        const map = await fetchRoomSeatsMap(parts[1]);
+                        return makeSnap(parts.length > 2 ? (map[Number(parts[2])] || null) : map);
+                    }
+                    if(kind === 'moderation'){
+                        const map = await fetchModerationMap(parts[1]);
+                        return makeSnap(parts.length > 2 ? (map[parts[2]] || null) : map);
+                    }
+                    if(kind === 'deletedAccounts'){
+                        const data = await window.papianoData.gql(`query($u:String!){ getDeletedAccount(uid:$u){ uid deletedAt reason } }`, { u: parts[1] });
+                        return makeSnap(data?.getDeletedAccount || null);
+                    }
+                    if(kind === 'users'){
+                        const map = await fetchPresenceMap();
+                        return makeSnap(parts.length > 1 ? (map[parts[1]] || null) : map);
+                    }
+                }catch(e){}
+                return makeSnap(null);
+            },
+            push(){ return Promise.resolve(); },
+            onDisconnect(){ return { remove(){}, update(){}, cancel(){} }; },
+            async runTransaction(){
+                // ownerRooms / roomSlots reservation transactions have no distributed
+                // backing anymore (seat claims go through claimSeat/releaseSeat, which
+                // already enforce uniqueness server-side). Best-effort always-commit.
+                return { committed:true, snapshot:makeSnap(null) };
+            },
+            query(ref, ...ops){ return ops.reduce((q, op) => op ? op(q) : q, ref); },
+            limitToLast(){ return q => q; }
         };
-    }
-
-    function initCompatFirebase(firebaseGlobal){
-        const app = firebaseGlobal.apps && firebaseGlobal.apps.length ? firebaseGlobal.app() : firebaseGlobal.initializeApp(firebaseConfig);
-        authApi = {
-            getRedirectResult(auth){ return auth.getRedirectResult(); },
-            onAuthStateChanged(auth, callback){ return auth.onAuthStateChanged(callback); }
-        };
-        firebaseAuth = firebaseGlobal.auth(app);
-        dbApi = createCompatDatabaseApi(firebaseGlobal);
-        db = firebaseGlobal.database(app);
-        fsApi = createCompatFirestoreApi(firebaseGlobal);
-        fsDb = firebaseGlobal.firestore(app);
-    }
-
-    async function initModularFirebase(){
-        const [appMod, authMod, dbMod, firestoreMod] = await Promise.all([
-            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
-            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js'),
-            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js'),
-            import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
-        ]);
-        const app = appMod.getApps().length ? appMod.getApp() : appMod.initializeApp(firebaseConfig);
-        authApi = authMod;
-        firebaseAuth = authMod.getAuth(app);
-        dbApi = dbMod;
-        db = dbMod.getDatabase(app);
-        fsApi = firestoreMod;
-        fsDb = firestoreMod.getFirestore(app);
     }
 
     async function initFirebase(){
@@ -10288,21 +10212,16 @@ midiBtn.onclick = () => {
         syncAuthUi();
         firebaseInitPromise = (async () => {
             try{
-                if(window.firebase && window.firebase.auth && window.firebase.database && window.firebase.firestore) initCompatFirebase(window.firebase);
-                else await initModularFirebase();
+                dbApi = createAppSyncDatabaseApi();
+                db = {};
                 firebaseReady = true;
-                try{
-                    const redirectResult = await authApi.getRedirectResult(firebaseAuth);
-                    if(redirectResult?.user) await applyAuthenticatedUser(redirectResult.user);
-                }catch(e){}
-                authApi.onAuthStateChanged(firebaseAuth, user => {
+                window.papianoAuth.onAuthStateChanged(user => {
                     if(user) applyAuthenticatedUser(user).catch(() => {});
                     else resetAuthenticatedUser();
                 });
                 syncAuthUi();
                 attachRoomsListener();
                 attachUsersListener();
-                attachRoleRegistryListener();
             }catch(e){
                 firebaseReady = false;
                 firebaseInitPromise = null;

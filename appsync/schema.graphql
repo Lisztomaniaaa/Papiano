@@ -42,6 +42,43 @@ type RoomPlayer {
   playerId: String!
   lastSeen: AWSTimestamp!
   joinedAt: AWSTimestamp!
+  name: String
+  userId: String
+  publicId: Int
+  role: String
+  badgeId: String
+  photoURL: String
+  countryCode: String
+  color: String
+  bio: String
+  likes: Int
+  dislikes: Int
+  instrumentKey: String
+  instrument: String
+  stringsEnabled: Boolean
+  stringInstrumentKey: String
+  stringInstrument: String
+  seat: Int
+  sessionId: String
+}
+
+input JoinRoomInput {
+  instrumentKey: String
+  instrument: String
+  stringsEnabled: Boolean
+  stringInstrumentKey: String
+  stringInstrument: String
+  seat: Int
+  sessionId: String
+}
+
+input HeartbeatPlayerInput {
+  instrumentKey: String
+  instrument: String
+  stringsEnabled: Boolean
+  stringInstrumentKey: String
+  stringInstrument: String
+  seat: Int
 }
 
 type RoomSeat {
@@ -56,6 +93,11 @@ type Presence {
   uid: String!
   room: ID
   updatedAt: AWSTimestamp!
+  name: String
+  photoURL: String
+  role: String
+  countryCode: String
+  color: String
 }
 
 type RoomMessage {
@@ -63,6 +105,8 @@ type RoomMessage {
   createdAt: String!
   messageId: String!
   playerId: String!
+  senderName: String
+  senderPhotoURL: String
   text: String!
 }
 
@@ -242,6 +286,7 @@ type Query {
   listRoomPlayers(roomId: ID!): [RoomPlayer!]!
   listRoomSeats(roomId: ID!): [RoomSeat!]!
   getPresence(uid: String!): Presence
+  listPresence(windowSeconds: Int): [Presence!]!
   listRoomMessages(roomId: ID!): [RoomMessage!]!
   getModeration(roomId: ID!): Moderation
   listRoles: [RoleEntry!]!
@@ -275,9 +320,9 @@ type Mutation {
   updateRoom(roomId: ID!, input: UpdateRoomInput!): Room!
   deleteRoom(roomId: ID!): Boolean!
 
-  joinRoom(roomId: ID!, grantToken: String): RoomPlayer!
-  leaveRoom(roomId: ID!): Boolean!
-  heartbeatPlayer(roomId: ID!): RoomPlayer!
+  joinRoom(roomId: ID!, grantToken: String, input: JoinRoomInput): RoomPlayer!
+  leaveRoom(roomId: ID!, targetUid: String): Boolean!
+  heartbeatPlayer(roomId: ID!, input: HeartbeatPlayerInput): RoomPlayer!
 
   claimSeat(roomId: ID!, seat: Int!): RoomSeat!
   releaseSeat(roomId: ID!, seat: Int!): Boolean!

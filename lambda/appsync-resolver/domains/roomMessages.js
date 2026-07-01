@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const { doc, T, PutCommand, QueryCommand, DeleteCommand } = require('../dynamo');
 const { requireSignedIn, isAdmin, GraphqlError } = require('../auth');
 const { getRoom } = require('./rooms');
+const { getProfile } = require('./profiles');
 
 async function listRoomMessages(roomId) {
   const r = await doc.send(new QueryCommand({
@@ -21,11 +22,14 @@ async function sendRoomMessage(identity, roomId, text) {
   }
   const now = Date.now();
   const messageId = crypto.randomUUID();
+  const profile = await getProfile(uid);
   const item = {
     roomId,
     createdAt: `${String(now).padStart(13, '0')}#${messageId}`,
     messageId,
     playerId: uid,
+    senderName: profile?.name || 'Papiano User',
+    senderPhotoURL: profile?.photoURL || null,
     text,
   };
   await doc.send(new PutCommand({ TableName: T.roomMessages, Item: item }));

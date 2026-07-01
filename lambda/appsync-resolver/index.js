@@ -22,6 +22,7 @@ const handlers = {
     listRoomPlayers: (id, a) => players.listRoomPlayers(a.roomId),
     listRoomSeats: (id, a) => seats.listRoomSeats(a.roomId),
     getPresence: (id, a) => presence.getPresence(a.uid),
+    listPresence: (id, a) => presence.listPresence(a.windowSeconds),
     listRoomMessages: (id, a) => roomMessages.listRoomMessages(a.roomId),
     getModeration: (id, a) => moderation.getModeration(a.roomId),
     listRoles: (id, a, identity) => roles.listRoles(identity),
@@ -54,9 +55,9 @@ const handlers = {
     updateRoom: (id, a, identity) => rooms.updateRoom(identity, a.roomId, a.input),
     deleteRoom: (id, a, identity) => rooms.deleteRoom(identity, a.roomId),
 
-    joinRoom: (id, a, identity) => players.joinRoom(identity, a.roomId, a.grantToken),
-    leaveRoom: (id, a, identity) => players.leaveRoom(identity, a.roomId),
-    heartbeatPlayer: (id, a, identity) => players.heartbeatPlayer(identity, a.roomId),
+    joinRoom: (id, a, identity) => players.joinRoom(identity, a.roomId, a.grantToken, a.input),
+    leaveRoom: (id, a, identity) => players.leaveRoom(identity, a.roomId, a.targetUid),
+    heartbeatPlayer: (id, a, identity) => players.heartbeatPlayer(identity, a.roomId, a.input),
 
     claimSeat: (id, a, identity) => seats.claimSeat(identity, a.roomId, a.seat),
     releaseSeat: (id, a, identity) => seats.releaseSeat(identity, a.roomId, a.seat),

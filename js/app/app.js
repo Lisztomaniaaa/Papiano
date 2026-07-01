@@ -1330,7 +1330,7 @@
         const fileName = `${safePrefix}_${Date.now()}_${safeOriginalName}`;
         const contentType = file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`;
 
-        const idToken = await currentUser.getIdToken();
+        const idToken = window.papianoAuth.getIdToken();
         const presignRes = await fetch('/api/storage-presign', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2966,7 +2966,7 @@
         }, PAPIANO_BOT_TYPING_TIMEOUT_MS);
         try {
             if (!currentUser?.uid) return;
-            const idToken = await currentUser.getIdToken();
+            const idToken = window.papianoAuth.getIdToken();
             await fetch('/api/botchat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
