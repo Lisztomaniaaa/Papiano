@@ -5,23 +5,25 @@ invokes it with `{ info: { typeName, fieldName }, arguments, identity }`
 (see `appsync/resolvers/invoke-lambda.js`) and `index.js` routes to the
 matching function in `domains/`.
 
-- `auth.js` — `isAdmin()` (hardcoded email allowlist ported verbatim from
-  `rules/Realtimedatabase.rules.json` / `rules/firestore.rules`, OR Cognito
-  group `admin`), `owns()`, `requireSignedIn()`. `identity.sub` is the
-  Cognito user's stable id, equivalent to Firebase's `auth.uid`.
+- `auth.js` — `isAdmin()` (hardcoded email allowlist, OR Cognito group
+  `admin` via the `cognito:groups` claim), `owns()`, `requireSignedIn()`.
+  `identity.sub` is the Cognito user's stable id.
 - `dynamo.js` — shared DynamoDB Document Client + table name constants for
-  all 24 `papiano-*` tables.
+  all 26 `papiano-*` tables.
 - `domains/rooms.js`, `players.js`, `seats.js`, `presence.js`,
   `roomMessages.js`, `streams.js`, `moderation.js`, `roles.js`, `grants.js`
-  — the Realtime-Database-derived domain. Staleness windows (`PLAYER_STALE_MS`,
-  `SEAT_STALE_MS` = 45000ms, grant TTL = 60000ms) match the original RTDB
-  rules' `now - 45000` / `now - 60000` checks.
+  — the realtime domain (rooms, seats, presence, in-room chat, streams,
+  moderation, per-uid role assignments, deleted/banned accounts, private-room
+  join grants). Staleness windows (`PLAYER_STALE_MS`, `SEAT_STALE_MS` =
+  45000ms, grant TTL = 60000ms) are just app-level TTL constants now, not
+  ported from anywhere.
 - `domains/profiles.js`, `chat.js`, `friendships.js`, `blocks.js`,
-  `reports.js`, `donations.js` — the Firestore-derived domain.
-  `voteProfile` uses `TransactWriteCommand` to atomically toggle a
-  `papiano-profile-reactions` item and adjust the profile's `likes`/
-  `dislikes` counters by exactly ±1, replacing the Firestore transaction
-  that did the same thing.
+  `reports.js`, `donations.js`, `roleDefinitions.js`, `audit.js` — the
+  persistent domain (user profiles, main-app chat rooms/messages,
+  friendships, blocks, reports, donor ledger, the admin-panel role registry,
+  and the admin action audit log). `voteProfile` uses `TransactWriteCommand`
+  to atomically toggle a `papiano-profile-reactions` item and adjust the
+  profile's `likes`/`dislikes` counters by exactly ±1.
 
 ## Redeploying after a code change
 

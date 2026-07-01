@@ -1,9 +1,0 @@
-{
-  "firestore": {
-    "rules": "rules/firestore.rules"
-  },
-  "database": {
-    "rules": "rules/database.rules.json",
-    "instance": "papianoverse-default-rtdb"
-  }
-}

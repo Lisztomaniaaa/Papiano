@@ -6176,9 +6176,9 @@ midiBtn.onclick = () => {
     const REPORT_COOLDOWN_MS = 60000;
     let mpHistoryArmed = false;
     let leaveConfirmSource = null;
-    let firebaseReady = false;
-    let firebaseStarting = false;
-    let firebaseInitPromise = null;
+    let backendReady = false;
+    let backendStarting = false;
+    let backendInitPromise = null;
     let currentAuthUser = null;
     let dbApi = null;
     let db = null;
@@ -6459,7 +6459,7 @@ midiBtn.onclick = () => {
         return (r*0.299+g*0.587+b*0.114)>160?'#06111f':'#ffffff';
     }
     function attachRoleRegistryListener(){
-        if(!firebaseReady || !dbApi || !db) return;
+        if(!backendReady || !dbApi || !db) return;
         try{
             var rolesRef = dbApi.ref(db, 'roles');
             dbApi.onValue(rolesRef, snap => {
@@ -6481,7 +6481,7 @@ midiBtn.onclick = () => {
 
     let banWatcherUnsubscribe = null;
     function startAccountBanWatcher(uid){
-        if(!uid || !firebaseReady || !dbApi || !db) return;
+        if(!uid || !backendReady || !dbApi || !db) return;
         try{ banWatcherUnsubscribe?.(); }catch(e){}
         var banRef = dbApi.ref(db, 'deletedAccounts/' + uid);
         banWatcherUnsubscribe = dbApi.onValue(banRef, snap => {
@@ -6847,7 +6847,7 @@ midiBtn.onclick = () => {
     }
 
     function syncFriendUserSubscriptions(){
-        if(!firebaseReady || !dbApi) return;
+        if(!backendReady || !dbApi) return;
         friendUserUnsubscribers.forEach((unsubscribe, id) => {
             if(friendIds.has(id)) return;
             try{ unsubscribe(); }catch(e){}
@@ -7060,7 +7060,7 @@ midiBtn.onclick = () => {
         return null;
     }
     async function releaseRoomSlot(room){
-        if(!firebaseReady || !dbApi || !room) return;
+        if(!backendReady || !dbApi || !room) return;
         const number = Number(room.roomNumber || 0);
         if(!Number.isInteger(number) || number < 1 || number > MAX_ROOMS) return;
         try{
@@ -7072,7 +7072,7 @@ midiBtn.onclick = () => {
     }
     let _roomCountWriteInFlight = false;
     async function updateRoomActiveCount(room, count){
-        if(!firebaseReady || !dbApi || !room || emptyRoomCleanup.has(room.id)) return;
+        if(!backendReady || !dbApi || !room || emptyRoomCleanup.has(room.id)) return;
         const safeCount = Math.max(0, Math.min(Number(room.max || 6), Number(count || 0)));
         room.count = safeCount;
         room.activeCount = safeCount;
@@ -7085,7 +7085,7 @@ midiBtn.onclick = () => {
         }
     }
     function pruneStaleRoomPlayers(roomId, live){
-        if(!firebaseReady || !dbApi || !roomId || !live || typeof live !== 'object') return;
+        if(!backendReady || !dbApi || !roomId || !live || typeof live !== 'object') return;
         let pruned = false;
         Object.entries(live).forEach(([id, data]) => {
             if(isActiveRoomPlayer(id, data || {})) return;
@@ -7127,7 +7127,7 @@ midiBtn.onclick = () => {
     }
 
     async function deleteEmptyRoom(room){
-        if(!firebaseReady || !dbApi || !room || emptyRoomCleanup.has(room.id)) return;
+        if(!backendReady || !dbApi || !room || emptyRoomCleanup.has(room.id)) return;
         if(Date.now() - Number(room.createdAt || 0) < ROOM_CREATE_GRACE_MS) return;
         emptyRoomCleanup.add(room.id);
         roomDeleteQueue.add(room.id);
@@ -7161,7 +7161,7 @@ midiBtn.onclick = () => {
         }
     }
     function scheduleEmptyRoomDelete(room){
-        if(!room || !firebaseReady || !dbApi) return;
+        if(!room || !backendReady || !dbApi) return;
         if(liveRoomCount(room.id) > 0){
             const timer = emptyRoomTimers.get(room.id);
             if(timer) clearTimeout(timer);
@@ -7194,7 +7194,7 @@ midiBtn.onclick = () => {
         scheduleEmptyRoomDelete(room);
     }
     function cleanupEmptyRooms(){
-        if(!firebaseReady || !dbApi) return;
+        if(!backendReady || !dbApi) return;
         rooms.forEach(reconcileRoomPresence);
     }
     function getPlayer(id){
@@ -7251,7 +7251,7 @@ midiBtn.onclick = () => {
         user.stringsEnabled = !!stringEnabled;
         user.stringInstrumentKey = currentStringInstrumentKey();
         user.stringInstrument = currentStringInstrumentName();
-        if(!writeRemote || !firebaseReady || !dbApi || !currentRoom) return;
+        if(!writeRemote || !backendReady || !dbApi || !currentRoom) return;
         const signature = `${currentRoom.id}:${user.instrumentKey}:${user.instrument}:${user.stringsEnabled ? '1' : '0'}:${user.stringInstrumentKey}:${user.stringInstrument}`;
         if(selfInstrumentRemoteKey === signature) return;
         selfInstrumentRemoteKey = signature;
@@ -7407,9 +7407,9 @@ midiBtn.onclick = () => {
         if(source === 'history') armPianoHistory();
     }
 
-    async function leaveFirebaseRoom(){
+    async function leaveBackendRoom(){
         if(typeof flushRoomNoteEvents === 'function') flushRoomNoteEvents();
-        if(!firebaseReady || !dbApi || !currentRoom) return;
+        if(!backendReady || !dbApi || !currentRoom) return;
         const room = currentRoom;
         const seat = currentRoomSeat || Number(roomPlayersByRoom[room.id]?.[mpSelfId]?.seat || 0);
         try{ await dbApi.remove(dbRef(`roomPlayers/${room.id}/${mpSelfId}`)); }catch(e){}
@@ -7440,7 +7440,7 @@ midiBtn.onclick = () => {
         if(warmRemoteTimer){ clearTimeout(warmRemoteTimer); warmRemoteTimer = 0; }
         stopRoomPresenceHeartbeat();
         stopRoomIdleWatch();
-        leaveFirebaseRoom();
+        leaveBackendRoom();
         const user = currentUser();
         if(user) user.room = null;
         currentRoom = null;
@@ -7540,7 +7540,7 @@ midiBtn.onclick = () => {
 
     function _createRoomPlayersReadyGate(){
         _roomPlayersReadyPromise = new Promise(resolve => { _roomPlayersReadyResolve = resolve; });
-        // Safety timeout — never block UI forever if Firebase is dead
+        // Safety timeout — never block UI forever if the backend is unreachable
         const timeout = setTimeout(() => { if(_roomPlayersReadyResolve){ _roomPlayersReadyResolve(); _roomPlayersReadyResolve = null; } }, 4000);
         const origResolve = _roomPlayersReadyResolve;
         _roomPlayersReadyResolve = () => { clearTimeout(timeout); origResolve(); _roomPlayersReadyResolve = null; };
@@ -7567,7 +7567,7 @@ midiBtn.onclick = () => {
     }
 
     function touchRoomPresence(){
-        if(!firebaseReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
+        if(!backendReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
         const now = Date.now();
         // Re-assert the current valid name each heartbeat so a returning player is
         // never left showing a stale fallback name in the room list.
@@ -7629,7 +7629,7 @@ midiBtn.onclick = () => {
     });
 
     function touchGlobalPresence(){
-        if(!firebaseReady || !dbApi || !mpSelfId || mpSelfId === 'local_self') return;
+        if(!backendReady || !dbApi || !mpSelfId || mpSelfId === 'local_self') return;
         const now = Date.now();
         dbApi.update(dbRef(`users/${mpSelfId}`), { online:true, lastSeen:now, updatedAt:now, room:currentRoom ? currentRoom.id : null }).catch(() => {});
     }
@@ -7905,7 +7905,7 @@ midiBtn.onclick = () => {
         updateChatCounter();
         resizeChatInput();
         setReply(null);
-        if(firebaseReady && dbApi){
+        if(backendReady && dbApi){
             try{ await dbApi.push(dbRef(`messages/${currentRoom.id}`), payload); }
             catch(e){ showToast('Couldn’t send message. Try again.', { type:'error', title:'Online Room' }); }
         }else{
@@ -7991,11 +7991,11 @@ midiBtn.onclick = () => {
         renderSearch();
     }
 
-    // Private rooms are gated server-side at /api/private-room — the RTDB
-    // rules require a fresh roomGrants/{roomId}/{uid} entry before allowing
-    // a non-owner write into roomPlayers, and only the Vercel function can
-    // mint that grant (it owns roomSecrets via Admin SDK). callPrivateRoomApi
-    // returns { ok:true } on success or { ok:false, reason } on failure.
+    // Private rooms are gated server-side at /api/private-room (a Lambda
+    // Function URL) — joinRoom's resolver requires a fresh roomGrants row for
+    // non-owners, and only private-room's Lambda can mint that grant (it owns
+    // roomSecrets, never exposed via GraphQL). callPrivateRoomApi returns
+    // { ok:true } on success or { ok:false, reason } on failure.
     async function callPrivateRoomApi(action, roomId, password){
         try{
             const idToken = window.papianoAuth?.getIdToken();
@@ -8033,7 +8033,7 @@ midiBtn.onclick = () => {
         if(!pendingPasswordRoom || passwordSubmitBusy) return;
         const value = passwordInput?.value || '';
         const room = pendingPasswordRoom;
-        if(firebaseReady && dbApi){
+        if(backendReady && dbApi){
             // Guard against double-submit (Enter + click, or impatient taps):
             // the API round-trip is async, so without this two joins could race.
             passwordSubmitBusy = true;
@@ -8059,7 +8059,7 @@ midiBtn.onclick = () => {
     }
 
     async function writeSelfUser(updates = {}){
-        if(!firebaseReady || !dbApi) return;
+        if(!backendReady || !dbApi) return;
         const user = currentUser();
         const payload = {
             id:user.id,
@@ -8103,7 +8103,7 @@ midiBtn.onclick = () => {
     // simple try-in-order loop against the real mutation rather than a local
     // transaction over the whole seat map.
     async function reserveRoomSeat(room, live = {}){
-        if(!firebaseReady || !dbApi || !room) return 0;
+        if(!backendReady || !dbApi || !room) return 0;
         const max = Math.min(6, Math.max(2, Number(room.max || 6)));
         const existingSeat = Number(live?.[mpSelfId]?.seat || currentRoomSeat || 0);
         const order = [];
@@ -8119,17 +8119,17 @@ midiBtn.onclick = () => {
     }
 
     async function releaseRoomSeat(room, seat){
-        if(!firebaseReady || !dbApi || !room) return;
+        if(!backendReady || !dbApi || !room) return;
         const number = Number(seat || currentRoomSeat || 0);
         if(!isRoomSeatNumber(room, number)) return;
         await window.papianoData.gql(`mutation($r: ID!, $s: Int!) { releaseSeat(roomId: $r, seat: $s) }`, { r: room.id, s: number }).catch(() => {});
     }
 
-    async function enterFirebaseRoom(room){
-        if(!firebaseReady || !dbApi || !room || !isSignedIn()) return false;
+    async function enterBackendRoom(room){
+        if(!backendReady || !dbApi || !room || !isSignedIn()) return false;
         const user = currentUser();
         try{
-            if(currentRoom && currentRoom.id !== room.id) await leaveFirebaseRoom();
+            if(currentRoom && currentRoom.id !== room.id) await leaveBackendRoom();
             const now = Date.now();
             let live = roomPlayersByRoom[room.id] || null;
             try{
@@ -8221,7 +8221,7 @@ midiBtn.onclick = () => {
     }
 
     async function requireSignedInAccount(){
-        await initFirebase();
+        await initBackend();
         const existing = window.papianoAuth?.currentUser || null;
         if(existing){
             await applyAuthenticatedUser(existing);
@@ -8248,8 +8248,8 @@ midiBtn.onclick = () => {
         if(!(await requireSignedInAccount())) return false;
         setPianoEntryLoading(12, 'Joining Room');
         try{
-            if(firebaseReady){
-                const ok = await enterFirebaseRoom(room);
+            if(backendReady){
+                const ok = await enterBackendRoom(room);
                 if(!ok){ hidePianoEntryLoading(); return false; }
             }else{
                 const user = currentUser();
@@ -8306,7 +8306,7 @@ midiBtn.onclick = () => {
             return;
         }
         let room;
-        if(firebaseReady && dbApi){
+        if(backendReady && dbApi){
             try{
                 const data = await window.papianoData.gql(
                     `mutation($i: CreateRoomInput!) { createRoom(input: $i) { ${ROOM_FIELDS} } }`,
@@ -8337,7 +8337,7 @@ midiBtn.onclick = () => {
         }
         markRoomCreated(Date.now());
         const entered = await enterRoom(room);
-        if(!entered && firebaseReady && dbApi){
+        if(!entered && backendReady && dbApi){
             await window.papianoData.gql(`mutation($id: ID!) { deleteRoom(roomId: $id) }`, { id: room.id }).catch(() => {});
         }
     }
@@ -8756,7 +8756,7 @@ midiBtn.onclick = () => {
     }
 
     async function writeRoomStream(payload){
-        if(!firebaseReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
+        if(!backendReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
         const events = cleanStreamEvents(payload?.e);
         if(!events.length) return;
         const cleanPayload = {
@@ -8831,7 +8831,7 @@ midiBtn.onclick = () => {
             pendingRoomNoteFlushTimer = 0;
         }
         if(!pendingRoomNoteEvents.length) return;
-        if(!firebaseReady || !dbApi || !currentRoom || !isInPianoRoom()){
+        if(!backendReady || !dbApi || !currentRoom || !isInPianoRoom()){
             pendingRoomNoteEvents.length = 0;
             return;
         }
@@ -8852,7 +8852,7 @@ midiBtn.onclick = () => {
     }
 
     function sendNoteEvent(type, note, velocity = 0.8){
-        if(!firebaseReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
+        if(!backendReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
         if(getState(currentUser().id).muteInstrument) return;
         const midi = Number(note);
         if(!Number.isFinite(midi) || midi < 21 || midi > 108) return;
@@ -8869,7 +8869,7 @@ midiBtn.onclick = () => {
     }
 
     async function sendSustainEvent(){
-        if(!firebaseReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
+        if(!backendReady || !dbApi || !currentRoom || !isInPianoRoom()) return;
         flushRoomNoteEvents();
         const snapshot = getPerformanceSnapshot();
         await writeRoomStream({
@@ -8894,7 +8894,7 @@ midiBtn.onclick = () => {
         syncInstrument(){ scheduleSelfInstrumentStateSync(); },
         isInRoom(){ return !!(currentRoom && currentScreen === 'pianoMulti'); },
         playerColor(id){ return playerColor(id || mpSelfId); },
-        isOnline(){ return firebaseReady; },
+        isOnline(){ return backendReady; },
         _detectChords(){ _detectAndRenderChords(); }
     };
 
@@ -9075,7 +9075,7 @@ midiBtn.onclick = () => {
     }
 
     function subscribeRoomData(roomId){
-        if(!firebaseReady || !dbApi || !roomId) return;
+        if(!backendReady || !dbApi || !roomId) return;
         clearRoomSubscriptions();
         messages.splice(0, messages.length);
         roomPlayersByRoom[roomId] = roomPlayersByRoom[roomId] || {};
@@ -9301,7 +9301,7 @@ midiBtn.onclick = () => {
     }
 
     function attachUsersListener(){
-        if(!firebaseReady || !dbApi || usersUnsubscribe) return;
+        if(!backendReady || !dbApi || usersUnsubscribe) return;
         usersUnsubscribe = dbApi.onValue(dbRef('users'), snap => {
             const data = snap.val() || {};
             const seen = new Set();
@@ -9337,7 +9337,7 @@ midiBtn.onclick = () => {
     }
 
     async function processStageIntent(){
-        if(!isStagePianoPage() || stageIntentProcessed || !firebaseReady || !dbApi) return;
+        if(!isStagePianoPage() || stageIntentProcessed || !backendReady || !dbApi) return;
         const intent = readStageIntent();
         if(!intent){
             stageIntentProcessed = true;
@@ -9376,7 +9376,7 @@ midiBtn.onclick = () => {
             if(!room){ window.location.replace('multiplayer.html'); return; }
             if(!(await requireSignedInAccount())) return;
             if(room.mode === 'Private'){
-                if(firebaseReady && dbApi){
+                if(backendReady && dbApi){
                     const result = await callPrivateRoomApi('check', room.id, intent.password || '');
                     if(!result?.ok){ openPasswordModal(room); return; }
                 }else if(String(intent.password || '') !== room.password){
@@ -9388,7 +9388,7 @@ midiBtn.onclick = () => {
     }
 
     function attachRoomsListener(){
-        if(!firebaseReady || !dbApi || roomsUnsubscribe) return;
+        if(!backendReady || !dbApi || roomsUnsubscribe) return;
         roomsUnsubscribe = dbApi.onValue(dbRef('rooms'), snap => {
             const data = snap.val() || {};
             const nextRooms = Object.entries(data).map(([id, value]) => normalizeRoom(id, value)).sort((a,b) => {
@@ -9423,7 +9423,7 @@ midiBtn.onclick = () => {
     }
 
     function syncLobbyRoomPlayerSubscriptions(){
-        if(!firebaseReady || !dbApi) return;
+        if(!backendReady || !dbApi) return;
         const ids = new Set(rooms.map(room => room.id));
         lobbyRoomPlayerUnsubscribers.forEach((unsubscribe, roomId) => {
             if(ids.has(roomId)) return;
@@ -9649,16 +9649,16 @@ midiBtn.onclick = () => {
         };
     }
 
-    async function initFirebase(){
-        if(firebaseReady) return firebaseInitPromise || Promise.resolve();
-        if(firebaseInitPromise) return firebaseInitPromise;
-        firebaseStarting = true;
+    async function initBackend(){
+        if(backendReady) return backendInitPromise || Promise.resolve();
+        if(backendInitPromise) return backendInitPromise;
+        backendStarting = true;
         syncAuthUi();
-        firebaseInitPromise = (async () => {
+        backendInitPromise = (async () => {
             try{
                 dbApi = createAppSyncDatabaseApi();
                 db = {};
-                firebaseReady = true;
+                backendReady = true;
                 window.papianoAuth.onAuthStateChanged(user => {
                     if(user) applyAuthenticatedUser(user).catch(() => {});
                     else resetAuthenticatedUser();
@@ -9667,16 +9667,16 @@ midiBtn.onclick = () => {
                 attachRoomsListener();
                 attachUsersListener();
             }catch(e){
-                firebaseReady = false;
-                firebaseInitPromise = null;
+                backendReady = false;
+                backendInitPromise = null;
                 showToast('Online connection unavailable.', { type:'error', title:'Papiano' });
                 refreshAll();
             }finally{
-                firebaseStarting = false;
+                backendStarting = false;
                 syncAuthUi();
             }
         })();
-        return firebaseInitPromise;
+        return backendInitPromise;
     }
 
 
@@ -9695,7 +9695,7 @@ midiBtn.onclick = () => {
         if(document.body.classList.contains('mp-room-active')){
             const open = !document.body.classList.contains('mp-chat-open');
             setChatOpen(open, { dismiss:!open });
-        }else { showLayer('home'); initFirebase(); }
+        }else { showLayer('home'); initBackend(); }
     });
     topLeaveButton?.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); requestLeaveRoom('button'); });
     document.addEventListener('click', event => {
@@ -9748,7 +9748,7 @@ midiBtn.onclick = () => {
         const player = event.target.closest('[data-mp-player]');
         if(go){
             if(go.dataset.mpGo === 'create') await openCreateScreen();
-            else { if(go.dataset.mpGo !== 'home') initFirebase(); showLayer(go.dataset.mpGo); }
+            else { if(go.dataset.mpGo !== 'home') initBackend(); showLayer(go.dataset.mpGo); }
         }
         else if(join){
             if(isHomeMultiplayerPage()) openStagePiano({ action:'join', roomId:join.dataset.mpJoin });
@@ -9838,9 +9838,9 @@ midiBtn.onclick = () => {
 
     function isSolo(){ return typeof window !== 'undefined' && window.PAPIANO_SOLO === true; }
     function bootSoloPiano(){
-        // Pure solo piano: no Firebase, no multiplayer home, no chat. A local
-        // "room" lets the existing piano UI render; every Firebase call guards on
-        // firebaseReady (which stays false), so they all no-op. Leave -> index.
+        // Pure solo piano: no backend, no multiplayer home, no chat. A local
+        // "room" lets the existing piano UI render; every backend call guards on
+        // backendReady (which stays false), so they all no-op. Leave -> index.
         document.body.classList.add('solo-mode');
         mpSelfId = 'local_self';
         currentRoom = { id:'solo', name:'Solo', max:1, ownerId:'local_self', hostId:'local_self', type:'public', count:1 };
@@ -9851,7 +9851,7 @@ midiBtn.onclick = () => {
         if(typeof forceBootVisible === 'function') forceBootVisible();
     }
     // Visualizer build — loaded by visualizer-stage.html. This boots the piano
-    // engine in solo mode (no Firebase room/chat); the multiplayer room/chat
+    // engine in solo mode (no backend room/chat); the multiplayer room/chat
     // markup this IIFE checks for at the top is hidden via CSS (.solo-mode),
     // not removed, because bootSoloPiano() below lives inside this same IIFE.
     window.PAPIANO_SOLO = true;

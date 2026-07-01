@@ -1,89 +1,88 @@
 # Papiano
 
-Online piano for phone touch, MIDI, and QWERTY — with profiles, chat, friends,
-and realtime multiplayer rooms. Static site + Vercel serverless functions,
-backed by Firebase (Auth, Firestore, Realtime Database).
+Online piano for phone touch, MIDI, and QWERTY — with profiles, chat,
+friends, and realtime multiplayer rooms.
+
+**Stack: static site on AWS Amplify Hosting, Cognito for auth, AppSync
+(GraphQL) + DynamoDB for all app data, and a handful of standalone Lambda
+Function URLs for things GraphQL doesn't fit (S3 upload presigning, the
+AI chatbot, audio transcription/extraction).** There is no Firebase and no
+Vercel anywhere in this stack — both were migrated off entirely; see
+`lambda/README.md` and `appsync/README.md` for the backend, and
+`js/app/cognito-auth.js` / `js/app/appsync-client.js` for the frontend
+clients (hand-rolled `fetch`/WebSocket, no AWS SDK or Amplify JS library in
+the browser).
 
 ## Entry pages (served from the web root)
 
-Vercel serves these from the repo root with `cleanUrls`, so the file
-`solo.html` is reachable at `/solo`. They **must stay at the root** — the URLs,
-`vercel.json` redirects, and `sitemap.xml` all depend on it.
+Amplify serves these from the repo root, and its custom rewrite rules make
+`solo.html` reachable at `/solo` (see the Amplify app's Console > Custom
+rules, referenced loosely by `amplify.yml`). They **must stay at the root**
+— those rewrite rules and `sitemap.xml` both depend on it.
 
 | URL | File | What it is |
 | --- | --- | --- |
 | `/` | `index.html` | Home, profile, chat, friends, account |
-| `/solo` | `solo.html` | Solo piano — its own offline engine, no network |
+| `/solo` | `solo.html` | Solo piano — its own offline-capable engine |
 | `/multiplayer` | `multiplayer.html` | Realtime multiplayer rooms |
-| `/admin` | `admin.html` | Admin panel (noindex) |
+| `/visualizer` | `visualizer.html` + `visualizer-stage.html` | MIDI/MusicXML playback visualizer |
+| `/admin` | `admin.html` | Admin panel (noindex, Cognito-gated) |
 
-**Solo and multiplayer are fully independent.** Each has its OWN copy of the
-piano engine and its OWN stylesheet, so editing one never affects the other:
-`js/solo/piano.js` + `css/solo/piano.css` (solo, offline) vs.
-`js/multiplayer/piano.js` + `css/multiplayer/piano.css` (rooms + chat + Firebase).
-Each engine file self-boots its single mode — no shared file, no mode branch.
-(Trade-off: a piano-engine fix that should apply to both must be made in both
-copies.)
+**Solo, multiplayer, and visualizer are independent.** Each has its own copy
+of the piano engine (all three talk to the same AppSync API for chat/rooms/
+presence, but share no JS file):
+`js/solo/piano.js`, `js/multiplayer/piano.js` (rooms + chat), and
+`js/visualizer/piano.js` (solo engine + MIDI/MusicXML playback appended).
+Each engine file self-boots its single mode. (Trade-off: a piano-engine fix
+that should apply to more than one must be made in each copy.)
 
 ## Folders
 
-Everything is grouped by area. Code lives in folders; the only loose files at
-the repo root are the ones that a tool *requires* to be there (see the table
-below).
-
 ```
-api/        Vercel serverless functions (see api/README.md)
+lambda/     AWS Lambda backend — see lambda/README.md
+appsync/    GraphQL schema + resolver glue — see appsync/README.md
 js/         App scripts — *.js are sources, *.min.js are served. Grouped by area:
-  app/      main app (index.html): app.js, auth-email.js, edit-modal.js, sdk-loader.js
+  app/      main app (index.html): app.js, auth-email.js, edit-modal.js,
+            cognito-auth.js (Cognito auth client), appsync-client.js (GraphQL client)
   solo/     piano.js — SOLO engine, independent copy (served as-is)
   multiplayer/  piano.js — MULTIPLAYER engine, independent copy (served as-is)
-  shared/   updater.js — version/cache refresh, used by all 3 pages
+  visualizer/   piano.js — VISUALIZER engine, independent copy (served as-is)
+  shared/   updater.js — version/cache refresh, used by all pages
 css/        Stylesheets — *.css sources, *.min.css served. Same per-area split:
-  app/      bundle.css — main app (index.html)
-  solo/     piano.css — SOLO engine styles (independent copy)
+  app/          bundle.css — main app (index.html)
+  solo/         piano.css — SOLO engine styles (independent copy)
   multiplayer/  piano.css — MULTIPLAYER engine styles (independent copy)
-scripts/    Build tooling — build.js (minify) + stamp-version.js (cache-bust)
-rules/      Firebase security rules
-  firestore.rules        Firestore rules
-  database.rules.json    Realtime Database rules (multiplayer)
+  visualizer/   piano.css — VISUALIZER engine styles (independent copy)
+scripts/    Build tooling — build.js (minify, run locally before committing)
+            + stamp-version.js (cache-bust, run by Amplify on every deploy)
 fonts/      Self-hosted icon font
+bin/        Vendored yt-dlp binary — see bin/README.md
 ```
 
 ### Why these files sit at the root
 
-Each one is read from the project root by an external tool and **cannot move**:
-
-| File | Owned by | Why it must stay at root |
-| --- | --- | --- |
-| `index.html` `solo.html` `multiplayer.html` `admin.html` | Vercel | Served as the entry pages (see the table above) |
-| `vercel.json` | Vercel | Hosting / redirects / headers config |
-| `package.json` | npm / Vercel | Declares the `firebase-admin` runtime dep |
-| `firebase.json` `.firebaserc` | Firebase CLI | Points at `rules/`; read from root on deploy |
-| `manifest.json` | browser (PWA) | Linked from the HTML `<head>` |
-| `robots.txt` `sitemap.xml` | crawlers | Must resolve at `/robots.txt`, `/sitemap.xml` |
-| `version.json` | the app | Generated by `scripts/stamp-version.js`; fetched at `/version.json` |
+| File | Why it must stay at root |
+| --- | --- |
+| `index.html` `solo.html` `multiplayer.html` `visualizer.html` `visualizer-stage.html` `admin.html` | Served as the entry pages (see the table above) |
+| `amplify.yml` | Amplify Hosting build spec |
+| `manifest.json` | browser (PWA); linked from the HTML `<head>` |
+| `robots.txt` `sitemap.xml` | crawlers; must resolve at `/robots.txt`, `/sitemap.xml` |
+| `version.json` | generated by `scripts/stamp-version.js`; fetched at `/version.json` |
 
 ## Build
 
-The site ships **minified** assets. After editing any `css/*.css` or `js/*.js`
-source, regenerate the bundles before committing:
+The site ships **minified** assets. After editing any `css/*.css` or
+`js/app/app.js` / `js/shared/updater.js` source, regenerate the bundles
+before committing:
 
 ```bash
 node scripts/build.js          # terser (JS) + clean-css (CSS) -> the *.min.* outputs
 ```
 
-On deploy, Vercel runs `node scripts/stamp-version.js` to write `version.json`
-and cache-bust the asset URLs.
+Note: `js/solo/piano.js`, `js/multiplayer/piano.js`, and
+`js/visualizer/piano.js` are served **unminified** (no build step for
+them) — edit and commit them directly.
 
-## Deploying Firebase rules
-
-Rules live in `rules/` and are referenced by `firebase.json`:
-
-```bash
-firebase deploy --only firestore        # Firestore rules
-firebase deploy --only database         # Realtime Database rules
-```
-
-> The RTDB instance is in `asia-southeast1`. If your network/tooling can't
-> reach that host, paste `rules/database.rules.json` into Firebase Console →
-> Realtime Database → Rules and publish.
+On deploy, Amplify runs `node scripts/stamp-version.js` (see `amplify.yml`)
+to write `version.json` and cache-bust the asset URLs. `build.js` itself is
+**not** run by Amplify — run it locally and commit the `.min.*` outputs.

@@ -7,10 +7,10 @@
  *     node scripts/build.js
  *
  * The minified outputs are committed to the repo and served directly; the
- * Vercel build only stamps cache-busting versions (see stamp-version.js).
- * Uses npx so no package.json/install is required (needs network the first
- * run to fetch terser + clean-css-cli). To wire this into the deploy later,
- * set vercel.json "buildCommand" to: node scripts/build.js && node scripts/stamp-version.js
+ * Amplify build only stamps cache-busting versions (see stamp-version.js
+ * and amplify.yml — this script is NOT run on deploy, only locally before
+ * committing). Uses npx so no package.json/install is required (needs
+ * network the first run to fetch terser + clean-css-cli).
  */
 const { execSync } = require('child_process');
 
@@ -22,9 +22,10 @@ const steps = [
   // CSS: level-1 only (whitespace/comments) — no rule reordering, so the
   // cascade is preserved exactly.
   'npx --yes clean-css-cli -O1 css/app/bundle.css -o css/app/bundle.min.css',
-  // Solo and multiplayer have independent piano-engine stylesheets on purpose.
+  // Solo, multiplayer, and visualizer have independent piano-engine stylesheets on purpose.
   'npx --yes clean-css-cli -O1 css/solo/piano.css -o css/solo/piano.min.css',
   'npx --yes clean-css-cli -O1 css/multiplayer/piano.css -o css/multiplayer/piano.min.css',
+  'npx --yes clean-css-cli -O1 css/visualizer/piano.css -o css/visualizer/piano.min.css',
 ];
 
 for (const cmd of steps) {

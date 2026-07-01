@@ -1,8 +1,4 @@
-sa.json
-*.sa.json
-service-account*.json
 node_modules/
-.vercel/
 *.log
 lambda/*.zip
 lambda/extract-audio/bin/
