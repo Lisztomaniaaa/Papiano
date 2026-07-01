@@ -6488,7 +6488,7 @@ midiBtn.onclick = () => {
             if(snap.val()?.deleted){
                 try{ banWatcherUnsubscribe?.(); }catch(e){}
                 try{ writeSelfUser({ online:false, room:null }); }catch(e){}
-                try{ window.papianoAuth.signOut(); }catch(e){}
+                try{ window.papianoAuth.signOutLocal(); }catch(e){}
                 window.location.assign('/');
             }
         }, () => {});
@@ -7998,7 +7998,7 @@ midiBtn.onclick = () => {
     // { ok:true } on success or { ok:false, reason } on failure.
     async function callPrivateRoomApi(action, roomId, password){
         try{
-            const idToken = window.papianoAuth?.getIdToken();
+            const idToken = await window.papianoAuth?.getFreshIdToken?.();
             if(!idToken) return { ok:false, reason:'not signed in' };
             const response = await fetch('/api/private-room', {
                 method:'POST',

@@ -12,16 +12,24 @@
         return btoa(JSON.stringify(obj));
     }
 
-    function authHeader() {
-        var token = window.papianoAuth && window.papianoAuth.getIdToken();
+    // Always hand AppSync a token with real lifetime left — papianoAuth
+    // refreshes it first when it's close to (or past) expiry.
+    async function authHeader(forceRefresh) {
+        var token = window.papianoAuth && await window.papianoAuth.getFreshIdToken(forceRefresh);
         if (!token) throw new Error('Not signed in.');
         return { Authorization: token, host: API_HOST };
     }
 
-    async function gql(query, variables) {
+    function isTokenRejection(errorType, message) {
+        var t = String(errorType || '') + ' ' + String(message || '');
+        return /unauthorized|token has expired|not authorized|invalid.*token/i.test(t);
+    }
+
+    async function gqlOnce(query, variables, forceRefresh) {
+        var header = await authHeader(forceRefresh);
         var res = await fetch(GRAPHQL_HTTP, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: authHeader().Authorization },
+            headers: { 'Content-Type': 'application/json', Authorization: header.Authorization },
             body: JSON.stringify({ query: query, variables: variables || {} }),
         });
         var body = await res.json().catch(function () { return {}; });
@@ -31,6 +39,20 @@
             throw e;
         }
         return body.data;
+    }
+
+    async function gql(query, variables) {
+        try {
+            return await gqlOnce(query, variables, false);
+        } catch (e) {
+            // Clock skew / a token that expired mid-flight: force one refresh
+            // and retry once, so a momentarily stale token never surfaces as
+            // a fake "logged out" failure to the UI.
+            if (isTokenRejection(e.errorType, e.message)) {
+                return await gqlOnce(query, variables, true);
+            }
+            throw e;
+        }
     }
 
     // ---- Realtime subscriptions (AppSync raw WebSocket protocol) ----
@@ -45,8 +67,9 @@
 
     function openSocket() {
         if (wsConnectPromise) return wsConnectPromise;
-        wsConnectPromise = new Promise(function (resolve, reject) {
-            var header = authHeader();
+        wsConnectPromise = (async function () {
+            var header = await authHeader(false);
+            return await new Promise(function (resolve, reject) {
             var url = REALTIME_WS
                 + '?header=' + encodeURIComponent(b64(header))
                 + '&payload=' + encodeURIComponent(b64({}));
@@ -83,7 +106,9 @@
                     delete subs[id];
                 });
             };
-        });
+            });
+        })();
+        wsConnectPromise.catch(function () { wsConnectPromise = null; });
         return wsConnectPromise;
     }
 
@@ -94,7 +119,7 @@
     async function subscribe(query, variables, onData, onError, onClose) {
         var sock = await openSocket();
         var id = genId();
-        var header = authHeader();
+        var header = await authHeader(false);
         subs[id] = { onData: onData, onError: onError, onClose: onClose };
         sock.send(JSON.stringify({
             id: id,

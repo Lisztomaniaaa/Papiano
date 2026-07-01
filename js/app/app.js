@@ -453,7 +453,9 @@
         localStorage.removeItem(storageKey);
         currentProfile = null;
         accessSessionActive = false;
-        try { await window.papianoAuth.signOut(); } catch (_error) {}
+        // Local-only sign-out: this flow must stay on the page to show the
+        // restriction notice (a redirecting signOut would wipe it out).
+        try { window.papianoAuth.signOutLocal(); } catch (_error) {}
         showLoginScreen();
         showAccountRestrictionNotice();
     }
@@ -599,18 +601,19 @@
     }
 
     async function logoutPapianoAccount() {
-        try {
-            // Mark multiplayer presence offline + stop the heartbeat before
-            // signing out, so a logged-out account doesn't linger as "online".
-            if (_mpPresenceActive) {
-                _mpPresenceActive = false;
-                clearInterval(_mpPresenceHeartbeat);
-                _mpPresenceHeartbeat = null;
-            }
-            await window.papianoAuth.signOut();
-        } catch (_error) {}
+        // All local cleanup happens BEFORE signOut(): signOut navigates away
+        // (through Cognito's /logout to clear its SSO cookie), so nothing
+        // after it is guaranteed to run.
+        // Mark multiplayer presence offline + stop the heartbeat before
+        // signing out, so a logged-out account doesn't linger as "online".
+        if (_mpPresenceActive) {
+            _mpPresenceActive = false;
+            clearInterval(_mpPresenceHeartbeat);
+            _mpPresenceHeartbeat = null;
+        }
         // Clear profile cache so UI resets to default (no stale name/avatar)
         localStorage.removeItem(storageKey);
+        localStorage.removeItem('papiano_access_session');
         // Reset in-memory state
         privateUnreadTotal = 0;
         friendRequestUnreadTotal = 0;
@@ -621,7 +624,11 @@
         // NOTE: Do NOT clear locallyReadRooms / LOCAL_READ_STORE_KEY here.
         // These room-read markers remain valid after re-login (same user)
         // and prevent the unread badge from flashing on re-authentication.
-        showLoginScreen();
+        try {
+            await window.papianoAuth.signOut();
+        } catch (_error) {
+            showLoginScreen();
+        }
     }
 
     function parsePublicIdInput(value) {
@@ -712,7 +719,7 @@
             try {
                 await window.papianoAuth.deleteCurrentUser();
             } catch (_error) {
-                try { await window.papianoAuth.signOut(); } catch (__error) {}
+                try { window.papianoAuth.signOutLocal(); } catch (__error) {}
             }
 
             localStorage.removeItem(storageKey);
@@ -1320,7 +1327,7 @@
         const fileName = `${safePrefix}_${Date.now()}_${safeOriginalName}`;
         const contentType = file.type || `image/${ext === 'jpg' ? 'jpeg' : ext}`;
 
-        const idToken = window.papianoAuth.getIdToken();
+        const idToken = await window.papianoAuth.getFreshIdToken();
         const presignRes = await fetch('/api/storage-presign', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -2956,7 +2963,7 @@
         }, PAPIANO_BOT_TYPING_TIMEOUT_MS);
         try {
             if (!currentUser?.uid) return;
-            const idToken = window.papianoAuth.getIdToken();
+            const idToken = await window.papianoAuth.getFreshIdToken();
             await fetch('/api/botchat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
