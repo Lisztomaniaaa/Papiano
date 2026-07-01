@@ -9,17 +9,26 @@
         var tag = (el.tagName || '').toLowerCase();
         return tag === 'input' || tag === 'textarea' || el.isContentEditable === true;
     }
+    function reloadUrl(latest){
+        // Preserve whatever query params the page already had (e.g.
+        // multiplayer.html?stage=1&room=<id>&password=<pw> deep links) —
+        // only add/overwrite `v`, never drop the rest of the query string.
+        var params = new URLSearchParams(location.search);
+        params.set('v', latest);
+        return location.pathname + '?' + params.toString();
+    }
     function applyUpdate(latest){
         try{
             if(sessionStorage.getItem('papianoReloadGuard') === latest) return;
             sessionStorage.setItem('papianoReloadGuard', latest);
         }catch(e){}
+        var url = reloadUrl(latest);
         if(window.caches){
             caches.keys().then(function(names){ names.forEach(function(n){ caches.delete(n); }); }).catch(function(){}).finally(function(){
-                location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
+                location.replace(url);
             });
         } else {
-            location.replace(location.pathname + '?v=' + encodeURIComponent(latest));
+            location.replace(url);
         }
     }
     async function fetchVersion(){

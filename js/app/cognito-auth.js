@@ -292,6 +292,14 @@
             code_challenge: pair.challenge,
             code_challenge_method: 'S256',
             identity_provider: 'Google',
+            // Cognito forwards unrecognized authorize params through to the
+            // upstream IdP for a direct identity_provider=Google redirect.
+            // Without this, Google silently re-authenticates whichever
+            // Google account still has an active session in the browser —
+            // so signing out of Papiano and back in immediately re-logs
+            // into the same Google account with no chance to pick another
+            // one. This forces Google's account chooser every time.
+            prompt: 'select_account',
         });
         location.href = 'https://' + COGNITO_DOMAIN + '/oauth2/authorize?' + params.toString();
     }
