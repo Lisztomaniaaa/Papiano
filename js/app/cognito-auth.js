@@ -216,6 +216,24 @@
         if (accessToken) {
             try { await cognitoRequest('GlobalSignOut', { AccessToken: accessToken }); } catch (_e) {}
         }
+        // GlobalSignOut only revokes this app's tokens — it does NOT clear the
+        // Hosted UI's own SSO session cookie on the amazoncognito.com domain
+        // (set the first time the user completed the Google redirect flow).
+        // Without clearing it too, the next signInWithGoogleRedirect() call
+        // gets silently satisfied by that leftover Cognito-side session and
+        // signs the same account back in immediately, skipping Google's
+        // account chooser entirely — "select_account" never even reaches
+        // Google because Cognito never re-contacts it. `mode:'no-cors'`
+        // still lets the browser apply the response's cookie-clearing
+        // Set-Cookie headers even though the JS can't read the body.
+        try {
+            // logout_uri must exactly match a registered LogoutURL (root-only
+            // entries in the Cognito app client), not the current page path.
+            await fetch(
+                'https://' + COGNITO_DOMAIN + '/logout?client_id=' + CLIENT_ID + '&logout_uri=' + encodeURIComponent(location.origin + '/'),
+                { mode: 'no-cors', credentials: 'include' }
+            );
+        } catch (_e) {}
         clearTokens();
         currentUser = null;
         notify();

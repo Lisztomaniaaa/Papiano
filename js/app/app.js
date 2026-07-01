@@ -92,20 +92,10 @@
     let currentUser = null;
     let currentProfile = null;
     let authStateResolved = false;
-    let _authBootHidden = false;
-
-    // Hide the boot overlay exactly once the auth state is known (or as a safety
-    // fallback if the SDKs never load), so users never see a confusing flicker
-    // between "logged out" and "logged in".
-    function hideAuthBootOverlay() {
-        if (_authBootHidden) return;
-        _authBootHidden = true;
-        const ov = document.getElementById('authBootOverlay');
-        if (!ov) return;
-        ov.classList.add('hide');
-        setTimeout(() => { ov.remove(); }, 400);
-    }
-    setTimeout(() => { if (!authStateResolved) hideAuthBootOverlay(); }, 6000);
+    // No-op kept so existing call sites don't need touching — the "Checking
+    // your session…" boot overlay was removed (it confused more than it
+    // helped: signed-in state resolves fast enough without it).
+    function hideAuthBootOverlay() {}
     let accessSessionActive = localStorage.getItem('papiano_access_session') === '1';
     let authEntryMode = 'signin';
     let authEntryBusy = false;
