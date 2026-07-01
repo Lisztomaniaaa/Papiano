@@ -503,12 +503,10 @@ tr:last-child td{border-bottom:none}
 
 <div class="toast-wrap" id="toasts"></div>
 
-<script type="module">
+<script src="/js/app/cognito-auth.js?v=dev"></script>
+<script src="/js/app/appsync-client.js?v=dev"></script>
+<script>
 /* ───────── CONFIG ───────── */
-const VER='10.12.5', BASE=`https://www.gstatic.com/firebasejs/${VER}`;
-const CONFIG={apiKey:'AIzaSyAzjXvKk_1UvC0BaArsJk_Ep2WqIXhIcTY',authDomain:'papianoverse.firebaseapp.com',databaseURL:'https://papianoverse-default-rtdb.asia-southeast1.firebasedatabase.app',projectId:'papianoverse',storageBucket:'papianoverse.appspot.com'};
-const PRESENCE='papianoOnlineBeta';            // RTDB presence + multiplayer namespace
-const ADMIN_EMAILS=new Set(['utamairfan44@gmail.com','akunpolos0444000@gmail.com','papianobase@gmail.com']);
 const DON_GOAL=100, ONLINE_FRESH_MS=70000, ROOM_STALE_MS=60000;
 const NAV=[
   {id:'dash',label:'Dashboard',sec:'Overview',icon:'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z'},
@@ -525,26 +523,18 @@ const NAV=[
 const BOTTOM=['dash','users','chat','mp'];
 
 /* ───────── STATE ───────── */
-let AUTH,RTDB,FS,fbR={};
 let ADMIN={uid:'',name:'Admin',userId:'',photoURL:'',badgeId:'dev'};
 let allRoles={}, presenceUsers={}, liveRooms={}, currentPage='dash';
 let listeners=[], userSelection=new Map(), userResults=[];
 let selectedDonorUid=null, selectedDonorData=null;
 let ctx={}; // transient handler context
 const $=id=>document.getElementById(id);
+function gql(query,vars){ return window.papianoData.gql(query,vars); }
 
 /* ───────── INIT ───────── */
-async function init(){
-  try{
-    const [appMod,authMod,rtdbMod,fsMod]=await Promise.all([
-      import(`${BASE}/firebase-app.js`),import(`${BASE}/firebase-auth.js`),
-      import(`${BASE}/firebase-database.js`),import(`${BASE}/firebase-firestore.js`)]);
-    fbR={appMod,authMod,rtdbMod,fsMod};
-    const app=appMod.initializeApp(CONFIG);
-    AUTH=authMod.getAuth(app); RTDB=rtdbMod.getDatabase(app); FS=fsMod.getFirestore(app);
-    buildNav();
-    authMod.onAuthStateChanged(AUTH,onAuthChange);
-  }catch(e){ toast('Firebase failed: '+e.message,'err'); show('sLoad',false); show('sLogin',true); }
+function init(){
+  buildNav();
+  window.papianoAuth.onAuthStateChanged(onAuthChange);
 }
 
 async function onAuthChange(user){
@@ -552,14 +542,19 @@ async function onAuthChange(user){
   if(!user){ show('sLoad',false); show('sLogin',true); $('adminApp').classList.remove('on'); return; }
   show('sLoad',true); show('sLogin',false); show('sDenied',false);
   try{
-    let isAdmin=ADMIN_EMAILS.has(user.email||''), badge='';
-    const snap=await fbR.fsMod.getDoc(fbR.fsMod.doc(FS,'profiles',user.uid));
-    const pd=snap.data()||{}; badge=pd.role||pd.badgeId||'';
-    if(!isAdmin && !['dev','admin'].includes(badge)){
-      $('deniedMsg').textContent=`${user.email} — role "${badge||'none'}" — admin requires DEV/ADMIN or an authorized email.`;
+    // Server-side is the real gate (every admin query/mutation checks isAdmin()
+    // via cognito:groups/email allowlist) — probe with an admin-only query and
+    // treat a Forbidden error as "not an admin", rather than duplicating the
+    // allowlist logic client-side.
+    let stats;
+    try{ stats=(await gql(`query{ getAdminStats{ totalUsers msgsToday } }`)).getAdminStats; }
+    catch(e){
+      $('deniedMsg').textContent=`${user.email||user.uid} — admin access required.`;
       show('sLoad',false); show('sDenied',true); return;
     }
-    ADMIN={uid:user.uid,name:pd.name||user.displayName||user.email,userId:pd.userId||'',photoURL:pd.photoURL||user.photoURL||'',badgeId:badge||'dev'};
+    const pd=await getProfile(user.uid)||{};
+    ADMIN={uid:user.uid,name:pd.name||user.displayName||user.email,userId:pd.userId||'',photoURL:pd.photoURL||user.photoURL||'',badgeId:pd.role||'admin'};
+    ctx.stats=stats;
     $('topName').textContent=ADMIN.name;
     const av=$('topAv');
     if(ADMIN.photoURL){ av.outerHTML=`<img class="topav" src="${x(ADMIN.photoURL)}" alt="" id="topAv">`; }
@@ -570,20 +565,44 @@ async function onAuthChange(user){
   }catch(e){ $('deniedMsg').textContent='Error: '+e.message; show('sLoad',false); show('sDenied',true); }
 }
 
-/* ───────── REALTIME LISTENERS ───────── */
+/* ───────── POLLED "LIVE" DATA ─────────
+   AppSync subscriptions are per-item (onRoomPlayersChanged(roomId), etc.) —
+   there is no "subscribe to everything" primitive like RTDB onValue('rooms').
+   Admin views poll on a short interval instead; still feels live at this UI's
+   refresh cadence and avoids a subscription per visible room/user. */
 function track(unsub){ if(typeof unsub==='function') listeners.push(unsub); }
 function detachAll(){ listeners.forEach(u=>{try{u();}catch(e){}}); listeners=[]; }
+function poller(fn,ms){ fn(); const id=setInterval(fn,ms); return ()=>clearInterval(id); }
 function startListeners(){
-  const {rtdbMod}=fbR;
-  // roles (RTDB root)
-  track(rtdbMod.onValue(rtdbMod.ref(RTDB,'roles'),s=>{ allRoles=s.val()||{}; renderRoles(); renderDashRoles(); refreshStats(); },()=>{}));
-  // presence
-  track(rtdbMod.onValue(rtdbMod.ref(RTDB,`${PRESENCE}/users`),s=>{ presenceUsers=s.val()||{}; refreshStats(); },()=>{}));
-  // rooms
-  track(rtdbMod.onValue(rtdbMod.ref(RTDB,`${PRESENCE}/rooms`),s=>{ liveRooms=s.val()||{}; renderDashRooms(); if(currentPage==='mp') renderMpRooms(); refreshStats(); },()=>{}));
-  // bans ledger
-  track(rtdbMod.onValue(rtdbMod.ref(RTDB,`${PRESENCE}/bans`),s=>{ ctx.bans=s.val()||{}; renderBans(); refreshStats(); },()=>{}));
+  track(poller(loadRoleDefinitions,20000));
+  track(poller(loadPresence,15000));
+  track(poller(loadRooms,10000));
+  track(poller(loadBans,15000));
   loadDonations();
+}
+async function loadRoleDefinitions(){
+  try{ const defs=(await gql(`query{ listRoleDefinitions{ id label color } }`)).listRoleDefinitions||[];
+    allRoles={}; defs.forEach(r=>allRoles[r.id]=r);
+    renderRoles(); renderDashRoles(); refreshStats();
+  }catch(e){}
+}
+async function loadPresence(){
+  try{ const list=(await gql(`query{ listPresence(windowSeconds:${Math.floor(ONLINE_FRESH_MS/1000)}){ uid room updatedAt name photoURL role countryCode } }`)).listPresence||[];
+    presenceUsers={}; list.forEach(p=>presenceUsers[p.uid]={...p,online:true,lastSeen:p.updatedAt});
+    refreshStats();
+  }catch(e){}
+}
+async function loadRooms(){
+  try{ const list=(await gql(`query{ listAllRoomsAdmin{ roomId roomNumber name owner ownerUid mode max count activeCount chatEnabled createdAt updatedAt } }`)).listAllRoomsAdmin||[];
+    liveRooms={}; list.forEach(r=>liveRooms[r.roomId]={...r,id:r.roomId});
+    renderDashRooms(); if(currentPage==='mp') renderMpRooms(); refreshStats();
+  }catch(e){}
+}
+async function loadBans(){
+  try{ const list=(await gql(`query{ listBannedAccounts{ uid name userId photoURL reason bannedBy active expiresAt deletedAt } }`)).listBannedAccounts||[];
+    ctx.bans={}; list.forEach(b=>ctx.bans[b.uid]={...b,createdAt:b.deletedAt,bannedByName:b.bannedBy});
+    renderBans(); refreshStats();
+  }catch(e){}
 }
 
 /* ───────── NAV ───────── */
@@ -620,12 +639,13 @@ function go(page){
 function onlineNow(){ const now=Date.now(); return Object.values(presenceUsers).filter(u=>u&&u.online&&(now-(u.lastSeen||0)<ONLINE_FRESH_MS)).length; }
 function activeRooms(){ const now=Date.now(); return Object.values(liveRooms).filter(r=>r&&(now-(r.updatedAt||r.createdAt||0)<3600000)).length; }
 function bansActive(){ return Object.values(ctx.bans||{}).filter(b=>b&&b.active).length; }
-async function refreshStats(){
+function refreshStats(){
+  const s=ctx.stats||{};
   const stats=[
-    {id:'users',v:ctx.totalUsers??'…',l:'Total Users',icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'},
+    {id:'users',v:s.totalUsers??'…',l:'Total Users',icon:'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'},
     {id:'online',v:onlineNow(),l:'Online Now',dot:true,icon:'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z'},
     {id:'rooms',v:Object.keys(liveRooms).length,l:'Live Rooms',icon:'M3 5h18v14H3z'},
-    {id:'msgs',v:ctx.msgsToday??'…',l:'Global Msgs Today',icon:'M21 11.5a8.4 8.4 0 0 1-9 8 9 9 0 0 1-4-1L3 21l2.5-5a8.5 8.5 0 1 1 15.5-4.5z'},
+    {id:'msgs',v:s.msgsToday??'…',l:'Global Msgs Today',icon:'M21 11.5a8.4 8.4 0 0 1-9 8 9 9 0 0 1-4-1L3 21l2.5-5a8.5 8.5 0 1 1 15.5-4.5z'},
     {id:'banned',v:bansActive(),l:'Banned',icon:'M18.4 6.6A9 9 0 1 1 5.6 19.4'},
     {id:'roles',v:Object.keys(allRoles).length,l:'Roles',icon:'M12 2l3 6 6 1-4.5 4.5L18 21l-6-3-6 3 1.5-7.5L3 9l6-1z'},
     {id:'donors',v:ctx.donorCount??'…',l:'Donors',icon:'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7'},
@@ -635,16 +655,6 @@ async function refreshStats(){
   $('roomsLiveCount').textContent=Object.keys(liveRooms).length;
   $('rolesLiveCount').textContent=Object.keys(allRoles).length;
   const bc=$('bn_bans'); if(bc) bc.textContent=bansActive()||'';
-  // lazy one-shot counts
-  if(ctx.totalUsers===undefined){ ctx.totalUsers='…'; try{ const c=await fbR.fsMod.getDoc(fbR.fsMod.doc(FS,'counters','publicUserId')); ctx.totalUsers=Math.max(0,(c.data()?.next||1)-1); }catch(e){ ctx.totalUsers='—'; } refreshStats(); }
-  if(ctx.msgsToday===undefined){ ctx.msgsToday='…'; countMsgsToday(); }
-}
-async function countMsgsToday(){
-  try{ const {fsMod}=fbR; const midnight=new Date(); midnight.setHours(0,0,0,0);
-    const q=fsMod.query(fsMod.collection(FS,'chatRooms','group_global','messages'),fsMod.where('createdAt','>=',midnight));
-    const c=await fsMod.getCountFromServer(q); ctx.msgsToday=c.data().count;
-  }catch(e){ ctx.msgsToday='—'; }
-  refreshStats();
 }
 function renderDashRoles(){
   const el=$('dashRoleList'), keys=Object.keys(allRoles).sort();
@@ -674,13 +684,14 @@ function renderRoles(){
 function renderGiftSelect(sel){ if(!sel) return; sel.innerHTML='<option value="">— select role —</option>'+Object.keys(allRoles).sort().map(id=>`<option value="${x(id)}">${x(allRoles[id].label||allRoles[id].name||id.toUpperCase())}</option>`).join(''); }
 async function createRole(){
   const raw=$('nRoleLabel').value.trim(); if(!raw) return toast('Label required','err');
-  const id=raw.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'').slice(0,40); if(!id) return toast('Label needs letters/numbers','err');
-  if(allRoles[id]) return toast('Role already exists','err');
-  try{ await fbR.rtdbMod.set(fbR.rtdbMod.ref(RTDB,`roles/${id}`),{label:raw.slice(0,28),color:$('nRoleColor')?.value||'#4d90ff'});
-    await logAction('role.create',id,raw); toast(`Role "${raw}" created`,'ok');
+  try{
+    const created=(await gql(`mutation($i:CreateRoleDefinitionInput!){ createRoleDefinition(input:$i){ id label color } }`,
+      {i:{label:raw.slice(0,28),color:$('nRoleColor')?.value||'#4d90ff'}})).createRoleDefinition;
+    await logAction('role.create',created.id,raw); toast(`Role "${raw}" created`,'ok');
     $('nRoleLabel').value='';
     if($('nRoleColor'))$('nRoleColor').value='#4d90ff';if($('nRoleColorHex'))$('nRoleColorHex').textContent='#4d90ff';
-  }catch(e){ toast('Failed: '+e.message,'err'); }
+    loadRoleDefinitions();
+  }catch(e){ toast(e.errorType==='Conflict'?'Role already exists':'Failed: '+e.message,'err'); }
 }
 
 /* ───────── USERS ───────── */
@@ -689,11 +700,14 @@ async function userSearch(){
   const el=$('uResults'); el.innerHTML='<div class="skel"></div><div class="skel"></div>';
   userResults=await queryUsers(q); renderUserCards();
 }
+const PROFILE_FIELDS=`uid name desc photoURL countryCode role publicId userId likes dislikes playTimeSeconds playTime`;
 async function queryUsers(q){
-  const {fsMod}=fbR, map=new Map(), clean=q.replace(/^#/,'');
-  for(const uid of [clean,'#'+clean]){ try{ const s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'),fsMod.where('userId','==',uid),fsMod.limit(10))); s.docs.forEach(d=>map.set(d.id,{uid:d.id,...d.data()})); }catch(e){} }
-  try{ const s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'),fsMod.orderBy('searchName'),fsMod.startAt(q.toLowerCase()),fsMod.endAt(q.toLowerCase()+''),fsMod.limit(15))); s.docs.forEach(d=>map.set(d.id,{uid:d.id,...d.data()})); }catch(e){}
-  try{ const s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'profiles'),fsMod.orderBy('name'),fsMod.startAt(q),fsMod.endAt(q+''),fsMod.limit(15))); s.docs.forEach(d=>map.set(d.id,{uid:d.id,...d.data()})); }catch(e){}
+  const map=new Map(), clean=q.replace(/^#/,''), numeric=/^\d+$/.test(clean);
+  if(numeric){
+    try{ const p=(await gql(`query($u:String!){ getProfileByUserId(userId:$u){ ${PROFILE_FIELDS} } }`,{u:'#'+clean})).getProfileByUserId; if(p) map.set(p.uid,p); }catch(e){}
+    try{ const p=(await gql(`query($i:Int!){ getProfileByPublicId(publicId:$i){ ${PROFILE_FIELDS} } }`,{i:Number(clean)})).getProfileByPublicId; if(p) map.set(p.uid,p); }catch(e){}
+  }
+  try{ const list=(await gql(`query($p:String!){ searchProfilesByName(prefix:$p){ ${PROFILE_FIELDS} } }`,{p:q})).searchProfilesByName||[]; list.forEach(p=>map.set(p.uid,p)); }catch(e){}
   return [...map.values()];
 }
 function renderUserCards(){
@@ -745,33 +759,27 @@ async function userDetail(uid){
     </div>`;
   openDetail();
 }
-async function getProfile(uid){ try{ const s=await fbR.fsMod.getDoc(fbR.fsMod.doc(FS,'profiles',uid)); return s.exists()?{uid,...s.data()}:null; }catch(e){ return null; } }
+async function getProfile(uid){ try{ return (await gql(`query($u:ID!){ getProfile(uid:$u){ ${PROFILE_FIELDS} } }`,{u:uid})).getProfile||null; }catch(e){ return null; } }
 
 /* role grant/remove */
-async function setUserRole(uid,roleId){ const {fsMod,rtdbMod}=fbR;
-  await fsMod.updateDoc(fsMod.doc(FS,'profiles',uid),{role:roleId});
-  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{role:roleId}); }catch(e){}
+async function setUserRole(uid,roleId){
+  await gql(`mutation($u:ID!,$i:UpdateProfileInput!){ updateProfile(uid:$u,input:$i){ uid } }`,{u:uid,i:{role:roleId}});
 }
-async function clearUserRole(uid){ const {fsMod,rtdbMod}=fbR;
-  await fsMod.updateDoc(fsMod.doc(FS,'profiles',uid),{role:'player'});
-  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{role:'player'}); }catch(e){}
+async function clearUserRole(uid){
+  await gql(`mutation($u:ID!,$i:UpdateProfileInput!){ updateProfile(uid:$u,input:$i){ uid } }`,{u:uid,i:{role:'user'}});
 }
 
 /* ───────── BANS ───────── */
 function isBanned(uid){ return !!(ctx.bans&&ctx.bans[uid]&&ctx.bans[uid].active); }
 async function banUser(uid,data,reason,days){
-  const {rtdbMod}=fbR, now=Date.now(), exp=days>0?now+days*86400000:0;
-  await rtdbMod.set(rtdbMod.ref(RTDB,`${PRESENCE}/bans/${uid}`),{uid,name:data?.name||'Unknown',userId:data?.userId||'',photoURL:data?.photoURL||'',reason:reason||'',bannedBy:ADMIN.uid,bannedByName:ADMIN.name,createdAt:now,expiresAt:exp,active:true});
-  // enforcement: reuse the account kill-switch watched live by app + multiplayer
-  await rtdbMod.set(rtdbMod.ref(RTDB,`deletedAccounts/${uid}`),{deleted:true,banned:true,type:'ban',reason:reason||'',bannedBy:ADMIN.uid,bannedAt:now,publicId:data?.publicId||null,userId:data?.userId||null});
-  // also force-offline + eject from any room
-  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{online:false,room:null}); }catch(e){}
+  await gql(`mutation($u:String!,$r:String,$d:Int){ setDeletedAccount(uid:$u,reason:$r,days:$d){ uid } }`,{u:uid,r:reason||'',d:days||0});
   await logAction('user.ban',uid,`${data?.name||uid} — ${reason||'no reason'}${days>0?` (${days}d)`:' (permanent)'}`);
+  loadBans();
 }
-async function unbanUser(uid,name){ const {rtdbMod}=fbR;
-  try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/bans/${uid}`),{active:false,unbannedAt:Date.now(),unbannedBy:ADMIN.uid}); }catch(e){}
-  await rtdbMod.remove(rtdbMod.ref(RTDB,`deletedAccounts/${uid}`));
+async function unbanUser(uid,name){
+  await gql(`mutation($u:String!){ unbanAccount(uid:$u) }`,{u:uid});
   await logAction('user.unban',uid,name||uid);
+  loadBans();
 }
 function renderBans(){
   const el=$('bansList'); if(!el) return;
@@ -803,49 +811,43 @@ function chatTab(ch){
 function chatLoadCustom(){ const id=$('chatRoomId').value.trim(); if(!id) return; ctx.chatRoom=id; $('chatChannelLabel').textContent=id; loadChat(id); }
 async function loadChat(roomId){
   const el=$('chatMessages'); el.innerHTML='<div class="lrow">Loading…</div>';
-  try{ const {fsMod}=fbR;
-    const s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'chatRooms',roomId,'messages'),fsMod.orderBy('createdAt','desc'),fsMod.limit(80)));
-    if(s.empty){ el.innerHTML='<div class="empty">No messages.</div>'; return; }
-    const msgs=s.docs.map(d=>({id:d.id,...d.data()}));
+  try{
+    const data=(await gql(`query($r:ID!,$l:Int){ listChatMessages(roomId:$r,limit:$l){ items{ createdAt messageId senderId senderName senderUserId senderPhotoURL text imageURL deletedForAll } } }`,{r:roomId,l:80})).listChatMessages;
+    const msgs=(data?.items||[]).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+    if(!msgs.length){ el.innerHTML='<div class="empty">No messages.</div>'; return; }
     el.innerHTML=msgs.map(m=>chatMsg(roomId,m)).join('');
   }catch(e){ el.innerHTML=`<div class="empty">Failed: ${x(e.message)}</div>`; }
 }
 function chatMsg(roomId,m){
-  const del=m.deletedForAll, ts=m.createdAt?.toMillis?m.createdAt.toMillis():(m.createdAt?.seconds?m.createdAt.seconds*1000:0);
+  const del=m.deletedForAll, ts=parseInt(m.createdAt,10)||0;
   const av=m.senderPhotoURL?`<img class="uav sm" src="${x(m.senderPhotoURL)}" alt="">`:`<div class="uav sm">${x((m.senderName||'?')[0].toUpperCase())}</div>`;
   return `<div class="msg">${av}<div class="msg-body">
     <div class="msg-head"><span class="msg-name">${x(m.senderName||'Unknown')}</span><span class="msg-meta">${x(m.senderUserId||'')} · ${x(ts?timeAgo(ts):'')}</span></div>
     <div class="msg-text${del?' del':''}">${del?'[deleted]':x(m.text||'')}</div>
     ${(!del&&m.imageURL)?`<img class="msg-img" src="${x(m.imageURL)}" alt="">`:''}</div>
-    ${del?'':`<button class="btn br bxs" data-act="delMsg" data-room="${x(roomId)}" data-id="${x(m.id)}">Del</button>`}</div>`;
+    ${del?'':`<button class="btn br bxs" data-act="delMsg" data-room="${x(roomId)}" data-id="${x(m.createdAt)}">Del</button>`}</div>`;
 }
-async function delMsg(roomId,id){
-  try{ await fbR.fsMod.updateDoc(fbR.fsMod.doc(FS,'chatRooms',roomId,'messages',id),{deletedForAll:true,text:'',imageURL:'',imagePath:''});
-    await logAction('chat.delete',roomId,'msg '+id); toast('Message deleted','ok'); loadChat(roomId);
+async function delMsg(roomId,createdAt){
+  try{ await gql(`mutation($r:ID!,$c:String!){ deleteChatMessage(roomId:$r,createdAt:$c) }`,{r:roomId,c:createdAt});
+    await logAction('chat.delete',roomId,'msg '+createdAt); toast('Message deleted','ok'); loadChat(roomId);
   }catch(e){ toast('Failed: '+e.message,'err'); }
 }
 async function doPost(){
   const text=$('postText').value.trim(), roomId=ctx.chatRoom; if(!text||!roomId) return toast('Empty','err');
-  try{ const {fsMod}=fbR; const ts=fsMod.serverTimestamp();
-    await fsMod.addDoc(fsMod.collection(FS,'chatRooms',roomId,'messages'),{senderId:ADMIN.uid,senderName:ADMIN.name,senderUserId:ADMIN.userId,senderPhotoURL:ADMIN.photoURL,senderBadgeId:ADMIN.badgeId||'dev',text,imageURL:'',imagePath:'',replyTo:null,hiddenFor:[],createdAt:ts,updatedAt:ts});
-    await fsMod.setDoc(fsMod.doc(FS,'chatRooms',roomId),{type:roomId.startsWith('dm_')?'dm':'group',lastMessage:text,lastSenderId:ADMIN.uid,updatedAt:ts},{merge:true});
+  try{
+    await gql(`mutation($r:ID!,$i:SendChatMessageInput!){ sendChatMessage(roomId:$r,input:$i){ messageId } }`,{r:roomId,i:{text}});
     await logAction('chat.post',roomId,text.slice(0,60)); toast('Posted','ok'); closeModal('mPost'); $('postText').value=''; loadChat(roomId);
   }catch(e){ toast('Failed: '+e.message,'err'); }
 }
 function chatWipe(){
   const roomId=ctx.chatRoom; if(!roomId) return toast('Open a channel first','err');
-  confirmAction('Wipe channel?',`Soft-delete ALL messages in ${roomId}. This cannot be undone.`,async()=>{
-    try{ const {fsMod}=fbR; let cur=null,total=0;
-      while(true){ let q=fsMod.query(fsMod.collection(FS,'chatRooms',roomId,'messages'),fsMod.orderBy('createdAt','desc'),fsMod.limit(400));
-        if(cur) q=fsMod.query(fsMod.collection(FS,'chatRooms',roomId,'messages'),fsMod.orderBy('createdAt','desc'),fsMod.startAfter(cur),fsMod.limit(400));
-        const s=await fsMod.getDocs(q); if(s.empty) break;
-        const b=fsMod.writeBatch(FS); s.docs.forEach(d=>b.update(d.ref,{deletedForAll:true,text:'',imageURL:'',imagePath:''})); await b.commit();
-        total+=s.docs.length; cur=s.docs[s.docs.length-1]; if(s.docs.length<400) break; }
+  confirmAction('Wipe channel?',`Permanently delete ALL messages in ${roomId}. This cannot be undone.`,async()=>{
+    try{
+      const total=(await gql(`mutation($r:ID!){ wipeChatMessages(roomId:$r) }`,{r:roomId})).wipeChatMessages;
       await logAction('chat.wipe',roomId,total+' msgs'); toast(`Wiped ${total} messages`,'ok'); loadChat(roomId);
     }catch(e){ toast('Failed: '+e.message,'err'); }
   },'WIPE');
 }
-
 /* ───────── MULTIPLAYER ───────── */
 function renderMpRooms(){
   const el=$('mpRooms'); if(!el) return;
@@ -861,13 +863,18 @@ function renderMpRooms(){
         <button class="btn br bxs" data-act="mpClose" data-id="${x(r.id)}" data-name="${x(r.name||'Room')}">Close</button>
       </div></div>`).join('');
 }
+async function loadRoomModeration(roomId){
+  try{ const m=(await gql(`query($r:ID!){ getModeration(roomId:$r){ data } }`,{r:roomId})).getModeration; return (m&&m.data)||{}; }catch(e){ return {}; }
+}
+async function saveRoomModeration(roomId,data){
+  await gql(`mutation($r:ID!,$d:AWSJSON!){ updateModeration(roomId:$r,data:$d){ roomId } }`,{r:roomId,d:JSON.stringify(data)});
+}
 async function mpRoomDetail(roomId){
   const room=liveRooms[roomId]; if(!room) return toast('Room gone','err');
-  const {rtdbMod}=fbR;
-  let players={},mod={};
-  try{ players=(await rtdbMod.get(rtdbMod.ref(RTDB,`${PRESENCE}/roomPlayers/${roomId}`))).val()||{}; }catch(e){}
-  try{ mod=(await rtdbMod.get(rtdbMod.ref(RTDB,`${PRESENCE}/moderation/${roomId}`))).val()||{}; }catch(e){}
-  const parr=Object.values(players);
+  let players=[],mod={};
+  try{ players=(await gql(`query($r:ID!){ listRoomPlayers(roomId:$r){ playerId name seat } }`,{r:roomId})).listRoomPlayers||[]; }catch(e){}
+  mod=await loadRoomModeration(roomId);
+  const parr=players.map(p=>({...p,id:p.playerId}));
   $('detailBody').innerHTML=`<h3 style="margin-bottom:6px">${x(room.name||'Room')}</h3>
     <p class="msub">${x(room.mode||'Public')} · host ${x(room.owner||'?')} · ${parr.length}/${x(room.max||6)}</p>
     <div class="card" style="margin:0 0 12px">
@@ -889,29 +896,29 @@ async function mpRoomDetail(roomId){
   openDetail();
 }
 async function mpMute(roomId,uid,field,val){
-  try{ await fbR.rtdbMod.update(fbR.rtdbMod.ref(RTDB,`${PRESENCE}/moderation/${roomId}/${uid}`),{[field]:val==='1'});
+  try{
+    const mod=await loadRoomModeration(roomId);
+    mod[uid]={...(mod[uid]||{}),[field]:val==='1'};
+    await saveRoomModeration(roomId,mod);
     await logAction('mp.'+field,roomId,uid+'='+(val==='1')); toast('Updated','ok'); mpRoomDetail(roomId);
   }catch(e){ toast('Failed: '+e.message,'err'); }
 }
 async function mpKick(roomId,uid,name){
   confirmAction('Kick player?',`Remove ${name} from the room and ban them from re-joining it.`,async()=>{
-    try{ const {rtdbMod}=fbR;
-      await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/moderation/${roomId}/${uid}`),{banned:true,muteChat:true,muteInstrument:true});
-      await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/roomPlayers/${roomId}/${uid}`));
-      try{ await rtdbMod.update(rtdbMod.ref(RTDB,`${PRESENCE}/users/${uid}`),{room:null}); }catch(e){}
+    try{
+      const mod=await loadRoomModeration(roomId);
+      mod[uid]={...(mod[uid]||{}),banned:true,muteChat:true,muteInstrument:true};
+      await saveRoomModeration(roomId,mod);
+      await gql(`mutation($r:ID!,$t:String){ leaveRoom(roomId:$r,targetUid:$t) }`,{r:roomId,t:uid});
       await logAction('mp.kick',roomId,name); toast('Player kicked','ok'); mpRoomDetail(roomId);
     }catch(e){ toast('Failed: '+e.message,'err'); }
   });
 }
 function mpClose(roomId,name){
   confirmAction('Force-close room?',`Permanently delete "${name}" and disconnect everyone.`,async()=>{
-    try{ const {rtdbMod}=fbR, room=liveRooms[roomId]||{};
-      const nodes=['roomPlayers','roomSeats','roomSeatClaims','messages','streams','moderation'];
-      for(const n of nodes){ try{ await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/${n}/${roomId}`)); }catch(e){} }
-      try{ if(room.ownerUid) await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/ownerRooms/${room.ownerUid}`)); }catch(e){}
-      try{ if(room.roomNumber) await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/roomSlots/${room.roomNumber}`)); }catch(e){}
-      await rtdbMod.remove(rtdbMod.ref(RTDB,`${PRESENCE}/rooms/${roomId}`));
-      await logAction('mp.close',roomId,name); toast('Room closed','ok'); closeDetail();
+    try{
+      await gql(`mutation($id:ID!){ deleteRoom(roomId:$id) }`,{id:roomId});
+      await logAction('mp.close',roomId,name); toast('Room closed','ok'); closeDetail(); loadRooms();
     }catch(e){ toast('Failed: '+e.message,'err'); }
   },'CLOSE');
 }
@@ -919,51 +926,50 @@ function mpClose(roomId,name){
 /* ───────── REPORTS ───────── */
 async function loadReports(){
   const el=$('reportsList'); el.innerHTML='<div class="skel"></div><div class="skel"></div>';
-  try{ const {fsMod}=fbR; let s;
-    try{ s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'reports'),fsMod.orderBy('createdAt','desc'),fsMod.limit(60))); }
-    catch(e){ s=await fsMod.getDocs(fsMod.query(fsMod.collection(FS,'reports'),fsMod.limit(60))); }
-    if(s.empty){ el.innerHTML='<div class="empty">No reports.</div>'; return; }
-    el.innerHTML=s.docs.map(d=>{const r=d.data(),ts=r.createdAt?.toMillis?r.createdAt.toMillis():0;
-      return `<div class="rcard" style="flex-wrap:wrap">
+  try{
+    const list=(await gql(`query{ listAllReports{ reporterId targetId targetName reason source roomId messageTextSnapshot createdAt } }`)).listAllReports||[];
+    if(!list.length){ el.innerHTML='<div class="empty">No reports.</div>'; return; }
+    el.innerHTML=list.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0)).map(r=>`<div class="rcard" style="flex-wrap:wrap">
         <div class="uav sm" style="background:rgba(251,63,92,.15)"><svg viewBox="0 0 24 24" width="16" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div>
         <div class="uinfo"><div class="uname">${x(r.targetName||r.targetId||'?')} <span class="tag danger">${x(r.reason||'report')}</span></div>
-          <div class="uid">by ${x(r.reporterId||'?')} · ${x(r.source||'')} ${ts?'· '+timeAgo(ts):''}</div>
+          <div class="uid">by ${x(r.reporterId||'?')} · ${x(r.source||'')} ${r.createdAt?'· '+timeAgo(r.createdAt):''}</div>
           ${r.messageTextSnapshot?`<div class="uid">"${x(r.messageTextSnapshot.slice(0,80))}"</div>`:''}</div>
         <div class="uacts">
           ${r.targetId?`<button class="btn bgh bxs" data-act="userDetail" data-uid="${x(r.targetId)}">View</button><button class="btn br bxs" data-act="ban" data-uid="${x(r.targetId)}" data-name="${x(r.targetName||'User')}">Ban</button>`:''}
-          <button class="btn bg bxs" data-act="resolveReport" data-id="${x(d.id)}">Resolve</button>
-        </div></div>`;}).join('');
+          <button class="btn bg bxs" data-act="resolveReport" data-reporter="${x(r.reporterId)}" data-target="${x(r.targetId)}">Resolve</button>
+        </div></div>`).join('');
   }catch(e){ el.innerHTML=`<div class="empty">Failed: ${x(e.message)}</div>`; }
 }
-async function resolveReport(id){ try{ await fbR.fsMod.deleteDoc(fbR.fsMod.doc(FS,'reports',id)); await logAction('report.resolve',id,''); toast('Resolved','ok'); loadReports(); }catch(e){ toast('Failed: '+e.message,'err'); } }
+async function resolveReport(reporterId,targetId){ try{ await gql(`mutation($r:String!,$t:String!){ resolveReport(reporterId:$r,targetId:$t) }`,{r:reporterId,t:targetId}); await logAction('report.resolve',targetId,''); toast('Resolved','ok'); loadReports(); }catch(e){ toast('Failed: '+e.message,'err'); } }
 
 /* ───────── DONATIONS ───────── */
 async function loadDonations(){
-  try{ const snap=await fbR.rtdbMod.get(fbR.rtdbMod.ref(RTDB,`${PRESENCE}/donations`)); const data=snap.val()||{};
+  try{ const list=(await gql(`query{ listDonations{ donationId uid name userId photoURL total currency note date } }`)).listDonations||[];
+    const data=list.filter(d=>d.uid); // rows added via upsertDonation(donationId,...) without uid are legacy/unrelated
     ctx.donations=data; renderDonTable(data); renderDashDonors(data); renderDonChart(data);
-    const arr=Object.values(data); ctx.donorCount=arr.length; ctx.raised=arr.reduce((s,d)=>s+Number(d.total||0),0); refreshStats();
+    ctx.donorCount=data.length; ctx.raised=data.reduce((s,d)=>s+Number(d.total||0),0); refreshStats();
   }catch(e){}
 }
 function renderDonTable(data){ const tb=$('donTbody'); if(!tb) return;
-  const e=Object.entries(data).sort((a,b)=>(b[1].total||0)-(a[1].total||0));
+  const e=data.slice().sort((a,b)=>(b.total||0)-(a.total||0));
   if(!e.length){ tb.innerHTML='<tr><td colspan="5" class="lrow">No donations.</td></tr>'; return; }
-  tb.innerHTML=e.map(([uid,d])=>`<tr><td><strong>${x(d.name||'Unknown')}</strong></td>
+  tb.innerHTML=e.map(d=>`<tr><td><strong>${x(d.name||'Unknown')}</strong></td>
     <td style="color:var(--muted);font-size:12px">${x((d.userId||'—').replace(/^#/,''))}</td>
     <td><strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong></td>
     <td style="font-size:12px;color:var(--muted)">${d.date?fmtDate(Date.parse(d.date)):'—'}</td>
-    <td class="tda"><button class="btn br bxs" data-act="delDon" data-uid="${x(uid)}" data-name="${x(d.name||'?')}">Remove</button></td></tr>`).join('');
+    <td class="tda"><button class="btn br bxs" data-act="delDon" data-uid="${x(d.uid)}" data-name="${x(d.name||'?')}">Remove</button></td></tr>`).join('');
 }
 function renderDashDonors(data){ const el=$('dashDonors'); if(!el) return;
-  const e=Object.entries(data).sort((a,b)=>(b[1].total||0)-(a[1].total||0)).slice(0,5);
+  const e=data.slice().sort((a,b)=>(b.total||0)-(a.total||0)).slice(0,5);
   if(!e.length){ el.innerHTML='<div class="empty">No donors.</div>'; return; }
-  el.innerHTML=e.map(([,d])=>`<div class="kv"><span class="k">${x(d.name||'Unknown')}</span><strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong></div>`).join('');
+  el.innerHTML=e.map(d=>`<div class="kv"><span class="k">${x(d.name||'Unknown')}</span><strong style="color:var(--green)">$${Number(d.total||0).toFixed(2)}</strong></div>`).join('');
 }
 function renderDonChart(data){
   const el=$('donChart'); if(!el) return;
   const days=14, now=new Date(), buckets=new Array(days).fill(0), labels=[];
   for(let i=days-1;i>=0;i--){ const d=new Date(now); d.setDate(now.getDate()-i); d.setHours(0,0,0,0); labels.push(d.getMonth()+1+'/'+d.getDate()); }
   const start=new Date(now); start.setDate(now.getDate()-(days-1)); start.setHours(0,0,0,0);
-  Object.values(data).forEach(d=>{ const t=Date.parse(d.date); if(!isNaN(t)&&t>=start.getTime()){ const idx=Math.floor((t-start.getTime())/86400000); if(idx>=0&&idx<days) buckets[idx]+=Number(d.total||0); } });
+  data.forEach(d=>{ const t=Date.parse(d.date); if(!isNaN(t)&&t>=start.getTime()){ const idx=Math.floor((t-start.getTime())/86400000); if(idx>=0&&idx<days) buckets[idx]+=Number(d.total||0); } });
   el.innerHTML=barChart(buckets,labels,'$');
 }
 function searchDonor(){ const q=$('donorSearch').value.trim(); if(!q) return; queryUsers(q).then(users=>{
@@ -976,12 +982,8 @@ async function addDonation(){
   if(!selectedDonorUid) return toast('Find a user first','err');
   const amt=parseFloat($('donAmt').value); if(!amt||amt<=0) return toast('Invalid amount','err');
   const cur=$('donCur').value, note=$('donNote').value.trim();
-  try{ const {rtdbMod,fsMod}=fbR, uid=selectedDonorUid, u=selectedDonorData;
-    const ex=(await rtdbMod.get(rtdbMod.ref(RTDB,`${PRESENCE}/donations/${uid}`))).val()||{};
-    const total=Number(ex.total||0)+amt;
-    await rtdbMod.set(rtdbMod.ref(RTDB,`${PRESENCE}/donations/${uid}`),{uid,name:u.name||'Unknown',userId:u.userId||null,photoURL:u.photoURL||null,total,currency:cur,date:new Date().toISOString(),note:note||null});
-    // mirror to Firestore donations so it shows in the in-app leaderboard
-    try{ await fsMod.setDoc(fsMod.doc(FS,'donations',uid),{uid,name:u.name||'Unknown',userId:u.userId||null,photoURL:u.photoURL||null,amountUSD:cur==='USD'?total:Number(ex.amountUSD||0),currency:'USD',status:'approved',visible:true,updatedAt:fsMod.serverTimestamp()},{merge:true}); }catch(e){}
+  try{ const uid=selectedDonorUid;
+    await gql(`mutation($u:ID!,$a:Float!,$c:String,$n:String){ addDonorAmount(uid:$u,amountDelta:$a,currency:$c,note:$n){ total } }`,{u:uid,a:amt,c:cur,n:note||null});
     const supporter=allRoles['supporter']?'supporter':null;
     if(supporter) await setUserRole(uid,supporter);
     await logAction('donation.add',uid,`$${amt.toFixed(2)} ${cur}`);
@@ -993,12 +995,11 @@ async function addDonation(){
 
 /* ───────── AUDIT LOG ───────── */
 async function logAction(action,target,detail){
-  try{ const {rtdbMod}=fbR; await rtdbMod.push(rtdbMod.ref(RTDB,`${PRESENCE}/adminLog`),{action,target:String(target||''),detail:String(detail||''),by:ADMIN.uid,byName:ADMIN.name,at:Date.now()}); }catch(e){}
+  try{ await gql(`mutation($a:String!,$t:String,$d:String,$n:String){ logAdminAction(action:$a,target:$t,detail:$d,byName:$n){ at } }`,{a:action,t:String(target||''),d:String(detail||''),n:ADMIN.name}); }catch(e){}
 }
 async function loadAudit(){
   const el=$('auditList'); el.innerHTML='<div class="lrow">Loading…</div>';
-  try{ const {rtdbMod}=fbR; const s=await rtdbMod.get(rtdbMod.query(rtdbMod.ref(RTDB,`${PRESENCE}/adminLog`),rtdbMod.limitToLast(80)));
-    const data=s.val()||{}; const arr=Object.values(data).sort((a,b)=>(b.at||0)-(a.at||0));
+  try{ const arr=(await gql(`query{ listAuditLog(limit:80){ action target detail byName at } }`)).listAuditLog||[];
     if(!arr.length){ el.innerHTML='<div class="empty">No actions logged yet.</div>'; return; }
     el.innerHTML=arr.map(a=>`<div class="kv"><span class="k"><span class="tag info">${x(a.action||'')}</span> ${x(a.detail||'')}</span><span class="v" style="font-size:11px;color:var(--faint)">${x(a.byName||'')} · ${x(timeAgo(a.at))}</span></div>`).join('');
   }catch(e){ el.innerHTML=`<div class="empty">Failed: ${x(e.message)}</div>`; }
@@ -1007,24 +1008,18 @@ async function loadAudit(){
 /* ───────── RESET ZONE ───────── */
 function deleteAllRoles(){
   confirmAction('Delete ALL roles?','Removes every role definition and strips roles from all profiles.',async()=>{
-    try{ const {rtdbMod}=fbR; const snap=await rtdbMod.get(rtdbMod.ref(RTDB,'roles')); const ids=snap.exists()?Object.keys(snap.val()):[];
-      await rtdbMod.remove(rtdbMod.ref(RTDB,'roles')); await resetAllRoleData();
+    try{ const ids=Object.keys(allRoles);
+      for(const id of ids){ await gql(`mutation($id:ID!){ deleteRoleDefinition(id:$id) }`,{id}); }
       await logAction('roles.deleteAll','',ids.length+' roles'); toast(`Deleted ${ids.length} roles + cleaned profiles`,'ok');
+      loadRoleDefinitions();
     }catch(e){ toast('Failed: '+e.message,'err'); }
   },'DELETE');
 }
-async function resetAllRoleData(onProg){ const {fsMod}=fbR; let cur=null,total=0;
-  while(true){ let q=fsMod.query(fsMod.collection(FS,'profiles'),fsMod.limit(400));
-    if(cur) q=fsMod.query(fsMod.collection(FS,'profiles'),fsMod.startAfter(cur),fsMod.limit(400));
-    const s=await fsMod.getDocs(q); if(s.empty) break;
-    const b=fsMod.writeBatch(FS); s.docs.forEach(d=>b.update(d.ref,{role:'player',badgeId:fsMod.deleteField(),roleId:fsMod.deleteField(),ownedRoles:fsMod.deleteField()})); await b.commit();
-    total+=s.docs.length; cur=s.docs[s.docs.length-1]; if(onProg) onProg(total); if(s.docs.length<400) break; }
-  return total;
-}
 function resetAllUsers(){
-  confirmAction('Reset ALL user roles?','Sets role to player on every profile and removes legacy fields (badgeId, roleId, ownedRoles).',async()=>{
-    const p=$('resetProgress'); p.style.display='block'; p.textContent='Starting…';
-    try{ const total=await resetAllRoleData(c=>p.textContent=`Processed ${c}…`); p.textContent=`Done! ${total} profiles reset.`;
+  confirmAction('Reset ALL user roles?','Sets role to \'user\' on every profile.',async()=>{
+    const p=$('resetProgress'); p.style.display='block'; p.textContent='Working…';
+    try{ const total=(await gql(`mutation{ resetAllUserRoles }`)).resetAllUserRoles;
+      p.textContent=`Done! ${total} profiles reset.`;
       await logAction('users.resetRoles','',total+' profiles'); toast(`${total} users reset`,'ok');
     }catch(e){ p.textContent='Error: '+e.message; toast('Failed: '+e.message,'err'); }
   },'RESET');
@@ -1045,8 +1040,8 @@ function confirmAction(title,msg,fn,typeWord){ $('cfTitle').textContent=title; $
 
 /* ───────── EVENT DELEGATION ───────── */
 const H={
-  login:()=>fbR.authMod.signInWithPopup(AUTH,new fbR.authMod.GoogleAuthProvider()).catch(e=>toast(e.message,'err')),
-  signout:async()=>{ try{ await fbR.authMod.signOut(AUTH); }catch(e){} $('adminApp').classList.remove('on'); show('sLogin',true); show('sDenied',false); },
+  login:()=>window.papianoAuth.signInWithGoogleRedirect(),
+  signout:async()=>{ try{ await window.papianoAuth.signOut(); }catch(e){} $('adminApp').classList.remove('on'); show('sLogin',true); show('sDenied',false); },
   nav:d=>{ go(d.page); },
   openMore,closeSheet,closeDetail,
   closeModal:d=>closeModal(d.id),
@@ -1065,22 +1060,18 @@ const H={
   doBan:async()=>{ const uid=ctx.banUid; if(!uid) return; try{ await banUser(uid,ctx.banData,$('banReason').value.trim(),parseInt($('banDuration').value)||0); toast('User banned','ok'); closeModal('mBan'); closeDetail(); if(userResults.length) userSearch(); }catch(e){ toast('Failed: '+e.message,'err'); } },
   unban:d=>confirmAction('Unban user?',`Lift the ban on ${d.name}.`,async()=>{ try{ await unbanUser(d.uid,d.name); toast('Unbanned','ok'); closeDetail(); if(userResults.length) userSearch(); }catch(e){ toast('Failed: '+e.message,'err'); } }),
   banQuick,
-  delRole:d=>confirmAction('Delete role?',`Delete "${d.name}" and strip it from all users.`,async()=>{ try{ await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,`roles/${d.id}`)); await cascadeRemoveRole(d.id); await logAction('role.delete',d.id,d.name); toast('Role deleted','ok'); }catch(e){ toast('Failed: '+e.message,'err'); } },'DELETE'),
+  delRole:d=>confirmAction('Delete role?',`Delete "${d.name}" and strip it from all users.`,async()=>{ try{ await gql(`mutation($id:ID!){ deleteRoleDefinition(id:$id) }`,{id:d.id}); await logAction('role.delete',d.id,d.name); toast('Role deleted','ok'); loadRoleDefinitions(); }catch(e){ toast('Failed: '+e.message,'err'); } },'DELETE'),
   chatTab:d=>chatTab(d.ch), chatLoadCustom, chatReload:()=>ctx.chatRoom&&loadChat(ctx.chatRoom),
   chatPost:()=>{ if(!ctx.chatRoom) return toast('Open a channel','err'); $('postChannel').textContent=$('chatChannelLabel').textContent; $('postAs').textContent=ADMIN.name; $('postText').value=''; openModal('mPost'); },
   doPost, chatWipe, delMsg:d=>delMsg(d.room,d.id),
   mpRoom:d=>mpRoomDetail(d.id), mpClose:d=>mpClose(d.id,d.name),
   mpMute:d=>mpMute(d.room,d.uid,d.f,d.v), mpKick:d=>mpKick(d.room,d.uid,d.name),
-  reportsReload:loadReports, resolveReport:d=>resolveReport(d.id),
+  reportsReload:loadReports, resolveReport:d=>resolveReport(d.reporter,d.target),
   auditReload:loadAudit,
-  donorSearch:searchDonor, addDonation, delDon:d=>confirmAction('Remove donation?',`Remove record for ${d.name}? Supporter role stays.`,async()=>{ try{ await fbR.rtdbMod.remove(fbR.rtdbMod.ref(RTDB,`${PRESENCE}/donations/${d.uid}`)); await logAction('donation.remove',d.uid,d.name); toast('Removed','ok'); loadDonations(); }catch(e){ toast('Failed: '+e.message,'err'); } }),
+  donorSearch:searchDonor, addDonation, delDon:d=>confirmAction('Remove donation?',`Remove record for ${d.name}? Supporter role stays.`,async()=>{ try{ await gql(`mutation($u:ID!){ removeDonor(uid:$u) }`,{u:d.uid}); await logAction('donation.remove',d.uid,d.name); toast('Removed','ok'); loadDonations(); }catch(e){ toast('Failed: '+e.message,'err'); } }),
   deleteAllRoles, resetAllUsers,
   confirmOk:()=>{ if(ctx.confirmWord && $('cfTypeInput').value.trim().toUpperCase()!==ctx.confirmWord) return toast(`Type ${ctx.confirmWord} to confirm`,'err'); const fn=ctx.confirmFn; closeModal('mConfirm'); ctx.confirmFn=null; fn&&fn(); },
 };
-async function cascadeRemoveRole(roleId){ const {fsMod}=fbR, col=fsMod.collection(FS,'profiles');
-  const q1=await fsMod.getDocs(fsMod.query(col,fsMod.where('role','==',roleId)));
-  if(!q1.docs.length) return; const b=fsMod.writeBatch(FS); q1.docs.forEach(d=>b.update(d.ref,{role:'player'})); await b.commit();
-}
 document.addEventListener('click',e=>{ const el=e.target.closest('[data-act]'); if(!el) return;
   if(el.dataset.ev) return; // input-driven handlers bound separately
   const fn=H[el.dataset.act]; if(fn){ fn(el.dataset,el); } });

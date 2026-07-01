@@ -132,6 +132,37 @@ type DeletedAccount {
   uid: String!
   deletedAt: AWSTimestamp!
   reason: String
+  name: String
+  userId: String
+  photoURL: String
+  bannedBy: String
+  active: Boolean
+  expiresAt: AWSTimestamp
+}
+
+type RoleDefinition {
+  id: ID!
+  label: String!
+  color: String
+}
+
+input CreateRoleDefinitionInput {
+  label: String!
+  color: String
+}
+
+type AuditLogEntry {
+  action: String!
+  target: String
+  detail: String
+  by: String!
+  byName: String
+  at: AWSTimestamp!
+}
+
+type AdminStats {
+  totalUsers: Int!
+  msgsToday: Int!
 }
 
 # ---------- Persistent domain (replaces Firestore) ----------
@@ -171,6 +202,7 @@ input UpdateProfileInput {
   playTimeSeconds: Int
   playTime: String
   deleted: Boolean
+  role: String  # admin only
 }
 
 type LeaderboardEntry {
@@ -278,11 +310,19 @@ type Donation {
   amount: Int
   message: String
   createdAt: AWSTimestamp!
+  uid: String
+  userId: String
+  photoURL: String
+  total: Float
+  currency: String
+  note: String
+  date: String
 }
 
 type Query {
   getRoom(roomId: ID!): Room
   listPublicRooms: [Room!]!
+  listAllRoomsAdmin: [Room!]!
   listRoomPlayers(roomId: ID!): [RoomPlayer!]!
   listRoomSeats(roomId: ID!): [RoomSeat!]!
   getPresence(uid: String!): Presence
@@ -290,7 +330,10 @@ type Query {
   listRoomMessages(roomId: ID!): [RoomMessage!]!
   getModeration(roomId: ID!): Moderation
   listRoles: [RoleEntry!]!
+  listRoleDefinitions: [RoleDefinition!]!
   getDeletedAccount(uid: String!): DeletedAccount
+  listBannedAccounts: [DeletedAccount!]!
+  listAuditLog(limit: Int): [AuditLogEntry!]!
   myRoomGrant(roomId: ID!): AWSJSON
 
   getProfile(uid: ID!): Profile
@@ -313,6 +356,8 @@ type Query {
   listAllReports: [Report!]!
 
   listDonations: [Donation!]!
+
+  getAdminStats: AdminStats!
 }
 
 type Mutation {
@@ -338,7 +383,14 @@ type Mutation {
   updateModeration(roomId: ID!, data: AWSJSON!): Moderation!
 
   setRole(uid: String!, role: String!): RoleEntry!
-  setDeletedAccount(uid: String!, reason: String): DeletedAccount!
+  setDeletedAccount(uid: String!, reason: String, days: Int): DeletedAccount!
+  unbanAccount(uid: String!): Boolean!
+
+  createRoleDefinition(input: CreateRoleDefinitionInput!): RoleDefinition!
+  deleteRoleDefinition(id: ID!): Boolean!
+  resetAllUserRoles: Int!
+
+  logAdminAction(action: String!, target: String, detail: String, byName: String): AuditLogEntry!
 
   createProfile(input: CreateProfileInput!): Profile!
   updateProfile(uid: ID!, input: UpdateProfileInput!): Profile!
@@ -356,6 +408,7 @@ type Mutation {
   clearChatHistory(roomId: ID!, forAll: Boolean): Boolean!
   markChatRoomRead(roomId: ID!): Boolean!
   leaveChatRoom(roomId: ID!): Boolean!
+  wipeChatMessages(roomId: ID!): Int!
 
   sendFriendRequest(otherUid: String!): Friendship!
   acceptFriendRequest(otherUid: String!): Friendship!
@@ -365,8 +418,11 @@ type Mutation {
   unblockUser(blockedId: String!): Boolean!
 
   submitReport(input: SubmitReportInput!): Report!
+  resolveReport(reporterId: String!, targetId: String!): Boolean!
 
   upsertDonation(donationId: ID, name: String, amount: Int, message: String): Donation!
+  addDonorAmount(uid: ID!, amountDelta: Float!, currency: String, note: String): Donation!
+  removeDonor(uid: ID!): Boolean!
 }
 
 type Subscription {

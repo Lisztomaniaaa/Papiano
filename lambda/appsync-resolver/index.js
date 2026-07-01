@@ -13,12 +13,15 @@ const friendships = require('./domains/friendships');
 const blocks = require('./domains/blocks');
 const reports = require('./domains/reports');
 const donations = require('./domains/donations');
+const roleDefinitions = require('./domains/roleDefinitions');
+const audit = require('./domains/audit');
 const { requireSignedIn } = require('./auth');
 
 const handlers = {
   Query: {
     getRoom: (id, a) => rooms.getRoom(a.roomId),
     listPublicRooms: () => rooms.listPublicRooms(),
+    listAllRoomsAdmin: (id, a, identity) => rooms.listAllRoomsAdmin(identity),
     listRoomPlayers: (id, a) => players.listRoomPlayers(a.roomId),
     listRoomSeats: (id, a) => seats.listRoomSeats(a.roomId),
     getPresence: (id, a) => presence.getPresence(a.uid),
@@ -26,7 +29,10 @@ const handlers = {
     listRoomMessages: (id, a) => roomMessages.listRoomMessages(a.roomId),
     getModeration: (id, a) => moderation.getModeration(a.roomId),
     listRoles: (id, a, identity) => roles.listRoles(identity),
+    listRoleDefinitions: () => roleDefinitions.listRoleDefinitions(),
     getDeletedAccount: (id, a, identity) => roles.getDeletedAccount(identity, a.uid),
+    listBannedAccounts: (id, a, identity) => roles.listBannedAccounts(identity),
+    listAuditLog: (id, a, identity) => audit.listAuditLog(identity, a.limit),
     myRoomGrant: (id, a, identity) => grants.myRoomGrant(identity, a.roomId),
 
     getProfile: (id, a) => profiles.getProfile(a.uid),
@@ -35,6 +41,7 @@ const handlers = {
     searchProfilesByName: (id, a) => profiles.searchProfilesByName(a.prefix),
     getLeaderboard: (id, a) => profiles.getLeaderboard(a.windowSeconds),
     myProfileReaction: (id, a, identity) => profiles.myProfileReaction(identity, a.profileUid),
+    getAdminStats: (id, a, identity) => profiles.getAdminStats(identity),
 
     listMyChatRooms: (id, a, identity) => chat.listMyChatRooms(identity),
     getChatRoom: (id, a) => chat.getChatRoom(a.roomId),
@@ -73,7 +80,14 @@ const handlers = {
     updateModeration: (id, a, identity) => moderation.updateModeration(identity, a.roomId, a.data),
 
     setRole: (id, a, identity) => roles.setRole(identity, a.uid, a.role),
-    setDeletedAccount: (id, a, identity) => roles.setDeletedAccount(identity, a.uid, a.reason),
+    setDeletedAccount: (id, a, identity) => roles.setDeletedAccount(identity, a.uid, a.reason, a.days),
+    unbanAccount: (id, a, identity) => roles.unbanAccount(identity, a.uid),
+
+    createRoleDefinition: (id, a, identity) => roleDefinitions.createRoleDefinition(identity, a.input),
+    deleteRoleDefinition: (id, a, identity) => roleDefinitions.deleteRoleDefinition(identity, a.id),
+    resetAllUserRoles: (id, a, identity) => profiles.resetAllUserRoles(identity),
+
+    logAdminAction: (id, a, identity) => audit.logAdminAction(identity, a.action, a.target, a.detail, a.byName),
 
     createProfile: (id, a, identity) => profiles.createProfile(identity, a.input),
     updateProfile: (id, a, identity) => profiles.updateProfile(identity, a.uid, a.input),
@@ -91,6 +105,7 @@ const handlers = {
     clearChatHistory: (id, a, identity) => chat.clearChatHistory(identity, a.roomId, a.forAll),
     markChatRoomRead: (id, a, identity) => chat.markChatRoomRead(identity, a.roomId),
     leaveChatRoom: (id, a, identity) => chat.leaveChatRoom(identity, a.roomId),
+    wipeChatMessages: (id, a, identity) => chat.wipeChatMessages(identity, a.roomId),
 
     sendFriendRequest: (id, a, identity) => friendships.sendFriendRequest(identity, a.otherUid),
     acceptFriendRequest: (id, a, identity) => friendships.acceptFriendRequest(identity, a.otherUid),
@@ -100,8 +115,11 @@ const handlers = {
     unblockUser: (id, a, identity) => blocks.unblockUser(identity, a.blockedId),
 
     submitReport: (id, a, identity) => reports.submitReport(identity, a.input),
+    resolveReport: (id, a, identity) => reports.resolveReport(identity, a.reporterId, a.targetId),
 
     upsertDonation: (id, a, identity) => donations.upsertDonation(identity, a.donationId, a.name, a.amount, a.message),
+    addDonorAmount: (id, a, identity) => donations.addDonorAmount(identity, a.uid, a.amountDelta, a.currency, a.note),
+    removeDonor: (id, a, identity) => donations.removeDonor(identity, a.uid),
   },
 };
 

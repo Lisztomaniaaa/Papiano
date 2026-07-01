@@ -107,4 +107,11 @@ async function deleteRoom(identity, roomId) {
   return true;
 }
 
-module.exports = { getRoom, listPublicRooms, createRoom, updateRoom, deleteRoom, SEAT_STALE_MS };
+async function listAllRoomsAdmin(identity) {
+  requireSignedIn(identity);
+  if (!isAdmin(identity)) throw new GraphqlError('Admin only', 'Forbidden');
+  const r = await doc.send(new ScanCommand({ TableName: T.rooms }));
+  return r.Items || [];
+}
+
+module.exports = { getRoom, listPublicRooms, listAllRoomsAdmin, createRoom, updateRoom, deleteRoom, SEAT_STALE_MS };

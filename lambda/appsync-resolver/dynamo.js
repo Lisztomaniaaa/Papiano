@@ -30,6 +30,8 @@ const T = {
   roomGrants: 'papiano-room-grants',
   roomThrottle: 'papiano-room-throttle',
   botThrottle: 'papiano-bot-throttle',
+  roleDefinitions: 'papiano-role-definitions',
+  auditLog: 'papiano-audit-log',
 };
 
 module.exports = {

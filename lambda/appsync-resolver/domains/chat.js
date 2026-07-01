@@ -91,7 +91,7 @@ async function sendChatMessage(identity, roomId, input) {
   const uid = requireSignedIn(identity);
   const room = await getChatRoom(roomId);
   if (!room) throw new GraphqlError('Chat room not found', 'NotFound');
-  if (room.participants.length && !room.participants.includes(uid)) throw new GraphqlError('Forbidden', 'Forbidden');
+  if (room.participants.length && !room.participants.includes(uid) && !isAdmin(identity)) throw new GraphqlError('Forbidden', 'Forbidden');
 
   const now = Date.now();
   const messageId = crypto.randomUUID();
@@ -282,8 +282,28 @@ async function deleteChatMessage(identity, roomId, createdAt) {
   return true;
 }
 
+async function wipeChatMessages(identity, roomId) {
+  requireSignedIn(identity);
+  if (!isAdmin(identity)) throw new GraphqlError('Admin only', 'Forbidden');
+  let total = 0;
+  const r = await doc.send(new QueryCommand({
+    TableName: T.messages, KeyConditionExpression: 'roomId = :r', ExpressionAttributeValues: { ':r': roomId },
+  }));
+  for (const item of r.Items || []) {
+    await doc.send(new DeleteCommand({ TableName: T.messages, Key: { roomId, createdAt: item.createdAt } }));
+    total += 1;
+  }
+  await doc.send(new UpdateCommand({
+    TableName: T.chatRooms, Key: { roomId },
+    UpdateExpression: 'SET lastMessage = :lm, lastSenderId = :ls, updatedAt = :u',
+    ExpressionAttributeValues: { ':lm': null, ':ls': null, ':u': Date.now() },
+  })).catch(() => {});
+  return total;
+}
+
 module.exports = {
   getChatRoom, listMyChatRooms, createChatRoom, updateChatRoom,
   listChatMessages, sendChatMessage, editChatMessage, hideChatMessageForMe, deleteChatMessage,
   markChatRoomRead, hideChatRoomForMe, unhideChatRoomForMe, clearChatHistory, leaveChatRoom,
+  wipeChatMessages,
 };

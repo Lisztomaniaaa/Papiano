@@ -144,6 +144,10 @@ async function updateProfile(identity, uid, input) {
   }
   if (input.playTime !== undefined) { sets.push('playTime = :pt'); vals[':pt'] = input.playTime; }
   if (input.deleted !== undefined) { sets.push('deleted = :del'); vals[':del'] = input.deleted; }
+  if (input.role !== undefined) {
+    if (!admin) throw new GraphqlError('Only an admin can change role', 'Forbidden');
+    sets.push('#r = :role'); names['#r'] = 'role'; vals[':role'] = String(input.role).slice(0, 40);
+  }
 
   const r = await doc.send(new UpdateCommand({
     TableName: T.profiles, Key: { uid },
@@ -227,7 +231,42 @@ async function voteProfile(identity, profileUid, type) {
   return getProfile(profileUid);
 }
 
+async function resetAllUserRoles(identity) {
+  requireSignedIn(identity);
+  if (!isAdmin(identity)) throw new GraphqlError('Admin only', 'Forbidden');
+  const { ScanCommand } = require('../dynamo');
+  let total = 0;
+  let ExclusiveStartKey;
+  do {
+    const r = await doc.send(new ScanCommand({ TableName: T.profiles, ExclusiveStartKey }));
+    for (const p of r.Items || []) {
+      await doc.send(new UpdateCommand({
+        TableName: T.profiles, Key: { uid: p.uid },
+        UpdateExpression: 'SET #r = :def', ExpressionAttributeNames: { '#r': 'role' }, ExpressionAttributeValues: { ':def': 'user' },
+      })).catch(() => {});
+      total += 1;
+    }
+    ExclusiveStartKey = r.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return total;
+}
+
+async function getAdminStats(identity) {
+  requireSignedIn(identity);
+  if (!isAdmin(identity)) throw new GraphqlError('Admin only', 'Forbidden');
+  const counter = await doc.send(new GetCommand({ TableName: T.counters, Key: { id: 'publicUserId' } }));
+  const totalUsers = Math.max(0, Number(counter.Item?.next || 1) - 1);
+  const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+  const r = await doc.send(new QueryCommand({
+    TableName: T.messages, KeyConditionExpression: 'roomId = :r AND createdAt >= :c',
+    ExpressionAttributeValues: { ':r': 'group_global', ':c': String(midnight.getTime()).padStart(13, '0') },
+    Select: 'COUNT',
+  })).catch(() => ({ Count: 0 }));
+  return { totalUsers, msgsToday: r.Count || 0 };
+}
+
 module.exports = {
   getProfile, getProfileByPublicId, getProfileByUserId, searchProfilesByName, getLeaderboard,
-  createProfile, updateProfile, incrementPlayTimeSeconds, myProfileReaction, voteProfile,
+  createProfile, updateProfile, incrementPlayTimeSeconds, myProfileReaction, voteProfile, getAdminStats,
+  resetAllUserRoles,
 };

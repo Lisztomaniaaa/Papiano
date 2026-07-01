@@ -1,4 +1,4 @@
-const { doc, T, PutCommand, QueryCommand, ScanCommand } = require('../dynamo');
+const { doc, T, PutCommand, DeleteCommand, QueryCommand, ScanCommand } = require('../dynamo');
 const { requireSignedIn, isAdmin, GraphqlError } = require('../auth');
 
 async function listMyReports(identity) {
@@ -35,4 +35,11 @@ async function submitReport(identity, input) {
   return item;
 }
 
-module.exports = { listMyReports, listAllReports, submitReport };
+async function resolveReport(identity, reporterId, targetId) {
+  requireSignedIn(identity);
+  if (!isAdmin(identity)) throw new GraphqlError('Admin only', 'Forbidden');
+  await doc.send(new DeleteCommand({ TableName: T.reports, Key: { reporterId, targetId } }));
+  return true;
+}
+
+module.exports = { listMyReports, listAllReports, submitReport, resolveReport };

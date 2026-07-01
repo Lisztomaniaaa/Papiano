@@ -1,5 +1,6 @@
-const { doc, T, PutCommand, GetCommand, ScanCommand } = require('../dynamo');
+const { doc, T, PutCommand, GetCommand, DeleteCommand, ScanCommand } = require('../dynamo');
 const { requireSignedIn, isAdmin, GraphqlError } = require('../auth');
+const { getProfile } = require('./profiles');
 
 async function listRoles(identity) {
   requireSignedIn(identity);
@@ -22,12 +23,32 @@ async function getDeletedAccount(identity, uid) {
   return r.Item || null;
 }
 
-async function setDeletedAccount(identity, uid, reason) {
-  requireSignedIn(identity);
+async function setDeletedAccount(identity, uid, reason, days) {
+  const me = requireSignedIn(identity);
   if (!isAdmin(identity)) throw new GraphqlError('Admin only', 'Forbidden');
-  const item = { uid, deletedAt: Date.now(), reason: reason || null };
+  const now = Date.now();
+  const profile = await getProfile(uid);
+  const item = {
+    uid, deletedAt: now, reason: reason || null,
+    name: profile?.name || null, userId: profile?.userId || null, photoURL: profile?.photoURL || null,
+    bannedBy: me, active: true, expiresAt: days > 0 ? now + days * 86400000 : null,
+  };
   await doc.send(new PutCommand({ TableName: T.deletedAccounts, Item: item }));
   return item;
 }
 
-module.exports = { listRoles, setRole, getDeletedAccount, setDeletedAccount };
+async function listBannedAccounts(identity) {
+  requireSignedIn(identity);
+  if (!isAdmin(identity)) throw new GraphqlError('Admin only', 'Forbidden');
+  const r = await doc.send(new ScanCommand({ TableName: T.deletedAccounts }));
+  return (r.Items || []).filter((i) => i.active !== false);
+}
+
+async function unbanAccount(identity, uid) {
+  requireSignedIn(identity);
+  if (!isAdmin(identity)) throw new GraphqlError('Admin only', 'Forbidden');
+  await doc.send(new DeleteCommand({ TableName: T.deletedAccounts, Key: { uid } }));
+  return true;
+}
+
+module.exports = { listRoles, setRole, getDeletedAccount, setDeletedAccount, listBannedAccounts, unbanAccount };
