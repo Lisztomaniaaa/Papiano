@@ -92,6 +92,16 @@
     let currentUser = null;
     let currentProfile = null;
     let authStateResolved = false;
+    // Optimistic auth: a stored session token means this is almost certainly
+    // a returning signed-in user — render the signed-in chrome immediately
+    // and only downgrade if auth actually resolves signed-out. Without this,
+    // every reload flashes the "Sign in" button and auth gates for the
+    // seconds it takes to refresh tokens over the network.
+    let authBootLikely = false;
+    try { authBootLikely = !!localStorage.getItem('papiano_id_token'); } catch (_e) {}
+    function isProbablySignedIn() {
+        return !!currentUser || (!authStateResolved && authBootLikely);
+    }
     // No-op kept so existing call sites don't need touching — the "Checking
     // your session…" boot overlay was removed (it confused more than it
     // helped: signed-in state resolves fast enough without it).
@@ -534,7 +544,7 @@
 
     function populateBrandSheet() {
         const profile = currentProfile || loadProfile() || {};
-        const signedIn = !!currentUser;
+        const signedIn = isProbablySignedIn();
         const nameEl = document.getElementById('brandSheetName');
         const roleEl = document.getElementById('brandSheetRole');
         const avImg = document.getElementById('brandSheetAvatarImg');
@@ -1244,7 +1254,7 @@
         const playTimeLabel = formatPlayTime(profile.playTimeSeconds);
         const playTimeHourLabel = formatPlayTimeHours(profile.playTimeSeconds);
         updateTopBarProfile(profile);
-        document.querySelector('.account-layout')?.classList.toggle('access-locked', !currentUser?.uid);
+        document.querySelector('.account-layout')?.classList.toggle('access-locked', !isProbablySignedIn());
 
         if (displayProfileName) displayProfileName.textContent = profile.name || 'Papiano User';
         if (displayProfileRole) displayProfileRole.innerHTML = renderRoleLabel(profile.role);
@@ -1252,7 +1262,7 @@
         if (displayProfileId) displayProfileId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (displayTotalPlayTrack) animateCountUp(displayTotalPlayTrack, playTimeLabel);
         if (displayProfilePlayPill) displayProfilePlayPill.textContent = playTimeHourLabel;
-        if (displayAuthStatus) displayAuthStatus.textContent = currentUser ? 'Online' : '—';
+        if (displayAuthStatus) displayAuthStatus.textContent = isProbablySignedIn() ? 'Online' : '—';
         if (accountLockedUserId) accountLockedUserId.textContent = (/^#\d+$/.test(String(profile.userId || '')) ? profile.userId : safeUserId(profile.uid));
         if (accountLockedTotalPlay) accountLockedTotalPlay.textContent = playTimeLabel;
         if (formInputName) formInputName.value = profile.name || '';
@@ -1263,7 +1273,7 @@
         renderFlagRow(profile.countryCode, document.getElementById('displayProfileFlag'));
         syncThemedSelectDisplay(formInputCountry);
 
-        applyAvatarSlot(masterAvatarImg, masterPlaceholderIcon, profile.photoURL, profile.name, !!currentUser, 'account_circle');
+        applyAvatarSlot(masterAvatarImg, masterPlaceholderIcon, profile.photoURL, profile.name, isProbablySignedIn(), 'account_circle');
         // Keep brand sheet (mobile) and desktop sidebar auth button in sync
         // with auth/profile state, even when the brand sheet is closed.
         populateBrandSheet();
@@ -1476,7 +1486,7 @@
         closeChatOverlayRoom();
         updateHomeTopBarVisibility();
 
-        const needsAuth = !currentUser && GATED_TABS[index];
+        const needsAuth = !isProbablySignedIn() && GATED_TABS[index];
         const gate = document.getElementById('authGateOverlay');
         if (gate) {
             if (needsAuth) {
@@ -1548,7 +1558,10 @@
     }
 
     function requireSignedInFeature(featureName) {
-        if (currentUser?.uid) return true;
+        // Optimistic during the auth-resolution window: the target page
+        // (multiplayer) re-checks auth itself, so letting a returning user
+        // through immediately beats flashing a wrong "Sign in to use" gate.
+        if (isProbablySignedIn()) return true;
         showAuthGateForFeature(featureName);
         return false;
     }
